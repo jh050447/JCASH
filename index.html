@@ -4,1958 +4,458 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JCAHS — Sistema de Inteligencia Financiera</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --negro: #030508;
-    --verde: #00ff88;
-    --verde-dim: #00cc6a;
-    --verde-dark: #003d1f;
-    --dorado: #ffd700;
-    --dorado-dim: #b8960c;
-    --rojo: #ff3b5c;
-    --gris: #1a1f2e;
-    --gris-claro: #252b3b;
-    --texto: #c8d6e5;
-    --texto-dim: #6b7a99;
-    --borde: rgba(0,255,136,0.15);
-    --borde-dorado: rgba(255,215,0,0.2);
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    background: var(--negro);
-    color: var(--texto);
-    font-family: 'Inter', sans-serif;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  /* Fondo animado */
-  body::before {
-    content: '';
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: 
-      radial-gradient(ellipse at 10% 20%, rgba(0,255,136,0.04) 0%, transparent 50%),
-      radial-gradient(ellipse at 90% 80%, rgba(255,215,0,0.03) 0%, transparent 50%),
-      radial-gradient(ellipse at 50% 50%, rgba(0,255,136,0.02) 0%, transparent 70%);
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  /* Grid de fondo */
-  body::after {
-    content: '';
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background-image: 
-      linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .container { position: relative; z-index: 1; }
-
-  /* HEADER */
-  header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px 24px;
-    border-bottom: 1px solid var(--borde);
-    background: rgba(3,5,8,0.9);
-    backdrop-filter: blur(20px);
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-
-  .logo {
-    font-family: 'Orbitron', monospace;
-    font-size: 24px;
-    font-weight: 900;
-    letter-spacing: 4px;
-    color: var(--verde);
-    text-shadow: 0 0 20px rgba(0,255,136,0.5);
-  }
-
-  .logo span {
-    color: var(--dorado);
-    text-shadow: 0 0 20px rgba(255,215,0,0.5);
-  }
-
-  .header-right {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-  }
-
-  .lang-toggle {
-    display: flex;
-    background: var(--gris);
-    border: 1px solid var(--borde);
-    border-radius: 6px;
-    overflow: hidden;
-  }
-
-  .lang-btn {
-    padding: 6px 12px;
-    font-size: 11px;
-    font-family: 'Orbitron', monospace;
-    font-weight: 700;
-    cursor: pointer;
-    border: none;
-    background: transparent;
-    color: var(--texto-dim);
-    letter-spacing: 1px;
-    transition: all 0.2s;
-  }
-
-  .lang-btn.active {
-    background: var(--verde);
-    color: var(--negro);
-  }
-
-  .status-dot {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    color: var(--verde);
-    font-family: 'Share Tech Mono', monospace;
-  }
-
-  .dot {
-    width: 8px; height: 8px;
-    background: var(--verde);
-    border-radius: 50%;
-    box-shadow: 0 0 8px var(--verde);
-    animation: pulse 2s infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(0.8); }
-  }
-
-  /* MAIN LAYOUT */
-  main {
-    padding: 20px 24px;
-    max-width: 1400px;
-    margin: 0 auto;
-  }
-
-  /* BIENVENIDA */
-  .welcome {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    padding: 16px 20px;
-    background: var(--gris);
-    border: 1px solid var(--borde);
-    border-radius: 12px;
-  }
-
-  .welcome-text h2 {
-    font-family: 'Orbitron', monospace;
-    font-size: 14px;
-    color: var(--texto-dim);
-    letter-spacing: 2px;
-    margin-bottom: 4px;
-  }
-
-  .welcome-text p {
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--verde);
-    text-shadow: 0 0 15px rgba(0,255,136,0.3);
-  }
-
-  .fecha {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 12px;
-    color: var(--texto-dim);
-    text-align: right;
-  }
-
-  /* ÍNDICE JCAHS */
-  .indice-card {
-    background: linear-gradient(135deg, var(--gris) 0%, rgba(0,255,136,0.05) 100%);
-    border: 1px solid var(--borde);
-    border-radius: 16px;
-    padding: 24px;
-    margin-bottom: 20px;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .indice-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--verde), var(--dorado), transparent);
-  }
-
-  .indice-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 20px;
-  }
-
-  .indice-titulo {
-    font-family: 'Orbitron', monospace;
-    font-size: 11px;
-    color: var(--texto-dim);
-    letter-spacing: 3px;
-    margin-bottom: 8px;
-  }
-
-  .indice-numero {
-    font-family: 'Orbitron', monospace;
-    font-size: 56px;
-    font-weight: 900;
-    color: var(--verde);
-    text-shadow: 0 0 30px rgba(0,255,136,0.6);
-    line-height: 1;
-  }
-
-  .indice-numero span {
-    font-size: 24px;
-    color: var(--texto-dim);
-  }
-
-  .indice-badge {
-    padding: 8px 16px;
-    background: rgba(0,255,136,0.1);
-    border: 1px solid var(--verde);
-    border-radius: 8px;
-    font-family: 'Orbitron', monospace;
-    font-size: 12px;
-    color: var(--verde);
-    letter-spacing: 1px;
-    text-align: center;
-  }
-
-  .indice-barras {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 12px;
-  }
-
-  .barra-item {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .barra-label {
-    font-size: 10px;
-    color: var(--texto-dim);
-    font-family: 'Share Tech Mono', monospace;
-    letter-spacing: 1px;
-  }
-
-  .barra-track {
-    height: 4px;
-    background: rgba(255,255,255,0.05);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-
-  .barra-fill {
-    height: 100%;
-    border-radius: 2px;
-    background: linear-gradient(90deg, var(--verde-dark), var(--verde));
-    box-shadow: 0 0 8px rgba(0,255,136,0.5);
-    transition: width 1s ease;
-  }
-
-  .barra-valor {
-    font-family: 'Orbitron', monospace;
-    font-size: 12px;
-    color: var(--verde);
-    font-weight: 700;
-  }
-
-  /* GRID PRINCIPAL */
-  .grid-principal {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 16px;
-    margin-bottom: 20px;
-  }
-
-  /* CARD BASE */
-  .card {
-    background: var(--gris);
-    border: 1px solid var(--borde);
-    border-radius: 12px;
-    padding: 20px;
-    position: relative;
-    overflow: hidden;
-    transition: border-color 0.3s, transform 0.2s;
-  }
-
-  .card:hover {
-    border-color: rgba(0,255,136,0.3);
-    transform: translateY(-2px);
-  }
-
-  .card-titulo {
-    font-family: 'Orbitron', monospace;
-    font-size: 10px;
-    color: var(--texto-dim);
-    letter-spacing: 3px;
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .card-titulo::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--borde);
-  }
-
-  /* P&L HOY */
-  .pnl-valor {
-    font-family: 'Orbitron', monospace;
-    font-size: 36px;
-    font-weight: 900;
-    color: var(--verde);
-    text-shadow: 0 0 20px rgba(0,255,136,0.5);
-    margin-bottom: 8px;
-  }
-
-  .pnl-meta {
-    font-size: 12px;
-    color: var(--texto-dim);
-    margin-bottom: 12px;
-  }
-
-  .progress-bar {
-    height: 6px;
-    background: rgba(255,255,255,0.05);
-    border-radius: 3px;
-    overflow: hidden;
-    margin-bottom: 8px;
-  }
-
-  .progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--verde-dark), var(--verde));
-    box-shadow: 0 0 10px rgba(0,255,136,0.5);
-    border-radius: 3px;
-    transition: width 1.5s ease;
-  }
-
-  .progress-label {
-    display: flex;
-    justify-content: space-between;
-    font-size: 11px;
-    color: var(--texto-dim);
-    font-family: 'Share Tech Mono', monospace;
-  }
-
-  /* BANKROLL */
-  .bankroll-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-
-  .bankroll-item {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid var(--borde);
-    border-radius: 8px;
-    padding: 10px;
-  }
-
-  .bankroll-item-label {
-    font-size: 10px;
-    color: var(--texto-dim);
-    font-family: 'Share Tech Mono', monospace;
-    margin-bottom: 4px;
-  }
-
-  .bankroll-item-valor {
-    font-family: 'Orbitron', monospace;
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--verde);
-  }
-
-  .bankroll-item-valor.dorado { color: var(--dorado); }
-  .bankroll-item-valor.rojo { color: var(--rojo); }
-
-  /* RACHA */
-  .racha-display {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-
-  .racha-dot {
-    width: 32px; height: 32px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    font-weight: 700;
-  }
-
-  .racha-dot.win {
-    background: rgba(0,255,136,0.15);
-    border: 2px solid var(--verde);
-    color: var(--verde);
-    box-shadow: 0 0 10px rgba(0,255,136,0.3);
-  }
-
-  .racha-dot.loss {
-    background: rgba(255,59,92,0.15);
-    border: 2px solid var(--rojo);
-    color: var(--rojo);
-  }
-
-  .racha-dot.pending {
-    background: rgba(255,255,255,0.03);
-    border: 2px solid rgba(255,255,255,0.1);
-    color: var(--texto-dim);
-  }
-
-  .racha-texto {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 12px;
-    color: var(--verde);
-  }
-
-  /* OPORTUNIDADES AHORA */
-  .oportunidades {
-    margin-bottom: 20px;
-  }
-
-  .seccion-titulo {
-    font-family: 'Orbitron', monospace;
-    font-size: 11px;
-    color: var(--dorado);
-    letter-spacing: 3px;
-    margin-bottom: 12px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .seccion-titulo::before {
-    content: '▸';
-    color: var(--verde);
-  }
-
-  .oportunidades-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-
-  .op-card {
-    background: var(--gris);
-    border: 1px solid var(--borde);
-    border-radius: 12px;
-    padding: 16px;
-    cursor: pointer;
-    transition: all 0.3s;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .op-card::before {
-    content: '';
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    width: 3px;
-    background: var(--verde);
-    box-shadow: 0 0 10px var(--verde);
-  }
-
-  .op-card:hover {
-    border-color: rgba(0,255,136,0.4);
-    background: rgba(0,255,136,0.05);
-    transform: translateX(4px);
-  }
-
-  .op-tipo {
-    font-family: 'Orbitron', monospace;
-    font-size: 9px;
-    color: var(--texto-dim);
-    letter-spacing: 2px;
-    margin-bottom: 6px;
-  }
-
-  .op-nombre {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--texto);
-    margin-bottom: 8px;
-  }
-
-  .op-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .op-ganancia {
-    font-family: 'Orbitron', monospace;
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--verde);
-    text-shadow: 0 0 10px rgba(0,255,136,0.4);
-  }
-
-  .op-confianza {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 4px;
-  }
-
-  .confianza-label {
-    font-size: 10px;
-    color: var(--texto-dim);
-    font-family: 'Share Tech Mono', monospace;
-  }
-
-  .confianza-valor {
-    font-family: 'Orbitron', monospace;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--dorado);
-  }
-
-  .op-btn {
-    width: 100%;
-    margin-top: 12px;
-    padding: 8px;
-    background: rgba(0,255,136,0.1);
-    border: 1px solid var(--verde);
-    border-radius: 6px;
-    color: var(--verde);
-    font-family: 'Orbitron', monospace;
-    font-size: 10px;
-    letter-spacing: 2px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .op-btn:hover {
-    background: var(--verde);
-    color: var(--negro);
-  }
-
-  /* CRYPTO PRECIOS */
-  .crypto-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 20px;
-  }
-
-  .crypto-card {
-    background: var(--gris);
-    border: 1px solid var(--borde);
-    border-radius: 10px;
-    padding: 14px;
-    text-align: center;
-    transition: all 0.3s;
-    cursor: pointer;
-  }
-
-  .crypto-card:hover {
-    border-color: rgba(0,255,136,0.3);
-  }
-
-  .crypto-symbol {
-    font-family: 'Orbitron', monospace;
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--dorado);
-    letter-spacing: 2px;
-    margin-bottom: 6px;
-  }
-
-  .crypto-precio {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 15px;
-    color: var(--texto);
-    margin-bottom: 4px;
-  }
-
-  .crypto-cambio {
-    font-family: 'Orbitron', monospace;
-    font-size: 11px;
-    font-weight: 700;
-  }
-
-  .crypto-cambio.positivo { color: var(--verde); }
-  .crypto-cambio.negativo { color: var(--rojo); }
-
-  /* PRÓXIMOS EVENTOS */
-  .eventos-lista {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .evento-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 14px;
-    background: rgba(255,255,255,0.02);
-    border: 1px solid var(--borde);
-    border-radius: 8px;
-    transition: all 0.2s;
-  }
-
-  .evento-item:hover {
-    border-color: rgba(0,255,136,0.2);
-    background: rgba(0,255,136,0.02);
-  }
-
-  .evento-hora {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 12px;
-    color: var(--dorado);
-    min-width: 45px;
-  }
-
-  .evento-icono { font-size: 16px; }
-
-  .evento-info { flex: 1; }
-
-  .evento-nombre {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--texto);
-    margin-bottom: 2px;
-  }
-
-  .evento-sub {
-    font-size: 11px;
-    color: var(--texto-dim);
-    font-family: 'Share Tech Mono', monospace;
-  }
-
-  .evento-badge {
-    font-family: 'Orbitron', monospace;
-    font-size: 9px;
-    padding: 3px 8px;
-    border-radius: 4px;
-    letter-spacing: 1px;
-  }
-
-  .badge-verde {
-    background: rgba(0,255,136,0.1);
-    border: 1px solid var(--verde);
-    color: var(--verde);
-  }
-
-  .badge-amarillo {
-    background: rgba(255,215,0,0.1);
-    border: 1px solid var(--dorado);
-    color: var(--dorado);
-  }
-
-  .badge-rojo {
-    background: rgba(255,59,92,0.1);
-    border: 1px solid var(--rojo);
-    color: var(--rojo);
-  }
-
-  /* NAVEGACIÓN MÓDULOS */
-  .nav-modulos {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 8px;
-    margin-bottom: 20px;
-  }
-
-  .nav-btn {
-    padding: 10px 8px;
-    background: var(--gris);
-    border: 1px solid var(--borde);
-    border-radius: 8px;
-    color: var(--texto-dim);
-    font-family: 'Orbitron', monospace;
-    font-size: 9px;
-    letter-spacing: 1px;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .nav-btn:hover, .nav-btn.active {
-    background: rgba(0,255,136,0.1);
-    border-color: var(--verde);
-    color: var(--verde);
-  }
-
-  .nav-btn span { font-size: 18px; }
-
-  /* GRID SECUNDARIO */
-  .grid-secundario {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    margin-bottom: 20px;
-  }
-
-  /* TERMÓMETRO EMOCIONAL */
-  .termometro-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .termometro-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .termometro-label {
-    font-size: 11px;
-    color: var(--texto-dim);
-    font-family: 'Share Tech Mono', monospace;
-    min-width: 80px;
-  }
-
-  .termometro-track {
-    flex: 1;
-    height: 6px;
-    background: rgba(255,255,255,0.05);
-    border-radius: 3px;
-    overflow: hidden;
-  }
-
-  .termometro-fill {
-    height: 100%;
-    border-radius: 3px;
-    transition: width 1.5s ease;
-  }
-
-  .fill-verde { background: linear-gradient(90deg, var(--verde-dark), var(--verde)); }
-  .fill-dorado { background: linear-gradient(90deg, #7a5200, var(--dorado)); }
-  .fill-rojo { background: linear-gradient(90deg, #7a0020, var(--rojo)); }
-
-  .termometro-valor {
-    font-family: 'Orbitron', monospace;
-    font-size: 11px;
-    font-weight: 700;
-    min-width: 35px;
-    text-align: right;
-  }
-
-  /* OKR */
-  .okr-item {
-    margin-bottom: 14px;
-  }
-
-  .okr-header {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 6px;
-  }
-
-  .okr-nombre {
-    font-size: 12px;
-    color: var(--texto);
-    font-weight: 500;
-  }
-
-  .okr-valores {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 11px;
-    color: var(--texto-dim);
-  }
-
-  /* ALERTA */
-  .alerta-card {
-    background: rgba(255,215,0,0.05);
-    border: 1px solid rgba(255,215,0,0.3);
-    border-radius: 10px;
-    padding: 14px;
-    margin-bottom: 10px;
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-  }
-
-  .alerta-icono { font-size: 20px; flex-shrink: 0; }
-
-  .alerta-contenido { flex: 1; }
-
-  .alerta-titulo {
-    font-family: 'Orbitron', monospace;
-    font-size: 10px;
-    color: var(--dorado);
-    letter-spacing: 2px;
-    margin-bottom: 4px;
-  }
-
-  .alerta-texto {
-    font-size: 12px;
-    color: var(--texto);
-    line-height: 1.5;
-  }
-
-  .alerta-acciones {
-    display: flex;
-    gap: 8px;
-    margin-top: 8px;
-  }
-
-  .alerta-btn {
-    padding: 5px 12px;
-    border-radius: 5px;
-    font-family: 'Orbitron', monospace;
-    font-size: 9px;
-    letter-spacing: 1px;
-    cursor: pointer;
-    border: none;
-    transition: all 0.2s;
-  }
-
-  .alerta-btn.si {
-    background: var(--verde);
-    color: var(--negro);
-  }
-
-  .alerta-btn.no {
-    background: rgba(255,255,255,0.05);
-    color: var(--texto-dim);
-    border: 1px solid var(--borde);
-  }
-
-  /* FOOTER */
-  footer {
-    text-align: center;
-    padding: 16px;
-    border-top: 1px solid var(--borde);
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 11px;
-    color: var(--texto-dim);
-    margin-top: 20px;
-  }
-
-  /* MODAL FICHA */
-  .modal-overlay {
-    display: none;
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(3,5,8,0.95);
-    z-index: 1000;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-  }
-
-  .modal-overlay.show { display: flex; }
-
-  .modal {
-    background: var(--gris);
-    border: 1px solid var(--verde);
-    border-radius: 16px;
-    padding: 28px;
-    max-width: 480px;
-    width: 100%;
-    max-height: 85vh;
-    overflow-y: auto;
-    position: relative;
-    box-shadow: 0 0 40px rgba(0,255,136,0.2);
-  }
-
-  .modal::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--verde), var(--dorado), transparent);
-  }
-
-  .modal-close {
-    position: absolute;
-    top: 16px; right: 16px;
-    background: none;
-    border: 1px solid var(--borde);
-    color: var(--texto-dim);
-    width: 28px; height: 28px;
-    border-radius: 50%;
-    cursor: pointer;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-  }
-
-  .modal-close:hover {
-    border-color: var(--rojo);
-    color: var(--rojo);
-  }
-
-  .ficha-header {
-    margin-bottom: 20px;
-  }
-
-  .ficha-numero {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    color: var(--texto-dim);
-    margin-bottom: 4px;
-  }
-
-  .ficha-titulo {
-    font-family: 'Orbitron', monospace;
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--verde);
-    margin-bottom: 4px;
-  }
-
-  .ficha-subtitulo {
-    font-size: 13px;
-    color: var(--texto-dim);
-  }
-
-  .ficha-seccion {
-    margin-bottom: 16px;
-    padding: 14px;
-    background: rgba(255,255,255,0.02);
-    border: 1px solid var(--borde);
-    border-radius: 8px;
-  }
-
-  .ficha-seccion-titulo {
-    font-family: 'Orbitron', monospace;
-    font-size: 9px;
-    color: var(--dorado);
-    letter-spacing: 2px;
-    margin-bottom: 10px;
-  }
-
-  .ficha-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 6px;
-  }
-
-  .ficha-key {
-    font-size: 12px;
-    color: var(--texto-dim);
-    font-family: 'Share Tech Mono', monospace;
-  }
-
-  .ficha-val {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--texto);
-    font-family: 'Share Tech Mono', monospace;
-  }
-
-  .ficha-val.verde { color: var(--verde); }
-  .ficha-val.dorado { color: var(--dorado); }
-  .ficha-val.rojo { color: var(--rojo); }
-
-  .ficha-prob {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-top: 8px;
-  }
-
-  .prob-box {
-    padding: 10px;
-    border-radius: 6px;
-    text-align: center;
-  }
-
-  .prob-box.ganar {
-    background: rgba(0,255,136,0.1);
-    border: 1px solid var(--verde);
-  }
-
-  .prob-box.perder {
-    background: rgba(255,59,92,0.1);
-    border: 1px solid var(--rojo);
-  }
-
-  .prob-label {
-    font-size: 10px;
-    color: var(--texto-dim);
-    margin-bottom: 4px;
-  }
-
-  .prob-valor {
-    font-family: 'Orbitron', monospace;
-    font-size: 20px;
-    font-weight: 700;
-  }
-
-  .prob-box.ganar .prob-valor { color: var(--verde); }
-  .prob-box.perder .prob-valor { color: var(--rojo); }
-
-  .ficha-ia {
-    padding: 12px;
-    background: rgba(0,255,136,0.05);
-    border: 1px solid rgba(0,255,136,0.2);
-    border-radius: 8px;
-    font-size: 13px;
-    color: var(--texto);
-    line-height: 1.6;
-    font-style: italic;
-    margin-bottom: 16px;
-  }
-
-  .ficha-ia::before {
-    content: '🧠 JCAHS-BTC: ';
-    color: var(--verde);
-    font-style: normal;
-    font-weight: 600;
-    font-family: 'Orbitron', monospace;
-    font-size: 10px;
-    letter-spacing: 1px;
-    display: block;
-    margin-bottom: 6px;
-  }
-
-  .ficha-acciones {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 8px;
-  }
-
-  .ficha-accion {
-    padding: 10px 8px;
-    border-radius: 8px;
-    font-family: 'Orbitron', monospace;
-    font-size: 9px;
-    letter-spacing: 1px;
-    cursor: pointer;
-    border: none;
-    transition: all 0.2s;
-    text-align: center;
-  }
-
-  .fa-ejecutar {
-    background: var(--verde);
-    color: var(--negro);
-  }
-
-  .fa-ejecutar:hover { background: var(--verde-dim); }
-
-  .fa-reducir {
-    background: rgba(255,215,0,0.1);
-    border: 1px solid var(--dorado);
-    color: var(--dorado);
-  }
-
-  .fa-cancelar {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid var(--borde);
-    color: var(--texto-dim);
-  }
-
-  /* RESPONSIVE */
-  @media (max-width: 768px) {
-    header { padding: 12px 16px; }
-    .logo { font-size: 18px; letter-spacing: 2px; }
-    main { padding: 12px 16px; }
-    .grid-principal { grid-template-columns: 1fr; }
-    .oportunidades-grid { grid-template-columns: 1fr; }
-    .crypto-grid { grid-template-columns: repeat(2, 1fr); }
-    .nav-modulos { grid-template-columns: repeat(3, 1fr); }
-    .grid-secundario { grid-template-columns: 1fr; }
-    .indice-barras { grid-template-columns: repeat(3, 1fr); }
-    .indice-numero { font-size: 42px; }
-    .ficha-acciones { grid-template-columns: 1fr; }
-  }
-
-  /* ANIMACIONES */
-  @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .card, .op-card, .crypto-card {
-    animation: fadeInUp 0.5s ease forwards;
-  }
-
-  .scanline {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, rgba(0,255,136,0.3), transparent);
-    animation: scan 4s linear infinite;
-    pointer-events: none;
-    z-index: 9999;
-  }
-
-  @keyframes scan {
-    from { top: 0; }
-    to { top: 100vh; }
-  }
-
-  .numero-animado {
-    animation: fadeInUp 0.8s ease;
-  }
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/main.css">
+<link rel="stylesheet" href="css/components.css">
 </head>
 <body>
-
 <div class="scanline"></div>
 
-<div class="container">
-  <!-- HEADER -->
-  <header>
-    <div class="logo">JC<span>AHS</span></div>
-    <div class="header-right">
-      <div class="status-dot">
-        <div class="dot"></div>
-        <span id="status-text">SISTEMA ACTIVO</span>
+<!-- HEADER -->
+<header>
+  <div class="logo">JC<span>AHS</span></div>
+  <div class="header-right">
+    <div class="status-pill"><div class="dot"></div><span>SISTEMA ACTIVO</span></div>
+    <div class="lang-toggle">
+      <button class="lang-btn active" onclick="App.setLang('es')">ES</button>
+      <button class="lang-btn" onclick="App.setLang('en')">EN</button>
+    </div>
+  </div>
+</header>
+
+<!-- NAV -->
+<nav>
+  <button class="nav-btn active" onclick="Router.ir('dashboard',this)">🏠 DASHBOARD</button>
+  <button class="nav-btn" onclick="Router.ir('crypto',this)">₿ CRYPTO</button>
+  <button class="nav-btn" onclick="Router.ir('deportes',this)">⚽ DEPORTES</button>
+  <button class="nav-btn" onclick="Router.ir('calc',this)">🧮 CALCULADORA</button>
+  <button class="nav-btn" onclick="Router.ir('historial',this)">📋 HISTORIAL</button>
+  <button class="nav-btn" onclick="Router.ir('asesores',this)">🧠 ASESORES IA</button>
+  <button class="nav-btn" onclick="App.emergencia()">🚨 EMERGENCIA</button>
+</nav>
+
+<main class="z1">
+
+<!-- ==================== DASHBOARD ==================== -->
+<div id="mod-dashboard" class="modulo active">
+  <div class="em-banner" id="em-banner">
+    <b style="font-family:Orbitron,monospace;color:var(--rojo)">🚨 MODO EMERGENCIA ACTIVO</b><br>
+    <span style="font-size:12px">Solo oportunidades 75%+ confianza · Apalancamiento máximo 3x</span>
+  </div>
+  <div class="bienvenida">
+    <div>
+      <div class="bv-title">BIENVENIDO DE VUELTA</div>
+      <div class="bv-sub">☀️ <span id="fecha-c"></span></div>
+    </div>
+    <div class="bv-right">
+      <div class="bv-hora" id="reloj"></div>
+      <div id="fecha-l"></div>
+    </div>
+  </div>
+
+  <!-- ÍNDICE JCAHS -->
+  <div class="indice-wrap mb">
+    <div class="indice-top">
+      <div>
+        <div style="font-family:Orbitron,monospace;font-size:9px;color:var(--texto-dim);letter-spacing:3px;margin-bottom:6px">ÍNDICE JCAHS — HOY</div>
+        <div class="indice-num" id="indice-num">8<span>.5/10</span></div>
       </div>
-      <div class="lang-toggle">
-        <button class="lang-btn active" onclick="setLang('es')">ES</button>
-        <button class="lang-btn" onclick="setLang('en')">EN</button>
+      <div class="indice-badge">🟢 BUEN DÍA PARA OPERAR</div>
+    </div>
+    <div class="barras">
+      <div class="barra-item"><div class="barra-label">CRYPTO</div><div class="barra-track"><div class="barra-fill" style="width:85%"></div></div><div class="barra-val">8.5</div></div>
+      <div class="barra-item"><div class="barra-label">DEPORTES</div><div class="barra-track"><div class="barra-fill" style="width:90%"></div></div><div class="barra-val">9.0</div></div>
+      <div class="barra-item"><div class="barra-label">GLOBAL</div><div class="barra-track"><div class="barra-fill" style="width:70%"></div></div><div class="barra-val">7.0</div></div>
+      <div class="barra-item"><div class="barra-label">TU ESTADO</div><div class="barra-track"><div class="barra-fill" style="width:85%"></div></div><div class="barra-val">8.5</div></div>
+      <div class="barra-item"><div class="barra-label">HISTÓRICO</div><div class="barra-track"><div class="barra-fill" style="width:80%"></div></div><div class="barra-val">8.0</div></div>
+    </div>
+  </div>
+
+  <!-- PRECIOS -->
+  <div class="sec-title mb">PRECIOS EN TIEMPO REAL</div>
+  <div class="g4 mb">
+    <div class="crypto-card" onclick="Router.ir('crypto',document.querySelectorAll('.nav-btn')[1])"><div class="crypto-sym">BTC</div><div class="crypto-price" id="p-btc">...</div><div class="crypto-change" id="c-btc">--</div></div>
+    <div class="crypto-card" onclick="Router.ir('crypto',document.querySelectorAll('.nav-btn')[1])"><div class="crypto-sym">ETH</div><div class="crypto-price" id="p-eth">...</div><div class="crypto-change" id="c-eth">--</div></div>
+    <div class="crypto-card" onclick="Router.ir('crypto',document.querySelectorAll('.nav-btn')[1])"><div class="crypto-sym">XRP</div><div class="crypto-price" id="p-xrp">...</div><div class="crypto-change" id="c-xrp">--</div></div>
+    <div class="crypto-card" onclick="Router.ir('crypto',document.querySelectorAll('.nav-btn')[1])"><div class="crypto-sym">DOGE 🐶</div><div class="crypto-price" id="p-doge">...</div><div class="crypto-change" id="c-doge">--</div></div>
+  </div>
+
+  <!-- P&L / BANKROLL / RACHA -->
+  <div class="g3 mb">
+    <div class="card">
+      <div class="card-title">💰 P&L HOY</div>
+      <div class="big-num" id="pnl-v">+$0.00</div>
+      <div class="sub-text">Meta del día: $60.00</div>
+      <div class="prog-bar"><div class="prog-fill" id="pnl-p" style="width:0%"></div></div>
+      <div class="prog-labels"><span>$0</span><span id="pnl-pct">0%</span><span>$60</span></div>
+      <div style="margin-top:12px">
+        <div class="okr-item"><div class="okr-hdr"><span style="color:var(--texto)">Semana</span><span style="color:var(--texto-dim);font-family:Share Tech Mono,monospace" id="okr-s">$0/$200</span></div><div class="prog-bar"><div class="prog-fill" id="ps" style="width:0%"></div></div></div>
+        <div class="okr-item"><div class="okr-hdr"><span style="color:var(--texto)">Mes</span><span style="color:var(--texto-dim);font-family:Share Tech Mono,monospace" id="okr-m">$0/$700</span></div><div class="prog-bar"><div class="prog-fill" id="pm" style="width:0%"></div></div></div>
       </div>
     </div>
-  </header>
-
-  <main>
-    <!-- BIENVENIDA -->
-    <div class="welcome">
-      <div class="welcome-text">
-        <h2 id="txt-bienvenida">BIENVENIDO DE VUELTA</h2>
-        <p>☀️ Buenos días — <span id="txt-fecha"></span></p>
-      </div>
-      <div class="fecha">
-        <div id="txt-hora" style="font-size:20px; color: var(--verde); font-family:'Orbitron',monospace;"></div>
-        <div id="txt-fechaCompleta" style="margin-top:4px;"></div>
+    <div class="card">
+      <div class="card-title">💼 BANKROLL</div>
+      <div class="bk-grid">
+        <div class="bk-item"><div class="bk-label">TOTAL</div><div class="bk-val g" id="bk-t">$500</div></div>
+        <div class="bk-item"><div class="bk-label">DISPONIBLE</div><div class="bk-val d" id="bk-d">$450</div></div>
+        <div class="bk-item"><div class="bk-label">EN JUEGO</div><div class="bk-val r" id="bk-j">$0</div></div>
+        <div class="bk-item"><div class="bk-label">RESERVA</div><div class="bk-val" id="bk-r">$50</div></div>
       </div>
     </div>
-
-    <!-- NAVEGACIÓN MÓDULOS -->
-    <div class="nav-modulos">
-      <button class="nav-btn active" onclick="setModulo(this)">
-        <span>🏠</span>
-        <span id="nav-dashboard">DASHBOARD</span>
-      </button>
-      <button class="nav-btn" onclick="setModulo(this)">
-        <span>₿</span>
-        <span id="nav-crypto">CRYPTO</span>
-      </button>
-      <button class="nav-btn" onclick="setModulo(this)">
-        <span>⚽</span>
-        <span id="nav-deportes">DEPORTES</span>
-      </button>
-      <button class="nav-btn" onclick="setModulo(this)">
-        <span>🧮</span>
-        <span id="nav-calc">CALCULADORA</span>
-      </button>
-      <button class="nav-btn" onclick="setModulo(this)">
-        <span>📋</span>
-        <span id="nav-historial">HISTORIAL</span>
-      </button>
-      <button class="nav-btn" onclick="activarEmergencia()">
-        <span>🚨</span>
-        <span id="nav-emergencia">EMERGENCIA</span>
-      </button>
+    <div class="card">
+      <div class="card-title">🔥 RACHA ACTUAL</div>
+      <div class="racha-dots" id="racha-dots"><div class="rdot p">?</div><div class="rdot p">?</div><div class="rdot p">?</div><div class="rdot p">?</div><div class="rdot p">?</div></div>
+      <div style="font-family:Share Tech Mono,monospace;font-size:11px;color:var(--verde);margin-bottom:10px" id="racha-e">Sin operaciones — ¡Comienza hoy!</div>
+      <div style="font-size:11px;color:var(--texto-dim)">Registra en 📋 HISTORIAL para ver tu racha</div>
     </div>
+  </div>
 
-    <!-- ÍNDICE JCAHS -->
-    <div class="indice-card">
-      <div class="indice-header">
-        <div>
-          <div class="indice-titulo" id="txt-indice-titulo">ÍNDICE JCAHS — HOY</div>
-          <div class="indice-numero numero-animado">8<span>.5/10</span></div>
-        </div>
-        <div class="indice-badge">
-          🟢 <span id="txt-indice-estado">BUEN DÍA PARA OPERAR</span>
-        </div>
-      </div>
-      <div class="indice-barras">
-        <div class="barra-item">
-          <div class="barra-label" id="txt-crypto">CRYPTO</div>
-          <div class="barra-track"><div class="barra-fill" style="width:85%"></div></div>
-          <div class="barra-valor">8.5</div>
-        </div>
-        <div class="barra-item">
-          <div class="barra-label" id="txt-deportes">DEPORTES</div>
-          <div class="barra-track"><div class="barra-fill" style="width:90%"></div></div>
-          <div class="barra-valor">9.0</div>
-        </div>
-        <div class="barra-item">
-          <div class="barra-label" id="txt-global">GLOBAL</div>
-          <div class="barra-track"><div class="barra-fill" style="width:70%"></div></div>
-          <div class="barra-valor">7.0</div>
-        </div>
-        <div class="barra-item">
-          <div class="barra-label" id="txt-tu-estado">TU ESTADO</div>
-          <div class="barra-track"><div class="barra-fill" style="width:85%"></div></div>
-          <div class="barra-valor">8.5</div>
-        </div>
-        <div class="barra-item">
-          <div class="barra-label" id="txt-historico">HISTÓRICO</div>
-          <div class="barra-track"><div class="barra-fill" style="width:80%"></div></div>
-          <div class="barra-valor">8.0</div>
-        </div>
-      </div>
+  <!-- OPORTUNIDADES -->
+  <div class="sec-title">⚡ OPORTUNIDADES AHORA — ACTUAR</div>
+  <div class="g2 mb">
+    <div class="op-card" onclick="Fichas.abrir('btc')"><div class="op-tipo">₿ CRYPTO · SCALPING · KUCOIN</div><div class="op-nombre">BTC/USDT — Scalping Largo</div><div class="op-meta"><div class="op-ganancia">+$28</div><div class="op-conf"><div class="op-conf-label">CONFIANZA</div><div class="op-conf-val">81%</div></div></div><button class="op-btn">▸ VER FICHA DE DECISIÓN</button></div>
+    <div class="op-card" onclick="Fichas.abrir('tenis')"><div class="op-tipo">🎾 TENIS · ROLAND GARROS · 1XBET</div><div class="op-nombre">Alcaraz vs Zverev — Value Bet</div><div class="op-meta"><div class="op-ganancia">+$42</div><div class="op-conf"><div class="op-conf-label">CONFIANZA</div><div class="op-conf-val">74%</div></div></div><button class="op-btn">▸ VER FICHA DE DECISIÓN</button></div>
+    <div class="op-card" onclick="Fichas.abrir('funding')"><div class="op-tipo">💤 PASIVO · FUNDING RATE · XRP</div><div class="op-nombre">XRP Funding Rate — Ingreso diario sin dirección</div><div class="op-meta"><div class="op-ganancia">+$1.8/día</div><div class="op-conf"><div class="op-conf-label">RIESGO</div><div class="op-conf-val" style="color:var(--verde)">BAJO</div></div></div><button class="op-btn">▸ VER FICHA DE DECISIÓN</button></div>
+    <div class="op-card" onclick="Fichas.abrir('earn')"><div class="op-tipo">💤 PASIVO · EARN · KUCOIN 10.5%</div><div class="op-nombre">USDT Flexible — Capital trabajando solo</div><div class="op-meta"><div class="op-ganancia">+$1.5/día</div><div class="op-conf"><div class="op-conf-label">RIESGO</div><div class="op-conf-val" style="color:var(--verde)">MÍNIMO</div></div></div><button class="op-btn">▸ VER FICHA DE DECISIÓN</button></div>
+  </div>
+
+  <!-- ALERTAS + TERMÓMETRO -->
+  <div class="g2 mb">
+    <div class="card">
+      <div class="card-title">🔔 ALERTAS ACTIVAS</div>
+      <div class="alerta g"><div class="al-icon">⚡</div><div class="al-content"><div class="al-title">OPORTUNIDAD CRYPTO</div><div class="al-text">BTC acumulando volumen. Posible ruptura $78,200 en 2-4h.</div><div class="al-btns"><button class="al-btn si" onclick="Fichas.abrir('btc')">VER FICHA</button><button class="al-btn no">IGNORAR</button></div></div></div>
+      <div class="alerta r"><div class="al-icon">⚠️</div><div class="al-content"><div class="al-title">DATO MACRO HOY</div><div class="al-text">Fed habla a las 15:00. BTC puede moverse ±3%. No abras posiciones 30min antes.</div><div class="al-btns"><button class="al-btn si">ENTENDIDO</button></div></div></div>
     </div>
-
-    <!-- PRECIOS CRYPTO EN VIVO -->
-    <div class="seccion-titulo" id="txt-precios-titulo">PRECIOS EN TIEMPO REAL</div>
-    <div class="crypto-grid">
-      <div class="crypto-card" onclick="abrirFicha('btc')">
-        <div class="crypto-symbol">BTC</div>
-        <div class="crypto-precio" id="precio-btc">Cargando...</div>
-        <div class="crypto-cambio" id="cambio-btc">--</div>
-      </div>
-      <div class="crypto-card" onclick="abrirFicha('eth')">
-        <div class="crypto-symbol">ETH</div>
-        <div class="crypto-precio" id="precio-eth">Cargando...</div>
-        <div class="crypto-cambio" id="cambio-eth">--</div>
-      </div>
-      <div class="crypto-card" onclick="abrirFicha('xrp')">
-        <div class="crypto-symbol">XRP</div>
-        <div class="crypto-precio" id="precio-xrp">Cargando...</div>
-        <div class="crypto-cambio" id="cambio-xrp">--</div>
-      </div>
-      <div class="crypto-card" onclick="abrirFicha('doge')">
-        <div class="crypto-symbol">DOGE 🐶</div>
-        <div class="crypto-precio" id="precio-doge">Cargando...</div>
-        <div class="crypto-cambio" id="cambio-doge">--</div>
-      </div>
+    <div class="card">
+      <div class="card-title">🌡️ TERMÓMETRO DEL MERCADO</div>
+      <div class="termo-item"><div class="termo-label">FEAR/GREED</div><div class="termo-track"><div class="termo-fill tf-d" style="width:72%"></div></div><div class="termo-val" style="color:var(--dorado)">72</div></div>
+      <div class="termo-item"><div class="termo-label">SENTIMIENTO</div><div class="termo-track"><div class="termo-fill tf-g" style="width:68%"></div></div><div class="termo-val" style="color:var(--verde)">68%</div></div>
+      <div class="termo-item"><div class="termo-label">VOLUMEN BTC</div><div class="termo-track"><div class="termo-fill tf-g" style="width:85%"></div></div><div class="termo-val" style="color:var(--verde)">+85%</div></div>
+      <div class="termo-item"><div class="termo-label">BALLENAS</div><div class="termo-track"><div class="termo-fill tf-g" style="width:60%"></div></div><div class="termo-val" style="color:var(--verde)">BUY</div></div>
+      <div class="termo-item"><div class="termo-label">LIQUIDACIONES</div><div class="termo-track"><div class="termo-fill tf-r" style="width:30%"></div></div><div class="termo-val" style="color:var(--rojo)">$12M</div></div>
+      <div style="margin-top:10px;padding:8px;background:rgba(255,215,0,0.05);border:1px solid rgba(255,215,0,0.15);border-radius:7px;font-size:11px;color:var(--dorado);font-family:Share Tech Mono,monospace">ESTADO: EUFORIA MODERADA — Opera con cautela</div>
     </div>
+  </div>
 
-    <!-- GRID PRINCIPAL -->
-    <div class="grid-principal">
-      <!-- P&L HOY -->
-      <div class="card">
-        <div class="card-titulo">💰 <span id="txt-pnl">P&L HOY</span></div>
-        <div class="pnl-valor">+$0.00</div>
-        <div class="pnl-meta" id="txt-meta-dia">Meta del día: $60.00</div>
-        <div class="progress-bar">
-          <div class="progress-fill" style="width:0%" id="progress-pnl"></div>
-        </div>
-        <div class="progress-label">
-          <span>$0</span>
-          <span id="txt-progreso">0% completado</span>
-          <span>$60</span>
-        </div>
-      </div>
-
-      <!-- BANKROLL -->
-      <div class="card">
-        <div class="card-titulo">💼 <span id="txt-bankroll">BANKROLL</span></div>
-        <div class="bankroll-grid">
-          <div class="bankroll-item">
-            <div class="bankroll-item-label" id="txt-total">TOTAL</div>
-            <div class="bankroll-item-valor" id="val-total">$500.00</div>
-          </div>
-          <div class="bankroll-item">
-            <div class="bankroll-item-label" id="txt-disponible">DISPONIBLE</div>
-            <div class="bankroll-item-valor dorado" id="val-disponible">$500.00</div>
-          </div>
-          <div class="bankroll-item">
-            <div class="bankroll-item-label" id="txt-en-juego">EN JUEGO</div>
-            <div class="bankroll-item-valor rojo" id="val-en-juego">$0.00</div>
-          </div>
-          <div class="bankroll-item">
-            <div class="bankroll-item-label" id="txt-reserva">RESERVA</div>
-            <div class="bankroll-item-valor" id="val-reserva">$50.00</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- RACHA -->
-      <div class="card">
-        <div class="card-titulo">🔥 <span id="txt-racha">RACHA ACTUAL</span></div>
-        <div class="racha-display">
-          <div class="racha-dot pending">?</div>
-          <div class="racha-dot pending">?</div>
-          <div class="racha-dot pending">?</div>
-          <div class="racha-dot pending">?</div>
-          <div class="racha-dot pending">?</div>
-        </div>
-        <div class="racha-texto" id="txt-racha-estado">Sin operaciones aún — ¡Comienza hoy!</div>
-        <div style="margin-top:12px;">
-          <div class="okr-item">
-            <div class="okr-header">
-              <span class="okr-nombre" id="txt-semana">Esta semana</span>
-              <span class="okr-valores">$0 / $200</span>
-            </div>
-            <div class="progress-bar">
-              <div class="progress-fill" style="width:0%"></div>
-            </div>
-          </div>
-          <div class="okr-item">
-            <div class="okr-header">
-              <span class="okr-nombre" id="txt-mes">Este mes</span>
-              <span class="okr-valores">$0 / $700</span>
-            </div>
-            <div class="progress-bar">
-              <div class="progress-fill" style="width:0%"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- OPORTUNIDADES AHORA -->
-    <div class="oportunidades">
-      <div class="seccion-titulo" id="txt-oportunidades">⚡ OPORTUNIDADES AHORA MISMO — ACTUAR</div>
-      <div class="oportunidades-grid">
-        <div class="op-card" onclick="abrirFicha('btc-scalping')">
-          <div class="op-tipo">₿ CRYPTO · SCALPING</div>
-          <div class="op-nombre">BTC/USDT — Scalping Largo</div>
-          <div class="op-meta">
-            <div class="op-ganancia">+$28</div>
-            <div class="op-confianza">
-              <div class="confianza-label" id="txt-confianza">CONFIANZA</div>
-              <div class="confianza-valor">81%</div>
-            </div>
-          </div>
-          <button class="op-btn" id="txt-ver-ficha">▸ VER FICHA DE DECISIÓN</button>
-        </div>
-
-        <div class="op-card" onclick="abrirFicha('tenis')">
-          <div class="op-tipo">🎾 TENIS · EN VIVO</div>
-          <div class="op-nombre">Alcaraz vs Zverev — Valor detectado</div>
-          <div class="op-meta">
-            <div class="op-ganancia">+$42</div>
-            <div class="op-confianza">
-              <div class="confianza-label">CONFIANZA</div>
-              <div class="confianza-valor">74%</div>
-            </div>
-          </div>
-          <button class="op-btn">▸ VER FICHA DE DECISIÓN</button>
-        </div>
-
-        <div class="op-card" onclick="abrirFicha('funding')">
-          <div class="op-tipo">💤 PASIVO · FUNDING RATE</div>
-          <div class="op-nombre">XRP — Funding Rate Positivo</div>
-          <div class="op-meta">
-            <div class="op-ganancia">+$1.8/día</div>
-            <div class="op-confianza">
-              <div class="confianza-label">RIESGO</div>
-              <div class="confianza-valor" style="color:var(--verde)">BAJO</div>
-            </div>
-          </div>
-          <button class="op-btn">▸ VER FICHA DE DECISIÓN</button>
-        </div>
-
-        <div class="op-card" onclick="abrirFicha('earn')">
-          <div class="op-tipo">💤 PASIVO · EARN</div>
-          <div class="op-nombre">USDT Flexible — KuCoin 10.5%</div>
-          <div class="op-meta">
-            <div class="op-ganancia">+$1.5/día</div>
-            <div class="op-confianza">
-              <div class="confianza-label">RIESGO</div>
-              <div class="confianza-valor" style="color:var(--verde)">MÍNIMO</div>
-            </div>
-          </div>
-          <button class="op-btn">▸ VER FICHA DE DECISIÓN</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- GRID SECUNDARIO -->
-    <div class="grid-secundario">
-
-      <!-- ALERTAS -->
-      <div class="card">
-        <div class="card-titulo">🔔 <span id="txt-alertas">ALERTAS ACTIVAS</span></div>
-        <div class="alerta-card">
-          <div class="alerta-icono">⚡</div>
-          <div class="alerta-contenido">
-            <div class="alerta-titulo">OPORTUNIDAD DETECTADA</div>
-            <div class="alerta-texto">BTC acumulando volumen. Posible ruptura de $78,200 en las próximas 2-4 horas.</div>
-            <div class="alerta-acciones">
-              <button class="alerta-btn si" onclick="abrirFicha('btc-scalping')">VER FICHA</button>
-              <button class="alerta-btn no">IGNORAR</button>
-            </div>
-          </div>
-        </div>
-        <div class="alerta-card" style="border-color:rgba(255,59,92,0.3); background:rgba(255,59,92,0.05);">
-          <div class="alerta-icono">⚠️</div>
-          <div class="alerta-contenido">
-            <div class="alerta-titulo" style="color:var(--rojo)">DATO MACRO HOY</div>
-            <div class="alerta-texto">Reserva Federal habla a las 15:00. BTC puede moverse ±3%. Evita abrir posiciones 30 min antes.</div>
-            <div class="alerta-acciones">
-              <button class="alerta-btn si">ENTENDIDO</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- TERMÓMETRO EMOCIONAL -->
-      <div class="card">
-        <div class="card-titulo">🌡️ <span id="txt-termometro">TERMÓMETRO DEL MERCADO</span></div>
-        <div class="termometro-grid">
-          <div class="termometro-item">
-            <div class="termometro-label">FEAR/GREED</div>
-            <div class="termometro-track">
-              <div class="termometro-fill fill-dorado" style="width:72%"></div>
-            </div>
-            <div class="termometro-valor" style="color:var(--dorado)">72</div>
-          </div>
-          <div class="termometro-item">
-            <div class="termometro-label">SENTIMIENTO</div>
-            <div class="termometro-track">
-              <div class="termometro-fill fill-verde" style="width:68%"></div>
-            </div>
-            <div class="termometro-valor" style="color:var(--verde)">68%</div>
-          </div>
-          <div class="termometro-item">
-            <div class="termometro-label">VOLUMEN BTC</div>
-            <div class="termometro-track">
-              <div class="termometro-fill fill-verde" style="width:85%"></div>
-            </div>
-            <div class="termometro-valor" style="color:var(--verde)">+85%</div>
-          </div>
-          <div class="termometro-item">
-            <div class="termometro-label">BALLENAS</div>
-            <div class="termometro-track">
-              <div class="termometro-fill fill-verde" style="width:60%"></div>
-            </div>
-            <div class="termometro-valor" style="color:var(--verde)">BUY</div>
-          </div>
-          <div class="termometro-item">
-            <div class="termometro-label">LIQUIDACIONES</div>
-            <div class="termometro-track">
-              <div class="termometro-fill fill-rojo" style="width:30%"></div>
-            </div>
-            <div class="termometro-valor" style="color:var(--rojo)">$12M</div>
-          </div>
-        </div>
-        <div style="margin-top:14px; padding:10px; background:rgba(0,255,136,0.05); border:1px solid rgba(0,255,136,0.2); border-radius:8px; font-size:12px; color:var(--texto-dim); font-family:'Share Tech Mono',monospace;">
-          ESTADO: <span style="color:var(--dorado)">EUFORIA MODERADA — Opera con cautela</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- PRÓXIMOS EVENTOS -->
-    <div class="card" style="margin-bottom:20px;">
-      <div class="card-titulo">📅 <span id="txt-eventos">EVENTOS DE HOY</span></div>
-      <div class="eventos-lista">
-        <div class="evento-item">
-          <div class="evento-hora">08:00</div>
-          <div class="evento-icono">📊</div>
-          <div class="evento-info">
-            <div class="evento-nombre">Apertura mercados Asia</div>
-            <div class="evento-sub">BTC históricamente volátil en apertura</div>
-          </div>
-          <div class="evento-badge badge-amarillo">MONITOREAR</div>
-        </div>
-        <div class="evento-item">
-          <div class="evento-hora">14:00</div>
-          <div class="evento-icono">🎾</div>
-          <div class="evento-info">
-            <div class="evento-nombre">Roland Garros — Alcaraz vs Zverev</div>
-            <div class="evento-sub">JCAHS-TENIS: Pick listo — Confianza 74%</div>
-          </div>
-          <div class="evento-badge badge-verde">PICK LISTO</div>
-        </div>
-        <div class="evento-item">
-          <div class="evento-hora">15:00</div>
-          <div class="evento-icono">⚠️</div>
-          <div class="evento-info">
-            <div class="evento-nombre">Reserva Federal — Discurso</div>
-            <div class="evento-sub">Impacto esperado BTC: ALTO — Cerrar posiciones antes</div>
-          </div>
-          <div class="evento-badge badge-rojo">PELIGRO</div>
-        </div>
-        <div class="evento-item">
-          <div class="evento-hora">22:00</div>
-          <div class="evento-icono">🥊</div>
-          <div class="evento-info">
-            <div class="evento-nombre">UFC Fight Night — Main Event</div>
-            <div class="evento-sub">JCAHS-MMA: Analizando datos...</div>
-          </div>
-          <div class="evento-badge badge-amarillo">ANÁLISIS</div>
-        </div>
-      </div>
-    </div>
-
-  </main>
-
-  <footer>
-    JCAHS v1.0 · <span id="txt-footer">SISTEMA DE INTELIGENCIA FINANCIERA PERSONAL</span> · 
-    <span style="color:var(--verde)">●</span> EN LÍNEA
-  </footer>
+  <!-- EVENTOS -->
+  <div class="card">
+    <div class="card-title">📅 EVENTOS DE HOY</div>
+    <div class="evento"><div class="ev-hora">08:00</div><div class="ev-icon">📊</div><div class="ev-info"><div class="ev-nombre">Apertura mercados Asia</div><div class="ev-sub">BTC históricamente volátil en apertura</div></div><div class="badge d">MONITOREAR</div></div>
+    <div class="evento"><div class="ev-hora">14:00</div><div class="ev-icon">🎾</div><div class="ev-info"><div class="ev-nombre">Roland Garros — Alcaraz vs Zverev</div><div class="ev-sub">JCAHS-TENIS: Pick listo — Confianza 74%</div></div><div class="badge g">PICK LISTO</div></div>
+    <div class="evento"><div class="ev-hora">15:00</div><div class="ev-icon">⚠️</div><div class="ev-info"><div class="ev-nombre">Reserva Federal — Discurso</div><div class="ev-sub">Impacto BTC ALTO — Cierra posiciones antes</div></div><div class="badge r">PELIGRO</div></div>
+    <div class="evento"><div class="ev-hora">22:00</div><div class="ev-icon">🥊</div><div class="ev-info"><div class="ev-nombre">UFC Fight Night — Main Event</div><div class="ev-sub">JCAHS-MMA: Analizando...</div></div><div class="badge d">ANÁLISIS</div></div>
+    <div class="evento"><div class="ev-hora">TODO</div><div class="ev-icon">🏆</div><div class="ev-info"><div class="ev-nombre">Mundial 2026 — Ecuador clasificado 🇪🇨</div><div class="ev-sub">Caicedo · Pacho · Hincapié — Ver módulo Deportes</div></div><div class="badge g">ACTIVO</div></div>
+  </div>
 </div>
 
-<!-- MODAL FICHA DE DECISIÓN -->
-<div class="modal-overlay" id="modal">
-  <div class="modal">
-    <button class="modal-close" onclick="cerrarModal()">✕</button>
-
-    <div class="ficha-header">
-      <div class="ficha-numero" id="ficha-numero">FICHA DE DECISIÓN #001</div>
-      <div class="ficha-titulo" id="ficha-titulo">BTC/USDT — Scalping Largo</div>
-      <div class="ficha-subtitulo" id="ficha-subtitulo">KuCoin · Futuros Perpetuos · 3x</div>
+<!-- ==================== CRYPTO ==================== -->
+<div id="mod-crypto" class="modulo">
+  <div class="sec-title mb">SELECCIONA LA CRIPTO</div>
+  <div class="g4 mb">
+    <div class="crypto-card" id="btn-bitcoin" onclick="Crypto.seleccionar('bitcoin',this)"><div class="crypto-sym">BTC</div><div class="crypto-price" id="cp-btc">...</div><div class="crypto-change" id="cc-btc">--</div></div>
+    <div class="crypto-card" id="btn-ethereum" onclick="Crypto.seleccionar('ethereum',this)"><div class="crypto-sym">ETH</div><div class="crypto-price" id="cp-eth">...</div><div class="crypto-change" id="cc-eth">--</div></div>
+    <div class="crypto-card" id="btn-ripple" onclick="Crypto.seleccionar('ripple',this)"><div class="crypto-sym">XRP</div><div class="crypto-price" id="cp-xrp">...</div><div class="crypto-change" id="cc-xrp">--</div></div>
+    <div class="crypto-card" id="btn-dogecoin" onclick="Crypto.seleccionar('dogecoin',this)"><div class="crypto-sym">DOGE 🐶</div><div class="crypto-price" id="cp-doge">...</div><div class="crypto-change" id="cc-doge">--</div></div>
+  </div>
+  <div class="card mb">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+      <div><div style="font-family:Orbitron,monospace;font-size:20px;font-weight:700;color:var(--verde)" id="cd-n">BITCOIN (BTC)</div><div style="font-size:11px;color:var(--texto-dim);font-family:Share Tech Mono,monospace" id="cd-s">Cargando...</div></div>
+      <div style="text-align:right"><div style="font-family:Orbitron,monospace;font-size:32px;font-weight:900;color:var(--texto)" id="cd-p">$--</div><div id="cd-c" style="font-family:Orbitron,monospace;font-size:14px;font-weight:700">--</div></div>
     </div>
-
-    <div class="ficha-seccion">
-      <div class="ficha-seccion-titulo">📊 ANÁLISIS TÉCNICO</div>
-      <div id="ficha-tecnico">
-        <div class="ficha-row">
-          <span class="ficha-key">Tendencia 4H</span>
-          <span class="ficha-val verde">ALCISTA ↑</span>
-        </div>
-        <div class="ficha-row">
-          <span class="ficha-key">RSI</span>
-          <span class="ficha-val">58 — Neutral ✅</span>
-        </div>
-        <div class="ficha-row">
-          <span class="ficha-key">MACD</span>
-          <span class="ficha-val verde">Cruce alcista ✅</span>
-        </div>
-        <div class="ficha-row">
-          <span class="ficha-key">Soporte</span>
-          <span class="ficha-val">$76,800</span>
-        </div>
-        <div class="ficha-row">
-          <span class="ficha-key">Resistencia</span>
-          <span class="ficha-val dorado">$79,500 🎯</span>
-        </div>
-      </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
+      <div style="background:rgba(255,255,255,0.02);border:1px solid var(--borde);border-radius:8px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--texto-dim);font-family:Share Tech Mono,monospace;margin-bottom:4px">RSI (14)</div><div style="font-family:Orbitron,monospace;font-size:15px;font-weight:700;color:var(--dorado)" id="i-rsi">58.4</div></div>
+      <div style="background:rgba(255,255,255,0.02);border:1px solid var(--borde);border-radius:8px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--texto-dim);font-family:Share Tech Mono,monospace;margin-bottom:4px">MACD</div><div style="font-family:Orbitron,monospace;font-size:12px;font-weight:700;color:var(--verde)" id="i-macd">ALCISTA ↑</div></div>
+      <div style="background:rgba(255,255,255,0.02);border:1px solid var(--borde);border-radius:8px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--texto-dim);font-family:Share Tech Mono,monospace;margin-bottom:4px">SOPORTE</div><div style="font-family:Orbitron,monospace;font-size:13px;font-weight:700;color:var(--texto)" id="i-sop">$76,800</div></div>
+      <div style="background:rgba(255,255,255,0.02);border:1px solid var(--borde);border-radius:8px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--texto-dim);font-family:Share Tech Mono,monospace;margin-bottom:4px">RESIST.</div><div style="font-family:Orbitron,monospace;font-size:13px;font-weight:700;color:var(--dorado)" id="i-res">$79,500</div></div>
     </div>
-
-    <div class="ficha-seccion">
-      <div class="ficha-seccion-titulo">🎯 CÓMO PONER EL DINERO</div>
-      <div id="ficha-como">
-        <div class="ficha-row">
-          <span class="ficha-key">Dirección</span>
-          <span class="ficha-val verde">LARGO ↑</span>
-        </div>
-        <div class="ficha-row">
-          <span class="ficha-key">Entrada</span>
-          <span class="ficha-val">$77,200</span>
-        </div>
-        <div class="ficha-row">
-          <span class="ficha-key">Stop-Loss</span>
-          <span class="ficha-val rojo">$76,400 ⚠️</span>
-        </div>
-        <div class="ficha-row">
-          <span class="ficha-key">Take Profit</span>
-          <span class="ficha-val verde">$79,500 🎯</span>
-        </div>
-        <div class="ficha-row">
-          <span class="ficha-key">Apalancamiento</span>
-          <span class="ficha-val dorado">3x máximo</span>
-        </div>
-        <div class="ficha-row">
-          <span class="ficha-key">Ratio R/G</span>
-          <span class="ficha-val verde">1:2.9 ✅</span>
-        </div>
-      </div>
+    <div id="señal-box" style="padding:14px;border-radius:10px;text-align:center;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.3);margin-bottom:14px">
+      <div style="font-family:Orbitron,monospace;font-size:11px;color:var(--verde);letter-spacing:2px;margin-bottom:6px" id="señal-t">🟢 SEÑAL ALCISTA — LARGO</div>
+      <div style="font-size:12px;color:var(--texto)" id="señal-d">Momentum positivo. RSI neutral, volumen creciente. Oportunidad de scalping en 2-4 horas.</div>
     </div>
-
-    <div class="ficha-seccion">
-      <div class="ficha-seccion-titulo">📊 PROBABILIDADES</div>
-      <div class="ficha-prob">
-        <div class="prob-box ganar">
-          <div class="prob-label">SI GANAS</div>
-          <div class="prob-valor">71%</div>
-          <div style="font-size:13px; color:var(--verde); font-family:'Share Tech Mono',monospace; margin-top:4px;">+$28</div>
-        </div>
-        <div class="prob-box perder">
-          <div class="prob-label">SI PIERDES</div>
-          <div class="prob-valor">29%</div>
-          <div style="font-size:13px; color:var(--rojo); font-family:'Share Tech Mono',monospace; margin-top:4px;">-$12</div>
-        </div>
-      </div>
+    <div class="g2">
+      <div class="op-card" onclick="Fichas.abrir('btc')"><div class="op-tipo">SCALPING · 2-4H · 3X</div><div class="op-nombre">BTC Largo → Target $79,500</div><div class="op-meta"><div class="op-ganancia">+$28</div><div class="op-conf"><div class="op-conf-label">CONFIANZA</div><div class="op-conf-val">81%</div></div></div><button class="op-btn">▸ VER FICHA</button></div>
+      <div class="op-card" onclick="Fichas.abrir('funding')"><div class="op-tipo">FUNDING RATE · PASIVO</div><div class="op-nombre">XRP Funding +0.025% cada 8h</div><div class="op-meta"><div class="op-ganancia">+$1.8/día</div><div class="op-conf"><div class="op-conf-label">RIESGO</div><div class="op-conf-val" style="color:var(--verde)">BAJO</div></div></div><button class="op-btn">▸ VER FICHA</button></div>
     </div>
-
-    <div class="ficha-ia" id="ficha-ia-texto">
-      Momentum positivo con volumen confirmado. Hay dato Fed a las 15:00 — si no has entrado antes de las 14:30, espera a que pase el anuncio. El riesgo sube considerablemente cerca del evento macro.
+  </div>
+  <div class="g2">
+    <div class="card"><div class="card-title">📊 ESTRATEGIAS</div>
+      <div class="op-card mb" onclick="Fichas.abrir('btc')" style="margin-bottom:8px"><div class="op-tipo">SCALPING · CORTO PLAZO</div><div class="op-nombre">Múltiples trades pequeños diarios</div><div class="op-meta"><div class="op-ganancia">$15-30/día</div><div class="op-conf"><div class="op-conf-label">PLAZO</div><div class="op-conf-val" style="font-size:11px;color:var(--azul)">2-6H</div></div></div><button class="op-btn">▸ VER FICHA</button></div>
+      <div class="op-card" onclick="Fichas.abrir('earn')"><div class="op-tipo">EARN FLEXIBLE · PASIVO</div><div class="op-nombre">USDT 10.5% sin riesgo de mercado</div><div class="op-meta"><div class="op-ganancia">$1.5/día</div><div class="op-conf"><div class="op-conf-label">RIESGO</div><div class="op-conf-val" style="color:var(--verde)">MÍNIMO</div></div></div><button class="op-btn">▸ VER FICHA</button></div>
     </div>
-
-    <div class="ficha-acciones">
-      <button class="ficha-accion fa-ejecutar" onclick="ejecutarOperacion()">✅ EJECUTAR</button>
-      <button class="ficha-accion fa-reducir" onclick="cerrarModal()">💡 REDUCIR</button>
-      <button class="ficha-accion fa-cancelar" onclick="cerrarModal()">❌ CANCELAR</button>
+    <div class="card"><div class="card-title">📰 NOTICIAS CRYPTO</div>
+      <div class="alerta g" style="margin-bottom:8px"><div class="al-icon">📈</div><div class="al-content"><div class="al-title">VOLUMEN ALTO</div><div class="al-text">BTC volumen 40% sobre promedio. Ballenas comprando.</div></div></div>
+      <div class="alerta" style="margin-bottom:8px"><div class="al-icon">🏦</div><div class="al-content"><div class="al-title">INSTITUCIONAL</div><div class="al-text">ETFs Bitcoin con entradas positivas 3ra semana consecutiva.</div></div></div>
+      <div class="alerta r"><div class="al-icon">⚠️</div><div class="al-content"><div class="al-title">MACRO RIESGO</div><div class="al-text">Fed habla hoy 15:00. Volatilidad esperada ±3%.</div></div></div>
     </div>
   </div>
 </div>
 
+<!-- ==================== DEPORTES ==================== -->
+<div id="mod-deportes" class="modulo">
+  <div class="dep-tabs">
+    <button class="dep-tab active" onclick="depTab('futbol',this)">⚽ FÚTBOL</button>
+    <button class="dep-tab" onclick="depTab('tenis',this)">🎾 TENIS</button>
+    <button class="dep-tab" onclick="depTab('mma',this)">🥊 MMA/BOXEO</button>
+    <button class="dep-tab" onclick="depTab('mundial',this)">🏆 MUNDIAL 2026</button>
+  </div>
+  <div id="dep-futbol">
+    <div class="partido-card">
+      <div class="partido-header"><div><div class="partido-equipos">Barcelona SC vs Emelec</div><div class="partido-liga">⚽ LigaPro Ecuador · Jornada 18</div></div><div class="partido-hora">10:00</div></div>
+      <div class="odds-grid"><div class="odd-item sel"><div class="odd-label">Barcelona SC</div><div class="odd-val">2.10</div></div><div class="odd-item"><div class="odd-label">Empate</div><div class="odd-val">3.20</div></div><div class="odd-item"><div class="odd-label">Emelec</div><div class="odd-val">3.80</div></div></div>
+      <div class="mercados-extra">
+        <div class="mercado-item"><div class="mercado-nombre">Más de 2.5 goles</div><div class="mercado-val">1.85</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Ambos marcan SÍ</div><div class="mercado-val">1.90</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Córners +8.5</div><div class="mercado-val">1.95</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Gol 1er tiempo</div><div class="mercado-val">1.65</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Barcelona -1.5</div><div class="mercado-val">3.10</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Tarjetas +3.5</div><div class="mercado-val">1.75</div></div>
+      </div>
+      <div class="pick-destacado"><div class="pick-titulo">🎯 JCAHS-FUTBOL RECOMIENDA</div><div class="pick-desc">Barcelona SC gana · Odd 2.10 en Ecuabet · Confianza 68% · Bankroll sugerido: 5%</div></div>
+      <div class="sec-title" style="font-size:9px;margin-top:10px">COMPARADOR DE ODDS ECUADOR</div>
+      <div class="comp-row"><div class="comp-casa">Ecuabet</div><div class="comp-odds"><span class="comp-odd best">2.10</span><span class="comp-odd normal">3.20</span><span class="comp-odd normal">3.80</span></div></div>
+      <div class="comp-row"><div class="comp-casa">Bet365</div><div class="comp-odds"><span class="comp-odd normal">2.05</span><span class="comp-odd best">3.30</span><span class="comp-odd normal">3.75</span></div></div>
+      <div class="comp-row"><div class="comp-casa">1xBet</div><div class="comp-odds"><span class="comp-odd normal">2.08</span><span class="comp-odd normal">3.25</span><span class="comp-odd best">3.90</span></div></div>
+      <div class="comp-row"><div class="comp-casa">Betano</div><div class="comp-odds"><span class="comp-odd normal">2.00</span><span class="comp-odd normal">3.15</span><span class="comp-odd normal">3.70</span></div></div>
+    </div>
+    <div class="partido-card">
+      <div class="partido-header"><div><div class="partido-equipos">Real Madrid vs Bayern Munich</div><div class="partido-liga">⚽ Champions League · Semifinal</div></div><div class="partido-hora">20:00</div></div>
+      <div class="odds-grid"><div class="odd-item"><div class="odd-label">Real Madrid</div><div class="odd-val">1.85</div></div><div class="odd-item"><div class="odd-label">Empate</div><div class="odd-val">3.75</div></div><div class="odd-item"><div class="odd-label">Bayern</div><div class="odd-val">4.20</div></div></div>
+      <div class="mercados-extra">
+        <div class="mercado-item"><div class="mercado-nombre">Ambos marcan SÍ ⭐</div><div class="mercado-val">1.55</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Más de 2.5 goles</div><div class="mercado-val">1.75</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Córners +10.5</div><div class="mercado-val">1.90</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Penalti en partido</div><div class="mercado-val">2.80</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Gol 1er tiempo</div><div class="mercado-val">1.70</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Madrid gana 2do t.</div><div class="mercado-val">2.10</div></div>
+      </div>
+      <div class="pick-destacado"><div class="pick-titulo">🎯 JCAHS-FUTBOL RECOMIENDA</div><div class="pick-desc">Ambos equipos marcan SÍ · Odd 1.55 en 1xBet · Confianza 82% · MEJOR PICK DEL DÍA ⭐</div></div>
+    </div>
+  </div>
+  <div id="dep-tenis" style="display:none">
+    <div class="partido-card">
+      <div class="partido-header"><div><div class="partido-equipos">Carlos Alcaraz vs Alexander Zverev</div><div class="partido-liga">🎾 Roland Garros · Cuartos · Arcilla</div></div><div class="partido-hora">14:00</div></div>
+      <div class="odds-grid"><div class="odd-item sel"><div class="odd-label">Alcaraz</div><div class="odd-val">1.65</div></div><div class="odd-item"><div class="odd-label">Zverev</div><div class="odd-val">2.30</div></div><div class="odd-item"><div class="odd-label">+1.5 sets Alc.</div><div class="odd-val">1.30</div></div></div>
+      <div class="mercados-extra">
+        <div class="mercado-item"><div class="mercado-nombre">Alcaraz 2-0</div><div class="mercado-val">2.10</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Alcaraz 2-1</div><div class="mercado-val">3.20</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Tiebreak en partido</div><div class="mercado-val">2.05</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Más de 38.5 games</div><div class="mercado-val">1.85</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Zverev gana 1 set</div><div class="mercado-val">1.65</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Más de 3 sets</div><div class="mercado-val">1.75</div></div>
+      </div>
+      <div class="pick-destacado"><div class="pick-titulo">🎯 JCAHS-TENIS RECOMIENDA</div><div class="pick-desc">Alcaraz gana · Odd 1.65 en 1xBet · Confianza 74% · Zverev con molestia rodilla ⚠️</div></div>
+      <div class="sec-title" style="font-size:9px;margin-top:10px">COMPARADOR DE ODDS</div>
+      <div class="comp-row"><div class="comp-casa">1xBet</div><div class="comp-odds"><span class="comp-odd best">1.65</span><span class="comp-odd normal">2.30</span></div></div>
+      <div class="comp-row"><div class="comp-casa">Bet365</div><div class="comp-odds"><span class="comp-odd normal">1.60</span><span class="comp-odd normal">2.25</span></div></div>
+      <div class="comp-row"><div class="comp-casa">Ecuabet</div><div class="comp-odds"><span class="comp-odd normal">1.58</span><span class="comp-odd best">2.35</span></div></div>
+      <div class="comp-row"><div class="comp-casa">Betano</div><div class="comp-odds"><span class="comp-odd normal">1.62</span><span class="comp-odd normal">2.28</span></div></div>
+    </div>
+  </div>
+  <div id="dep-mma" style="display:none">
+    <div class="partido-card">
+      <div class="partido-header"><div><div class="partido-equipos">Alex Pereira vs Magomed Ankalaev</div><div class="partido-liga">🥊 UFC Fight Night · Main Event</div></div><div class="partido-hora">22:00</div></div>
+      <div class="odds-grid"><div class="odd-item sel"><div class="odd-label">Pereira</div><div class="odd-val">1.55</div></div><div class="odd-item"><div class="odd-label">Ankalaev</div><div class="odd-val">2.50</div></div><div class="odd-item"><div class="odd-label">Por KO/TKO</div><div class="odd-val">1.85</div></div></div>
+      <div class="mercados-extra">
+        <div class="mercado-item"><div class="mercado-nombre">Pereira por KO</div><div class="mercado-val">2.10</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Va a todos rounds</div><div class="mercado-val">3.20</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Termina rnd 1-2</div><div class="mercado-val">2.80</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Por decisión</div><div class="mercado-val">3.50</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">No llega al rnd 3</div><div class="mercado-val">1.95</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Ankalaev sumisión</div><div class="mercado-val">6.50</div></div>
+      </div>
+      <div class="pick-destacado"><div class="pick-titulo">🎯 JCAHS-MMA RECOMIENDA</div><div class="pick-desc">Pereira gana · Odd 1.55 · Confianza 71% · 12 victorias por paro en carrera ⚡</div></div>
+    </div>
+  </div>
+  <div id="dep-mundial" style="display:none">
+    <div style="background:linear-gradient(135deg,rgba(0,255,136,0.06),rgba(255,215,0,0.04));border:1px solid rgba(255,215,0,0.3);border-radius:14px;padding:20px;margin-bottom:14px;text-align:center">
+      <div style="font-size:32px;margin-bottom:8px">🇪🇨🏆</div>
+      <div style="font-family:Orbitron,monospace;font-size:18px;font-weight:700;color:var(--dorado);margin-bottom:6px">ECUADOR EN EL MUNDIAL 2026</div>
+      <div style="font-size:13px;color:var(--texto-dim)">USA · México · Canadá · Junio-Julio 2026</div>
+      <div style="display:flex;justify-content:center;gap:24px;margin-top:14px">
+        <div><div style="font-size:10px;color:var(--texto-dim)">CAICEDO</div><div style="font-family:Orbitron,monospace;font-size:12px;color:var(--verde)">Chelsea ⭐</div></div>
+        <div><div style="font-size:10px;color:var(--texto-dim)">PACHO</div><div style="font-family:Orbitron,monospace;font-size:12px;color:var(--verde)">PSG ⭐</div></div>
+        <div><div style="font-size:10px;color:var(--texto-dim)">HINCAPIÉ</div><div style="font-family:Orbitron,monospace;font-size:12px;color:var(--verde)">Leverkusen ⭐</div></div>
+      </div>
+    </div>
+    <div class="partido-card">
+      <div class="partido-header"><div><div class="partido-equipos">Ecuador vs Argentina</div><div class="partido-liga">🏆 Mundial 2026 · Fase de Grupos</div></div><div class="partido-hora">15 Jun</div></div>
+      <div class="odds-grid"><div class="odd-item"><div class="odd-label">Ecuador</div><div class="odd-val">5.20</div></div><div class="odd-item"><div class="odd-label">Empate</div><div class="odd-val">3.80</div></div><div class="odd-item"><div class="odd-label">Argentina</div><div class="odd-val">1.65</div></div></div>
+      <div class="mercados-extra">
+        <div class="mercado-item"><div class="mercado-nombre">Ecuador +1.5 goles ⭐</div><div class="mercado-val">1.45</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Caicedo anota</div><div class="mercado-val">8.50</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Ambos marcan</div><div class="mercado-val">1.80</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Más 2.5 goles</div><div class="mercado-val">1.75</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Ecuador 1er gol</div><div class="mercado-val">4.20</div></div>
+        <div class="mercado-item"><div class="mercado-nombre">Pacho cabezazo</div><div class="mercado-val">12.00</div></div>
+      </div>
+      <div class="pick-destacado"><div class="pick-titulo">🎯 JCAHS-MUNDIAL RECOMIENDA</div><div class="pick-desc">Ecuador +1.5 goles · Odd 1.45 en 1xBet · Confianza 81% · MEJOR VALOR ⭐</div></div>
+      <div class="sec-title" style="font-size:9px;margin-top:10px">ODDS POR CASA</div>
+      <div class="comp-row"><div class="comp-casa">1xBet</div><div class="comp-odds"><span class="comp-odd best">5.40</span><span class="comp-odd normal">3.90</span><span class="comp-odd normal">1.63</span></div></div>
+      <div class="comp-row"><div class="comp-casa">Ecuabet</div><div class="comp-odds"><span class="comp-odd normal">5.20</span><span class="comp-odd normal">3.80</span><span class="comp-odd normal">1.65</span></div></div>
+      <div class="comp-row"><div class="comp-casa">Bet365</div><div class="comp-odds"><span class="comp-odd normal">5.10</span><span class="comp-odd best">3.95</span><span class="comp-odd normal">1.62</span></div></div>
+      <div class="comp-row"><div class="comp-casa">Betano</div><div class="comp-odds"><span class="comp-odd normal">5.15</span><span class="comp-odd normal">3.82</span><span class="comp-odd best">1.68</span></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== CALCULADORA ==================== -->
+<div id="mod-calc" class="modulo">
+  <div class="g2">
+    <div class="calc-wrap">
+      <div class="sec-title mb">🧮 CALCULADORA CRYPTO</div>
+      <label class="calc-label">CAPITAL ($)</label>
+      <input type="number" class="calc-input" id="cc-cap" value="500" oninput="Calculadora.calcCrypto()">
+      <label class="calc-label">% RIESGO: <span id="cc-rv" style="color:var(--verde)">5%</span></label>
+      <input type="range" class="calc-slider" id="cc-r" min="1" max="50" value="5" oninput="Calculadora.calcCrypto()">
+      <label class="calc-label">APALANCAMIENTO: <span id="cc-av" style="color:var(--dorado)">3x</span></label>
+      <input type="range" class="calc-slider" id="cc-a" min="1" max="20" value="3" oninput="Calculadora.calcCrypto()">
+      <label class="calc-label">ODD / RATIO</label>
+      <input type="number" class="calc-input" id="cc-o" value="1.75" step="0.05" oninput="Calculadora.calcCrypto()">
+      <div class="calc-resultado">
+        <div class="calc-grid">
+          <div class="calc-item"><div class="calc-item-label">ARRIESGAS</div><div class="calc-item-val r" id="cr-a">$25</div></div>
+          <div class="calc-item"><div class="calc-item-label">POSICIÓN</div><div class="calc-item-val d" id="cr-p">$75</div></div>
+          <div class="calc-item"><div class="calc-item-label">SI GANAS</div><div class="calc-item-val g" id="cr-g">+$18.75</div></div>
+          <div class="calc-item"><div class="calc-item-label">LIQUIDACIÓN</div><div class="calc-item-val r" id="cr-l">-33%</div></div>
+        </div>
+        <div class="calc-estado ok" id="cc-e">✅ OPERACIÓN SALUDABLE</div>
+      </div>
+    </div>
+    <div class="calc-wrap">
+      <div class="sec-title mb">📊 CALCULADORA APUESTA</div>
+      <label class="calc-label">BANKROLL ($)</label>
+      <input type="number" class="calc-input" id="ca-bk" value="500" oninput="Calculadora.calcApuesta()">
+      <label class="calc-label">% BANKROLL: <span id="ca-pv" style="color:var(--verde)">5%</span></label>
+      <input type="range" class="calc-slider" id="ca-p" min="1" max="30" value="5" oninput="Calculadora.calcApuesta()">
+      <label class="calc-label">ODD DE LA APUESTA</label>
+      <input type="number" class="calc-input" id="ca-o" value="1.85" step="0.05" oninput="Calculadora.calcApuesta()">
+      <label class="calc-label">PROBABILIDAD ESTIMADA (%)</label>
+      <input type="number" class="calc-input" id="ca-pr" value="65" oninput="Calculadora.calcApuesta()">
+      <div class="calc-resultado">
+        <div class="calc-grid">
+          <div class="calc-item"><div class="calc-item-label">APUESTA</div><div class="calc-item-val d" id="ca-ap">$25</div></div>
+          <div class="calc-item"><div class="calc-item-label">SI GANAS</div><div class="calc-item-val g" id="ca-g">+$21.25</div></div>
+          <div class="calc-item"><div class="calc-item-label">VALOR ESPERADO</div><div class="calc-item-val g" id="ca-ev">+$5.50</div></div>
+          <div class="calc-item"><div class="calc-item-label">ODD JUSTA</div><div class="calc-item-val" id="ca-f" style="color:var(--texto)">1.54</div></div>
+        </div>
+        <div class="calc-estado ok" id="ca-e">✅ APUESTA CON VALOR</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== HISTORIAL ==================== -->
+<div id="mod-historial" class="modulo">
+  <div class="hist-stats">
+    <div class="hist-stat"><div class="hist-stat-label">P&L TOTAL</div><div class="hist-stat-val g" id="h-t">$0</div></div>
+    <div class="hist-stat"><div class="hist-stat-label">OPERACIONES</div><div class="hist-stat-val" id="h-o">0</div></div>
+    <div class="hist-stat"><div class="hist-stat-label">% ACIERTO</div><div class="hist-stat-val d" id="h-w">0%</div></div>
+    <div class="hist-stat"><div class="hist-stat-label">MEJOR DÍA</div><div class="hist-stat-val g" id="h-b">$0</div></div>
+  </div>
+  <button class="add-btn" onclick="Historial.toggleForm()">+ REGISTRAR NUEVA OPERACIÓN</button>
+  <div id="form-op" style="display:none;background:var(--gris2);border:1px solid var(--borde);border-radius:12px;padding:18px;margin-bottom:14px">
+    <div class="g2" style="margin-bottom:12px">
+      <div><label class="calc-label">TIPO</label><select class="calc-input" id="op-t" style="cursor:pointer"><option value="crypto">₿ Crypto</option><option value="deporte">⚽ Deporte</option></select></div>
+      <div><label class="calc-label">DESCRIPCIÓN</label><input type="text" class="calc-input" id="op-d" placeholder="BTC Largo / Alcaraz gana..."></div>
+    </div>
+    <div class="g2" style="margin-bottom:12px">
+      <div><label class="calc-label">RESULTADO ($) — positivo si ganaste</label><input type="number" class="calc-input" id="op-r" placeholder="+45 ó -20"></div>
+      <div><label class="calc-label">PLATAFORMA</label><input type="text" class="calc-input" id="op-p" placeholder="KuCoin / Bet365..."></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="al-btn si" onclick="Historial.guardar()" style="padding:10px 20px;font-size:10px">GUARDAR</button>
+      <button class="al-btn no" onclick="Historial.toggleForm()" style="padding:10px 20px;font-size:10px">CANCELAR</button>
+    </div>
+  </div>
+  <div id="h-lista"><div style="text-align:center;padding:30px;color:var(--texto-dim);font-family:Share Tech Mono,monospace;font-size:12px">Sin operaciones registradas aún.</div></div>
+</div>
+
+<!-- ==================== ASESORES IA ==================== -->
+<div id="mod-asesores" class="modulo">
+  <div class="ia-wrap">
+    <div class="ia-header">
+      <div class="ia-avatar" id="ia-av">🧠</div>
+      <div><div class="ia-nombre" id="ia-n">JCAHS-MASTER</div><div class="ia-sub" id="ia-s">Coordinador General · Todos los mercados</div></div>
+    </div>
+    <div class="ia-selector">
+      <button class="ia-btn active" onclick="Asesores.seleccionar('MASTER','🧠','Coordinador General · Todos los mercados',this)">🧠 MASTER</button>
+      <button class="ia-btn" onclick="Asesores.seleccionar('BTC','₿','Especialista Bitcoin · Futuros · Scalping',this)">₿ BTC</button>
+      <button class="ia-btn" onclick="Asesores.seleccionar('ETH','⟠','Especialista Ethereum · Altcoins · DeFi',this)">⟠ ETH</button>
+      <button class="ia-btn" onclick="Asesores.seleccionar('FUTBOL','⚽','Especialista Fútbol · LigaPro · Champions',this)">⚽ FÚTBOL</button>
+      <button class="ia-btn" onclick="Asesores.seleccionar('TENIS','🎾','Especialista Tenis · ATP · Roland Garros',this)">🎾 TENIS</button>
+      <button class="ia-btn" onclick="Asesores.seleccionar('MMA','🥊','Especialista MMA · UFC · Boxeo',this)">🥊 MMA</button>
+    </div>
+    <div class="ia-chat" id="ia-chat">
+      <div class="msg ia"><div class="msg-label">JCAHS-MASTER</div>Sistema JCAHS activo. Soy tu asesor financiero personal. Pregúntame sobre crypto, deportes, estrategias o qué hacer hoy para generar cashflow.</div>
+    </div>
+    <div class="typing" id="typing">⚡ JCAHS analizando...</div>
+    <div class="ia-input-wrap">
+      <input type="text" class="ia-input" id="ia-inp" placeholder="Pregunta a tu asesor..." onkeypress="if(event.key==='Enter')Asesores.enviar()">
+      <button class="ia-send" id="ia-sbtn" onclick="Asesores.enviar()">ENVIAR</button>
+    </div>
+  </div>
+  <div class="g3">
+    <div class="op-card" onclick="Asesores.preguntaRapida('Dame el análisis completo de BTC ahora mismo y la mejor estrategia de cashflow para hoy')"><div class="op-tipo">PREGUNTA RÁPIDA</div><div class="op-nombre">¿Mejor oportunidad crypto ahora?</div><button class="op-btn">▸ PREGUNTAR</button></div>
+    <div class="op-card" onclick="Asesores.preguntaRapida('Analiza los partidos de hoy y dame el pick con mejor valor matemático con odds y casa recomendada')"><div class="op-tipo">PREGUNTA RÁPIDA</div><div class="op-nombre">¿Mejor pick deportivo hoy?</div><button class="op-btn">▸ PREGUNTAR</button></div>
+    <div class="op-card" onclick="Asesores.preguntaRapida('Necesito generar $50 hoy con $200 de capital. Dame un plan concreto paso a paso')"><div class="op-tipo">MODO EMERGENCIA</div><div class="op-nombre">Necesito $50 hoy — ¿Plan?</div><button class="op-btn">▸ PREGUNTAR</button></div>
+  </div>
+</div>
+
+</main>
+
+<footer>JCAHS v2.0 · SISTEMA DE INTELIGENCIA FINANCIERA PERSONAL · <span style="color:var(--verde)">●</span> EN LÍNEA</footer>
+
+<!-- MODAL FICHA -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <button class="modal-close" onclick="Fichas.cerrar()">✕</button>
+    <div class="fnum" id="f-n">FICHA #001</div>
+    <div class="ftitulo" id="f-t">--</div>
+    <div class="fsub" id="f-s">--</div>
+    <div class="fsec"><div class="fsec-title">📊 ANÁLISIS TÉCNICO</div><div id="f-tec"></div></div>
+    <div class="fsec"><div class="fsec-title">🎯 CÓMO PONER EL DINERO</div><div id="f-com"></div></div>
+    <div class="fsec"><div class="fsec-title">📐 INSTRUCCIONES PASO A PASO</div><div id="f-ins" style="font-size:11px;color:var(--texto);font-family:Share Tech Mono,monospace;line-height:1.8"></div></div>
+    <div class="fsec"><div class="fsec-title">📊 PROBABILIDADES</div>
+      <div class="fprob">
+        <div class="pbox g"><div class="pbox-label">SI GANAS</div><div class="pbox-val" id="f-pg">71%</div><div class="pbox-monto" style="color:var(--verde)" id="f-mg">+$28</div></div>
+        <div class="pbox r"><div class="pbox-label">SI PIERDES</div><div class="pbox-val" id="f-pp">29%</div><div class="pbox-monto" style="color:var(--rojo)" id="f-mp">-$12</div></div>
+      </div>
+    </div>
+    <div class="fia" id="f-ia">--</div>
+    <div class="facciones">
+      <button class="faccion ej" onclick="Fichas.ejecutar()">✅ EJECUTAR</button>
+      <button class="faccion re" onclick="Fichas.cerrar()">💡 REDUCIR</button>
+      <button class="faccion ca" onclick="Fichas.cerrar()">❌ CANCELAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCRIPTS — orden importa -->
+<script src="js/config.js"></script>
+<script src="js/state.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/api.js"></script>
+<script src="js/router.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/crypto.js"></script>
+<script src="js/calculadora.js"></script>
+<script src="js/historial.js"></script>
+<script src="js/asesores.js"></script>
+<script src="js/fichas.js"></script>
+<script src="js/app.js"></script>
+
 <script>
-  // ================================
-  // CONFIGURACIÓN IDIOMA
-  // ================================
-  const textos = {
-    es: {
-      bienvenida: 'BIENVENIDO DE VUELTA',
-      indice: 'ÍNDICE JCAHS — HOY',
-      estadoBueno: '🟢 BUEN DÍA PARA OPERAR',
-      crypto: 'CRYPTO',
-      deportes: 'DEPORTES',
-      global: 'GLOBAL',
-      tuEstado: 'TU ESTADO',
-      historico: 'HISTÓRICO',
-      precios: 'PRECIOS EN TIEMPO REAL',
-      pnl: 'P&L HOY',
-      metaDia: 'Meta del día: $60.00',
-      progreso: '0% completado',
-      bankroll: 'BANKROLL',
-      total: 'TOTAL',
-      disponible: 'DISPONIBLE',
-      enJuego: 'EN JUEGO',
-      reserva: 'RESERVA',
-      racha: 'RACHA ACTUAL',
-      rachaEstado: 'Sin operaciones aún — ¡Comienza hoy!',
-      semana: 'Esta semana',
-      mes: 'Este mes',
-      oportunidades: '⚡ OPORTUNIDADES AHORA MISMO — ACTUAR',
-      confianza: 'CONFIANZA',
-      verFicha: '▸ VER FICHA DE DECISIÓN',
-      alertas: 'ALERTAS ACTIVAS',
-      termometro: 'TERMÓMETRO DEL MERCADO',
-      eventos: 'EVENTOS DE HOY',
-      footer: 'SISTEMA DE INTELIGENCIA FINANCIERA PERSONAL',
-      status: 'SISTEMA ACTIVO',
-      navCrypto: 'CRYPTO',
-      navDeportes: 'DEPORTES',
-      navCalc: 'CALCULADORA',
-      navHistorial: 'HISTORIAL',
-      navEmergencia: 'EMERGENCIA'
-    },
-    en: {
-      bienvenida: 'WELCOME BACK',
-      indice: 'JCAHS INDEX — TODAY',
-      estadoBueno: '🟢 GOOD DAY TO TRADE',
-      crypto: 'CRYPTO',
-      deportes: 'SPORTS',
-      global: 'GLOBAL',
-      tuEstado: 'YOUR STATE',
-      historico: 'HISTORICAL',
-      precios: 'REAL-TIME PRICES',
-      pnl: 'P&L TODAY',
-      metaDia: 'Daily target: $60.00',
-      progreso: '0% completed',
-      bankroll: 'BANKROLL',
-      total: 'TOTAL',
-      disponible: 'AVAILABLE',
-      enJuego: 'IN PLAY',
-      reserva: 'RESERVE',
-      racha: 'CURRENT STREAK',
-      rachaEstado: 'No trades yet — Start today!',
-      semana: 'This week',
-      mes: 'This month',
-      oportunidades: '⚡ OPPORTUNITIES RIGHT NOW — ACT',
-      confianza: 'CONFIDENCE',
-      verFicha: '▸ VIEW DECISION SHEET',
-      alertas: 'ACTIVE ALERTS',
-      termometro: 'MARKET THERMOMETER',
-      eventos: "TODAY'S EVENTS",
-      footer: 'PERSONAL FINANCIAL INTELLIGENCE SYSTEM',
-      status: 'SYSTEM ACTIVE',
-      navCrypto: 'CRYPTO',
-      navDeportes: 'SPORTS',
-      navCalc: 'CALCULATOR',
-      navHistorial: 'HISTORY',
-      navEmergencia: 'EMERGENCY'
-    }
-  };
-
-  let langActual = 'es';
-
-  function setLang(lang) {
-    langActual = lang;
-    document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
-    document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`).classList.add('active');
-    const t = textos[lang];
-    document.getElementById('txt-bienvenida').textContent = t.bienvenida;
-    document.getElementById('txt-indice-titulo').textContent = t.indice;
-    document.getElementById('txt-indice-estado').textContent = t.estadoBueno;
-    document.getElementById('txt-crypto').textContent = t.crypto;
-    document.getElementById('txt-deportes').textContent = t.deportes;
-    document.getElementById('txt-global').textContent = t.global;
-    document.getElementById('txt-tu-estado').textContent = t.tuEstado;
-    document.getElementById('txt-historico').textContent = t.historico;
-    document.getElementById('txt-precios-titulo').textContent = t.precios;
-    document.getElementById('txt-pnl').textContent = t.pnl;
-    document.getElementById('txt-meta-dia').textContent = t.metaDia;
-    document.getElementById('txt-progreso').textContent = t.progreso;
-    document.getElementById('txt-bankroll').textContent = t.bankroll;
-    document.getElementById('txt-total').textContent = t.total;
-    document.getElementById('txt-disponible').textContent = t.disponible;
-    document.getElementById('txt-en-juego').textContent = t.enJuego;
-    document.getElementById('txt-reserva').textContent = t.reserva;
-    document.getElementById('txt-racha').textContent = t.racha;
-    document.getElementById('txt-racha-estado').textContent = t.rachaEstado;
-    document.getElementById('txt-semana').textContent = t.semana;
-    document.getElementById('txt-mes').textContent = t.mes;
-    document.getElementById('txt-oportunidades').textContent = t.oportunidades;
-    document.querySelectorAll('.confianza-label').forEach(el => el.textContent = t.confianza);
-    document.querySelectorAll('#txt-ver-ficha').forEach(el => el.textContent = t.verFicha);
-    document.getElementById('txt-alertas').textContent = t.alertas;
-    document.getElementById('txt-termometro').textContent = t.termometro;
-    document.getElementById('txt-eventos').textContent = t.eventos;
-    document.getElementById('txt-footer').textContent = t.footer;
-    document.getElementById('status-text').textContent = t.status;
-    document.getElementById('nav-crypto').textContent = t.navCrypto;
-    document.getElementById('nav-deportes').textContent = t.navDeportes;
-    document.getElementById('nav-calc').textContent = t.navCalc;
-    document.getElementById('nav-historial').textContent = t.navHistorial;
-    document.getElementById('nav-emergencia').textContent = t.navEmergencia;
-  }
-
-  // ================================
-  // RELOJ Y FECHA
-  // ================================
-  function actualizarReloj() {
-    const ahora = new Date();
-    const hora = ahora.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    const fecha = ahora.toLocaleDateString('es-EC', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const fechaCorta = ahora.toLocaleDateString('es-EC', { day: 'numeric', month: 'long', year: 'numeric' });
-    document.getElementById('txt-hora').textContent = hora;
-    document.getElementById('txt-fechaCompleta').textContent = fecha;
-    document.getElementById('txt-fecha').textContent = fechaCorta;
-  }
-
-  setInterval(actualizarReloj, 1000);
-  actualizarReloj();
-
-  // ================================
-  // PRECIOS CRYPTO — CoinGecko
-  // ================================
-  async function cargarPrecios() {
-    try {
-      const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,ripple,dogecoin&vs_currencies=usd&include_24hr_change=true');
-      const data = await res.json();
-
-      const monedas = [
-        { id: 'bitcoin', el: 'btc', simbolo: '$' },
-        { id: 'ethereum', el: 'eth', simbolo: '$' },
-        { id: 'ripple', el: 'xrp', simbolo: '$' },
-        { id: 'dogecoin', el: 'doge', simbolo: '$' }
-      ];
-
-      monedas.forEach(m => {
-        const precio = data[m.id]?.usd;
-        const cambio = data[m.id]?.usd_24h_change;
-
-        if (precio) {
-          document.getElementById(`precio-${m.el}`).textContent =
-            precio > 1 ? `$${precio.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` :
-            `$${precio.toFixed(4)}`;
-        }
-
-        if (cambio !== undefined) {
-          const el = document.getElementById(`cambio-${m.el}`);
-          const positivo = cambio >= 0;
-          el.textContent = `${positivo ? '+' : ''}${cambio.toFixed(2)}%`;
-          el.className = `crypto-cambio ${positivo ? 'positivo' : 'negativo'}`;
-        }
-      });
-    } catch (e) {
-      ['btc','eth','xrp','doge'].forEach(c => {
-        document.getElementById(`precio-${c}`).textContent = 'Sin conexión';
-      });
-    }
-  }
-
-  cargarPrecios();
-  setInterval(cargarPrecios, 60000);
-
-  // ================================
-  // NAVEGACIÓN MÓDULOS
-  // ================================
-  function setModulo(btn) {
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-  }
-
-  // ================================
-  // MODO EMERGENCIA
-  // ================================
-  function activarEmergencia() {
-    const confirmado = confirm(
-      langActual === 'es'
-        ? '🚨 MODO EMERGENCIA\n\nJCAHS filtrará SOLO las oportunidades más seguras del momento.\n\n¿Cuál es tu meta mínima hoy?\n\nPresiona OK para activar.'
-        : '🚨 EMERGENCY MODE\n\nJCAHS will show ONLY the safest opportunities right now.\n\nPress OK to activate.'
-    );
-    if (confirmado) {
-      document.body.style.borderTop = '3px solid var(--rojo)';
-      alert(langActual === 'es'
-        ? '🚨 MODO EMERGENCIA ACTIVO\n\nSolo verás oportunidades con 75%+ de confianza.\nApalancamiento máximo 3x.\nJCAHS te detendrá al llegar a tu meta.'
-        : '🚨 EMERGENCY MODE ACTIVE\n\nOnly 75%+ confidence opportunities shown.\nMax 3x leverage.\nJCAHS will stop you when you reach your target.'
-      );
-    }
-  }
-
-  // ================================
-  // MODAL FICHA DE DECISIÓN
-  // ================================
-  const fichas = {
-    'btc-scalping': {
-      numero: 'FICHA #001',
-      titulo: 'BTC/USDT — Scalping Largo',
-      subtitulo: 'KuCoin · Futuros Perpetuos · 3x',
-      ia: 'Momentum positivo con volumen confirmado. Hay dato Fed a las 15:00 — si no has entrado antes de las 14:30, espera a que pase el anuncio. El riesgo sube considerablemente cerca del evento macro.',
-      tecnico: [
-        ['Tendencia 4H', 'ALCISTA ↑', 'verde'],
-        ['RSI', '58 — Neutral ✅', ''],
-        ['MACD', 'Cruce alcista ✅', 'verde'],
-        ['Soporte', '$76,800', ''],
-        ['Resistencia', '$79,500 🎯', 'dorado']
-      ],
-      como: [
-        ['Dirección', 'LARGO ↑', 'verde'],
-        ['Entrada', '$77,200', ''],
-        ['Stop-Loss', '$76,400 ⚠️', 'rojo'],
-        ['Take Profit', '$79,500 🎯', 'verde'],
-        ['Apalancamiento', '3x máximo', 'dorado'],
-        ['Ratio R/G', '1:2.9 ✅', 'verde']
-      ],
-      ganar: { prob: '71%', val: '+$28' },
-      perder: { prob: '29%', val: '-$12' }
-    },
-    'tenis': {
-      numero: 'FICHA #002',
-      titulo: 'Alcaraz vs Zverev — Roland Garros',
-      subtitulo: '1xBet · Mejor odd disponible · Pre-partido',
-      ia: 'Alcaraz domina en arcilla con 87% de victorias. Zverev tiene molestia en rodilla confirmada. La odd 1.65 tiene valor real — el mercado subestima a Alcaraz en esta superficie. Pick sólido.',
-      tecnico: [
-        ['H2H Alcaraz', '8 victorias', 'verde'],
-        ['H2H Zverev', '4 victorias', ''],
-        ['Superficie', 'Arcilla 🟤', 'dorado'],
-        ['Alcaraz arcilla', '87% victorias', 'verde'],
-        ['Condición Zverev', 'Molestia rodilla ⚠️', 'rojo']
-      ],
-      como: [
-        ['Pick', 'Alcaraz gana', 'verde'],
-        ['Casa', '1xBet ✅', 'verde'],
-        ['Odd', '1.65', 'dorado'],
-        ['Odd mínima', '1.55 (si baja, no entres)', 'rojo'],
-        ['Tipo', 'Resultado directo', ''],
-        ['Apuesta sugerida', '$40-60', 'dorado']
-      ],
-      ganar: { prob: '74%', val: '+$42' },
-      perder: { prob: '26%', val: '-$50' }
-    },
-    'funding': {
-      numero: 'FICHA #003',
-      titulo: 'XRP — Funding Rate Positivo',
-      subtitulo: 'KuCoin · Posición Corta · Ingreso Pasivo',
-      ia: 'El funding rate positivo significa que los traders largos te pagan por mantener una posición corta. Sin necesidad de que XRP suba o baje — ganas cada 8 horas solo por estar en la posición.',
-      tecnico: [
-        ['Funding Rate', '+0.025% cada 8h', 'verde'],
-        ['Frecuencia', '3 veces al día', 'verde'],
-        ['Ganancia diaria', '+0.075%', 'verde'],
-        ['Ganancia mensual', '~2.25%', 'verde'],
-        ['Riesgo precio', 'Bajo si usas 1x', 'dorado']
-      ],
-      como: [
-        ['Dirección', 'CORTO (para cobrar funding)', 'verde'],
-        ['Apalancamiento', '1x — sin riesgo', 'verde'],
-        ['Capital sugerido', '$100-200', 'dorado'],
-        ['Ganancia/día', '$1.50-3.00', 'verde'],
-        ['Cuándo salir', 'Si funding baja a 0%', 'rojo'],
-        ['Plataforma', 'KuCoin Futuros', '']
-      ],
-      ganar: { prob: '90%', val: '+$1.8/día' },
-      perder: { prob: '10%', val: 'Si XRP se mueve mucho' }
-    },
-    'earn': {
-      numero: 'FICHA #004',
-      titulo: 'USDT Flexible — KuCoin Earn',
-      subtitulo: 'KuCoin · Earn · Ingreso Pasivo Diario',
-      ia: 'Tu capital parado no trabaja. Con $150 en USDT Earn al 10.5% anual, generas $1.50 diarios sin hacer absolutamente nada. Retiras cuando quieras. Riesgo prácticamente cero.',
-      tecnico: [
-        ['Tasa actual', '10.5% anual', 'verde'],
-        ['Ganancia diaria', '$1.50 (con $150)', 'verde'],
-        ['Ganancia mensual', '$45', 'verde'],
-        ['Liquidez', 'Retiro inmediato', 'verde'],
-        ['Riesgo', 'Mínimo ✅', 'verde']
-      ],
-      como: [
-        ['Ir a', 'KuCoin → Earn → Flexible', 'verde'],
-        ['Buscar', 'USDT Flexible', ''],
-        ['Capital', '$150-200', 'dorado'],
-        ['Plazo', 'Sin plazo — retiras cuando quieras', 'verde'],
-        ['Acción', 'Suscribir ahora', 'verde'],
-        ['Resultado', '+$1.50/día automático', 'verde']
-      ],
-      ganar: { prob: '99%', val: '+$1.5/día' },
-      perder: { prob: '1%', val: 'Riesgo plataforma' }
-    }
-  };
-
-  function abrirFicha(tipo) {
-    const f = fichas[tipo];
-    if (!f) return;
-
-    document.getElementById('ficha-numero').textContent = f.numero;
-    document.getElementById('ficha-titulo').textContent = f.titulo;
-    document.getElementById('ficha-subtitulo').textContent = f.subtitulo;
-    document.getElementById('ficha-ia-texto').textContent = f.ia;
-
-    const tecnicoEl = document.getElementById('ficha-tecnico');
-    tecnicoEl.innerHTML = f.tecnico.map(([k, v, c]) =>
-      `<div class="ficha-row">
-        <span class="ficha-key">${k}</span>
-        <span class="ficha-val ${c}">${v}</span>
-      </div>`
-    ).join('');
-
-    const comoEl = document.getElementById('ficha-como');
-    comoEl.innerHTML = f.como.map(([k, v, c]) =>
-      `<div class="ficha-row">
-        <span class="ficha-key">${k}</span>
-        <span class="ficha-val ${c}">${v}</span>
-      </div>`
-    ).join('');
-
-    document.querySelector('.prob-box.ganar .prob-valor').textContent = f.ganar.prob;
-    document.querySelector('.prob-box.ganar div:last-child').textContent = f.ganar.val;
-    document.querySelector('.prob-box.perder .prob-valor').textContent = f.perder.prob;
-    document.querySelector('.prob-box.perder div:last-child').textContent = f.perder.val;
-
-    document.getElementById('modal').classList.add('show');
-  }
-
-  function cerrarModal() {
-    document.getElementById('modal').classList.remove('show');
-  }
-
-  function ejecutarOperacion() {
-    cerrarModal();
-    alert(langActual === 'es'
-      ? '✅ Operación registrada en JCAHS\n\nRecuerda:\n1. Pon el STOP LOSS primero\n2. Luego el Take Profit\n3. Registra el resultado cuando cierre\n\n¡Buena suerte!'
-      : '✅ Trade registered in JCAHS\n\nRemember:\n1. Set STOP LOSS first\n2. Then Take Profit\n3. Record result when closed\n\nGood luck!'
-    );
-  }
-
-  document.getElementById('modal').addEventListener('click', function(e) {
-    if (e.target === this) cerrarModal();
+// Funciones globales simples
+function depTab(id, btn) {
+  ['futbol','tenis','mma','mundial'].forEach(d => {
+    const el = document.getElementById('dep-' + d);
+    if (el) el.style.display = 'none';
   });
+  document.querySelectorAll('.dep-tab').forEach(b => b.classList.remove('active'));
+  const el = document.getElementById('dep-' + id);
+  if (el) el.style.display = 'block';
+  if (btn) btn.classList.add('active');
+}
 </script>
 </body>
 </html>
