@@ -729,7 +729,7 @@ setInterval(fetchP,60000);
 
 async function fetchNews(){
   try{
-    const rss='https://cointelegraph.com/rss';
+    const rss='https://feeds.feedburner.com/CoinTelegraph';
     const url=`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rss)}&count=3`;
     const r=await fetch(url);
     const d=await r.json();
