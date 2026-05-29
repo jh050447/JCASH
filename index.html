@@ -775,9 +775,9 @@ async function fetchPartidos(){
   try{
     const key='b153b71ca08f4ae8bfe48f8f85f79014';
     const hoy=new Date().toISOString().split('T')[0];
-    const r=await fetch(`https://api.football-data.org/v4/matches?dateFrom=${hoy}&dateTo=${hoy}&competitions=CL,PL,PD,BL1,SA,FL1,PPL,EC`,{
-      headers:{'X-Auth-Token':key}
-    });
+    const apiUrl=`https://api.football-data.org/v4/matches?dateFrom=${hoy}&dateTo=${hoy}&competitions=CL,PL,PD,BL1,SA,FL1,PPL,EC`;
+    const proxy=`https://jcahs-proxy.jh050447.workers.dev/?url=${encodeURIComponent(apiUrl)}&auth=${key}`;
+    const r=await fetch(proxy);
     const d=await r.json();
     const matches=d.matches||[];
     const cont=document.getElementById('partidos-live');
@@ -786,24 +786,27 @@ async function fetchPartidos(){
       cont.innerHTML='<div style="text-align:center;padding:20px;color:rgba(255,255,255,0.3);font-size:12px">No hay partidos programados hoy</div>';
       return;
     }
-    cont.innerHTML=matches.slice(0,6).map(m=>{
+    cont.innerHTML=matches.slice(0,8).map(m=>{
       const hora=new Date(m.utcDate).toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'});
-      const estado=m.status==='IN_PLAY'?'<span style="color:#00FF88">● EN VIVO</span>':
+      const estado=m.status==='IN_PLAY'?'<span style="color:#00FF88;font-weight:700">● EN VIVO</span>':
                    m.status==='FINISHED'?'<span style="color:rgba(255,255,255,0.4)">FINALIZADO</span>':
                    `<span style="color:#00D4FF">${hora}</span>`;
-      const score=m.score?.fullTime?.home!==null?
-        `${m.score.fullTime.home} - ${m.score.fullTime.away}`:'vs';
+      const scoreH=m.score?.fullTime?.home;
+      const scoreA=m.score?.fullTime?.away;
+      const score=scoreH!==null&&scoreH!==undefined?`${scoreH} - ${scoreA}`:'vs';
       return `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px;margin-bottom:8px">
-          <div style="font-size:10px;color:rgba(255,255,255,0.4);min-width:120px">${m.competition?.name||''}</div>
-          <div style="flex:1;text-align:center">
-            <div style="font-size:13px;font-weight:500;color:rgba(255,255,255,0.9)">${m.homeTeam.name} <span style="color:#00D4FF">${score}</span> ${m.awayTeam.name}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.35);min-width:130px">${m.competition?.name||''}</div>
+          <div style="flex:1;text-align:center;font-size:13px;font-weight:500;color:rgba(255,255,255,0.9)">
+            ${m.homeTeam.shortName||m.homeTeam.name} 
+            <span style="color:#00D4FF;margin:0 8px">${score}</span> 
+            ${m.awayTeam.shortName||m.awayTeam.name}
           </div>
           <div style="min-width:80px;text-align:right;font-size:11px">${estado}</div>
         </div>`;
     }).join('');
     const ts=document.getElementById('ts-partidos');
-    if(ts)ts.textContent='Actualizado: '+new Date().toLocaleTimeString('es-EC')+' · Fuente: football-data.org';
+    if(ts)ts.textContent='Actualizado: '+new Date().toLocaleTimeString('es-EC')+' · Fuente: football-data.org · '+matches.length+' partidos hoy';
   }catch(e){console.log('Partidos error:',e);}
 }
 fetchPartidos();
