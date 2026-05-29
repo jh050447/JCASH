@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JCAHS v2.0 — Sistema de Inteligencia Financiera</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 :root{
@@ -330,7 +331,7 @@ main{padding:16px;}
   <div class="indice-top">
     <div>
       <div style="font-family:Orbitron,monospace;font-size:9px;color:var(--texto-dim);letter-spacing:3px;margin-bottom:6px">ÍNDICE JCAHS — HOY</div>
-      <div class="indice-num">8<span>.5/10</span></div>
+      <canvas id="gauge-jcahs" width="180" height="180"></canvas>
     </div>
     <div class="indice-badge">🟢 BUEN DÍA PARA OPERAR</div>
   </div>
@@ -360,6 +361,7 @@ main{padding:16px;}
       <div class="okr-item"><div class="okr-hdr"><span style="color:var(--texto)">Semana</span><span style="color:var(--texto-dim);font-family:Share Tech Mono,monospace" id="okr-s">$0/$200</span></div><div class="prog-bar"><div class="prog-fill" id="ps" style="width:0%"></div></div></div>
       <div class="okr-item"><div class="okr-hdr"><span style="color:var(--texto)">Mes</span><span style="color:var(--texto-dim);font-family:Share Tech Mono,monospace" id="okr-m">$0/$700</span></div><div class="prog-bar"><div class="prog-fill" id="pm" style="width:0%"></div></div></div>
     </div>
+    <canvas id="chart-pnl" height="80"></canvas>
   </div>
   <div class="card">
     <div class="card-title">💼 BANKROLL</div>
@@ -1052,6 +1054,57 @@ function abrirF(id){
 function cerrarM(){document.getElementById('modal').classList.remove('show');}
 function ejecutarOp(){cerrarM();alert('✅ Operación aceptada\n\n1. Stop-Loss PRIMERO\n2. Take Profit SEGUNDO\n3. Registra en HISTORIAL\n\n¡Disciplina siempre!');}
 document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)cerrarM();});
+
+// GAUGE JCAHS
+const gCtx=document.getElementById('gauge-jcahs')?.getContext('2d');
+if(gCtx){
+  new Chart(gCtx,{
+    type:'doughnut',
+    data:{
+      datasets:[{
+        data:[8.5,1.5],
+        backgroundColor:['#00D4FF','rgba(255,255,255,0.05)'],
+        borderWidth:0,
+        circumference:180,
+        rotation:270
+      }]
+    },
+    options:{
+      cutout:'75%',
+      plugins:{legend:{display:false},tooltip:{enabled:false}},
+      animation:{duration:2000}
+    }
+  });
+}
+
+// CHART P&L
+const pCtx=document.getElementById('chart-pnl')?.getContext('2d');
+if(pCtx){
+  const ops=S.ops.length?S.ops.slice(0,7).reverse():[];
+  new Chart(pCtx,{
+    type:'line',
+    data:{
+      labels:ops.map(o=>o.fecha||''),
+      datasets:[{
+        data:ops.map(o=>o.resultado||0),
+        borderColor:'#00FF88',
+        backgroundColor:'rgba(0,255,136,0.05)',
+        borderWidth:1.5,
+        pointRadius:2,
+        fill:true,
+        tension:0.4
+      }]
+    },
+    options:{
+      plugins:{legend:{display:false},tooltip:{enabled:false}},
+      scales:{
+        x:{display:false},
+        y:{display:false}
+      },
+      animation:{duration:1000}
+    }
+  });
+}
 </script>
 </body>
 </html>
