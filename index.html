@@ -729,9 +729,8 @@ setInterval(fetchP,60000);
 
 async function fetchNews(){
   try{
-    const rss='https://feeds.feedburner.com/CoinTelegraph';
-    const url=`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rss)}&count=3`;
-    const r=await fetch(url);
+    const url='https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Ffeeds.megaphone.fm%2Fcoindesk&count=3&api_key=';
+    const r=await fetch('https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fbitcoinmagazine.com%2Ffeed&count=3');
     const d=await r.json();
     const cont=document.getElementById('noticias-crypto');
     if(cont&&d.items?.length){
@@ -739,7 +738,7 @@ async function fetchNews(){
         <div class="alerta g" style="margin-bottom:8px;cursor:pointer" onclick="window.open('${n.link}','_blank')">
           <div class="al-icon">📰</div>
           <div class="al-content">
-            <div class="al-title">CRYPTO NEWS — CoinTelegraph</div>
+            <div class="al-title">📡 CRYPTO NEWS — Bitcoin Magazine</div>
             <div class="al-text">${n.title}</div>
           </div>
         </div>`).join('');
