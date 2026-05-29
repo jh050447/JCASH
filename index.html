@@ -350,6 +350,7 @@ main{padding:16px;}
   <div class="crypto-card" onclick="goMod('crypto',document.querySelectorAll('.nav-btn')[1])"><div class="crypto-sym">XRP</div><div class="crypto-price" id="p-xrp">...</div><div class="crypto-change" id="c-xrp">--</div></div>
   <div class="crypto-card" onclick="goMod('crypto',document.querySelectorAll('.nav-btn')[1])"><div class="crypto-sym">DOGE 🐶</div><div class="crypto-price" id="p-doge">...</div><div class="crypto-change" id="c-doge">--</div></div>
 </div>
+<div id="ts-precios" style="font-size:10px;color:rgba(255,255,255,0.3);font-family:JetBrains Mono,monospace;text-align:right;margin-bottom:10px"></div>
 <div class="g3 mb">
   <div class="card">
     <div class="card-title">💰 P&L HOY</div>
@@ -392,6 +393,7 @@ main{padding:16px;}
     <div class="card-title">🔔 ALERTAS ACTIVAS</div>
     <div class="alerta g"><div class="al-icon">⚡</div><div class="al-content"><div class="al-title">OPORTUNIDAD CRYPTO</div><div class="al-text">BTC acumulando volumen. Posible ruptura $78,200 en 2-4h.</div><div class="al-btns"><button class="al-btn si" onclick="abrirF('btc')">VER FICHA</button><button class="al-btn no">IGNORAR</button></div></div></div>
     <div class="alerta r"><div class="al-icon">⚠️</div><div class="al-content"><div class="al-title">DATO MACRO HOY</div><div class="al-text">Fed habla a las 15:00. BTC puede moverse ±3%.</div><div class="al-btns"><button class="al-btn si">ENTENDIDO</button></div></div></div>
+    <div id="ts-news" style="font-size:10px;color:rgba(255,255,255,0.3);font-family:JetBrains Mono,monospace;margin-top:8px"></div>
   </div>
   <div class="card">
     <div class="card-title">🌡️ TERMÓMETRO DEL MERCADO</div>
@@ -400,6 +402,7 @@ main{padding:16px;}
     <div class="termo-item"><div class="termo-label">VOLUMEN BTC</div><div class="termo-track"><div class="termo-fill tf-g" style="width:85%"></div></div><div class="termo-val" style="color:var(--verde)">+85%</div></div>
     <div class="termo-item"><div class="termo-label">BALLENAS</div><div class="termo-track"><div class="termo-fill tf-g" style="width:60%"></div></div><div class="termo-val" style="color:var(--verde)">BUY</div></div>
     <div class="termo-item"><div class="termo-label">LIQUIDACIONES</div><div class="termo-track"><div class="termo-fill tf-r" style="width:30%"></div></div><div class="termo-val" style="color:var(--rojo)">$12M</div></div>
+    <div id="ts-feargreed" style="font-size:10px;color:rgba(255,255,255,0.3);font-family:JetBrains Mono,monospace;margin-top:8px"></div>
     <div style="margin-top:10px;padding:8px;background:rgba(255,215,0,0.05);border:1px solid rgba(255,215,0,0.15);border-radius:7px;font-size:11px;color:var(--dorado);font-family:Share Tech Mono,monospace">ESTADO: EUFORIA MODERADA — Opera con cautela</div>
   </div>
 </div>
@@ -749,6 +752,8 @@ async function fetchP(){
       ['p-','cp-'].forEach(p=>{const el=document.getElementById(p+v);if(el)el.textContent=fmt;});
       ['c-','cc-'].forEach(p=>{const el=document.getElementById(p+v);if(el){el.textContent=cfmt;el.className='crypto-change '+cls;}});
     });
+    const tsPrecios=document.getElementById('ts-precios');
+    if(tsPrecios)tsPrecios.textContent='Actualizado: '+new Date().toLocaleTimeString('es-EC')+' · Fuente: CoinGecko API';
   }catch(e){console.log('Error precios:',e);}
 }
 fetchP();
@@ -770,6 +775,8 @@ async function fetchNews(){
           </div>
         </div>`).join('');
     }
+    const tsNews=document.getElementById('ts-news');
+    if(tsNews)tsNews.textContent='Actualizado: '+new Date().toLocaleTimeString('es-EC')+' · Fuente: RSS CoinTelegraph';
   }catch(e){console.log('News error:',e);}
 }
 setInterval(fetchNews,300000);
@@ -787,6 +794,8 @@ async function fetchFearGreed(){
     if(elLabel)elLabel.style.width=val+'%';
     const estado=document.querySelector('[style*="EUFORIA"]');
     if(estado)estado.textContent='ESTADO: '+label.toUpperCase()+' — Fear & Greed: '+val+'/100';
+    const tsFG=document.getElementById('ts-feargreed');
+    if(tsFG)tsFG.textContent='Actualizado: '+new Date().toLocaleTimeString('es-EC')+' · Fuente: Alternative.me';
   }catch(e){console.log('FG error:',e);}
 }
 fetchFearGreed();
