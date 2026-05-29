@@ -336,11 +336,9 @@ main{padding:16px;}
     <div class="indice-badge">🟢 BUEN DÍA PARA OPERAR</div>
   </div>
   <div class="barras">
-    <div class="barra-item"><div class="barra-label">CRYPTO</div><div class="barra-track"><div class="barra-fill" style="width:85%"></div></div><div class="barra-val">8.5</div></div>
-    <div class="barra-item"><div class="barra-label">DEPORTES</div><div class="barra-track"><div class="barra-fill" style="width:90%"></div></div><div class="barra-val">9.0</div></div>
-    <div class="barra-item"><div class="barra-label">GLOBAL</div><div class="barra-track"><div class="barra-fill" style="width:70%"></div></div><div class="barra-val">7.0</div></div>
-    <div class="barra-item"><div class="barra-label">TU ESTADO</div><div class="barra-track"><div class="barra-fill" style="width:85%"></div></div><div class="barra-val">8.5</div></div>
-    <div class="barra-item"><div class="barra-label">HISTÓRICO</div><div class="barra-track"><div class="barra-fill" style="width:80%"></div></div><div class="barra-val">8.0</div></div>
+<div style="font-size:12px;color:rgba(255,255,255,0.4);text-align:center;padding:10px">
+Índice calculado con datos reales próximamente
+</div>
   </div>
 </div>
 <div class="sec-title mb">PRECIOS EN TIEMPO REAL</div>
@@ -375,44 +373,21 @@ main{padding:16px;}
   </div>
   <div class="card">
     <div class="card-title">🔥 RACHA ACTUAL</div>
-    <div class="racha-dots" id="racha-dots"><div class="rdot p">?</div><div class="rdot p">?</div><div class="rdot p">?</div><div class="rdot p">?</div><div class="rdot p">?</div></div>
-    <div style="font-family:Share Tech Mono,monospace;font-size:11px;color:var(--verde);margin-bottom:10px" id="racha-e">Sin operaciones — ¡Comienza hoy!</div>
-    <div style="font-size:11px;color:var(--texto-dim)">Registra en 📋 HISTORIAL para ver tu racha</div>
+    <div id="racha-dots"></div>
+    <div id="racha-e" style="font-size:12px;color:rgba(255,255,255,0.5)">Sin operaciones registradas</div>
   </div>
 </div>
-<div class="sec-title">⚡ OPORTUNIDADES AHORA — ACTUAR</div>
 <div class="g2 mb">
-  <div class="op-card" onclick="abrirF('btc')"><div class="op-tipo">₿ CRYPTO · SCALPING · KUCOIN</div><div class="op-nombre">BTC/USDT — Scalping Largo</div><div class="op-meta"><div class="op-ganancia">+$28</div><div><div class="op-conf-label">CONFIANZA</div><div class="op-conf-val">81%</div></div></div><button class="op-btn">▸ VER FICHA DE DECISIÓN</button></div>
-  <div class="op-card" onclick="abrirF('tenis')"><div class="op-tipo">🎾 TENIS · ROLAND GARROS · 1XBET</div><div class="op-nombre">Alcaraz vs Zverev — Value Bet</div><div class="op-meta"><div class="op-ganancia">+$42</div><div><div class="op-conf-label">CONFIANZA</div><div class="op-conf-val">74%</div></div></div><button class="op-btn">▸ VER FICHA DE DECISIÓN</button></div>
-  <div class="op-card" onclick="abrirF('funding')"><div class="op-tipo">💤 PASIVO · FUNDING RATE · XRP</div><div class="op-nombre">XRP Funding Rate — Ingreso diario sin dirección</div><div class="op-meta"><div class="op-ganancia">+$1.8/día</div><div><div class="op-conf-label">RIESGO</div><div class="op-conf-val" style="color:var(--verde)">BAJO</div></div></div><button class="op-btn">▸ VER FICHA DE DECISIÓN</button></div>
-  <div class="op-card" onclick="abrirF('earn')"><div class="op-tipo">💤 PASIVO · EARN · KUCOIN 10.5%</div><div class="op-nombre">USDT Flexible — Capital trabajando solo</div><div class="op-meta"><div class="op-ganancia">+$1.5/día</div><div><div class="op-conf-label">RIESGO</div><div class="op-conf-val" style="color:var(--verde)">MÍNIMO</div></div></div><button class="op-btn">▸ VER FICHA DE DECISIÓN</button></div>
-</div>
-<div class="g2 mb">
-  <div class="card">
-    <div id="noticias-crypto"></div>
-    <div class="card-title">🔔 ALERTAS ACTIVAS</div>
-    <div class="alerta g"><div class="al-icon">⚡</div><div class="al-content"><div class="al-title">OPORTUNIDAD CRYPTO</div><div class="al-text">BTC acumulando volumen. Posible ruptura $78,200 en 2-4h.</div><div class="al-btns"><button class="al-btn si" onclick="abrirF('btc')">VER FICHA</button><button class="al-btn no">IGNORAR</button></div></div></div>
-    <div class="alerta r"><div class="al-icon">⚠️</div><div class="al-content"><div class="al-title">DATO MACRO HOY</div><div class="al-text">Fed habla a las 15:00. BTC puede moverse ±3%.</div><div class="al-btns"><button class="al-btn si">ENTENDIDO</button></div></div></div>
-    <div id="ts-news" style="font-size:10px;color:rgba(255,255,255,0.3);font-family:JetBrains Mono,monospace;margin-top:8px"></div>
-  </div>
-  <div class="card">
-    <div class="card-title">🌡️ TERMÓMETRO DEL MERCADO</div>
-    <div class="termo-item"><div class="termo-label">FEAR/GREED</div><div class="termo-track"><div class="termo-fill tf-d" style="width:72%"></div></div><div class="termo-val" style="color:var(--dorado)">72</div></div>
-    <div class="termo-item"><div class="termo-label">SENTIMIENTO</div><div class="termo-track"><div class="termo-fill tf-g" style="width:68%"></div></div><div class="termo-val" style="color:var(--verde)">68%</div></div>
-    <div class="termo-item"><div class="termo-label">VOLUMEN BTC</div><div class="termo-track"><div class="termo-fill tf-g" style="width:85%"></div></div><div class="termo-val" style="color:var(--verde)">+85%</div></div>
-    <div class="termo-item"><div class="termo-label">BALLENAS</div><div class="termo-track"><div class="termo-fill tf-g" style="width:60%"></div></div><div class="termo-val" style="color:var(--verde)">BUY</div></div>
-    <div class="termo-item"><div class="termo-label">LIQUIDACIONES</div><div class="termo-track"><div class="termo-fill tf-r" style="width:30%"></div></div><div class="termo-val" style="color:var(--rojo)">$12M</div></div>
-    <div id="ts-feargreed" style="font-size:10px;color:rgba(255,255,255,0.3);font-family:JetBrains Mono,monospace;margin-top:8px"></div>
-    <div style="margin-top:10px;padding:8px;background:rgba(255,215,0,0.05);border:1px solid rgba(255,215,0,0.15);border-radius:7px;font-size:11px;color:var(--dorado);font-family:Share Tech Mono,monospace">ESTADO: EUFORIA MODERADA — Opera con cautela</div>
-  </div>
+<div class="card">
+<div class="card-title">🔔 ALERTAS Y NOTICIAS</div>
+<div id="noticias-crypto"><div style="text-align:center;padding:20px;color:rgba(255,255,255,0.3);font-size:12px">Cargando noticias...</div></div>
+<div id="ts-news" style="font-size:10px;color:rgba(255,255,255,0.3);font-family:JetBrains Mono,monospace;margin-top:8px"></div>
 </div>
 <div class="card">
-  <div class="card-title">📅 EVENTOS DE HOY</div>
-  <div class="evento"><div class="ev-hora">08:00</div><div class="ev-icon">📊</div><div class="ev-info"><div class="ev-nombre">Apertura mercados Asia</div><div class="ev-sub">BTC históricamente volátil en apertura</div></div><div class="badge d">MONITOREAR</div></div>
-  <div class="evento"><div class="ev-hora">14:00</div><div class="ev-icon">🎾</div><div class="ev-info"><div class="ev-nombre">Roland Garros — Alcaraz vs Zverev</div><div class="ev-sub">JCAHS-TENIS: Pick listo — Confianza 74%</div></div><div class="badge g">PICK LISTO</div></div>
-  <div class="evento"><div class="ev-hora">15:00</div><div class="ev-icon">⚠️</div><div class="ev-info"><div class="ev-nombre">Reserva Federal — Discurso</div><div class="ev-sub">Impacto BTC ALTO — Cierra posiciones antes</div></div><div class="badge r">PELIGRO</div></div>
-  <div class="evento"><div class="ev-hora">22:00</div><div class="ev-icon">🥊</div><div class="ev-info"><div class="ev-nombre">UFC Fight Night — Main Event</div><div class="ev-sub">JCAHS-MMA: Analizando...</div></div><div class="badge d">ANÁLISIS</div></div>
-  <div class="evento"><div class="ev-hora">TODO</div><div class="ev-icon">🏆</div><div class="ev-info"><div class="ev-nombre">Mundial 2026 — Ecuador 🇪🇨</div><div class="ev-sub">Caicedo · Pacho · Hincapié — Ver módulo Deportes</div></div><div class="badge g">ACTIVO</div></div>
+<div class="card-title">📊 FEAR & GREED INDEX</div>
+<div id="fear-greed-display"><div style="text-align:center;padding:20px;color:rgba(255,255,255,0.3);font-size:12px">Cargando...</div></div>
+<div id="ts-feargreed" style="font-size:10px;color:rgba(255,255,255,0.3);font-family:JetBrains Mono,monospace;margin-top:8px"></div>
+</div>
 </div>
 </div>
 
@@ -758,12 +733,16 @@ async function fetchFearGreed(){
     const d=await r.json();
     const val=d.data?.[0]?.value||'--';
     const label=d.data?.[0]?.value_classification||'';
-    const el=document.querySelector('.termo-val');
-    const elLabel=document.querySelector('.termo-item:first-child .termo-fill');
-    if(el)el.textContent=val;
-    if(elLabel)elLabel.style.width=val+'%';
-    const estado=document.querySelector('[style*="EUFORIA"]');
-    if(estado)estado.textContent='ESTADO: '+label.toUpperCase()+' — Fear & Greed: '+val+'/100';
+    const fg=document.getElementById('fear-greed-display');
+    if(fg){
+      const v=parseInt(val,10)||0;
+      const color=v>=75?'#00FF88':v>=50?'#00D4FF':v>=25?'#7EB8CC':'#FF3B5C';
+      fg.innerHTML=`<div style="text-align:center;padding:16px">
+        <div style="font-size:48px;font-weight:700;color:${color};font-family:JetBrains Mono,monospace">${val}</div>
+        <div style="font-size:14px;color:rgba(255,255,255,0.7);margin-top:8px;text-transform:uppercase">${label}</div>
+        <div style="margin-top:14px;height:4px;background:rgba(255,255,255,0.06);border-radius:2px"><div style="height:100%;width:${v}%;background:${color};border-radius:2px"></div></div>
+      </div>`;
+    }
     const tsFG=document.getElementById('ts-feargreed');
     if(tsFG)tsFG.textContent='Actualizado: '+new Date().toLocaleTimeString('es-EC')+' · Fuente: Alternative.me';
   }catch(e){console.log('FG error:',e);}
