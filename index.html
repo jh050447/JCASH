@@ -456,37 +456,8 @@ main{padding:16px;}
   <button class="dep-tab" onclick="depT('mundial',this)">🏆 MUNDIAL 2026</button>
 </div>
 <div id="dep-futbol">
-  <div class="partido-card">
-    <div class="partido-header"><div><div class="partido-equipos">Barcelona SC vs Emelec</div><div class="partido-liga">⚽ LigaPro Ecuador · Jornada 18</div></div><div class="partido-hora">10:00</div></div>
-    <div class="odds-grid"><div class="odd-item sel"><div class="odd-label">Barcelona SC</div><div class="odd-val">2.10</div></div><div class="odd-item"><div class="odd-label">Empate</div><div class="odd-val">3.20</div></div><div class="odd-item"><div class="odd-label">Emelec</div><div class="odd-val">3.80</div></div></div>
-    <div class="mercados-extra">
-      <div class="mercado-item"><div class="mercado-nombre">Más de 2.5 goles</div><div class="mercado-val">1.85</div></div>
-      <div class="mercado-item"><div class="mercado-nombre">Ambos marcan SÍ</div><div class="mercado-val">1.90</div></div>
-      <div class="mercado-item"><div class="mercado-nombre">Córners +8.5</div><div class="mercado-val">1.95</div></div>
-      <div class="mercado-item"><div class="mercado-nombre">Gol 1er tiempo</div><div class="mercado-val">1.65</div></div>
-      <div class="mercado-item"><div class="mercado-nombre">Barcelona -1.5</div><div class="mercado-val">3.10</div></div>
-      <div class="mercado-item"><div class="mercado-nombre">Tarjetas +3.5</div><div class="mercado-val">1.75</div></div>
-    </div>
-    <div class="pick-destacado"><div class="pick-titulo">🎯 JCAHS-FUTBOL RECOMIENDA</div><div class="pick-desc">Barcelona SC gana · Odd 2.10 Ecuabet · Confianza 68%</div></div>
-    <div class="sec-title" style="font-size:9px;margin-top:10px">COMPARADOR DE ODDS ECUADOR</div>
-    <div class="comp-row"><div class="comp-casa">Ecuabet</div><div class="comp-odds"><span class="comp-odd best">2.10</span><span class="comp-odd normal">3.20</span><span class="comp-odd normal">3.80</span></div></div>
-    <div class="comp-row"><div class="comp-casa">Bet365</div><div class="comp-odds"><span class="comp-odd normal">2.05</span><span class="comp-odd best">3.30</span><span class="comp-odd normal">3.75</span></div></div>
-    <div class="comp-row"><div class="comp-casa">1xBet</div><div class="comp-odds"><span class="comp-odd normal">2.08</span><span class="comp-odd normal">3.25</span><span class="comp-odd best">3.90</span></div></div>
-    <div class="comp-row"><div class="comp-casa">Betano</div><div class="comp-odds"><span class="comp-odd normal">2.00</span><span class="comp-odd normal">3.15</span><span class="comp-odd normal">3.70</span></div></div>
-  </div>
-  <div class="partido-card">
-    <div class="partido-header"><div><div class="partido-equipos">Real Madrid vs Bayern Munich</div><div class="partido-liga">⚽ Champions League · Semifinal</div></div><div class="partido-hora">20:00</div></div>
-    <div class="odds-grid"><div class="odd-item"><div class="odd-label">Real Madrid</div><div class="odd-val">1.85</div></div><div class="odd-item"><div class="odd-label">Empate</div><div class="odd-val">3.75</div></div><div class="odd-item"><div class="odd-label">Bayern</div><div class="odd-val">4.20</div></div></div>
-    <div class="mercados-extra">
-      <div class="mercado-item"><div class="mercado-nombre">Ambos marcan SÍ ⭐</div><div class="mercado-val">1.55</div></div>
-      <div class="mercado-item"><div class="mercado-nombre">Más de 2.5 goles</div><div class="mercado-val">1.75</div></div>
-      <div class="mercado-item"><div class="mercado-nombre">Córners +10.5</div><div class="mercado-val">1.90</div></div>
-      <div class="mercado-item"><div class="mercado-nombre">Penalti en partido</div><div class="mercado-val">2.80</div></div>
-      <div class="mercado-item"><div class="mercado-nombre">Gol 1er tiempo</div><div class="mercado-val">1.70</div></div>
-      <div class="mercado-item"><div class="mercado-nombre">Madrid gana 2do t.</div><div class="mercado-val">2.10</div></div>
-    </div>
-    <div class="pick-destacado"><div class="pick-titulo">🎯 JCAHS-FUTBOL RECOMIENDA</div><div class="pick-desc">Ambos marcan SÍ · Odd 1.55 en 1xBet · Confianza 82% ⭐</div></div>
-  </div>
+  <div id="partidos-live"></div>
+  <div id="ts-partidos" style="font-size:10px;color:rgba(255,255,255,0.3);font-family:JetBrains Mono,monospace;text-align:right;margin-top:8px"></div>
 </div>
 <div id="dep-tenis" style="display:none">
   <div class="partido-card">
@@ -799,6 +770,44 @@ async function fetchFearGreed(){
 }
 fetchFearGreed();
 setInterval(fetchFearGreed,300000);
+
+async function fetchPartidos(){
+  try{
+    const key='b153b71ca08f4ae8bfe48f8f85f79014';
+    const hoy=new Date().toISOString().split('T')[0];
+    const r=await fetch(`https://api.football-data.org/v4/matches?dateFrom=${hoy}&dateTo=${hoy}&competitions=CL,PL,PD,BL1,SA,FL1,PPL,EC`,{
+      headers:{'X-Auth-Token':key}
+    });
+    const d=await r.json();
+    const matches=d.matches||[];
+    const cont=document.getElementById('partidos-live');
+    if(!cont)return;
+    if(!matches.length){
+      cont.innerHTML='<div style="text-align:center;padding:20px;color:rgba(255,255,255,0.3);font-size:12px">No hay partidos programados hoy</div>';
+      return;
+    }
+    cont.innerHTML=matches.slice(0,6).map(m=>{
+      const hora=new Date(m.utcDate).toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'});
+      const estado=m.status==='IN_PLAY'?'<span style="color:#00FF88">● EN VIVO</span>':
+                   m.status==='FINISHED'?'<span style="color:rgba(255,255,255,0.4)">FINALIZADO</span>':
+                   `<span style="color:#00D4FF">${hora}</span>`;
+      const score=m.score?.fullTime?.home!==null?
+        `${m.score.fullTime.home} - ${m.score.fullTime.away}`:'vs';
+      return `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px;margin-bottom:8px">
+          <div style="font-size:10px;color:rgba(255,255,255,0.4);min-width:120px">${m.competition?.name||''}</div>
+          <div style="flex:1;text-align:center">
+            <div style="font-size:13px;font-weight:500;color:rgba(255,255,255,0.9)">${m.homeTeam.name} <span style="color:#00D4FF">${score}</span> ${m.awayTeam.name}</div>
+          </div>
+          <div style="min-width:80px;text-align:right;font-size:11px">${estado}</div>
+        </div>`;
+    }).join('');
+    const ts=document.getElementById('ts-partidos');
+    if(ts)ts.textContent='Actualizado: '+new Date().toLocaleTimeString('es-EC')+' · Fuente: football-data.org';
+  }catch(e){console.log('Partidos error:',e);}
+}
+fetchPartidos();
+setInterval(fetchPartidos,60000);
 
 // ======== CRYPTO DETALLE ========
 function selC(id,btn){
