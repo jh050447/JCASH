@@ -729,17 +729,18 @@ setInterval(fetchP,60000);
 
 async function fetchNews(){
   try{
-    const r=await fetch('https://api.coingecko.com/api/v3/news?per_page=3');
+    const rss='https://cointelegraph.com/rss';
+    const url=`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rss)}&count=3`;
+    const r=await fetch(url);
     const d=await r.json();
-    const noticias=d.data?.slice(0,3)||[];
     const cont=document.getElementById('noticias-crypto');
-    if(cont&&noticias.length){
-      cont.innerHTML=noticias.map(n=>`
-        <div class="alerta g" style="margin-bottom:8px">
+    if(cont&&d.items?.length){
+      cont.innerHTML=d.items.map(n=>`
+        <div class="alerta g" style="margin-bottom:8px;cursor:pointer" onclick="window.open('${n.link}','_blank')">
           <div class="al-icon">📰</div>
           <div class="al-content">
-            <div class="al-title">CRYPTO NEWS</div>
-            <div class="al-text">${n.title||n.description}</div>
+            <div class="al-title">CRYPTO NEWS — CoinTelegraph</div>
+            <div class="al-text">${n.title}</div>
           </div>
         </div>`).join('');
     }
