@@ -775,6 +775,23 @@ async function fetchNews(){
 setInterval(fetchNews,300000);
 fetchNews();
 
+async function fetchFearGreed(){
+  try{
+    const r=await fetch('https://api.alternative.me/fng/?limit=1');
+    const d=await r.json();
+    const val=d.data?.[0]?.value||'--';
+    const label=d.data?.[0]?.value_classification||'';
+    const el=document.querySelector('.termo-val');
+    const elLabel=document.querySelector('.termo-item:first-child .termo-fill');
+    if(el)el.textContent=val;
+    if(elLabel)elLabel.style.width=val+'%';
+    const estado=document.querySelector('[style*="EUFORIA"]');
+    if(estado)estado.textContent='ESTADO: '+label.toUpperCase()+' — Fear & Greed: '+val+'/100';
+  }catch(e){console.log('FG error:',e);}
+}
+fetchFearGreed();
+setInterval(fetchFearGreed,300000);
+
 // ======== CRYPTO DETALLE ========
 function selC(id,btn){
   document.querySelectorAll('#mod-crypto .crypto-card').forEach(c=>c.style.borderColor='');
