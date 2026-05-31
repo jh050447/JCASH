@@ -707,19 +707,19 @@ setInterval(fetchP,60000);
 
 async function fetchNews(){
   try{
-    const apiUrl='https://min-api.cryptocompare.com/data/v2/news/?lang=ES&categories=BTC,ETH,XRP&sortOrder=latest';
-    const proxy=`https://jcahs-proxy.jh050447.workers.dev/?url=${encodeURIComponent(apiUrl)}`;
+    const proxy=`https://jcahs-proxy.jh050447.workers.dev/?url=${encodeURIComponent('https://cryptocurrency.cv/api/v1/news?limit=4')}`;
     const r=await fetch(proxy);
     const d=await r.json();
     const cont=document.getElementById('noticias-crypto');
     const ts=document.getElementById('ts-news');
-    if(cont&&d.Data?.length){
-      cont.innerHTML=d.Data.slice(0,4).map(n=>`
-        <div onclick="window.open('${n.url}','_blank')" style="padding:12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px;margin-bottom:8px;cursor:pointer" onmouseover="this.style.borderColor='rgba(0,212,255,0.3)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.06)'">
-          <div style="font-size:10px;color:#00D4FF;margin-bottom:4px;font-family:JetBrains Mono,monospace">${n.source_info?.name||'CryptoCompare'} · ${new Date(n.published_on*1000).toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'})}</div>
+    const items=d.data||d.articles||d||[];
+    if(cont&&items.length){
+      cont.innerHTML=items.slice(0,4).map(n=>`
+        <div onclick="window.open('${n.url||n.link}','_blank')" style="padding:12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px;margin-bottom:8px;cursor:pointer" onmouseover="this.style.borderColor='rgba(0,212,255,0.3)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.06)'">
+          <div style="font-size:10px;color:#00D4FF;margin-bottom:4px;font-family:JetBrains Mono,monospace">${n.source||'Crypto News'} · ${n.published_at||n.date||''}</div>
           <div style="font-size:13px;color:rgba(255,255,255,0.85);line-height:1.4">${n.title}</div>
         </div>`).join('');
-      if(ts)ts.textContent='Actualizado: '+new Date().toLocaleTimeString('es-EC')+' · Fuente: CryptoCompare';
+      if(ts)ts.textContent='Actualizado: '+new Date().toLocaleTimeString('es-EC')+' · Fuente: cryptocurrency.cv';
     }
   }catch(e){console.log('News error:',e);}
 }
