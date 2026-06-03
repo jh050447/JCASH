@@ -414,12 +414,28 @@ main{padding:16px;}
 </div>
 <div class="g2 mb">
 <div class="card">
-<div class="card-title">🔔 ALERTAS Y NOTICIAS</div>
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-  <span style="font-size:10px;color:rgba(255,255,255,0.3);font-family:JetBrains Mono,monospace" id="ts-news"></span>
-  <button onclick="refreshNoticias()" id="btn-refresh-news" style="background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:6px;padding:4px 12px;color:#00D4FF;font-family:JetBrains Mono,monospace;font-size:10px;cursor:pointer;transition:all 0.2s" onmouseover="this.style.background='rgba(0,212,255,0.15)'" onmouseout="this.style.background='rgba(0,212,255,0.08)'">↻ ACTUALIZAR</button>
-</div>
-<div id="noticias-crypto"><div style="text-align:center;padding:20px;color:rgba(255,255,255,0.3);font-size:12px">Cargando noticias...</div></div>
+  <div class="card-title">🔔 NOTICIAS EN TIEMPO REAL</div>
+
+  <div style="display:flex;gap:8px;margin-bottom:12px">
+    <button onclick="showTab('crypto')" id="tab-crypto" style="padding:5px 14px;background:rgba(0,212,255,0.15);border:1px solid #00D4FF;border-radius:6px;color:#00D4FF;font-family:JetBrains Mono,monospace;font-size:10px;cursor:pointer">₿ CRYPTO</button>
+    <button onclick="showTab('deportes')" id="tab-deportes" style="padding:5px 14px;background:transparent;border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:rgba(255,255,255,0.4);font-family:JetBrains Mono,monospace;font-size:10px;cursor:pointer">⚽ DEPORTES</button>
+  </div>
+
+  <div id="panel-crypto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:10px;color:rgba(255,255,255,0.3);font-family:JetBrains Mono,monospace" id="ts-news"></span>
+      <button onclick="refreshNoticias()" id="btn-refresh-news" style="background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:6px;padding:4px 12px;color:#00D4FF;font-family:JetBrains Mono,monospace;font-size:10px;cursor:pointer">↻ ACTUALIZAR</button>
+    </div>
+    <div id="noticias-crypto"><div style="text-align:center;padding:20px;color:rgba(255,255,255,0.3);font-size:12px">Cargando noticias crypto...</div></div>
+  </div>
+
+  <div id="panel-deportes" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:10px;color:rgba(255,255,255,0.3);font-family:JetBrains Mono,monospace" id="ts-news-dep"></span>
+      <button onclick="refreshNoticiasDep()" id="btn-refresh-dep" style="background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:6px;padding:4px 12px;color:#00D4FF;font-family:JetBrains Mono,monospace;font-size:10px;cursor:pointer">↻ ACTUALIZAR</button>
+    </div>
+    <div id="noticias-dep"><div style="text-align:center;padding:20px;color:rgba(255,255,255,0.3);font-size:12px">Cargando noticias deportivas...</div></div>
+  </div>
 </div>
 <div class="card">
 <div class="card-title">📊 FEAR & GREED INDEX</div>
@@ -771,6 +787,63 @@ async function fetchNews(){
 }
 setInterval(fetchNews,300000);
 fetchNews();
+
+function showTab(tab){
+  const tabs=['crypto','deportes'];
+  tabs.forEach(t=>{
+    const panel=document.getElementById('panel-'+t);
+    const btn=document.getElementById('tab-'+t);
+    if(panel)panel.style.display=t===tab?'block':'none';
+    if(btn){
+      btn.style.background=t===tab?'rgba(0,212,255,0.15)':'transparent';
+      btn.style.borderColor=t===tab?'#00D4FF':'rgba(255,255,255,0.1)';
+      btn.style.color=t===tab?'#00D4FF':'rgba(255,255,255,0.4)';
+    }
+  });
+}
+
+async function fetchNewsDep(){
+  try{
+    const rssUrl='https://feeds.bbci.co.uk/sport/rss.xml';
+    const proxy=`https://jcahs-proxy.jh050447.workers.dev/?url=${encodeURIComponent(rssUrl)}&type=rss`;
+    const r=await fetch(proxy);
+    const d=await r.json();
+    const cont=document.getElementById('noticias-dep');
+    const ts=document.getElementById('ts-news-dep');
+    if(cont&&d.items?.length){
+      const items=d.items.slice(0,4);
+      const translated=await Promise.all(items.map(async n=>{
+        try{
+          const tr=await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(n.title)}&langpair=en|es`);
+          const td=await tr.json();
+          return {...n,titleEs:td.responseData?.translatedText||n.title};
+        }catch(e){return {...n,titleEs:n.title};}
+      }));
+      cont.innerHTML=translated.map(n=>`
+        <div onclick="window.open('${n.link}','_blank')" style="padding:12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px;margin-bottom:8px;cursor:pointer" onmouseover="this.style.borderColor='rgba(0,212,255,0.3)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.06)'">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-size:10px;color:#00D4FF;font-family:JetBrains Mono,monospace">BBC Sport · ${new Date(n.pubDate).toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'})}</span>
+            <span style="font-size:9px;color:rgba(0,212,255,0.5);font-family:JetBrains Mono,monospace;border:1px solid rgba(0,212,255,0.2);padding:2px 6px;border-radius:4px">🔗 VER FUENTE</span>
+          </div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.85);line-height:1.4">${n.titleEs}</div>
+        </div>`).join('');
+      if(ts)ts.textContent='Actualizado: '+new Date().toLocaleTimeString('es-EC')+' · Fuente: BBC Sport · Traducido: MyMemory';
+    }
+  }catch(e){console.log('News dep error:',e);}
+}
+
+async function refreshNoticiasDep(){
+  const btn=document.getElementById('btn-refresh-dep');
+  const cont=document.getElementById('noticias-dep');
+  if(btn){btn.textContent='↻ CARGANDO...';btn.disabled=true;}
+  if(cont){cont.style.opacity='0.3';cont.style.transition='opacity 0.3s';}
+  await fetchNewsDep();
+  if(cont){cont.style.opacity='1';}
+  if(btn){btn.textContent='↻ ACTUALIZAR';btn.disabled=false;}
+}
+
+setInterval(fetchNewsDep,300000);
+fetchNewsDep();
 
 async function refreshNoticias(){
   const btn=document.getElementById('btn-refresh-news');
