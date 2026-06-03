@@ -1,0 +1,26 @@
+# JCAHS Scraper — Cloudflare Worker configuration
+# Deploy with: wrangler deploy
+# Tail logs with: wrangler tail
+
+name            = "jcahs-scraper"
+main            = "worker-scraper.js"
+compatibility_date = "2024-01-01"
+
+# ── KV Namespace ──────────────────────────────────────────────────────────────
+# Before deploying, create the namespace and paste the IDs here:
+#   wrangler kv:namespace create JCAHS_NEWS
+#   wrangler kv:namespace create JCAHS_NEWS --preview
+[[kv_namespaces]]
+binding    = "JCAHS_NEWS"
+id         = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+preview_id = "REPLACE_WITH_YOUR_KV_PREVIEW_NAMESPACE_ID"
+
+# ── Cron Triggers ─────────────────────────────────────────────────────────────
+# Fires every 30 minutes — calls the `scheduled` handler in worker-scraper.js
+[triggers]
+crons = ["*/30 * * * *"]
+
+# ── Optional: local dev settings ─────────────────────────────────────────────
+[dev]
+port = 8787
+local_protocol = "http"
