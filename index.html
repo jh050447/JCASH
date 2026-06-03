@@ -407,8 +407,11 @@ main{padding:16px;}
 <div class="g2 mb">
 <div class="card">
 <div class="card-title">🔔 ALERTAS Y NOTICIAS</div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+  <span style="font-size:10px;color:rgba(255,255,255,0.3);font-family:JetBrains Mono,monospace" id="ts-news"></span>
+  <button onclick="refreshNoticias()" id="btn-refresh-news" style="background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:6px;padding:4px 12px;color:#00D4FF;font-family:JetBrains Mono,monospace;font-size:10px;cursor:pointer;transition:all 0.2s" onmouseover="this.style.background='rgba(0,212,255,0.15)'" onmouseout="this.style.background='rgba(0,212,255,0.08)'">↻ ACTUALIZAR</button>
+</div>
 <div id="noticias-crypto"><div style="text-align:center;padding:20px;color:rgba(255,255,255,0.3);font-size:12px">Cargando noticias...</div></div>
-<div id="ts-news" style="font-size:10px;color:rgba(255,255,255,0.3);font-family:JetBrains Mono,monospace;margin-top:8px"></div>
 </div>
 <div class="card">
 <div class="card-title">📊 FEAR & GREED INDEX</div>
@@ -760,6 +763,21 @@ async function fetchNews(){
 }
 setInterval(fetchNews,300000);
 fetchNews();
+
+async function refreshNoticias(){
+  const btn=document.getElementById('btn-refresh-news');
+  const cont=document.getElementById('noticias-crypto');
+  if(btn){btn.textContent='↻ CARGANDO...';btn.disabled=true;}
+  if(cont){
+    cont.style.opacity='0.3';
+    cont.style.transition='opacity 0.3s';
+  }
+  await fetchNews();
+  if(cont){
+    cont.style.opacity='1';
+  }
+  if(btn){btn.textContent='↻ ACTUALIZAR';btn.disabled=false;}
+}
 
 let allCoins = [];
 let marketOpen = false;
