@@ -54,11 +54,19 @@
       background: var(--bg);
       color: var(--text);
       font-family: var(--f-ui);
-      font-size: 16px;
+      font-size: 18px;
       line-height: 1.6;
       overflow-x: hidden;
       cursor: none;
     }
+
+    /* === PARTE 5 — Escala tipográfica mínima === */
+    .data-tiny   { font-size: 16px; }
+    .data-small  { font-size: 20px; }
+    .data-medium { font-size: 28px; }
+    .data-large  { font-size: 48px; }
+    .data-huge   { font-size: 72px; }
+    .data-hero   { font-size: 96px; }
 
     /* ================================================================
        CUSTOM SCROLLBAR
@@ -1135,6 +1143,336 @@
 
       .site-footer-links { gap: 14px; }
     }
+    /* ── Top 100 criptomonedas ───────────────────────────────────── */
+    .top100-section-title {
+      font-family: var(--f-display);
+      font-size: clamp(36px, 5vw, 56px);
+      font-weight: 900;
+      letter-spacing: 4px;
+      color: var(--text);
+      margin-bottom: 28px;
+    }
+
+    .top100-controls {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .top100-search {
+      flex: 1;
+      min-width: 240px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-dim);
+      border-radius: 10px;
+      padding: 14px 20px;
+      color: var(--text);
+      font-family: var(--f-mono);
+      font-size: 18px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .top100-search:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-glow);
+    }
+
+    .top100-search::placeholder { color: var(--text-muted); }
+
+    .top100-filter-btn {
+      padding: 10px 20px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border-dim);
+      border-radius: 8px;
+      color: var(--text-dim);
+      font-family: var(--f-display);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .top100-filter-btn:hover,
+    .top100-filter-btn.active {
+      background: var(--accent-dim);
+      border-color: var(--border);
+      color: var(--accent);
+    }
+
+    .top100-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .top100-card {
+      background: rgba(10,22,40,0.6);
+      border: 1px solid var(--border-dim);
+      border-radius: 12px;
+      padding: 16px;
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+      cursor: default;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .top100-card:hover {
+      transform: scale(1.03);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      border-color: rgba(255,255,255,0.1);
+    }
+
+    .top100-rank {
+      font-family: var(--f-mono);
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .top100-name {
+      font-family: var(--f-ui);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .top100-sym {
+      font-family: var(--f-mono);
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .top100-price {
+      font-family: var(--f-mono);
+      font-size: 20px;
+      color: var(--text);
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .top100-chg {
+      font-family: var(--f-mono);
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .top100-meta {
+      font-family: var(--f-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .top100-pag {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 16px 0;
+    }
+
+    .top100-pag button {
+      padding: 10px 20px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-dim);
+      border-radius: 8px;
+      color: var(--text-dim);
+      font-family: var(--f-display);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .top100-pag button:hover:not(:disabled) {
+      background: var(--accent-dim);
+      border-color: var(--border);
+      color: var(--accent);
+    }
+
+    .top100-pag button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    .top100-pag span {
+      font-family: var(--f-mono);
+      font-size: 16px;
+      color: var(--text-muted);
+    }
+
+    /* ── Strategy cards (fichas) ─────────────────────────────────── */
+    .fichas-section-title {
+      font-family: var(--f-display);
+      font-size: clamp(32px, 4.5vw, 48px);
+      font-weight: 900;
+      letter-spacing: 4px;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .fichas-sub {
+      font-family: var(--f-mono);
+      font-size: 14px;
+      color: var(--text-muted);
+      letter-spacing: 1.5px;
+      margin-bottom: 28px;
+    }
+
+    .fichas-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    .ficha-card {
+      background: rgba(10,22,40,0.65);
+      border: 1px solid var(--border-dim);
+      border-radius: 14px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .ficha-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .ficha-badge {
+      font-family: var(--f-display);
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      padding: 5px 14px;
+      border-radius: 6px;
+    }
+
+    .ficha-badge-tipo {
+      font-family: var(--f-mono);
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--text-muted);
+      padding: 4px 10px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-dim);
+      border-radius: 4px;
+    }
+
+    .ficha-title {
+      font-family: var(--f-ui);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.25;
+    }
+
+    .ficha-sym {
+      font-family: var(--f-mono);
+      font-size: 16px;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .ficha-tabla {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 16px;
+      background: rgba(0,0,0,0.25);
+      border-radius: 10px;
+      border: 1px solid var(--border-dim);
+    }
+
+    .ficha-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      font-family: var(--f-mono);
+      font-size: 15px;
+      color: var(--text-dim);
+    }
+
+    .ficha-row span:first-child {
+      font-family: var(--f-ui);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .ficha-row span:last-child {
+      font-size: 16px;
+      color: var(--text);
+      text-align: right;
+    }
+
+    .ficha-why {
+      padding: 14px;
+      background: rgba(0,255,179,0.03);
+      border-radius: 10px;
+      border: 1px solid rgba(0,255,179,0.08);
+    }
+
+    .ficha-why-title {
+      font-family: var(--f-display);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 3px;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+
+    .ficha-why-item {
+      font-family: var(--f-ui);
+      font-size: 15px;
+      color: var(--text-dim);
+      line-height: 1.5;
+      padding: 3px 0;
+    }
+
+    .ficha-why-item::before {
+      content: '·  ';
+      color: var(--accent);
+    }
+
+    .ficha-meta { display: flex; flex-direction: column; gap: 4px; }
+
+    .ficha-tiempo {
+      font-family: var(--f-mono);
+      font-size: 13px;
+      color: var(--accent);
+      letter-spacing: 1px;
+    }
+
+    /* Mobile adjustments for top100 + fichas */
+    @media (max-width: 1024px) {
+      .top100-grid   { grid-template-columns: repeat(2, 1fr); }
+      .fichas-grid   { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 767px) {
+      .top100-grid   { grid-template-columns: 1fr; }
+      .fichas-grid   { grid-template-columns: 1fr !important; }
+      .top100-search { font-size: 16px; }
+    }
+
+    /* ── End Parte 5 CSS ─────────────────────────────────────────── */
     /* ── End Parte 4 CSS ─────────────────────────────────────────── */
 
     /* ================================================================
@@ -1240,7 +1578,7 @@
 
     .card-label {
       font-family: var(--f-ui);
-      font-size: 10px;
+      font-size: 13px;
       font-weight: 700;
       letter-spacing: 4px;
       text-transform: uppercase;
@@ -1250,7 +1588,7 @@
 
     .ts-row {
       font-family: var(--f-mono);
-      font-size: 10px;
+      font-size: 13px;
       color: var(--text-muted);
       letter-spacing: 1px;
       margin-top: 14px;
@@ -1487,7 +1825,7 @@
 
     .signal-row:last-child { border-bottom: none; }
 
-    .signal-row-label { color: var(--text-muted); font-size: 11px; letter-spacing: 2px; }
+    .signal-row-label { color: var(--text-muted); font-size: 13px; letter-spacing: 2px; }
     .signal-row-val   { color: var(--text); font-weight: 500; }
 
     /* News cards */
@@ -1503,7 +1841,7 @@
 
     .news-src {
       font-family: var(--f-mono);
-      font-size: 10px;
+      font-size: 13px;
       color: #00D4FF;
       margin-bottom: 6px;
       letter-spacing: 1px;
@@ -1511,7 +1849,7 @@
 
     .news-title {
       font-family: var(--f-ui);
-      font-size: 15px;
+      font-size: 18px;
       color: var(--text);
       line-height: 1.45;
     }
@@ -1548,14 +1886,14 @@
 
     .vbet-league {
       font-family: var(--f-mono);
-      font-size: 11px;
+      font-size: 14px;
       color: var(--text-muted);
       margin-bottom: 14px;
     }
 
     .vbet-outcome {
       font-family: var(--f-display);
-      font-size: 13px;
+      font-size: 16px;
       font-weight: 700;
       letter-spacing: 2px;
       color: var(--text-dim);
@@ -2104,13 +2442,13 @@
       <button class="nav-drawer-close" id="drawer-close" aria-label="Cerrar menú">✕</button>
     </div>
     <ul>
-      <li><a href="#dashboard">Dashboard</a></li>
-      <li><a href="#crypto">Crypto</a></li>
+      <li><a href="#dashboard">Panel Principal</a></li>
+      <li><a href="#crypto">Cripto Trading</a></li>
       <li><a href="#deportes">Deportes</a></li>
-      <li><a href="#calculadora">Calculadora</a></li>
+      <li><a href="#calculadora">Calculadoras</a></li>
       <li><a href="#historial">Historial</a></li>
-      <li><a href="#ia">IA</a></li>
-      <li><a href="#emergencia" class="danger">Emergencia</a></li>
+      <li><a href="#ia">Asesores IA</a></li>
+      <li><a href="#emergencia" class="danger">🚨 Emergencia</a></li>
     </ul>
     <div class="nav-drawer-mode" id="drawer-mode-wrap">
       <!-- toggle injected by JS -->
@@ -2127,13 +2465,13 @@
     </a>
 
     <ul class="nav-links" role="list">
-      <li><a href="#dashboard">Dashboard</a></li>
-      <li><a href="#crypto">Crypto</a></li>
+      <li><a href="#dashboard">Panel</a></li>
+      <li><a href="#crypto">Cripto</a></li>
       <li><a href="#deportes">Deportes</a></li>
-      <li><a href="#calculadora">Calculadora</a></li>
+      <li><a href="#calculadora">Calculadoras</a></li>
       <li><a href="#historial">Historial</a></li>
-      <li><a href="#ia">IA</a></li>
-      <li><a href="#emergencia" class="danger">Emergencia</a></li>
+      <li><a href="#ia">Asesores IA</a></li>
+      <li><a href="#emergencia" class="danger">🚨 Emergencia</a></li>
     </ul>
 
     <button class="nav-toggle" id="nav-toggle" aria-label="Abrir menú" aria-expanded="false">
@@ -2382,7 +2720,7 @@
           <div class="p2-card" style="margin-bottom:20px" id="crypto-context">
             <div class="card-label">🌡️ CONTEXTO DE MERCADO</div>
             <div id="ctx-fng-big" class="n72" style="color:var(--text-muted)">--</div>
-            <div id="ctx-fng-label" style="font-family:var(--f-ui);font-size:13px;color:var(--text-muted);letter-spacing:3px;text-transform:uppercase;margin-bottom:16px">Cargando Fear &amp; Greed</div>
+            <div id="ctx-fng-label" style="font-family:var(--f-ui);font-size:13px;color:var(--text-muted);letter-spacing:3px;text-transform:uppercase;margin-bottom:16px">Cargando Índice Miedo y Codicia</div>
             <div id="ctx-analysis">
               <div style="color:var(--text-muted);font-family:var(--f-mono);font-size:13px">Analizando...</div>
             </div>
@@ -2405,6 +2743,37 @@
         </div>
 
       </div><!-- /crypto-grid -->
+
+      <!-- === TOP 100 CRIPTOMONEDAS === -->
+      <div style="margin-top:72px" id="top100-section">
+        <div class="top100-section-title">TOP 100 CRIPTOMONEDAS</div>
+        <div class="top100-controls">
+          <input class="top100-search" id="top100-q" type="search"
+                 placeholder="Buscar por nombre o símbolo..."
+                 oninput="top100Filter()">
+          <button class="top100-filter-btn active" data-filter="todos"  onclick="top100SetFilter('todos')">TODOS</button>
+          <button class="top100-filter-btn"         data-filter="alcistas" onclick="top100SetFilter('alcistas')">ALCISTAS</button>
+          <button class="top100-filter-btn"         data-filter="bajistas" onclick="top100SetFilter('bajistas')">BAJISTAS</button>
+          <button class="top100-filter-btn"         data-filter=">5%"    onclick="top100SetFilter('>5%')">&gt;5% HOY</button>
+        </div>
+        <div class="top100-grid" id="top100-grid">
+          <div class="empty-state" style="grid-column:1/-1">Cargando Top 100...</div>
+        </div>
+        <div class="top100-pag" id="top100-pag"></div>
+        <div class="ts-row" style="border-top:none;margin-top:0">
+          Fuente: CoinGecko Markets &nbsp;·&nbsp; <span id="ts-top100">--</span>
+        </div>
+      </div><!-- /top100-section -->
+
+      <!-- === ESTRATEGIAS CRIPTO ACTIVAS === -->
+      <div style="margin-top:72px" id="fichas-crypto-section">
+        <div class="fichas-section-title">ESTRATEGIAS CRIPTO ACTIVAS</div>
+        <div class="fichas-sub">Basadas en RSI real y precio actual — Actualizado: <span id="ts-fichas-crypto">--</span></div>
+        <div class="fichas-grid" id="fichas-crypto-list">
+          <div class="empty-state" style="grid-column:1/-1">Calculando señales...</div>
+        </div>
+      </div><!-- /fichas-crypto-section -->
+
     </div><!-- /p2-inner -->
   </section>
 
@@ -2450,6 +2819,16 @@
         </div>
 
       </div><!-- /dep-grid -->
+
+      <!-- === FICHAS DE APUESTA ACTIVAS === -->
+      <div style="margin-top:72px" id="fichas-dep-section">
+        <div class="fichas-section-title">FICHAS DE APUESTA ACTIVAS</div>
+        <div class="fichas-sub">Solo value bets con ventaja (Edge) &gt; 3% — Actualizado: <span id="ts-fichas-dep">--</span></div>
+        <div class="fichas-grid" id="fichas-dep-list">
+          <div class="empty-state" style="grid-column:1/-1">Cargando value bets...</div>
+        </div>
+      </div><!-- /fichas-dep-section -->
+
     </div><!-- /p2-inner -->
   </section>
 
@@ -3285,11 +3664,15 @@
       dom:      null,
       prices:   {},
       top5:     [],
+      top100:   [],
       signals:  {},
       valueBets: [],
       fixtures: [],
       news:     []
     };
+
+    // === PARTE 5 — Top100 filter state ===
+    let _top100State = { filter: 'todos', q: '', page: 0 };
 
     const PROXY = 'https://jcahs-proxy.jh050447.workers.dev/?url=';
     const ts    = () => new Date().toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });
@@ -3557,9 +3940,20 @@
     }
 
     // === Fear & Greed gauge ===
+    /* === PARTE 5 — Traducción FNG === */
+    const FNG_ES = {
+      'Extreme Fear':  'Miedo Extremo',
+      'Fear':          'Miedo',
+      'Neutral':       'Neutral',
+      'Greed':         'Codicia',
+      'Extreme Greed': 'Codicia Extrema'
+    };
+    function fngLabel(raw) { return FNG_ES[raw] || raw; }
+
     function renderFNG() {
       const fng = JCAHS.fng; if (!fng) return;
       const v = fng.value;
+      const label = fngLabel(fng.label);
       const color = v <= 25 ? '#DC3232' : v <= 45 ? '#FF8232' : v <= 55 ? '#9CA3AF' : v <= 75 ? '#00CC88' : 'var(--accent)';
 
       // SVG needle: -90° = value 0, +90° = value 100
@@ -3571,7 +3965,7 @@
       if (num) { num.textContent = v; num.setAttribute('fill', color); flashNum(num, color); }
 
       const lbl = document.getElementById('fng-label');
-      if (lbl) { lbl.textContent = fng.label; lbl.style.color = color; }
+      if (lbl) { lbl.textContent = label; lbl.style.color = color; }
 
       const ts_ = document.getElementById('ts-fng');
       if (ts_) ts_.textContent = ts();
@@ -3580,7 +3974,7 @@
       const big = document.getElementById('ctx-fng-big');
       if (big) { big.textContent = v; big.style.color = color; }
       const cl = document.getElementById('ctx-fng-label');
-      if (cl) { cl.textContent = fng.label; cl.style.color = color; }
+      if (cl) { cl.textContent = label; cl.style.color = color; }
     }
 
     // === BTC Dominance ===
@@ -3608,9 +4002,9 @@
       const reasons = [];
 
       if (fng != null) {
-        if (fng >= 65)      { score += 2; reasons.push(`Fear & Greed ${fng} (${JCAHS.fng.label}) — mercado optimista, momentum positivo`); }
-        else if (fng <= 35) { score -= 1; reasons.push(`Fear & Greed ${fng} (${JCAHS.fng.label}) — cautela recomendada`); }
-        else                {             reasons.push(`Fear & Greed ${fng} — zona neutral, sin sesgo claro`); }
+        if (fng >= 65)      { score += 2; reasons.push(`Índ. Miedo/Codicia ${fng} (${fngLabel(JCAHS.fng.label)}) — mercado optimista, momentum positivo`); }
+        else if (fng <= 35) { score -= 1; reasons.push(`Índ. Miedo/Codicia ${fng} (${fngLabel(JCAHS.fng.label)}) — cautela recomendada`); }
+        else                {             reasons.push(`Índ. Miedo/Codicia ${fng} — zona neutral, sin sesgo claro`); }
       }
       if (btcChg != null) {
         if (btcChg >= 3)       { score += 1; reasons.push(`BTC +${btcChg.toFixed(1)}% hoy — tendencia alcista confirmada`); }
@@ -3658,11 +4052,11 @@
       const fng = JCAHS.fng?.value;
       if (fng == null) return;
       let lines = [];
-      if (fng <= 25)      lines = ['Mercado en pánico — históricamente buena zona de compra', 'Alta volatilidad esperada en próximas 24-48h', 'Gestión de riesgo crítica: stop-loss obligatorio'];
+      if (fng <= 25)      lines = ['Mercado en pánico (Miedo Extremo) — históricamente buena zona de compra', 'Alta volatilidad esperada en próximas 24-48h', 'Gestión de riesgo crítica: stop-loss obligatorio'];
       else if (fng <= 45) lines = ['Miedo moderado — mercado cauteloso', 'Volumen puede estar reducido', 'Esperar confirmación antes de posicionar'];
       else if (fng <= 55) lines = ['Mercado neutral — sin dirección dominante', 'Seguir RSI y volumen en lugar del sentimiento', 'Momento de revisar posiciones abiertas'];
       else if (fng <= 75) lines = ['Codicia moderada — mercado optimista', 'Tendencia alcista de corto plazo activa', 'Gestionar toma de ganancias progresiva'];
-      else                lines = ['Codicia extrema — euforia de mercado', 'Riesgo de corrección elevado', 'Reducir tamaño de posiciones, tomar profits'];
+      else                lines = ['Codicia Extrema — euforia de mercado', 'Riesgo de corrección elevado', 'Reducir tamaño de posiciones, tomar ganancias'];
       el.innerHTML = lines.map((l, i) => `
         <div style="display:flex;gap:10px;padding:8px 0;border-bottom:${i<2?'1px solid var(--border-dim)':'none'}">
           <span style="color:var(--accent);font-family:var(--f-mono);font-size:12px;flex-shrink:0">${i+1}.</span>
@@ -3722,13 +4116,13 @@
             <span style="font-family:var(--f-ui);font-size:18px;font-weight:600;color:var(--text)">${bet.game}</span>
           </div>
           <div style="font-family:var(--f-display);font-size:${JCAHS.mode==='simple'?'48px':'36px'};color:${edgeColor};line-height:1;margin-bottom:8px">
-            +${bet.edge}% edge
+            +${bet.edge}% Ventaja (Edge)
           </div>
           ${JCAHS.mode === 'simple'
-            ? `<div style="font-family:var(--f-ui);font-size:16px;color:var(--text-dim)">ACTUAR AHORA — Apostar ${bet.kelly}% bankroll en <b style="color:var(--text)">${bet.outcome}</b> @ ${bet.odd} · ${bet.bk}</div>`
+            ? `<div style="font-family:var(--f-ui);font-size:16px;color:var(--text-dim)">ACTUAR — Apostar ${bet.kelly}% del capital en <b style="color:var(--text)">${translateOutcome(bet.outcome)}</b> @ ${bet.odd} · ${bet.bk}</div>`
             : `<div style="font-family:var(--f-mono);font-size:12px;color:var(--text-muted)">
                 <div>Odd: <b style="color:var(--text)">${bet.odd}</b> &nbsp;|&nbsp; Prob. implícita: <b style="color:var(--text)">${bet.ip}%</b> &nbsp;|&nbsp; Prob. real: <b style="color:var(--text)">${bet.real}%</b></div>
-                <div style="margin-top:6px">Kelly: <b style="color:var(--accent)">${bet.kelly}%</b> del bankroll &nbsp;|&nbsp; Casa: ${bet.bk}</div>
+                <div style="margin-top:6px">Kelly: <b style="color:var(--accent)">${bet.kelly}%</b> del capital &nbsp;|&nbsp; Casa: ${bet.bk}</div>
               </div>`}`;
       } else if (cryptoSig) {
         const [id, sig] = cryptoSig;
@@ -3800,7 +4194,7 @@
           <div class="signal-card">
             <div class="signal-coin">${c.sym} <span style="font-family:var(--f-ui);font-size:14px;color:var(--text-muted);font-weight:400">${c.name}</span></div>
             <div class="signal-price">${ps} <span class="${chgCls}" style="font-size:14px">${chgStr}</span></div>
-            <div class="signal-pill esperar">CALCULANDO RSI...</div>
+            <div class="signal-pill esperar">CALCULANDO RSI (Índ. Fuerza Relativa)...</div>
           </div>`;
 
         const pillCls = sig.signal === 'COMPRAR' ? 'comprar' : sig.signal === 'VENDER' ? 'vender' : 'esperar';
@@ -3817,7 +4211,7 @@
             <div class="signal-price">${ps} <span class="${chgCls}" style="font-size:14px">${chgStr}</span></div>
             <div class="signal-pill ${pillCls}">${sig.signal} — ${sig.confidence}% confianza</div>
             <div style="margin-top:10px">
-              <div class="signal-row"><span class="signal-row-label">RSI 14</span><span class="signal-row-val">${sig.rsi ?? 'Sin datos'}</span></div>
+              <div class="signal-row"><span class="signal-row-label">RSI 14</span><span class="signal-row-val">${sig.rsi ?? 'Sin datos'}${sig.rsi != null ? (sig.rsi < 35 ? ' ↙ Sobrevendido' : sig.rsi > 65 ? ' ↗ Sobrecomprado' : '') : ''}</span></div>
               <div class="signal-row"><span class="signal-row-label">TENDENCIA</span><span class="signal-row-val ${sig.trend==='ALCISTA'?'pos':sig.trend==='BAJISTA'?'neg':''}">${sig.trend}</span></div>
               <div class="signal-row"><span class="signal-row-label">CAMBIO 24H</span><span class="signal-row-val ${chgCls}">${chgStr}</span></div>
               <div class="signal-row"><span class="signal-row-label">FUENTE OHLC</span><span class="signal-row-val">CoinGecko · ${sig.ts}</span></div>
@@ -3851,7 +4245,7 @@
       if (!JCAHS.valueBets.length) {
         const nxt = new Date(); nxt.setMinutes(nxt.getMinutes() + 30);
         const nxtStr = nxt.toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'});
-        el.innerHTML = `<div class="empty-state">Sin value bets detectados ahora.<br>Próxima revisión: ${nxtStr}</div>`;
+        el.innerHTML = `<div class="empty-state">Sin apuestas con valor detectadas ahora.<br>Próxima revisión: ${nxtStr}</div>`;
         return;
       }
 
@@ -3860,13 +4254,13 @@
         const edgeColor = edgeN >= 10 ? 'var(--accent)' : edgeN >= 5 ? '#00CC88' : '#FBBF24';
         const edgeCls = edgeN >= 10 ? 'vbet-edge high' : 'vbet-edge';
         const simple = JCAHS.mode === 'simple'
-          ? `<div style="font-family:var(--f-ui);font-size:14px;color:var(--text-dim);margin-top:10px">ACTUAR AHORA — Apostar <b style="color:var(--accent)">${b.kelly}%</b> del bankroll</div>`
+          ? `<div style="font-family:var(--f-ui);font-size:16px;color:var(--text-dim);margin-top:10px">ACTUAR — Apostar <b style="color:var(--accent)">${b.kelly}%</b> del capital</div>`
           : `<div class="vbet-experto">
-              <div class="vbet-exp-item">Odd<span class="vbet-exp-val">${b.odd}</span></div>
+              <div class="vbet-exp-item">Cuota (Odd)<span class="vbet-exp-val">${b.odd}</span></div>
               <div class="vbet-exp-item">Prob. impl.<span class="vbet-exp-val">${b.ip}%</span></div>
               <div class="vbet-exp-item">Prob. real<span class="vbet-exp-val">${b.real}%</span></div>
               <div class="vbet-exp-item">Kelly<span class="vbet-exp-val">${b.kelly}%</span></div>
-              <div class="vbet-exp-item">Casa<span class="vbet-exp-val" style="font-size:11px">${b.bk}</span></div>
+              <div class="vbet-exp-item">Casa<span class="vbet-exp-val" style="font-size:13px">${b.bk}</span></div>
              </div>`;
         return `<div class="vbet-card">
           <div class="vbet-game">${b.game}</div>
@@ -3874,7 +4268,7 @@
           <div class="vbet-outcome">${b.outcome}</div>
           <div style="display:flex;align-items:baseline;gap:20px">
             <div class="vbet-odd">${b.odd}</div>
-            <div class="${edgeCls}" style="color:${edgeColor}">+${b.edge}%</div>
+            <div class="${edgeCls}" style="color:${edgeColor}">+${b.edge}% Ventaja</div>
           </div>
           ${simple}
         </div>`;
@@ -3940,6 +4334,289 @@
       renderCryptoNews();
       renderValueBets();
       renderFixtures();
+      renderFichasCrypto();
+      renderFichasDeportes();
+    }
+
+    /* ============================================================
+       === PARTE 5 — TOP 100 + FICHAS DE ESTRATEGIA ===
+    ============================================================ */
+
+    // === fetchTop100 — CoinGecko Markets top 100 ===
+    async function fetchTop100() {
+      try {
+        const r = await fetchWithTimeout(
+          'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd' +
+          '&order=market_cap_desc&per_page=100&page=1&sparkline=false' +
+          '&price_change_percentage=24h'
+        );
+        const d = await r.json();
+        if (!Array.isArray(d)) return;
+        JCAHS.top100 = d;
+        renderTop100();
+      } catch(e) { console.warn('Top100:', e); }
+    }
+
+    // === renderTop100 ===
+    function renderTop100(filter, q, page) {
+      if (filter !== undefined) _top100State.filter = filter;
+      if (q      !== undefined) _top100State.q      = q;
+      if (page   !== undefined) _top100State.page   = page;
+
+      const grid = document.getElementById('top100-grid');
+      if (!grid) return;
+
+      // Build filtered list
+      let coins = JCAHS.top100.slice();
+
+      if (_top100State.q) {
+        const lq = _top100State.q.toLowerCase();
+        coins = coins.filter(c =>
+          c.name.toLowerCase().includes(lq) || c.symbol.toLowerCase().includes(lq)
+        );
+      }
+
+      if (_top100State.filter === 'alcistas') coins = coins.filter(c => (c.price_change_percentage_24h || 0) > 0);
+      if (_top100State.filter === 'bajistas') coins = coins.filter(c => (c.price_change_percentage_24h || 0) < 0);
+      if (_top100State.filter === '>5%')      coins = coins.filter(c => Math.abs(c.price_change_percentage_24h || 0) > 5);
+
+      const PAGE = 20;
+      const total = coins.length;
+      const maxPage = Math.max(0, Math.ceil(total / PAGE) - 1);
+      _top100State.page = Math.min(_top100State.page, maxPage);
+      const slice = coins.slice(_top100State.page * PAGE, (_top100State.page + 1) * PAGE);
+
+      if (!slice.length) {
+        grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">Sin monedas que coincidan</div>';
+      } else {
+        grid.innerHTML = slice.map(c => {
+          const chg  = c.price_change_percentage_24h ?? 0;
+          const cls  = chg >= 0 ? 'pos' : 'neg';
+          const arrow = chg >= 0 ? '▲' : '▼';
+          const bdr   = chg >= 0 ? 'var(--accent)' : 'var(--alert)';
+          const pr = c.current_price >= 1
+            ? '$' + c.current_price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+            : '$' + c.current_price.toFixed(6);
+          return `<div class="top100-card" style="border-left:3px solid ${bdr}">
+            <div class="top100-rank">#${c.market_cap_rank || '--'}</div>
+            <div class="top100-name">${c.name} <span class="top100-sym">${c.symbol.toUpperCase()}</span></div>
+            <div class="top100-price">${pr}</div>
+            <div class="top100-chg ${cls}">${arrow} ${Math.abs(chg).toFixed(2)}%</div>
+            <div class="top100-meta">Cap: ${fmtLg(c.market_cap || 0)}<br>Vol: ${fmtLg(c.total_volume || 0)}</div>
+          </div>`;
+        }).join('');
+      }
+
+      // Pagination
+      const pag = document.getElementById('top100-pag');
+      const totalPgs = Math.ceil(total / PAGE);
+      if (pag && totalPgs > 1) {
+        pag.innerHTML = `
+          <button onclick="renderTop100(undefined,undefined,${_top100State.page - 1})"
+                  ${_top100State.page === 0 ? 'disabled' : ''}>← Anterior</button>
+          <span>Pág. ${_top100State.page + 1} / ${totalPgs} &nbsp;(${total} monedas)</span>
+          <button onclick="renderTop100(undefined,undefined,${_top100State.page + 1})"
+                  ${_top100State.page >= totalPgs - 1 ? 'disabled' : ''}>Siguiente →</button>`;
+      } else if (pag) {
+        pag.innerHTML = total > 0 ? `<span style="font-size:14px;color:var(--text-muted)">${total} monedas</span>` : '';
+      }
+
+      // Sync filter buttons
+      document.querySelectorAll('.top100-filter-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.filter === _top100State.filter);
+      });
+
+      const tsEl = document.getElementById('ts-top100');
+      if (tsEl) tsEl.textContent = ts();
+    }
+
+    // Called from filter buttons and search input
+    function top100SetFilter(f) {
+      renderTop100(f, undefined, 0);
+    }
+
+    function top100Filter() {
+      const q = document.getElementById('top100-q')?.value || '';
+      renderTop100(undefined, q, 0);
+    }
+
+    // === Fichas de estrategia CRIPTO ===
+    function renderFichasCrypto() {
+      const el = document.getElementById('fichas-crypto-list');
+      if (!el) return;
+
+      const COINS = [
+        { id: 'bitcoin',  sym: 'BTC', name: 'Bitcoin'  },
+        { id: 'ethereum', sym: 'ETH', name: 'Ethereum' },
+        { id: 'solana',   sym: 'SOL', name: 'Solana'   },
+        { id: 'ripple',   sym: 'XRP', name: 'XRP'      }
+      ];
+
+      const activas = COINS.map(c => ({
+        ...c, sig: JCAHS.signals[c.id], price: JCAHS.prices[c.id]
+      })).filter(c => c.sig && (c.sig.signal === 'COMPRAR' || c.sig.signal === 'VENDER') && c.price);
+
+      if (!activas.length) {
+        el.innerHTML = '<div class="empty-state" style="grid-column:1/-1">Sin estrategias activas en este momento. Mercado en zona neutral.</div>';
+        const tsEl = document.getElementById('ts-fichas-crypto');
+        if (tsEl) tsEl.textContent = ts();
+        return;
+      }
+
+      el.innerHTML = activas.map(c => {
+        const { sig, price, name, sym } = c;
+        const p      = price.usd;
+        const esBuy  = sig.signal === 'COMPRAR';
+        const color  = esBuy ? 'var(--accent)' : 'var(--alert)';
+        const icon   = esBuy ? '📈' : '📉';
+
+        const sl   = esBuy ? p * 0.965 : p * 1.035;
+        const obj1 = esBuy ? p * 1.040 : p * 0.960;
+        const obj2 = esBuy ? p * 1.090 : p * 0.910;
+
+        const slPct   = esBuy ? -3.5 :  3.5;
+        const o1Pct   = esBuy ?  4.0 : -4.0;
+        const o2Pct   = esBuy ?  9.0 : -9.0;
+
+        const confidence = sig.confidence || 50;
+        const kellyPct = Math.max(1, Math.min(5, ((confidence - 50) / 10).toFixed(1)));
+        const capSug   = (JCAHS.bankroll * kellyPct / 100).toFixed(2);
+        const ganancia = (parseFloat(capSug) * Math.abs(o1Pct) / 100).toFixed(2);
+        const riesgo   = (parseFloat(capSug) * Math.abs(slPct) / 100).toFixed(2);
+        const ratio    = (Math.abs(o1Pct) / Math.abs(slPct)).toFixed(1);
+
+        const tiempo   = sig.trend === 'ALCISTA' || sig.trend === 'BAJISTA' ? '24-48 horas' : '48-72 horas';
+        const rsiComentario = sig.rsi == null
+          ? 'Sin datos'
+          : sig.rsi < 35 ? `RSI ${sig.rsi} — zona de sobrevendido, rebote probable`
+          : sig.rsi > 65 ? `RSI ${sig.rsi} — zona de sobrecomprado, tomar ganancias`
+          : `RSI ${sig.rsi} — zona neutral`;
+
+        const pr      = p >= 1 ? '$' + p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '$' + p.toFixed(6);
+        const prSL    = sl   >= 1 ? '$' + sl.toFixed(2)   : '$' + sl.toFixed(6);
+        const prO1    = obj1 >= 1 ? '$' + obj1.toFixed(2) : '$' + obj1.toFixed(6);
+        const prO2    = obj2 >= 1 ? '$' + obj2.toFixed(2) : '$' + obj2.toFixed(6);
+        const chg24   = price.usd_24h_change;
+        const chgStr  = chg24 != null ? `${chg24 >= 0 ? '+' : ''}${chg24.toFixed(2)}%` : 'N/A';
+
+        return `<div class="ficha-card" style="border-top:3px solid ${color}">
+          <div class="ficha-header">
+            <span class="ficha-badge" style="background:${color}20;color:${color};border:1px solid ${color}40">
+              ${icon} ${sig.signal}
+            </span>
+            <span class="ficha-badge-tipo">CRIPTO</span>
+          </div>
+          <div class="ficha-title">${name} <span class="ficha-sym">(${sym})</span></div>
+
+          <div class="ficha-tabla">
+            <div class="ficha-row"><span>ENTRADA</span><span>${pr}</span></div>
+            <div class="ficha-row"><span>STOP LOSS</span><span class="neg">${prSL} &nbsp;(${slPct.toFixed(1)}%)</span></div>
+            <div class="ficha-row"><span>OBJETIVO 1</span><span class="pos">${prO1} &nbsp;(+${o1Pct.toFixed(1)}%)</span></div>
+            <div class="ficha-row"><span>OBJETIVO 2</span><span class="pos">${prO2} &nbsp;(+${o2Pct.toFixed(1)}%)</span></div>
+          </div>
+
+          <div class="ficha-tabla">
+            <div class="ficha-row"><span>CAPITAL SUGERIDO</span><span>$${capSug} &nbsp;(${kellyPct}% Cap.)</span></div>
+            <div class="ficha-row"><span>GANANCIA ESTIMADA</span><span class="pos">+$${ganancia}</span></div>
+            <div class="ficha-row"><span>RIESGO MÁXIMO</span><span class="neg">-$${riesgo}</span></div>
+            <div class="ficha-row"><span>RATIO R/B</span><span>1:${ratio}</span></div>
+          </div>
+
+          <div class="ficha-why">
+            <div class="ficha-why-title">POR QUÉ</div>
+            <div class="ficha-why-item">${rsiComentario}</div>
+            <div class="ficha-why-item">Tendencia (RSI): ${sig.trend}</div>
+            <div class="ficha-why-item">Confianza de la señal: ${confidence}%</div>
+            <div class="ficha-why-item">Cambio 24h: ${chgStr}</div>
+          </div>
+
+          <div class="ficha-meta">
+            <div class="ficha-tiempo">⏱ Tiempo estimado: ${tiempo}</div>
+            <div class="ts-row" style="border-top:none;padding-top:0;margin-top:0">
+              Fuente: CoinGecko · ${ts()}
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+
+      const tsEl = document.getElementById('ts-fichas-crypto');
+      if (tsEl) tsEl.textContent = ts();
+    }
+
+    // === Fichas de apuesta DEPORTES ===
+    function translateOutcome(o) {
+      const M = { Home: 'Local', Away: 'Visitante', Draw: 'Empate',
+                  'Over 2.5': 'Más de 2.5', 'Under 2.5': 'Menos de 2.5' };
+      return M[o] || o;
+    }
+
+    function renderFichasDeportes() {
+      const el = document.getElementById('fichas-dep-list');
+      if (!el) return;
+
+      const bets = (JCAHS.valueBets || []).filter(b => parseFloat(b.edge) > 3);
+
+      if (!bets.length) {
+        el.innerHTML = '<div class="empty-state" style="grid-column:1/-1">Sin apuestas con ventaja (Edge) suficiente ahora mismo.</div>';
+        const tsEl = document.getElementById('ts-fichas-dep');
+        if (tsEl) tsEl.textContent = ts();
+        return;
+      }
+
+      el.innerHTML = bets.slice(0, 6).map(b => {
+        const stake    = (JCAHS.bankroll * parseFloat(b.kelly) / 100).toFixed(2);
+        const ganancia = (parseFloat(stake) * (parseFloat(b.odd) - 1)).toFixed(2);
+        const minOdd   = (parseFloat(b.odd) * 0.93).toFixed(2);
+
+        // Try to find fixture time
+        const homePart = b.game.split(' vs ')[0]?.split(' ')[0] || '';
+        const fixture  = (JCAHS.fixtures || []).find(f =>
+          f.homeTeam?.name?.includes(homePart) || f.awayTeam?.name?.includes(homePart)
+        );
+        const matchTime = fixture?.utcDate
+          ? new Date(fixture.utcDate).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' }) + ' ECT'
+          : 'Consultar casa de apuestas';
+
+        return `<div class="ficha-card" style="border-top:3px solid #4ADE80">
+          <div class="ficha-header">
+            <span class="ficha-badge" style="background:rgba(74,222,128,0.1);color:#4ADE80;border:1px solid rgba(74,222,128,0.3)">
+              ⚽ VALUE BET DETECTADO
+            </span>
+            <span class="ficha-badge-tipo">APUESTA</span>
+          </div>
+          <div class="ficha-title" style="font-size:18px">${b.game}</div>
+
+          <div class="ficha-tabla">
+            <div class="ficha-row"><span>MERCADO</span><span>${translateOutcome(b.outcome)}</span></div>
+            <div class="ficha-row"><span>CUOTA (Odd)</span><span>${b.odd}</span></div>
+            <div class="ficha-row"><span>PROB. REAL</span><span>${b.real}%</span></div>
+            <div class="ficha-row"><span>PROB. CASA</span><span>${b.ip}%</span></div>
+            <div class="ficha-row"><span>VENTAJA (Edge)</span><span class="pos">+${b.edge}% ✅</span></div>
+          </div>
+
+          <div class="ficha-tabla">
+            <div class="ficha-row"><span>APOSTAR</span><span>$${stake} &nbsp;(${b.kelly}% Capital)</span></div>
+            <div class="ficha-row"><span>SI GANA</span><span class="pos">+$${ganancia}</span></div>
+            <div class="ficha-row"><span>SI PIERDE</span><span class="neg">-$${stake}</span></div>
+            <div class="ficha-row"><span>KELLY RECOMENDADO</span><span>${b.kelly}%</span></div>
+          </div>
+
+          <div class="ficha-why">
+            <div class="ficha-why-title">CÓMO Y DÓNDE</div>
+            <div class="ficha-why-item">Hora del partido: ${matchTime}</div>
+            <div class="ficha-why-item">Liga: ${b.league}</div>
+            <div class="ficha-why-item">Casa con mejor cuota: ${b.bk}</div>
+            <div class="ficha-why-item">Buscar odd ≥ ${minOdd} en cualquier casa</div>
+          </div>
+
+          <div class="ts-row" style="border-top:1px solid var(--border-dim);margin-top:0;padding-top:12px">
+            Fuente: The Odds API · ${ts()}
+          </div>
+        </div>`;
+      }).join('');
+
+      const tsEl = document.getElementById('ts-fichas-dep');
+      if (tsEl) tsEl.textContent = ts();
     }
 
     /* ============================================================
@@ -3956,6 +4633,7 @@
         ['bitcoin','ethereum','solana','ripple'].forEach(fetchSignal);
       });
       fetchTop5();
+      fetchTop100();
       fetchOdds();
       fetchFixtures();
       fetchCryptoNews();
@@ -3963,6 +4641,7 @@
       // Refresh intervals
       setInterval(fetchPrices,    60000);
       setInterval(fetchTop5,      60000);
+      setInterval(fetchTop100,    60000);
       setInterval(() => { fetchFNG(); fetchGlobal(); }, 300000);
       setInterval(fetchOdds,      300000);
       setInterval(fetchFixtures,  120000);
@@ -3970,6 +4649,7 @@
       setInterval(() => {
         ['bitcoin','ethereum','solana','ripple'].forEach(fetchSignal);
       }, 300000);
+      setInterval(() => { renderFichasCrypto(); renderFichasDeportes(); }, 60000);
     });
 
     /* ============================================================
