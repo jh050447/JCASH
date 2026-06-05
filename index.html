@@ -1149,6 +1149,374 @@
     }
 
     /* ================================================================
+       PART 3 — CALCULADORAS · HISTORIAL · IA
+    ================================================================ */
+
+    /* Calc card internals */
+    .calc-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .calc-title  { font-family: var(--f-display); font-size: clamp(28px,3.5vw,40px); font-weight: 900; letter-spacing: 3px; color: var(--text); margin-bottom: 6px; }
+    .calc-sub    { font-family: var(--f-mono); font-size: 12px; color: var(--text-muted); letter-spacing: 2px; margin-bottom: 20px; }
+
+    /* Inputs */
+    .calc-inp {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-dim);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-family: var(--f-mono);
+      font-size: 18px;
+      outline: none;
+      transition: border-color 0.2s;
+      margin-bottom: 12px;
+    }
+    .calc-inp:focus { border-color: var(--accent); }
+
+    .calc-lbl {
+      font-family: var(--f-ui);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .calc-slider {
+      width: 100%;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+      margin-bottom: 6px;
+    }
+    .calc-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 0 6px var(--accent-glow);
+    }
+
+    /* Output area */
+    .calc-out {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-dim);
+    }
+
+    .calc-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border-dim);
+    }
+    .calc-row:last-child { border-bottom: none; }
+    .calc-row-l { font-family: var(--f-mono); font-size: 11px; letter-spacing: 2px; color: var(--text-muted); }
+
+    .n64 { font-family: var(--f-mono); font-size: clamp(48px,7vw,64px); font-weight: 400; line-height: 1; }
+    .n56 { font-family: var(--f-mono); font-size: clamp(40px,5vw,56px); font-weight: 400; line-height: 1; }
+    .n48 { font-family: var(--f-mono); font-size: clamp(36px,4vw,48px); font-weight: 400; line-height: 1; }
+
+    .calc-use-btn {
+      display: block;
+      width: 100%;
+      margin-top: 14px;
+      padding: 12px;
+      background: var(--accent-dim);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--accent);
+      font-family: var(--f-display);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .calc-use-btn:hover { background: rgba(0,255,179,0.18); }
+
+    /* Direction toggle (leverage) */
+    .dir-toggle { display: flex; gap: 0; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-dim); margin-bottom: 12px; }
+    .dir-btn {
+      flex: 1;
+      padding: 10px;
+      background: none;
+      border: none;
+      font-family: var(--f-display);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.2s;
+    }
+    .dir-btn.active.long  { background: rgba(0,255,179,0.1); color: var(--accent); }
+    .dir-btn.active.short { background: rgba(255,107,53,0.1); color: var(--alert); }
+
+    /* Historial */
+    .hist-stats-row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .hist-stat-card {
+      background: rgba(10,22,40,0.6);
+      border: 1px solid var(--border-dim);
+      border-radius: 14px;
+      padding: 22px 18px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hist-stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(0,255,179,0.2), transparent);
+    }
+
+    .hist-stat-label {
+      font-family: var(--f-ui);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .hist-stat-num {
+      font-family: var(--f-mono);
+      font-size: clamp(48px, 6vw, 80px);
+      font-weight: 400;
+      line-height: 1;
+      color: var(--text);
+    }
+
+    /* P&L canvas */
+    .pl-canvas-wrap {
+      background: rgba(10,22,40,0.5);
+      border: 1px solid var(--border-dim);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+
+    #pl-canvas { width: 100%; display: block; }
+
+    /* Filter buttons */
+    .hist-filters {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .hist-filter-btn {
+      padding: 7px 18px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border-dim);
+      border-radius: 6px;
+      color: var(--text-muted);
+      font-family: var(--f-ui);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .hist-filter-btn.active, .hist-filter-btn:hover {
+      background: var(--accent-dim);
+      border-color: var(--border);
+      color: var(--accent);
+    }
+
+    .hist-register-btn {
+      padding: 10px 24px;
+      background: var(--accent-dim);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--accent);
+      font-family: var(--f-display);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      cursor: pointer;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+    .hist-register-btn:hover { background: rgba(0,255,179,0.18); }
+
+    /* Form */
+    .hist-form {
+      background: rgba(10,22,40,0.7);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    .hf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+
+    /* Table */
+    .hist-table-wrap {
+      background: rgba(10,22,40,0.5);
+      border: 1px solid var(--border-dim);
+      border-radius: 12px;
+      overflow: auto;
+    }
+
+    .hist-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    .hist-table th {
+      padding: 12px;
+      text-align: left;
+      font-family: var(--f-mono);
+      font-size: 10px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border-dim);
+      white-space: nowrap;
+    }
+
+    .hist-table td {
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    /* IA Asesores */
+    .ia-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    .ia-advisor-card {
+      background: rgba(10,22,40,0.6);
+      border: 1px solid var(--border-dim);
+      border-radius: 16px;
+      padding: 28px;
+      cursor: pointer;
+      transition: border-color 0.3s, transform 0.3s, box-shadow 0.3s;
+      overflow: hidden;
+    }
+
+    .ia-advisor-card:hover,
+    .ia-advisor-card.ia-open {
+      border-color: var(--border);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(0,255,179,0.1);
+    }
+
+    .ia-advisor-card.ia-open { transform: translateY(0); }
+
+    .ia-avatar-big { font-size: 52px; margin-bottom: 12px; display: block; }
+
+    .ia-advisor-name {
+      font-family: var(--f-display);
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: 4px;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .ia-advisor-spec {
+      font-family: var(--f-ui);
+      font-size: 16px;
+      color: var(--text-dim);
+      margin-bottom: 16px;
+      line-height: 1.4;
+    }
+
+    .ia-consult-btn {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      background: var(--accent-dim);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--accent);
+      font-family: var(--f-display);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-bottom: 0;
+    }
+
+    .ia-consult-btn:hover { background: rgba(0,255,179,0.18); }
+
+    .ia-expand {
+      display: none;
+      overflow: hidden;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-dim);
+    }
+
+    .ia-q-input {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-dim);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-family: var(--f-ui);
+      font-size: 15px;
+      outline: none;
+      margin-bottom: 10px;
+      transition: border-color 0.2s;
+      resize: none;
+    }
+    .ia-q-input:focus { border-color: var(--accent); }
+
+    .ia-send-btn {
+      width: 100%;
+      padding: 10px;
+      background: var(--accent);
+      border: none;
+      border-radius: 8px;
+      color: var(--bg);
+      font-family: var(--f-display);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 3px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .ia-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .ia-response {
+      display: none;
+      margin-top: 14px;
+      padding: 14px;
+      background: rgba(0,255,179,0.03);
+      border: 1px solid var(--border-dim);
+      border-radius: 8px;
+    }
+
+    /* ================================================================
        RESPONSIVE UTILITIES
     ================================================================ */
     @media (max-width: 768px) {
@@ -1504,34 +1872,341 @@
     </div><!-- /p2-inner -->
   </section>
 
-  <section class="module-section" id="calculadora">
-    <div class="section-watermark" aria-hidden="true">04</div>
-    <div class="section-body">
-      <div class="section-badge">Parte 3 — Próximamente</div>
-      <h2 class="section-title">Calculadora</h2>
-      <p class="section-desc">Gestión de riesgo &nbsp;·&nbsp; Kelly Criterion &nbsp;·&nbsp; Sizing</p>
-      <span class="section-status">// Módulo Calculadora — En construcción</span>
-    </div>
+  <!-- ============================================================
+       PARTE 3 — CALCULADORAS
+  ============================================================ -->
+  <section class="p2-section" id="calculadora">
+    <div class="p2-inner">
+      <div class="p2-header">
+        <h2 class="p2-title" style="color:#818CF8">Calculadoras</h2>
+        <div style="font-family:var(--f-mono);font-size:11px;color:var(--text-muted);letter-spacing:2px">Kelly · Value · Apalancamiento · Sistema</div>
+      </div>
+
+      <div class="calc-grid-2">
+
+        <!-- CALC 1: Kelly Criterion -->
+        <div class="p2-card">
+          <div class="calc-title">KELLY CRITERION</div>
+          <div class="calc-sub" id="kc-sub-exp" style="display:none">Tamaño óptimo de apuesta basado en tu edge real</div>
+
+          <label class="calc-lbl">BANKROLL ($)</label>
+          <input class="calc-inp" id="kc-bk" type="number" min="0" step="1" placeholder="500" oninput="calcKelly()">
+
+          <label class="calc-lbl">ODD DECIMAL</label>
+          <input class="calc-inp" id="kc-odd" type="number" min="1.01" step="0.05" placeholder="1.85" oninput="calcKelly()">
+
+          <label class="calc-lbl">TU PROBABILIDAD (%)</label>
+          <input class="calc-inp" id="kc-prob" type="number" min="1" max="99" step="1" placeholder="60" oninput="calcKelly()">
+
+          <label class="calc-lbl">FRACCIÓN KELLY: <span id="kc-frac-disp" style="color:var(--accent)">25%</span></label>
+          <input class="calc-slider" id="kc-frac" type="range" min="25" max="100" step="25" value="25"
+                 oninput="document.getElementById('kc-frac-disp').textContent=this.value+'%';calcKelly()">
+          <div style="display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:10px;color:var(--text-muted);margin-bottom:4px">
+            <span>25% Conservador</span><span>50%</span><span>75%</span><span>100% Agresivo</span>
+          </div>
+
+          <div class="calc-out" id="kc-out">
+            <div style="color:var(--text-muted);font-family:var(--f-mono);text-align:center;padding:20px">Completa los campos para calcular</div>
+          </div>
+        </div>
+
+        <!-- CALC 2: Value Bet Detector -->
+        <div class="p2-card">
+          <div class="calc-title">DETECTOR VALUE BET</div>
+
+          <label class="calc-lbl">ODD QUE OFRECE LA CASA</label>
+          <input class="calc-inp" id="vb-odd" type="number" min="1.01" step="0.05" placeholder="2.10" oninput="calcValueBet()">
+
+          <label class="calc-lbl">TU PROBABILIDAD ESTIMADA (%)</label>
+          <input class="calc-inp" id="vb-prob" type="number" min="1" max="99" step="1" placeholder="55" oninput="calcValueBet()">
+
+          <label class="calc-lbl">BANKROLL ($)</label>
+          <input class="calc-inp" id="vb-bk" type="number" min="0" step="1" placeholder="500" oninput="calcValueBet()">
+
+          <div class="calc-out" id="vb-out">
+            <div style="color:var(--text-muted);font-family:var(--f-mono);text-align:center;padding:20px">Completa los campos para calcular</div>
+          </div>
+        </div>
+
+        <!-- CALC 3: Apalancamiento Crypto -->
+        <div class="p2-card">
+          <div class="calc-title">APALANCAMIENTO CRYPTO</div>
+
+          <label class="calc-lbl">CAPITAL A ARRIESGAR ($)</label>
+          <input class="calc-inp" id="lev-cap" type="number" min="1" step="1" placeholder="100" oninput="calcLeverage()">
+
+          <label class="calc-lbl">APALANCAMIENTO: <span id="lev-lev-disp" style="color:var(--dorado,#FBBF24)">2x</span></label>
+          <input class="calc-slider" id="lev-lev" type="range" min="2" max="100" step="1" value="2"
+                 oninput="document.getElementById('lev-lev-disp').textContent=this.value+'x';calcLeverage()">
+          <div style="display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:10px;color:var(--text-muted);margin-bottom:8px">
+            <span>2x</span><span>10x</span><span>25x</span><span>50x</span><span>100x</span>
+          </div>
+
+          <label class="calc-lbl">PRECIO ENTRADA ($)</label>
+          <div style="display:flex;gap:8px;margin-bottom:12px">
+            <input class="calc-inp" id="lev-entry" type="number" min="0" step="0.01" placeholder="103000" oninput="calcLeverage()" style="margin-bottom:0;flex:1">
+            <button onclick="useCurrentCoinPrice('bitcoin')" style="background:rgba(247,147,26,0.1);border:1px solid rgba(247,147,26,0.3);border-radius:8px;color:#F7931A;font-family:var(--f-mono);font-size:10px;cursor:pointer;padding:0 10px;white-space:nowrap">BTC</button>
+            <button onclick="useCurrentCoinPrice('ethereum')" style="background:rgba(98,126,234,0.1);border:1px solid rgba(98,126,234,0.3);border-radius:8px;color:#627EEA;font-family:var(--f-mono);font-size:10px;cursor:pointer;padding:0 10px;white-space:nowrap">ETH</button>
+          </div>
+
+          <label class="calc-lbl">DIRECCIÓN</label>
+          <div class="dir-toggle">
+            <button class="dir-btn long active" id="lev-btn-long" onclick="setLevDir('long')">▲ LONG</button>
+            <button class="dir-btn short" id="lev-btn-short" onclick="setLevDir('short')">▼ SHORT</button>
+          </div>
+
+          <label class="calc-lbl">% STOP LOSS</label>
+          <input class="calc-inp" id="lev-sl" type="number" min="0.1" max="50" step="0.5" placeholder="5" oninput="calcLeverage()">
+
+          <div class="calc-out" id="lev-out">
+            <div style="color:var(--text-muted);font-family:var(--f-mono);text-align:center;padding:20px">Completa los campos para calcular</div>
+          </div>
+        </div>
+
+        <!-- CALC 4: Sistema / Múltiple -->
+        <div class="p2-card">
+          <div class="calc-title">SISTEMA / MÚLTIPLE</div>
+
+          <div id="sys-selections"></div>
+
+          <button onclick="addSysSelection()" style="width:100%;padding:10px;background:rgba(255,255,255,0.03);border:1px dashed var(--border-dim);border-radius:8px;color:var(--text-dim);font-family:var(--f-display);font-size:11px;letter-spacing:2px;cursor:pointer;margin-bottom:12px;transition:all 0.2s"
+                  onmouseover="this.style.borderColor='var(--border)';this.style.color='var(--text)'"
+                  onmouseout="this.style.borderColor='var(--border-dim)';this.style.color='var(--text-dim)'">
+            + AÑADIR SELECCIÓN (máx. 6)
+          </button>
+
+          <div class="calc-out" id="sys-out">
+            <div style="color:var(--text-muted);font-family:var(--f-mono);text-align:center;padding:20px">Añade selecciones para calcular el sistema</div>
+          </div>
+        </div>
+
+      </div><!-- /calc-grid-2 -->
+    </div><!-- /p2-inner -->
   </section>
 
-  <section class="module-section" id="historial">
-    <div class="section-watermark" aria-hidden="true">05</div>
-    <div class="section-body">
-      <div class="section-badge">Parte 3 — Próximamente</div>
-      <h2 class="section-title">Historial</h2>
-      <p class="section-desc">Operaciones &nbsp;·&nbsp; Estadísticas &nbsp;·&nbsp; Racha</p>
-      <span class="section-status">// Módulo Historial — En construcción</span>
-    </div>
+  <!-- ============================================================
+       PARTE 3 — HISTORIAL & P&L
+  ============================================================ -->
+  <section class="p2-section" id="historial">
+    <div class="p2-inner">
+
+      <div class="p2-header">
+        <h2 class="p2-title" style="color:#FBBF24">Historial &amp; P&amp;L</h2>
+        <div style="display:flex;gap:10px">
+          <button class="hist-register-btn" onclick="toggleHistForm()">➕ REGISTRAR OPERACIÓN</button>
+          <button class="hist-filter-btn" onclick="exportCSV()" style="border-color:rgba(0,255,179,0.2);color:var(--accent)">↓ CSV</button>
+        </div>
+      </div>
+
+      <!-- Stats row -->
+      <div class="hist-stats-row">
+        <div class="hist-stat-card">
+          <div class="hist-stat-label">P&amp;L TOTAL</div>
+          <div class="hist-stat-num pos" id="hs-pnl">$0.00</div>
+        </div>
+        <div class="hist-stat-card">
+          <div class="hist-stat-label">WIN RATE</div>
+          <div class="hist-stat-num" id="hs-wr">0%</div>
+        </div>
+        <div class="hist-stat-card">
+          <div class="hist-stat-label">OPERACIONES</div>
+          <div class="hist-stat-num" id="hs-ops">0</div>
+        </div>
+        <div class="hist-stat-card">
+          <div class="hist-stat-label">MEJOR RACHA</div>
+          <div class="hist-stat-num pos" id="hs-racha">0</div>
+        </div>
+        <div class="hist-stat-card">
+          <div class="hist-stat-label">ROI %</div>
+          <div class="hist-stat-num" id="hs-roi">0%</div>
+        </div>
+      </div>
+
+      <!-- P&L chart -->
+      <div class="pl-canvas-wrap">
+        <div style="font-family:var(--f-ui);font-size:10px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px">CURVA DE CAPITAL</div>
+        <canvas id="pl-canvas"></canvas>
+      </div>
+
+      <!-- Register form (hidden by default) -->
+      <div class="hist-form" id="hist-form" style="display:none">
+        <div style="font-family:var(--f-display);font-size:18px;font-weight:700;letter-spacing:3px;color:var(--text);margin-bottom:16px">NUEVA OPERACIÓN</div>
+
+        <!-- Tipo toggle -->
+        <div class="mode-toggle-wrap" style="margin-bottom:16px">
+          <button class="mode-btn active" id="hf-btn-ap" onclick="setHistTipo('APUESTA')">⚽ APUESTA</button>
+          <button class="mode-btn" id="hf-btn-cr" onclick="setHistTipo('CRYPTO')">₿ CRYPTO</button>
+        </div>
+
+        <div class="hf-grid">
+          <div>
+            <label class="calc-lbl">DESCRIPCIÓN *</label>
+            <input class="calc-inp" id="hf-desc" type="text" placeholder="Real Madrid Over 2.5 / BTC Largo">
+          </div>
+          <div>
+            <label class="calc-lbl">MERCADO / INSTRUMENTO</label>
+            <input class="calc-inp" id="hf-merc" type="text" placeholder="Premier League / KuCoin">
+          </div>
+          <div>
+            <label class="calc-lbl">STAKE / CAPITAL ($)</label>
+            <input class="calc-inp" id="hf-stake" type="number" min="0" step="0.01" placeholder="50" oninput="calcAutoResult()">
+          </div>
+          <div id="hf-odd-row">
+            <label class="calc-lbl">ODD DECIMAL</label>
+            <input class="calc-inp" id="hf-odd" type="number" min="1" step="0.01" placeholder="2.10" oninput="calcAutoResult()">
+          </div>
+          <div>
+            <label class="calc-lbl">RESULTADO</label>
+            <select class="calc-inp" id="hf-res" onchange="calcAutoResult()" style="cursor:pointer">
+              <option value="GANÓ">✅ GANÓ</option>
+              <option value="PERDIÓ">❌ PERDIÓ</option>
+              <option value="PENDIENTE">⏳ PENDIENTE</option>
+            </select>
+          </div>
+          <div>
+            <label class="calc-lbl">P&amp;L ($) — auto si tienes odd</label>
+            <input class="calc-inp" id="hf-pnl" type="number" step="0.01" placeholder="+42.00">
+          </div>
+          <div>
+            <label class="calc-lbl">FECHA</label>
+            <input class="calc-inp" id="hf-fecha" type="date">
+          </div>
+          <div>
+            <label class="calc-lbl">NOTAS</label>
+            <input class="calc-inp" id="hf-notas" type="text" placeholder="Observaciones opcionales">
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px">
+          <button onclick="saveHistOp()" style="padding:12px 28px;background:var(--accent);border:none;border-radius:8px;color:var(--bg);font-family:var(--f-display);font-size:12px;font-weight:900;letter-spacing:3px;cursor:pointer">GUARDAR</button>
+          <button onclick="toggleHistForm()" style="padding:12px 20px;background:rgba(255,255,255,0.04);border:1px solid var(--border-dim);border-radius:8px;color:var(--text-muted);font-family:var(--f-display);font-size:12px;letter-spacing:2px;cursor:pointer">CANCELAR</button>
+        </div>
+      </div>
+
+      <!-- Filters + table -->
+      <div class="hist-filters">
+        <button class="hist-filter-btn active" data-f="todos"    onclick="setHistFilter('todos')">TODOS</button>
+        <button class="hist-filter-btn"        data-f="apuestas" onclick="setHistFilter('apuestas')">APUESTAS</button>
+        <button class="hist-filter-btn"        data-f="crypto"   onclick="setHistFilter('crypto')">CRYPTO</button>
+        <button class="hist-filter-btn"        data-f="pend"     onclick="setHistFilter('pend')">PENDIENTES</button>
+      </div>
+
+      <div class="hist-table-wrap">
+        <table class="hist-table">
+          <thead>
+            <tr>
+              <th>Fecha</th><th>Tipo</th><th>Descripción</th>
+              <th>Stake</th><th>Odd</th><th>Resultado</th>
+              <th>P&amp;L</th><th>Notas</th><th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="hist-tbody"></tbody>
+        </table>
+      </div>
+      <div id="hist-pages" style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap"></div>
+
+    </div><!-- /p2-inner -->
   </section>
 
-  <section class="module-section" id="ia">
-    <div class="section-watermark" aria-hidden="true">06</div>
-    <div class="section-body">
-      <div class="section-badge">Parte 4 — Próximamente</div>
-      <h2 class="section-title">Asesores IA</h2>
-      <p class="section-desc">Claude &nbsp;·&nbsp; Análisis automático &nbsp;·&nbsp; Fichas de decisión</p>
-      <span class="section-status">// Módulo IA — En construcción</span>
-    </div>
+  <!-- ============================================================
+       PARTE 3 — ASESORES IA
+  ============================================================ -->
+  <section class="p2-section" id="ia">
+    <div class="p2-inner">
+
+      <div class="p2-header">
+        <div>
+          <h2 class="p2-title" style="color:#F472B6">Asesores IA</h2>
+          <div style="font-family:var(--f-mono);font-size:12px;color:var(--text-muted);letter-spacing:2px;margin-top:6px">Análisis con datos reales del mercado actual</div>
+        </div>
+        <div style="font-family:var(--f-mono);font-size:10px;color:var(--text-muted);text-align:right;line-height:1.8">
+          Contexto inyectado automáticamente:<br>
+          Precios BTC/ETH · F&amp;G · Señales RSI · Value bets
+        </div>
+      </div>
+
+      <div class="ia-grid">
+
+        <!-- FALCON -->
+        <div class="ia-advisor-card" id="ia-falcon" onclick="openAdvisor('falcon')">
+          <span class="ia-avatar-big">🦅</span>
+          <div class="ia-advisor-name">FALCON</div>
+          <div class="ia-advisor-spec">Value Betting &amp; Análisis de Odds</div>
+          <button class="ia-consult-btn">CONSULTAR</button>
+          <div class="ia-expand">
+            <textarea class="ia-q-input" rows="2" placeholder="¿Cuál es el mejor value bet ahora?"></textarea>
+            <button class="ia-send-btn" onclick="event.stopPropagation();sendAdvisor('falcon')">ENVIAR ↗</button>
+            <div class="ia-response"></div>
+          </div>
+        </div>
+
+        <!-- SATOSHI -->
+        <div class="ia-advisor-card" id="ia-satoshi" onclick="openAdvisor('satoshi')">
+          <span class="ia-avatar-big">₿</span>
+          <div class="ia-advisor-name">SATOSHI</div>
+          <div class="ia-advisor-spec">Trading Crypto &amp; Análisis Técnico</div>
+          <button class="ia-consult-btn">CONSULTAR</button>
+          <div class="ia-expand">
+            <textarea class="ia-q-input" rows="2" placeholder="¿Debo comprar BTC ahora?"></textarea>
+            <button class="ia-send-btn" onclick="event.stopPropagation();sendAdvisor('satoshi')">ENVIAR ↗</button>
+            <div class="ia-response"></div>
+          </div>
+        </div>
+
+        <!-- ZEUS -->
+        <div class="ia-advisor-card" id="ia-zeus" onclick="openAdvisor('zeus')">
+          <span class="ia-avatar-big">⚡</span>
+          <div class="ia-advisor-name">ZEUS</div>
+          <div class="ia-advisor-spec">Gestión de Bankroll &amp; Kelly</div>
+          <button class="ia-consult-btn">CONSULTAR</button>
+          <div class="ia-expand">
+            <textarea class="ia-q-input" rows="2" placeholder="¿Cuánto debo arriesgar en esta apuesta?"></textarea>
+            <button class="ia-send-btn" onclick="event.stopPropagation();sendAdvisor('zeus')">ENVIAR ↗</button>
+            <div class="ia-response"></div>
+          </div>
+        </div>
+
+        <!-- MATRIX -->
+        <div class="ia-advisor-card" id="ia-matrix" onclick="openAdvisor('matrix')">
+          <span class="ia-avatar-big">🔢</span>
+          <div class="ia-advisor-name">MATRIX</div>
+          <div class="ia-advisor-spec">Estadísticas &amp; Probabilidades</div>
+          <button class="ia-consult-btn">CONSULTAR</button>
+          <div class="ia-expand">
+            <textarea class="ia-q-input" rows="2" placeholder="Explícame el edge de este mercado"></textarea>
+            <button class="ia-send-btn" onclick="event.stopPropagation();sendAdvisor('matrix')">ENVIAR ↗</button>
+            <div class="ia-response"></div>
+          </div>
+        </div>
+
+        <!-- GUARDIAN -->
+        <div class="ia-advisor-card" id="ia-guardian" onclick="openAdvisor('guardian')">
+          <span class="ia-avatar-big">🛡️</span>
+          <div class="ia-advisor-name">GUARDIAN</div>
+          <div class="ia-advisor-spec">Control de Riesgo &amp; Anti-Tilt</div>
+          <button class="ia-consult-btn">CONSULTAR</button>
+          <div class="ia-expand">
+            <textarea class="ia-q-input" rows="2" placeholder="¿Debo seguir operando hoy?"></textarea>
+            <button class="ia-send-btn" onclick="event.stopPropagation();sendAdvisor('guardian')">ENVIAR ↗</button>
+            <div class="ia-response"></div>
+          </div>
+        </div>
+
+        <!-- ORACLE -->
+        <div class="ia-advisor-card" id="ia-oracle" onclick="openAdvisor('oracle')">
+          <span class="ia-avatar-big">🔮</span>
+          <div class="ia-advisor-name">ORACLE</div>
+          <div class="ia-advisor-spec">Análisis Global &amp; Correlaciones</div>
+          <button class="ia-consult-btn">CONSULTAR</button>
+          <div class="ia-expand">
+            <textarea class="ia-q-input" rows="2" placeholder="¿Cómo afecta el macro a crypto esta semana?"></textarea>
+            <button class="ia-send-btn" onclick="event.stopPropagation();sendAdvisor('oracle')">ENVIAR ↗</button>
+            <div class="ia-response"></div>
+          </div>
+        </div>
+
+      </div><!-- /ia-grid -->
+    </div><!-- /p2-inner -->
   </section>
 
   <section class="module-section" id="emergencia">
@@ -2563,6 +3238,636 @@
       setInterval(() => {
         ['bitcoin','ethereum','solana','ripple'].forEach(fetchSignal);
       }, 300000);
+    });
+
+    /* ============================================================
+       PARTE 3 — CALCULADORAS
+    ============================================================ */
+
+    // CountUp animation utility
+    function countUp(el, target, opts = {}) {
+      if (!el) return;
+      const { duration = 600, fmt = v => v.toFixed(2), prefix = '' } = opts;
+      const t0 = performance.now();
+      (function raf(now) {
+        const p = Math.min((now - t0) / duration, 1);
+        const e = 1 - Math.pow(1 - p, 3);
+        el.textContent = prefix + fmt(target * e);
+        if (p < 1) requestAnimationFrame(raf);
+        else el.textContent = prefix + fmt(target);
+      })(t0);
+    }
+
+    // === KELLY CRITERION ===
+    function calcKelly() {
+      const bk   = parseFloat(document.getElementById('kc-bk')?.value)   || JCAHS.bankroll || 500;
+      const odd  = parseFloat(document.getElementById('kc-odd')?.value)  || 0;
+      const prob = parseFloat(document.getElementById('kc-prob')?.value) / 100 || 0;
+      const frac = parseFloat(document.getElementById('kc-frac')?.value) / 100 || 0.25;
+      const out  = document.getElementById('kc-out');
+      if (!out) return;
+
+      if (!odd || !prob || odd <= 1 || prob <= 0 || prob >= 1) {
+        out.innerHTML = `<div style="color:var(--text-muted);font-family:var(--f-mono);text-align:center;padding:20px">Completa los campos para calcular</div>`;
+        return;
+      }
+      const b = odd - 1, q = 1 - prob;
+      const f = (prob * b - q) / b;
+      const fFrac = Math.max(0, f * frac);
+      const stake = bk * fFrac;
+      const edge  = (prob * b - q) * 100;
+      const gain  = stake * b;
+      const verdict = edge > 5 ? { t: 'APUESTA SEGURA',   c: 'var(--accent)' }
+                    : edge > 0 ? { t: 'EDGE MARGINAL',     c: '#FBBF24' }
+                    :            { t: 'SIN EDGE — NO APOSTAR', c: 'var(--alert)' };
+      const formula = JCAHS.mode === 'experto'
+        ? `<div style="margin-top:12px;padding:10px;background:rgba(255,255,255,0.03);border-radius:6px;font-family:var(--f-mono);font-size:11px;color:var(--text-muted);line-height:1.8">
+            f = (p×b − q) / b<br>
+            f = (${prob.toFixed(2)}×${b.toFixed(2)} − ${q.toFixed(2)}) / ${b.toFixed(2)} = <b style="color:var(--accent)">${(f*100).toFixed(1)}%</b> Kelly completo<br>
+            Fracción (${(frac*100).toFixed(0)}%): <b style="color:var(--accent)">${(fFrac*100).toFixed(1)}%</b> del bankroll
+           </div>` : '';
+      out.innerHTML = `
+        <div class="n64" id="kc-stake-num" style="color:${edge > 0 ? 'var(--accent)' : 'var(--alert)'}">$${stake.toFixed(2)}</div>
+        <div style="font-family:var(--f-mono);font-size:12px;color:var(--text-muted);margin:4px 0 14px">${(fFrac*100).toFixed(1)}% del bankroll</div>
+        <div class="calc-row"><span class="calc-row-l">SI GANAS</span><span class="n32 pos">+$${gain.toFixed(2)}</span></div>
+        <div class="calc-row"><span class="calc-row-l">SI PIERDES</span><span class="n32 neg">-$${stake.toFixed(2)}</span></div>
+        <div class="calc-row"><span class="calc-row-l">EDGE</span><span class="n32" style="color:${edge > 0 ? 'var(--accent)' : 'var(--alert)'}">${edge >= 0 ? '+' : ''}${edge.toFixed(1)}%</span></div>
+        <div style="margin-top:14px;padding:10px;background:rgba(${edge>0?'0,255,179':'255,107,53'},0.08);border:1px solid rgba(${edge>0?'0,255,179':'255,107,53'},0.2);border-radius:8px;font-family:var(--f-display);font-size:12px;font-weight:700;letter-spacing:2px;color:${verdict.c}">${verdict.t}</div>
+        ${formula}
+        ${edge > 0 ? `<button class="calc-use-btn" onclick="openRegisterFromCalc('APUESTA','Kelly - apuesta calculada',${stake.toFixed(2)},${odd})">USAR ESTA APUESTA → HISTORIAL</button>` : ''}`;
+      countUp(document.getElementById('kc-stake-num'), stake, { prefix: '$', fmt: v => v.toFixed(2) });
+    }
+
+    // === VALUE BET DETECTOR ===
+    function calcValueBet() {
+      const odd  = parseFloat(document.getElementById('vb-odd')?.value)  || 0;
+      const prob = parseFloat(document.getElementById('vb-prob')?.value) / 100 || 0;
+      const bk   = parseFloat(document.getElementById('vb-bk')?.value)   || JCAHS.bankroll || 500;
+      const out  = document.getElementById('vb-out');
+      if (!out) return;
+      if (!odd || !prob || odd <= 1 || prob <= 0 || prob >= 1) {
+        out.innerHTML = `<div style="color:var(--text-muted);font-family:var(--f-mono);text-align:center;padding:20px">Completa los campos para calcular</div>`;
+        return;
+      }
+      const ip    = 1 / odd;
+      const edge  = (prob - ip) * 100;
+      const kelly = Math.max(0, (edge / 100 * odd / (odd - 1)) * 0.25);
+      const stake = bk * kelly;
+      const isVal = edge > 0;
+      const eClr  = edge >= 5 ? 'var(--accent)' : edge > 0 ? '#00CC88' : 'var(--alert)';
+      const why   = JCAHS.mode === 'experto'
+        ? `<div style="margin-top:12px;font-family:var(--f-mono);font-size:12px;color:var(--text-muted);line-height:1.7">
+            Casa: 1/${odd} = <b>${(ip*100).toFixed(1)}%</b> de probabilidad implícita.<br>
+            Tu estimación: <b>${(prob*100).toFixed(1)}%</b> → diferencia de <b style="color:${eClr}">${edge >= 0 ? '+' : ''}${edge.toFixed(2)}pp</b>.
+           </div>` : '';
+      out.innerHTML = `
+        <div style="display:flex;gap:20px;align-items:baseline;margin-bottom:14px">
+          <div class="n56" style="color:${eClr}">${edge >= 0 ? '+' : ''}${edge.toFixed(1)}%</div>
+          <div style="font-family:var(--f-display);font-size:26px;font-weight:900;color:${isVal ? 'var(--accent)' : 'var(--alert)'}">${isVal ? 'VALUE BET ✓' : 'SIN VALUE ✗'}</div>
+        </div>
+        <div class="calc-row"><span class="calc-row-l">PROB. IMPLÍCITA CASA</span><span class="n32">${(ip*100).toFixed(1)}%</span></div>
+        <div class="calc-row"><span class="calc-row-l">TU PROBABILIDAD</span><span class="n32 pos">${(prob*100).toFixed(1)}%</span></div>
+        <div class="calc-row"><span class="calc-row-l">KELLY 25% → APOSTAR</span><span class="n32" style="color:${isVal ? 'var(--accent)' : 'var(--text-muted)'}">${isVal ? '$' + stake.toFixed(2) : '--'}</span></div>
+        <div class="calc-row"><span class="calc-row-l">ROI ESPERADO L/P</span><span class="n32" style="color:${isVal ? 'var(--accent)' : 'var(--alert)'}">${edge >= 0 ? '+' : ''}${edge.toFixed(1)}%</span></div>
+        ${why}`;
+    }
+
+    // === LEVERAGE CRYPTO ===
+    let levDir = 'long';
+
+    function setLevDir(dir) {
+      levDir = dir;
+      document.getElementById('lev-btn-long')?.classList.toggle('active', dir === 'long');
+      document.getElementById('lev-btn-short')?.classList.toggle('active', dir === 'short');
+      calcLeverage();
+    }
+
+    function useCurrentCoinPrice(coin) {
+      const price = JCAHS.prices[coin]?.usd;
+      if (!price) return;
+      const inp = document.getElementById('lev-entry');
+      if (inp) { inp.value = price.toFixed(2); calcLeverage(); }
+    }
+
+    function calcLeverage() {
+      const capital = parseFloat(document.getElementById('lev-cap')?.value)   || 0;
+      const lev     = parseFloat(document.getElementById('lev-lev')?.value)   || 2;
+      const entry   = parseFloat(document.getElementById('lev-entry')?.value) || 0;
+      const slPct   = parseFloat(document.getElementById('lev-sl')?.value)    || 5;
+      const out     = document.getElementById('lev-out');
+      const disp    = document.getElementById('lev-lev-disp');
+      if (disp) disp.textContent = lev + 'x';
+      if (!out) return;
+
+      if (!capital || !entry) {
+        out.innerHTML = `<div style="color:var(--text-muted);font-family:var(--f-mono);text-align:center;padding:20px">Completa los campos para calcular</div>`;
+        return;
+      }
+      const position = capital * lev;
+      const liqPct   = (1 / lev) * 0.9;
+      const liqPrice = levDir === 'long' ? entry * (1 - liqPct) : entry * (1 + liqPct);
+      const slPrice  = levDir === 'long' ? entry * (1 - slPct/100) : entry * (1 + slPct/100);
+      const riskDollar = capital * (slPct / 100) * lev;
+      const liqDist  = Math.abs(entry - liqPrice) / entry * 100;
+      const risk = lev <= 5 ? { t:'🟢 RIESGO BAJO',    c:'var(--accent)' }
+                 : lev <= 10 ? { t:'🟡 RIESGO MEDIO',   c:'#FBBF24' }
+                 : lev <= 20 ? { t:'🟠 RIESGO ALTO',    c:'var(--alert)' }
+                 :             { t:'🔴 RIESGO EXTREMO', c:'#DC2626' };
+      const fmtPx = p => '$' + p.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+      const liqWarn = liqDist < 5
+        ? `<div style="color:var(--alert);font-family:var(--f-mono);font-size:11px;animation:livePulse 1s infinite;margin-top:6px">⚠️ LIQUIDACIÓN A ${liqDist.toFixed(1)}% DEL PRECIO ACTUAL</div>` : '';
+      const highLev = lev > 20
+        ? `<div style="margin-top:10px;padding:10px;background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.25);border-radius:6px;font-family:var(--f-mono);font-size:11px;color:#DC2626">⚠️ ALTO RIESGO: ${lev}x puede liquidar con movimiento de ${(liqDist).toFixed(1)}%</div>` : '';
+      out.innerHTML = `
+        ${JCAHS.mode === 'simple' ? `<div style="font-size:36px;margin-bottom:12px">${risk.t}</div>` : ''}
+        <div class="calc-row"><span class="calc-row-l">POSICIÓN TOTAL</span><span class="n32">$${position.toLocaleString('en-US',{maximumFractionDigits:0})}</span></div>
+        <div class="calc-row"><span class="calc-row-l">PRECIO LIQUIDACIÓN</span><span class="n32" style="color:${liqDist<5?'var(--alert)':'var(--text)'}">${fmtPx(liqPrice)}</span></div>
+        ${liqWarn}
+        <div class="calc-row"><span class="calc-row-l">PRECIO STOP LOSS</span><span class="n32 neg">${fmtPx(slPrice)}</span></div>
+        <div class="calc-row"><span class="calc-row-l">RIESGO REAL</span><span class="n32 neg">-$${riskDollar.toFixed(2)}</span></div>
+        ${JCAHS.mode === 'experto' ? `<div class="calc-row"><span class="calc-row-l">RATIO R/G RECOMENDADO</span><span class="n32">2:1</span></div><div class="calc-row"><span class="calc-row-l">TARGET SUGERIDO</span><span class="n32 pos">${fmtPx(levDir==='long' ? entry*(1+slPct/100*2) : entry*(1-slPct/100*2))}</span></div>` : ''}
+        ${highLev}`;
+    }
+
+    // === SISTEMA / MÚLTIPLE ===
+    let sysSelections = [{ name: '', odd: '', prob: '' }];
+
+    function renderSysSelections() {
+      const el = document.getElementById('sys-selections');
+      if (!el) return;
+      el.innerHTML = sysSelections.map((s, i) => `
+        <div style="display:grid;grid-template-columns:1fr 90px 90px 32px;gap:6px;margin-bottom:6px;align-items:center">
+          <input class="calc-inp" placeholder="Evento / Selección ${i+1}" value="${s.name}"
+                 style="margin-bottom:0" oninput="sysSelections[${i}].name=this.value">
+          <input class="calc-inp" placeholder="Odd" type="number" step="0.01" min="1" value="${s.odd}"
+                 style="margin-bottom:0" oninput="sysSelections[${i}].odd=this.value;calcSystem()">
+          <input class="calc-inp" placeholder="%" type="number" step="1" min="1" max="99" value="${s.prob}"
+                 style="margin-bottom:0" oninput="sysSelections[${i}].prob=this.value;calcSystem()">
+          <button onclick="removeSelection(${i})" style="background:rgba(255,107,53,0.1);border:1px solid rgba(255,107,53,0.3);border-radius:6px;color:var(--alert);cursor:pointer;font-size:14px;height:44px">✕</button>
+        </div>`).join('');
+      calcSystem();
+    }
+
+    function addSysSelection() {
+      if (sysSelections.length >= 6) return;
+      sysSelections.push({ name: '', odd: '', prob: '' });
+      renderSysSelections();
+    }
+
+    function removeSelection(i) {
+      sysSelections.splice(i, 1);
+      if (!sysSelections.length) sysSelections = [{ name:'', odd:'', prob:'' }];
+      renderSysSelections();
+    }
+
+    function calcSystem() {
+      const valid = sysSelections.filter(s => parseFloat(s.odd) > 1 && parseFloat(s.prob) > 0);
+      const out = document.getElementById('sys-out');
+      if (!out) return;
+      if (!valid.length) {
+        out.innerHTML = `<div style="color:var(--text-muted);font-family:var(--f-mono);text-align:center;padding:20px">Añade selecciones con odd y probabilidad</div>`;
+        return;
+      }
+      const bk       = JCAHS.bankroll || 500;
+      const combOdd  = valid.reduce((p, s) => p * parseFloat(s.odd), 1);
+      const combProb = valid.reduce((p, s) => p * (parseFloat(s.prob)/100), 1);
+      const combIP   = valid.reduce((p, s) => p * (1/parseFloat(s.odd)), 1);
+      const combEdge = (combProb - combIP) * 100;
+      const kelly    = Math.max(0, (combEdge/100) * combOdd / (combOdd - 1) * 0.25);
+      const stake    = bk * kelly;
+      const payout   = stake * combOdd;
+      const highRisk = valid.length > 4 || valid.some(s => parseFloat(s.prob) < 55);
+      const diag = combEdge > 2 && !highRisk ? { t:'SISTEMA CON VALUE', c:'var(--accent)' }
+                 : combEdge > 0              ? { t:'VALUE MARGINAL',     c:'#FBBF24' }
+                 : highRisk                  ? { t:'RIESGO MUY ALTO',    c:'var(--alert)' }
+                 :                            { t:'SIN VALUE',           c:'var(--alert)' };
+      const desglose = JCAHS.mode === 'experto'
+        ? `<div style="margin-top:12px;padding:10px;background:rgba(255,255,255,0.02);border-radius:6px">
+            <div style="font-family:var(--f-mono);font-size:10px;color:var(--text-muted);letter-spacing:2px;margin-bottom:8px">DESGLOSE</div>
+            ${valid.map((s, i) => {
+              const e = ((parseFloat(s.prob)/100 - 1/parseFloat(s.odd))*100).toFixed(1);
+              return `<div style="display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:11px;padding:4px 0;border-bottom:1px solid var(--border-dim)">
+                <span style="color:var(--text-dim)">${s.name||'Sel.'+(i+1)}</span>
+                <span>@${parseFloat(s.odd).toFixed(2)} · ${s.prob}% · <span style="color:${parseFloat(e)>0?'var(--accent)':'var(--alert)'}">${e}%</span></span>
+              </div>`;
+            }).join('')}
+           </div>` : '';
+      out.innerHTML = `
+        <div class="calc-row"><span class="calc-row-l">ODD COMBINADA</span><span class="n48">${combOdd.toFixed(2)}</span></div>
+        <div class="calc-row"><span class="calc-row-l">PROB. REAL COMBINADA</span><span class="n32">${(combProb*100).toFixed(1)}%</span></div>
+        <div class="calc-row"><span class="calc-row-l">PROB. IMPLÍCITA</span><span class="n32">${(combIP*100).toFixed(1)}%</span></div>
+        <div class="calc-row"><span class="calc-row-l">EDGE SISTEMA</span><span class="n32" style="color:${combEdge>0?'var(--accent)':'var(--alert)'}">${combEdge>=0?'+':''}${combEdge.toFixed(1)}%</span></div>
+        <div class="calc-row"><span class="calc-row-l">STAKE KELLY 25%</span><span class="n32 pos">$${stake.toFixed(2)}</span></div>
+        <div class="calc-row"><span class="calc-row-l">GANANCIA POTENCIAL</span><span class="n32 pos">+$${payout.toFixed(2)}</span></div>
+        <div style="margin-top:12px;padding:10px;background:rgba(${combEdge>0?'0,255,179':'255,107,53'},0.08);border:1px solid rgba(${combEdge>0?'0,255,179':'255,107,53'},0.2);border-radius:8px;font-family:var(--f-display);font-size:12px;font-weight:700;letter-spacing:2px;color:${diag.c}">${diag.t}</div>
+        ${desglose}`;
+    }
+
+    /* ============================================================
+       PARTE 3 — HISTORIAL
+    ============================================================ */
+
+    let histFilter = 'todos', histPage = 0;
+    const HIST_PER = 50;
+
+    function opPnl(op)    { return op.pnl !== undefined ? op.pnl : (typeof op.resultado === 'number' ? op.resultado : 0); }
+    function opResult(op) { return ['GANÓ','PERDIÓ','PENDIENTE'].includes(op.resultado) ? op.resultado : (opPnl(op) > 0 ? 'GANÓ' : opPnl(op) < 0 ? 'PERDIÓ' : 'PENDIENTE'); }
+    function opDesc(op)   { return op.descripcion || op.desc || ''; }
+
+    function renderHistStats() {
+      const ops      = JCAHS.ops;
+      const pnlTotal = ops.reduce((s, o) => s + opPnl(o), 0);
+      const wins     = ops.filter(o => opPnl(o) > 0).length;
+      const wr       = ops.length ? (wins / ops.length * 100) : 0;
+      let maxRacha = 0, cur = 0;
+      [...ops].reverse().forEach(o => { if (opPnl(o) > 0) { cur++; maxRacha = Math.max(maxRacha, cur); } else cur = 0; });
+      const staked = ops.reduce((s, o) => s + (parseFloat(o.stake) || Math.abs(opPnl(o)) || 0), 0);
+      const roi    = staked ? (pnlTotal / staked * 100) : 0;
+
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      set('hs-pnl',   (pnlTotal >= 0 ? '+$' : '-$') + Math.abs(pnlTotal).toFixed(2));
+      set('hs-wr',    wr.toFixed(1) + '%');
+      set('hs-ops',   ops.length);
+      set('hs-racha', maxRacha);
+      set('hs-roi',   (roi >= 0 ? '+' : '') + roi.toFixed(1) + '%');
+
+      const col = (id, c) => { const el = document.getElementById(id); if (el) el.style.color = c; };
+      col('hs-pnl',   pnlTotal >= 0 ? 'var(--accent)' : 'var(--alert)');
+      col('hs-wr',    wr >= 55 ? 'var(--accent)' : wr >= 45 ? '#FBBF24' : 'var(--alert)');
+      col('hs-roi',   roi >= 0 ? 'var(--accent)' : 'var(--alert)');
+    }
+
+    function drawPLChart() {
+      const canvas = document.getElementById('pl-canvas');
+      if (!canvas) return;
+      canvas.width  = canvas.offsetWidth || 800;
+      canvas.height = 180;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const ops = [...JCAHS.ops].reverse();
+      if (ops.length < 2) {
+        ctx.fillStyle = 'rgba(232,244,255,0.3)';
+        ctx.font = '13px Share Tech Mono, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('Registra al menos 2 operaciones para ver tu curva de capital', W/2, H/2);
+        return;
+      }
+
+      let cum = 0;
+      const data = [{ i:0, y:0 }];
+      ops.forEach((op, n) => { cum += opPnl(op); data.push({ i:n+1, y:cum, op }); });
+
+      const ys = data.map(d => d.y);
+      const minY = Math.min(0, ...ys), maxY = Math.max(0, ...ys);
+      const rangeY = maxY - minY || 1;
+      const pad = { t:16, r:16, b:28, l:56 };
+      const pW = W - pad.l - pad.r, pH = H - pad.t - pad.b;
+      const px = i => pad.l + (i / (data.length-1)) * pW;
+      const py = v => pad.t + pH - ((v - minY) / rangeY) * pH;
+
+      // Grid
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
+      for (let n = 0; n <= 4; n++) { const yp = pad.t + (n/4)*pH; ctx.beginPath(); ctx.moveTo(pad.l, yp); ctx.lineTo(W-pad.r, yp); ctx.stroke(); }
+      // Zero line
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.beginPath(); ctx.moveTo(pad.l, py(0)); ctx.lineTo(W-pad.r, py(0)); ctx.stroke();
+      // Gradient fill
+      const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t+pH);
+      grad.addColorStop(0, 'rgba(0,255,179,0.18)'); grad.addColorStop(1, 'rgba(0,255,179,0)');
+      ctx.beginPath(); ctx.moveTo(px(0), py(0));
+      data.forEach(d => ctx.lineTo(px(d.i), py(d.y)));
+      ctx.lineTo(px(data.length-1), py(0)); ctx.closePath();
+      ctx.fillStyle = grad; ctx.fill();
+      // Line
+      ctx.strokeStyle = '#00FFB3'; ctx.lineWidth = 2; ctx.beginPath();
+      data.forEach((d, n) => { n===0 ? ctx.moveTo(px(d.i),py(d.y)) : ctx.lineTo(px(d.i),py(d.y)); });
+      ctx.stroke();
+      // Dots
+      data.forEach(d => {
+        if (!d.op) return;
+        ctx.beginPath(); ctx.arc(px(d.i), py(d.y), 4, 0, Math.PI*2);
+        ctx.fillStyle = opPnl(d.op) >= 0 ? '#00FFB3' : '#FF6B35'; ctx.fill();
+      });
+      // Y labels
+      ctx.fillStyle = 'rgba(232,244,255,0.35)'; ctx.font = '10px Share Tech Mono, monospace'; ctx.textAlign = 'right';
+      for (let n = 0; n <= 4; n++) {
+        const v = minY + (n/4)*rangeY, yp = pad.t + ((4-n)/4)*pH;
+        ctx.fillText('$'+v.toFixed(0), pad.l-4, yp+4);
+      }
+    }
+
+    // Form
+    let histFormOpen = false, histTipo = 'APUESTA';
+
+    function toggleHistForm() {
+      histFormOpen = !histFormOpen;
+      const form = document.getElementById('hist-form');
+      if (!form) return;
+      if (histFormOpen) {
+        form.style.display = 'block';
+        gsap.from(form, { opacity:0, y:-12, duration:0.3 });
+        const fd = document.getElementById('hf-fecha');
+        if (fd && !fd.value) fd.value = new Date().toISOString().split('T')[0];
+      } else form.style.display = 'none';
+    }
+
+    function setHistTipo(t) {
+      histTipo = t;
+      document.getElementById('hf-btn-ap')?.classList.toggle('active', t==='APUESTA');
+      document.getElementById('hf-btn-cr')?.classList.toggle('active', t==='CRYPTO');
+      const odd = document.getElementById('hf-odd-row');
+      if (odd) odd.style.display = t==='APUESTA' ? '' : 'none';
+    }
+
+    function calcAutoResult() {
+      const stake = parseFloat(document.getElementById('hf-stake')?.value) || 0;
+      const odd   = parseFloat(document.getElementById('hf-odd')?.value)   || 0;
+      const res   = document.getElementById('hf-res')?.value;
+      const el    = document.getElementById('hf-pnl');
+      if (!el || !stake) return;
+      let pnl = 0;
+      if (res === 'GANÓ')   pnl = histTipo==='APUESTA' && odd>1 ? +(stake*(odd-1)).toFixed(2) : stake;
+      if (res === 'PERDIÓ') pnl = -stake;
+      el.value = pnl.toFixed(2);
+    }
+
+    function saveHistOp() {
+      const g = id => document.getElementById(id);
+      const desc = g('hf-desc')?.value?.trim();
+      if (!desc) { alert('Añade una descripción'); return; }
+      const op = {
+        id:          Date.now(),
+        tipo:        histTipo,
+        descripcion: desc,
+        mercado:     g('hf-merc')?.value  || '',
+        stake:       parseFloat(g('hf-stake')?.value)   || 0,
+        odd:         parseFloat(g('hf-odd')?.value)     || undefined,
+        resultado:   g('hf-res')?.value   || 'PENDIENTE',
+        pnl:         parseFloat(g('hf-pnl')?.value)     || 0,
+        fecha:       g('hf-fecha')?.value || new Date().toLocaleDateString('es-EC'),
+        notas:       g('hf-notas')?.value || ''
+      };
+      JCAHS.ops.unshift(op);
+      localStorage.setItem('jcahs_ops', JSON.stringify(JCAHS.ops));
+      ['hf-desc','hf-merc','hf-stake','hf-odd','hf-pnl','hf-notas'].forEach(id => { const el = g(id); if (el) el.value = ''; });
+      toggleHistForm();
+      renderHistorial();
+      renderBankroll();
+    }
+
+    function deleteOp(id) {
+      if (!confirm('¿Eliminar esta operación?')) return;
+      JCAHS.ops = JCAHS.ops.filter(o => o.id !== id);
+      localStorage.setItem('jcahs_ops', JSON.stringify(JCAHS.ops));
+      renderHistorial(); renderBankroll();
+    }
+
+    function openRegisterFromCalc(tipo, desc, stake, odd) {
+      document.getElementById('historial')?.scrollIntoView({ behavior:'smooth' });
+      setTimeout(() => {
+        if (!histFormOpen) toggleHistForm();
+        const g = id => document.getElementById(id);
+        if (g('hf-desc'))  g('hf-desc').value  = desc;
+        if (g('hf-stake')) g('hf-stake').value = stake;
+        if (g('hf-odd'))   g('hf-odd').value   = odd;
+        setHistTipo(tipo);
+      }, 700);
+    }
+
+    function setHistFilter(f) {
+      histFilter = f; histPage = 0;
+      document.querySelectorAll('.hist-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.f === f));
+      renderHistTable();
+    }
+
+    function exportCSV() {
+      const hdrs = ['Fecha','Tipo','Descripción','Mercado','Stake','Odd','Resultado','P&L','Notas'];
+      const rows = JCAHS.ops.map(o => [
+        o.fecha||'', o.tipo||'', opDesc(o), o.mercado||'', o.stake||'', o.odd||'', opResult(o), opPnl(o).toFixed(2), o.notas||''
+      ]);
+      const csv  = [hdrs,...rows].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+      const blob = new Blob(['﻿'+csv], { type:'text/csv;charset=utf-8' });
+      const url  = URL.createObjectURL(blob);
+      const a    = Object.assign(document.createElement('a'), { href:url, download:'JCAHS_historial.csv' });
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function renderHistTable() {
+      const tbody = document.getElementById('hist-tbody');
+      if (!tbody) return;
+      let ops = JCAHS.ops;
+      if (histFilter==='apuestas') ops = ops.filter(o => o.tipo==='APUESTA');
+      else if (histFilter==='crypto') ops = ops.filter(o => o.tipo==='CRYPTO');
+      else if (histFilter==='pend')   ops = ops.filter(o => opResult(o)==='PENDIENTE');
+      const totalPages = Math.ceil(ops.length/HIST_PER);
+      const page = ops.slice(histPage*HIST_PER, (histPage+1)*HIST_PER);
+      if (!page.length) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-muted);font-family:var(--f-mono)">Sin operaciones registradas</td></tr>`;
+      } else {
+        const badge = op => {
+          const r = opResult(op);
+          const m = { 'GANÓ':['var(--accent)','rgba(0,255,179,0.08)'], 'PERDIÓ':['var(--alert)','rgba(255,107,53,0.08)'], 'PENDIENTE':['#FBBF24','rgba(251,191,36,0.08)'] };
+          const [c,bg] = m[r]||['var(--text-muted)',''];
+          return `<span style="font-family:var(--f-mono);font-size:10px;font-weight:700;letter-spacing:2px;color:${c};background:${bg};padding:3px 8px;border-radius:4px">${r}</span>`;
+        };
+        tbody.innerHTML = page.map((op, i) => {
+          const pnl = opPnl(op);
+          const bg  = i%2===0 ? '#0A1628' : '#060D18';
+          return `<tr style="background:${bg}">
+            <td style="padding:10px 12px;font-family:var(--f-mono);font-size:12px">${op.fecha||''}</td>
+            <td style="padding:10px 8px;font-family:var(--f-mono);font-size:10px;color:var(--text-muted)">${op.tipo||'--'}</td>
+            <td style="padding:10px 8px;font-family:var(--f-ui);font-size:15px">${opDesc(op)}</td>
+            <td style="padding:10px 8px;font-family:var(--f-mono);font-size:13px">${op.stake?'$'+parseFloat(op.stake).toFixed(2):'--'}</td>
+            <td style="padding:10px 8px;font-family:var(--f-mono);font-size:13px">${op.odd||'--'}</td>
+            <td style="padding:10px 8px">${badge(op)}</td>
+            <td style="padding:10px 8px;font-family:var(--f-mono);font-size:16px;font-weight:700;color:${pnl>=0?'var(--accent)':'var(--alert)'}">${pnl>=0?'+$':'-$'}${Math.abs(pnl).toFixed(2)}</td>
+            <td style="padding:10px 8px;font-family:var(--f-ui);font-size:13px;color:var(--text-muted);max-width:100px;overflow:hidden;text-overflow:ellipsis">${op.notas||''}</td>
+            <td style="padding:10px 8px">
+              <button onclick="deleteOp(${op.id})" style="background:rgba(255,107,53,0.1);border:1px solid rgba(255,107,53,0.3);border-radius:4px;color:var(--alert);cursor:pointer;font-size:10px;padding:3px 8px">✕</button>
+            </td>
+          </tr>`;
+        }).join('');
+      }
+      const pag = document.getElementById('hist-pages');
+      if (pag) pag.innerHTML = totalPages > 1
+        ? Array.from({length:totalPages},(_,i)=>`<button onclick="histPage=${i};renderHistTable()" style="padding:4px 10px;margin:0 2px;background:${i===histPage?'var(--accent-dim)':'rgba(255,255,255,0.03)'};border:1px solid ${i===histPage?'var(--border)':'var(--border-dim)'};border-radius:4px;color:${i===histPage?'var(--accent)':'var(--text-muted)'};cursor:pointer;font-family:var(--f-mono);font-size:12px">${i+1}</button>`).join('')
+        : '';
+    }
+
+    function renderHistorial() {
+      renderHistStats();
+      renderHistTable();
+      drawPLChart();
+    }
+
+    /* ============================================================
+       PARTE 3 — IA ASESORES
+    ============================================================ */
+
+    const ADVISOR_PROMPTS = {
+      falcon:  `Eres FALCON, experto en value betting profesional. Tienes acceso a estos datos reales ahora mismo: [CONTEXTO_REAL]. Responde SIEMPRE con datos concretos, probabilidades y recomendaciones accionables. Modo [SIMPLE/EXPERTO]. Responde siempre en español.`,
+      satoshi: `Eres SATOSHI, trader de crypto profesional. Datos reales actuales: [CONTEXTO_REAL]. Analiza con RSI, tendencia y volumen reales. Da señales concretas con niveles de entrada/salida. Modo [SIMPLE/EXPERTO]. Responde en español.`,
+      zeus:    `Eres ZEUS, especialista en gestión de capital. Bankroll actual del usuario: [BANKROLL]. Historial reciente: [ULTIMAS_5_OPS]. Evalúa el riesgo y recomienda tamaños de apuesta precisos. Modo [SIMPLE/EXPERTO]. Responde en español.`,
+      matrix:  `Eres MATRIX, analista estadístico de mercados financieros y deportivos. Datos actuales: [CONTEXTO_REAL]. Explica probabilidades, márgenes y edge con precisión matemática. Modo [SIMPLE/EXPERTO]. Responde en español.`,
+      guardian:`Eres GUARDIAN, especialista en disciplina operativa y control de riesgo. Racha actual del usuario: [RACHA]. P&L de hoy: [PNL_HOY]. Evalúa con honestidad si debe seguir operando y qué debe evitar. Modo [SIMPLE/EXPERTO]. Responde en español.`,
+      oracle:  `Eres ORACLE, analista de mercados globales con visión macro. Contexto actual: [CONTEXTO_REAL]. Correlaciona crypto con deportes y mercados globales para una estrategia integral. Modo [SIMPLE/EXPERTO]. Responde en español.`
+    };
+
+    function buildAdvisorContext() {
+      const btcP = JCAHS.prices?.bitcoin?.usd;
+      const ethP = JCAHS.prices?.ethereum?.usd;
+      const btcC = JCAHS.prices?.bitcoin?.usd_24h_change;
+      const fng  = JCAHS.fng;
+      const senal = computeSenal();
+      const ops  = JCAHS.ops;
+      const today = new Date().toLocaleDateString('es-EC');
+      const pnlHoy = ops.filter(o => o.fecha===today).reduce((s,o)=>s+opPnl(o),0);
+      const topBet = JCAHS.valueBets[0];
+      const btcSig = JCAHS.signals?.bitcoin;
+      let racha = 'Sin operaciones';
+      if (ops.length) {
+        const isW = opPnl(ops[0]) > 0; let cnt = 0;
+        for (const o of ops) { if ((opPnl(o)>0)===isW) cnt++; else break; }
+        racha = isW ? `${cnt} victorias seguidas` : `${cnt} pérdidas seguidas`;
+      }
+      const summary = [
+        `BTC: ${btcP ? fmtP(btcP) : 'N/A'} (${btcC!=null?(btcC>=0?'+':'')+btcC.toFixed(2)+'%':'--'})`,
+        `ETH: ${ethP ? fmtP(ethP) : 'N/A'}`,
+        `Fear&Greed: ${fng ? fng.value+' ('+fng.label+')' : 'N/A'}`,
+        `Señal: ${senal.senal}`,
+        `RSI BTC: ${btcSig?.rsi??'N/A'} - Tendencia: ${btcSig?.trend??'N/A'}`,
+        `Value bet top: ${topBet ? topBet.game+' '+topBet.outcome+' @'+topBet.odd+' (edge +'+topBet.edge+'%)' : 'Ninguno'}`,
+        `Hora: ${new Date().toLocaleString('es-EC')}`
+      ].join(' | ');
+      return {
+        summary,
+        bankroll: '$' + (JCAHS.bankroll||0),
+        racha,
+        pnlHoy: (pnlHoy>=0?'+':'') + '$' + pnlHoy.toFixed(2),
+        ultimas5: ops.slice(0,5).map(o=>opDesc(o)+' '+(opPnl(o)>=0?'+':'')+'$'+opPnl(o).toFixed(2)).join(', ') || 'Ninguna'
+      };
+    }
+
+    function openAdvisor(id) {
+      const card = document.getElementById('ia-'+id);
+      if (!card) return;
+      const expand  = card.querySelector('.ia-expand');
+      const isOpen  = card.classList.contains('ia-open');
+
+      // Close all
+      document.querySelectorAll('.ia-advisor-card').forEach(c => {
+        c.classList.remove('ia-open');
+        const exp = c.querySelector('.ia-expand');
+        if (exp && exp !== expand) { exp.style.display = 'none'; }
+      });
+
+      if (!isOpen && expand) {
+        card.classList.add('ia-open');
+        expand.style.display = 'block';
+        gsap.fromTo(expand, { opacity:0, y:-10 }, { opacity:1, y:0, duration:0.3, ease:'power2.out' });
+        card.querySelector('.ia-q-input')?.focus();
+      } else if (expand) {
+        card.classList.remove('ia-open');
+        expand.style.display = 'none';
+      }
+    }
+
+    async function sendAdvisor(id) {
+      const card = document.getElementById('ia-'+id);
+      if (!card) return;
+      const inp  = card.querySelector('.ia-q-input');
+      const msg  = inp?.value?.trim();
+      if (!msg) return;
+      inp.value = '';
+      const respEl = card.querySelector('.ia-response');
+      const btn    = card.querySelector('.ia-send-btn');
+      if (!respEl) return;
+      respEl.style.display = 'block';
+      respEl.innerHTML = '<span style="color:var(--accent);font-family:var(--f-mono);font-size:12px">⚡ Analizando datos reales...</span>';
+      if (btn) btn.disabled = true;
+
+      const ctx = buildAdvisorContext();
+      const sys = (ADVISOR_PROMPTS[id] || ADVISOR_PROMPTS.falcon)
+        .replace('[CONTEXTO_REAL]', ctx.summary)
+        .replace('[BANKROLL]',     ctx.bankroll)
+        .replace('[ULTIMAS_5_OPS]',ctx.ultimas5)
+        .replace('[RACHA]',        ctx.racha)
+        .replace('[PNL_HOY]',      ctx.pnlHoy)
+        .replace(/\[SIMPLE\/EXPERTO\]/g, JCAHS.mode.toUpperCase());
+
+      try {
+        const r = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json', 'anthropic-version':'2023-06-01' },
+          body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:800, system:sys, messages:[{role:'user',content:msg}] })
+        });
+        const d = await r.json();
+        const reply = d.content?.[0]?.text || (d.error ? 'Error API: '+d.error.message : 'Sin respuesta.');
+        respEl.innerHTML = `
+          <div style="white-space:pre-wrap;font-family:var(--f-ui);font-size:17px;line-height:1.65;color:var(--text)">${reply}</div>
+          <div style="margin-top:10px;font-family:var(--f-mono);font-size:10px;color:var(--text-muted)">Datos al: ${ts()} · Claude API</div>`;
+      } catch(e) {
+        respEl.innerHTML = `<span style="color:var(--alert);font-family:var(--f-mono);font-size:12px">Error de conexión. Verifica configuración API.</span>`;
+      }
+      if (btn) btn.disabled = false;
+    }
+
+    // Enter key on advisor textarea
+    document.addEventListener('keydown', e => {
+      if (e.key==='Enter' && !e.shiftKey && e.target.classList.contains('ia-q-input')) {
+        e.preventDefault();
+        const id = e.target.closest('.ia-advisor-card')?.id?.replace('ia-','');
+        if (id) sendAdvisor(id);
+      }
+    });
+
+    /* ============================================================
+       PARTE 3 — GSAP + INIT
+    ============================================================ */
+    (function initPart3GSAP() {
+      if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
+
+      // Historial stats countUp on scroll
+      ScrollTrigger.create({
+        trigger: '#historial',
+        start: 'top 72%',
+        onEnter: () => { renderHistStats(); drawPLChart(); }
+      });
+
+      // Calc cards
+      document.querySelectorAll('#calculadora .p2-card').forEach((card, i) => {
+        gsap.from(card, {
+          scrollTrigger: { trigger: '#calculadora', start:'top 80%', toggleActions:'play none none reverse' },
+          opacity:0, y:60, duration:0.8, delay: i*0.14, ease:'power3.out'
+        });
+      });
+
+      // IA cards
+      gsap.from('.ia-advisor-card', {
+        scrollTrigger: { trigger:'#ia', start:'top 80%', toggleActions:'play none none reverse' },
+        opacity:0, y:40, scale:0.97, duration:0.7, stagger:0.1, ease:'power3.out'
+      });
+    })();
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Historial
+      renderHistorial();
+
+      // Calc defaults
+      ['kc-bk','vb-bk'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.value) el.value = JCAHS.bankroll || 500;
+      });
+
+      // Sistema — render initial selection
+      renderSysSelections();
+
+      // Historial form date default
+      const fd = document.getElementById('hf-fecha');
+      if (fd) fd.value = new Date().toISOString().split('T')[0];
     });
   </script>
 
