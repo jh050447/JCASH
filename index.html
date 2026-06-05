@@ -579,19 +579,563 @@
     #emergencia::before { background: radial-gradient(ellipse 60% 50% at 50% 50%, rgba(255,107,53,0.03) 0%, transparent 70%); }
 
     /* ================================================================
-       FOOTER
+       === PARTE 4 — MOBILE & POLISH ===
     ================================================================ */
-    .site-footer {
-      text-align: center;
-      padding: 40px 24px;
-      border-top: 1px solid var(--border-dim);
-      font-family: var(--f-mono);
-      font-size: 13px;
-      color: var(--text-muted);
-      letter-spacing: 2px;
+
+    /* ── Loading screen ─────────────────────────────────────────── */
+    #loading-screen {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      z-index: 99999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
     }
 
-    .site-footer span { color: var(--accent); }
+    #loading-screen.hidden { display: none; }
+
+    .loading-logo {
+      font-family: var(--f-display);
+      font-size: 64px;
+      font-weight: 900;
+      letter-spacing: 14px;
+      color: var(--text);
+      position: relative;
+      padding: 0 8px;
+      overflow: hidden;
+    }
+
+    .loading-scan {
+      position: absolute;
+      left: 0; right: 0;
+      height: 2px;
+      background: var(--accent);
+      box-shadow: 0 0 12px var(--accent), 0 0 30px var(--accent-glow);
+      top: -2px;
+    }
+
+    .loading-text {
+      font-family: var(--f-mono);
+      font-size: 14px;
+      letter-spacing: 5px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+
+    .loading-bar-wrap {
+      width: 280px;
+      height: 2px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .loading-bar {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      border-radius: 2px;
+      transition: width 0.08s linear;
+    }
+
+    /* ── Mobile drawer ───────────────────────────────────────────── */
+    .nav-drawer {
+      position: fixed;
+      top: 0; left: 0;
+      width: min(320px, 85vw);
+      height: 100dvh;
+      background: rgba(2, 4, 8, 0.98);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-right: 1px solid var(--border);
+      z-index: 1001;
+      transform: translateX(-100%);
+      display: flex;
+      flex-direction: column;
+      padding: 0 0 24px;
+      overflow-y: auto;
+    }
+
+    .nav-drawer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border-dim);
+      margin-bottom: 8px;
+      flex-shrink: 0;
+    }
+
+    .nav-drawer-close {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 28px;
+      cursor: pointer;
+      padding: 4px 8px;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+
+    .nav-drawer-close:hover { color: var(--text); }
+
+    .nav-drawer ul {
+      list-style: none;
+      padding: 8px 0;
+    }
+
+    .nav-drawer ul a {
+      display: block;
+      font-family: var(--f-ui);
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      text-decoration: none;
+      padding: 14px 24px;
+      border-left: 3px solid transparent;
+      transition: color 0.2s, background 0.2s, border-color 0.2s;
+    }
+
+    .nav-drawer ul a:hover,
+    .nav-drawer ul a.active {
+      color: var(--accent);
+      background: var(--accent-dim);
+      border-left-color: var(--accent);
+    }
+
+    .nav-drawer ul a.danger { color: var(--alert); }
+    .nav-drawer ul a.danger:hover {
+      background: var(--alert-dim);
+      border-left-color: var(--alert);
+    }
+
+    .nav-drawer-mode {
+      margin: 16px 24px 0;
+      padding-top: 20px;
+      border-top: 1px solid var(--border-dim);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: var(--f-ui);
+      font-size: 13px;
+      letter-spacing: 2px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+
+    .drawer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      z-index: 1000;
+      display: none;
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+    }
+
+    /* ── Emergencia section ──────────────────────────────────────── */
+    .emg-wrap {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 48px;
+    }
+
+    .emg-semaforo {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      padding: 48px 40px;
+      border-radius: 16px;
+      border: 1px solid var(--border-dim);
+      background: var(--bg-card);
+      text-align: center;
+      transition: border-color 0.5s, background 0.5s;
+    }
+
+    .emg-semaforo.verde    { border-color: rgba(74,222,128,0.35);  background: rgba(74,222,128,0.04); }
+    .emg-semaforo.amarillo { border-color: rgba(251,191,36,0.35);  background: rgba(251,191,36,0.04); }
+    .emg-semaforo.rojo     { border-color: rgba(255,107,53,0.5);   background: rgba(255,107,53,0.06); }
+
+    .emg-icon { font-size: 100px; line-height: 1.1; }
+
+    .emg-estado {
+      font-family: var(--f-display);
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: 5px;
+      text-transform: uppercase;
+    }
+
+    .emg-semaforo.verde    .emg-estado { color: #4ADE80; }
+    .emg-semaforo.amarillo .emg-estado { color: #FBBF24; }
+    .emg-semaforo.rojo     .emg-estado { color: var(--alert); }
+
+    @keyframes pulseRojo {
+      0%,100% { opacity:1; }
+      50%      { opacity:0.5; }
+    }
+
+    .emg-semaforo.rojo .emg-estado { animation: pulseRojo 1.4s ease-in-out infinite; }
+
+    .emg-texto {
+      font-family: var(--f-ui);
+      font-size: 26px;
+      font-weight: 500;
+      color: var(--text-dim);
+      max-width: 560px;
+      line-height: 1.45;
+    }
+
+    .emg-semaforo.rojo .emg-texto {
+      color: var(--text);
+      font-size: 30px;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .emg-accion {
+      font-family: var(--f-mono);
+      font-size: 14px;
+      color: var(--text-muted);
+      letter-spacing: 1.5px;
+    }
+
+    .emg-stats-row {
+      display: flex;
+      gap: 28px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .emg-stat { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+
+    .emg-stat-val {
+      font-family: var(--f-mono);
+      font-size: 30px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .emg-stat-label {
+      font-family: var(--f-ui);
+      font-size: 11px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    /* Golden rules */
+    .emg-reglas {
+      padding: 40px;
+      border-radius: 16px;
+      border: 1px solid var(--border-dim);
+      background: var(--bg-card);
+    }
+
+    .emg-reglas-title {
+      font-family: var(--f-display);
+      font-size: 36px;
+      font-weight: 900;
+      letter-spacing: 5px;
+      color: var(--text);
+      margin-bottom: 32px;
+      text-align: center;
+    }
+
+    .emg-reglas ol {
+      list-style: none;
+      counter-reset: rules;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .emg-reglas ol li {
+      counter-increment: rules;
+      display: flex;
+      gap: 22px;
+      align-items: flex-start;
+      font-family: var(--f-ui);
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--text);
+      line-height: 1.45;
+    }
+
+    .emg-reglas ol li::before {
+      content: counter(rules);
+      font-family: var(--f-display);
+      font-size: 22px;
+      font-weight: 900;
+      color: var(--accent);
+      min-width: 28px;
+      line-height: 1.3;
+      flex-shrink: 0;
+    }
+
+    /* Close day */
+    .emg-close-day {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .emg-btn-close {
+      display: block;
+      width: 100%;
+      max-width: 440px;
+      padding: 22px;
+      background: rgba(255,107,53,0.10);
+      border: 2px solid rgba(255,107,53,0.40);
+      border-radius: 12px;
+      font-family: var(--f-display);
+      font-size: 17px;
+      font-weight: 900;
+      letter-spacing: 4px;
+      color: var(--alert);
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: background 0.2s, border-color 0.2s, transform 0.15s;
+    }
+
+    .emg-btn-close:hover {
+      background: rgba(255,107,53,0.18);
+      border-color: var(--alert);
+    }
+
+    .emg-btn-close:active { transform: scale(0.97); }
+
+    .emg-closed-msg {
+      display: none;
+      font-family: var(--f-mono);
+      font-size: 17px;
+      color: var(--accent);
+      letter-spacing: 2px;
+      text-align: center;
+      padding: 20px 0;
+    }
+
+    /* Modal */
+    .emg-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      z-index: 5000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .emg-modal-overlay.open { display: flex; }
+
+    .emg-modal {
+      background: var(--bg-mid);
+      border: 1px solid rgba(255,107,53,0.35);
+      border-radius: 16px;
+      padding: 40px;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .emg-modal h3 {
+      font-family: var(--f-display);
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: 3px;
+      color: var(--text);
+    }
+
+    .emg-modal p {
+      font-family: var(--f-mono);
+      font-size: 15px;
+      color: var(--text-dim);
+      line-height: 1.65;
+    }
+
+    .emg-modal-btns {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .emg-modal-btns button {
+      flex: 1;
+      max-width: 160px;
+      padding: 14px 20px;
+      border-radius: 8px;
+      border: none;
+      font-family: var(--f-display);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 2.5px;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+    }
+
+    .emg-modal-btns button:active { transform: scale(0.96); }
+
+    .emg-modal-btns .btn-confirm {
+      background: var(--alert);
+      color: #fff;
+    }
+
+    .emg-modal-btns .btn-cancel {
+      background: rgba(255,255,255,0.05);
+      color: var(--text-muted);
+      border: 1px solid var(--border-dim);
+    }
+
+    /* ── Micro-interactions ──────────────────────────────────────── */
+    .ripple {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.18);
+      transform: scale(0);
+      animation: rippleAnim 0.5s linear;
+      pointer-events: none;
+    }
+
+    @keyframes rippleAnim {
+      to { transform: scale(4); opacity: 0; }
+    }
+
+    @keyframes badgePulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(255,107,53,0.5); }
+      50%      { box-shadow: 0 0 0 7px rgba(255,107,53,0); }
+    }
+
+    .live-badge { animation: badgePulse 2s ease-in-out infinite; }
+
+    .calc-inp:focus,
+    .calc-slider:focus {
+      outline: none;
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 2px var(--accent-glow), 0 0 16px rgba(0,255,179,0.10);
+    }
+
+    .hist-table tbody tr { transition: background 0.15s; }
+    .hist-table tbody tr:hover { background: rgba(0,255,179,0.04); }
+
+    /* ── Footer ──────────────────────────────────────────────────── */
+    .site-footer {
+      text-align: center;
+      padding: 56px 24px 44px;
+      border-top: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .site-footer-copy {
+      font-family: var(--f-mono);
+      font-size: 14px;
+      color: var(--text-muted);
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+    }
+
+    .site-footer-sub {
+      font-family: var(--f-ui);
+      font-size: 13px;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      margin-bottom: 28px;
+    }
+
+    .site-footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .site-footer-links a {
+      font-family: var(--f-ui);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .site-footer-links a:hover        { color: var(--accent); }
+    .site-footer-links a.danger:hover { color: var(--alert); }
+
+    /* ── Mobile responsive ────────────────────────────────────────── */
+    @media (max-width: 1024px) {
+      .p2-inner  { padding: 0 24px; }
+      .ia-grid   { grid-template-columns: repeat(2, 1fr); }
+      .calc-grid-2 { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 767px) {
+      html { font-size: 15px; }
+
+      .navbar { padding: 0 20px; }
+
+      .hero-logo     { font-size: clamp(56px, 18vw, 76px) !important; letter-spacing: 8px !important; }
+      .hero-subtitle { font-size: 17px; }
+      .hero-tagline  { font-size: 14px; }
+
+      .ticker-wrap   { font-size: 13px; }
+
+      .p2-section    { padding: calc(var(--nav-h) + 40px) 0 60px; }
+      .p2-inner      { padding: 0 16px; }
+      .p2-grid       { grid-template-columns: 1fr !important; }
+      .p2-stats      { grid-template-columns: repeat(2, 1fr) !important; }
+
+      .signal-card  { padding: 20px; }
+      .signal-price { font-size: clamp(28px, 8vw, 42px) !important; }
+
+      .match-card-scroll { overflow-x: auto; }
+
+      .calc-grid-2  { grid-template-columns: 1fr !important; }
+      .calc-inp     { min-height: 50px; font-size: 16px; }
+      .n64          { font-size: 44px !important; }
+      .n56          { font-size: 36px !important; }
+      .n48          { font-size: 30px !important; }
+
+      .hist-stats-row  { grid-template-columns: repeat(2, 1fr) !important; }
+      .hist-table-wrap { overflow-x: auto; }
+      .hist-table      { min-width: 600px; }
+      #pl-canvas       { height: 200px !important; }
+      .hist-form-inner { grid-template-columns: 1fr !important; }
+
+      .ia-grid { grid-template-columns: 1fr !important; }
+      .ia-response { font-size: 16px; }
+
+      .emg-semaforo  { padding: 32px 20px; }
+      .emg-icon      { font-size: 72px; }
+      .emg-estado    { font-size: 22px; letter-spacing: 3px; }
+      .emg-texto     { font-size: 19px; }
+      .emg-semaforo.rojo .emg-texto { font-size: 22px; }
+      .emg-reglas        { padding: 28px 20px; }
+      .emg-reglas-title  { font-size: 26px; letter-spacing: 3px; }
+      .emg-reglas ol li  { font-size: 16px; }
+
+      .emg-modal { padding: 28px 20px; }
+
+      .site-footer-links { gap: 14px; }
+    }
+    /* ── End Parte 4 CSS ─────────────────────────────────────────── */
 
     /* ================================================================
        PART 2 — SECTIONS: DASHBOARD · CRYPTO · DEPORTES
@@ -1531,10 +2075,47 @@
 <body>
 
   <!-- ============================================================
+       LOADING SCREEN
+  ============================================================ -->
+  <div id="loading-screen">
+    <div class="loading-logo" id="loading-logo">
+      JCAHS
+      <div class="loading-scan" id="loading-scan"></div>
+    </div>
+    <div class="loading-text" id="loading-text">Iniciando sistemas...</div>
+    <div class="loading-bar-wrap">
+      <div class="loading-bar" id="loading-bar"></div>
+    </div>
+  </div>
+
+  <!-- ============================================================
        CUSTOM CURSOR
   ============================================================ -->
   <div class="cursor-dot"  id="cursor-dot"></div>
   <div class="cursor-ring" id="cursor-ring"></div>
+
+  <!-- ============================================================
+       MOBILE DRAWER + OVERLAY
+  ============================================================ -->
+  <div class="drawer-overlay" id="drawer-overlay"></div>
+  <nav class="nav-drawer" id="nav-drawer" aria-label="Menú móvil">
+    <div class="nav-drawer-header">
+      <span class="nav-logo-wordmark" style="font-family:var(--f-display);font-size:22px;font-weight:900;letter-spacing:6px;color:var(--text)">JC<em style="font-style:normal;color:var(--accent)">AHS</em></span>
+      <button class="nav-drawer-close" id="drawer-close" aria-label="Cerrar menú">✕</button>
+    </div>
+    <ul>
+      <li><a href="#dashboard">Dashboard</a></li>
+      <li><a href="#crypto">Crypto</a></li>
+      <li><a href="#deportes">Deportes</a></li>
+      <li><a href="#calculadora">Calculadora</a></li>
+      <li><a href="#historial">Historial</a></li>
+      <li><a href="#ia">IA</a></li>
+      <li><a href="#emergencia" class="danger">Emergencia</a></li>
+    </ul>
+    <div class="nav-drawer-mode" id="drawer-mode-wrap">
+      <!-- toggle injected by JS -->
+    </div>
+  </nav>
 
   <!-- ============================================================
        NAVBAR
@@ -1759,7 +2340,7 @@
           <div class="card-label">💼 RESUMEN BANKROLL</div>
           <div style="margin-bottom:16px">
             <div style="font-family:var(--f-mono);font-size:11px;letter-spacing:2px;color:var(--text-muted);margin-bottom:6px">CAPITAL ACTUAL ($)</div>
-            <input class="bk-input" id="bk-input" type="number" min="0" step="1"
+            <input class="bk-input" id="bk-input" type="number" inputmode="decimal" min="0" step="1"
                    placeholder="500" oninput="saveBankroll(this.value)">
           </div>
           <div id="bk-stats">
@@ -1890,13 +2471,13 @@
           <div class="calc-sub" id="kc-sub-exp" style="display:none">Tamaño óptimo de apuesta basado en tu edge real</div>
 
           <label class="calc-lbl">BANKROLL ($)</label>
-          <input class="calc-inp" id="kc-bk" type="number" min="0" step="1" placeholder="500" oninput="calcKelly()">
+          <input class="calc-inp" id="kc-bk" type="number" inputmode="decimal" min="0" step="1" placeholder="500" oninput="calcKelly()">
 
           <label class="calc-lbl">ODD DECIMAL</label>
-          <input class="calc-inp" id="kc-odd" type="number" min="1.01" step="0.05" placeholder="1.85" oninput="calcKelly()">
+          <input class="calc-inp" id="kc-odd" type="number" inputmode="decimal" min="1.01" step="0.05" placeholder="1.85" oninput="calcKelly()">
 
           <label class="calc-lbl">TU PROBABILIDAD (%)</label>
-          <input class="calc-inp" id="kc-prob" type="number" min="1" max="99" step="1" placeholder="60" oninput="calcKelly()">
+          <input class="calc-inp" id="kc-prob" type="number" inputmode="decimal" min="1" max="99" step="1" placeholder="60" oninput="calcKelly()">
 
           <label class="calc-lbl">FRACCIÓN KELLY: <span id="kc-frac-disp" style="color:var(--accent)">25%</span></label>
           <input class="calc-slider" id="kc-frac" type="range" min="25" max="100" step="25" value="25"
@@ -1915,13 +2496,13 @@
           <div class="calc-title">DETECTOR VALUE BET</div>
 
           <label class="calc-lbl">ODD QUE OFRECE LA CASA</label>
-          <input class="calc-inp" id="vb-odd" type="number" min="1.01" step="0.05" placeholder="2.10" oninput="calcValueBet()">
+          <input class="calc-inp" id="vb-odd" type="number" inputmode="decimal" min="1.01" step="0.05" placeholder="2.10" oninput="calcValueBet()">
 
           <label class="calc-lbl">TU PROBABILIDAD ESTIMADA (%)</label>
-          <input class="calc-inp" id="vb-prob" type="number" min="1" max="99" step="1" placeholder="55" oninput="calcValueBet()">
+          <input class="calc-inp" id="vb-prob" type="number" inputmode="decimal" min="1" max="99" step="1" placeholder="55" oninput="calcValueBet()">
 
           <label class="calc-lbl">BANKROLL ($)</label>
-          <input class="calc-inp" id="vb-bk" type="number" min="0" step="1" placeholder="500" oninput="calcValueBet()">
+          <input class="calc-inp" id="vb-bk" type="number" inputmode="decimal" min="0" step="1" placeholder="500" oninput="calcValueBet()">
 
           <div class="calc-out" id="vb-out">
             <div style="color:var(--text-muted);font-family:var(--f-mono);text-align:center;padding:20px">Completa los campos para calcular</div>
@@ -1933,7 +2514,7 @@
           <div class="calc-title">APALANCAMIENTO CRYPTO</div>
 
           <label class="calc-lbl">CAPITAL A ARRIESGAR ($)</label>
-          <input class="calc-inp" id="lev-cap" type="number" min="1" step="1" placeholder="100" oninput="calcLeverage()">
+          <input class="calc-inp" id="lev-cap" type="number" inputmode="decimal" min="1" step="1" placeholder="100" oninput="calcLeverage()">
 
           <label class="calc-lbl">APALANCAMIENTO: <span id="lev-lev-disp" style="color:var(--dorado,#FBBF24)">2x</span></label>
           <input class="calc-slider" id="lev-lev" type="range" min="2" max="100" step="1" value="2"
@@ -1944,7 +2525,7 @@
 
           <label class="calc-lbl">PRECIO ENTRADA ($)</label>
           <div style="display:flex;gap:8px;margin-bottom:12px">
-            <input class="calc-inp" id="lev-entry" type="number" min="0" step="0.01" placeholder="103000" oninput="calcLeverage()" style="margin-bottom:0;flex:1">
+            <input class="calc-inp" id="lev-entry" type="number" inputmode="decimal" min="0" step="0.01" placeholder="103000" oninput="calcLeverage()" style="margin-bottom:0;flex:1">
             <button onclick="useCurrentCoinPrice('bitcoin')" style="background:rgba(247,147,26,0.1);border:1px solid rgba(247,147,26,0.3);border-radius:8px;color:#F7931A;font-family:var(--f-mono);font-size:10px;cursor:pointer;padding:0 10px;white-space:nowrap">BTC</button>
             <button onclick="useCurrentCoinPrice('ethereum')" style="background:rgba(98,126,234,0.1);border:1px solid rgba(98,126,234,0.3);border-radius:8px;color:#627EEA;font-family:var(--f-mono);font-size:10px;cursor:pointer;padding:0 10px;white-space:nowrap">ETH</button>
           </div>
@@ -1956,7 +2537,7 @@
           </div>
 
           <label class="calc-lbl">% STOP LOSS</label>
-          <input class="calc-inp" id="lev-sl" type="number" min="0.1" max="50" step="0.5" placeholder="5" oninput="calcLeverage()">
+          <input class="calc-inp" id="lev-sl" type="number" inputmode="decimal" min="0.1" max="50" step="0.5" placeholder="5" oninput="calcLeverage()">
 
           <div class="calc-out" id="lev-out">
             <div style="color:var(--text-muted);font-family:var(--f-mono);text-align:center;padding:20px">Completa los campos para calcular</div>
@@ -2049,11 +2630,11 @@
           </div>
           <div>
             <label class="calc-lbl">STAKE / CAPITAL ($)</label>
-            <input class="calc-inp" id="hf-stake" type="number" min="0" step="0.01" placeholder="50" oninput="calcAutoResult()">
+            <input class="calc-inp" id="hf-stake" type="number" inputmode="decimal" min="0" step="0.01" placeholder="50" oninput="calcAutoResult()">
           </div>
           <div id="hf-odd-row">
             <label class="calc-lbl">ODD DECIMAL</label>
-            <input class="calc-inp" id="hf-odd" type="number" min="1" step="0.01" placeholder="2.10" oninput="calcAutoResult()">
+            <input class="calc-inp" id="hf-odd" type="number" inputmode="decimal" min="1" step="0.01" placeholder="2.10" oninput="calcAutoResult()">
           </div>
           <div>
             <label class="calc-lbl">RESULTADO</label>
@@ -2065,7 +2646,7 @@
           </div>
           <div>
             <label class="calc-lbl">P&amp;L ($) — auto si tienes odd</label>
-            <input class="calc-inp" id="hf-pnl" type="number" step="0.01" placeholder="+42.00">
+            <input class="calc-inp" id="hf-pnl" type="number" inputmode="decimal" step="0.01" placeholder="+42.00">
           </div>
           <div>
             <label class="calc-lbl">FECHA</label>
@@ -2209,22 +2790,97 @@
     </div><!-- /p2-inner -->
   </section>
 
-  <section class="module-section" id="emergencia">
+  <section class="module-section p2-section" id="emergencia">
     <div class="section-watermark" aria-hidden="true">07</div>
-    <div class="section-body">
-      <div class="section-badge">Parte 4 — Próximamente</div>
-      <h2 class="section-title">Emergencia</h2>
-      <p class="section-desc">Modo crisis &nbsp;·&nbsp; Stop-loss &nbsp;·&nbsp; Protocolo de rescate</p>
-      <span class="section-status">// Módulo Emergencia — En construcción</span>
-    </div>
+    <div class="p2-inner">
+      <div class="p2-header">
+        <div class="section-badge" id="emg-badge">⚠ MODO EMERGENCIA</div>
+        <h2 class="section-title" style="font-size:clamp(44px,7vw,72px);color:var(--alert);margin-bottom:8px">MODO EMERGENCIA</h2>
+        <p class="section-desc">Semáforo de control &nbsp;·&nbsp; Reglas de oro &nbsp;·&nbsp; Protocolo de rescate</p>
+      </div>
+
+      <div class="emg-wrap">
+
+        <!-- BLOQUE 1: Semáforo de estado -->
+        <div class="emg-semaforo verde" id="emg-semaforo">
+          <div class="emg-icon" id="emg-icon">🟢</div>
+          <div class="emg-estado" id="emg-estado">OPERAR CON NORMALIDAD</div>
+          <div class="emg-texto" id="emg-texto">Estás en control. Mercado favorable.</div>
+          <div class="emg-accion" id="emg-accion">Cargando contexto...</div>
+          <div class="emg-stats-row" id="emg-stats">
+            <div class="emg-stat">
+              <div class="emg-stat-val pos" id="emg-pnl-hoy">$0</div>
+              <div class="emg-stat-label">P&L hoy</div>
+            </div>
+            <div class="emg-stat">
+              <div class="emg-stat-val" id="emg-racha">0</div>
+              <div class="emg-stat-label">Racha actual</div>
+            </div>
+            <div class="emg-stat">
+              <div class="emg-stat-val" id="emg-ops-count">0</div>
+              <div class="emg-stat-label">Operaciones hoy</div>
+            </div>
+            <div class="emg-stat">
+              <div class="emg-stat-val" id="emg-bankroll-pct">0%</div>
+              <div class="emg-stat-label">Pérdida vs bankroll</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- BLOQUE 2: Reglas de oro -->
+        <div class="emg-reglas">
+          <div class="emg-reglas-title">REGLAS DE ORO</div>
+          <ol>
+            <li>Nunca arriesgar más del 5% del bankroll en una sola operación</li>
+            <li>Si pierdes 3 seguidas, para y analiza — no te vengas con la siguiente</li>
+            <li>El Kelly Criterion es el límite máximo, nunca el mínimo</li>
+            <li>Sin datos reales = sin operación. Nunca adivines el mercado</li>
+            <li>El objetivo es ganar a largo plazo, no recuperar lo de hoy</li>
+          </ol>
+        </div>
+
+        <!-- BLOQUE 3: Cerrar el día -->
+        <div class="emg-close-day">
+          <button class="emg-btn-close" id="emg-btn-close" onclick="emgOpenModal()">
+            ⏹ CERRAR EL DÍA
+          </button>
+          <div class="emg-closed-msg" id="emg-closed-msg">
+            ✓ Buen trabajo. Vuelve mañana.<br>
+            <span style="font-size:12px;color:var(--text-muted);letter-spacing:1px">El día fue cerrado. Descansa y analiza.</span>
+          </div>
+        </div>
+
+      </div><!-- /emg-wrap -->
+    </div><!-- /p2-inner -->
   </section>
+
+  <!-- Day-close modal -->
+  <div class="emg-modal-overlay" id="emg-modal-overlay">
+    <div class="emg-modal">
+      <h3>¿CERRAR OPERACIONES HOY?</h3>
+      <p id="emg-modal-body">Cargando...</p>
+      <div class="emg-modal-btns">
+        <button class="btn-confirm" onclick="emgConfirmClose()">CONFIRMAR</button>
+        <button class="btn-cancel"  onclick="emgCancelModal()">CANCELAR</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ============================================================
        FOOTER
   ============================================================ -->
   <footer class="site-footer">
-    JCAHS v2.0 &nbsp;&nbsp;·&nbsp;&nbsp; Centro de Operaciones &nbsp;&nbsp;·&nbsp;&nbsp;
-    <span>●</span> SISTEMA ACTIVO
+    <div class="site-footer-copy">JCAHS &copy; 2025 &nbsp;&mdash;&nbsp; Centro de Operaciones Financieras</div>
+    <div class="site-footer-sub">Datos en tiempo real. Opera con responsabilidad.</div>
+    <nav class="site-footer-links" aria-label="Footer links">
+      <a href="#dashboard">Dashboard</a>
+      <a href="#crypto">Crypto</a>
+      <a href="#deportes">Deportes</a>
+      <a href="#calculadora">Calculadora</a>
+      <a href="#historial">Historial</a>
+      <a href="#ia">IA</a>
+      <a href="#emergencia" class="danger">Emergencia</a>
+    </nav>
   </footer>
 
   <!-- ============================================================
@@ -2232,6 +2888,7 @@
   ============================================================ -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollToPlugin.min.js"></script>
 
   <script>
     /* ============================================================
@@ -2357,10 +3014,15 @@
         ctx.setLineDash([]);
 
         ringPhase += dt * 0.55;
-        requestAnimationFrame(frame);
+        if (document.visibilityState !== 'hidden') requestAnimationFrame(frame);
       }
 
       requestAnimationFrame(frame);
+
+      // Pause animation when tab is hidden, resume on visibility
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') requestAnimationFrame(frame);
+      });
     })();
 
     /* ============================================================
@@ -2422,23 +3084,79 @@
         });
       }, { passive: true });
 
-      // Mobile toggle (visual-only — links shown via class)
-      const toggle = document.getElementById('nav-toggle');
-      const list   = document.querySelector('.nav-links');
-      if (toggle && list) {
-        toggle.addEventListener('click', () => {
-          const open = list.style.display === 'flex';
-          list.style.display   = open ? 'none' : 'flex';
-          list.style.flexDirection = 'column';
-          list.style.position  = 'absolute';
-          list.style.top       = 'var(--nav-h)';
-          list.style.left      = '0'; list.style.right = '0';
-          list.style.background = 'rgba(2,4,8,0.97)';
-          list.style.padding   = '16px';
-          list.style.borderBottom = '1px solid var(--border-dim)';
-          toggle.setAttribute('aria-expanded', String(!open));
-        });
+      // Mobile drawer with GSAP slide-in
+      const toggle  = document.getElementById('nav-toggle');
+      const drawer  = document.getElementById('nav-drawer');
+      const overlay = document.getElementById('drawer-overlay');
+      const dclose  = document.getElementById('drawer-close');
+      let drawerOpen = false;
+
+      function openDrawer() {
+        if (drawerOpen) return;
+        drawerOpen = true;
+        overlay.style.display = 'block';
+        gsap.to(drawer,  { x: 0, duration: 0.38, ease: 'power3.out' });
+        gsap.to(overlay, { opacity: 1, duration: 0.3, ease: 'power2.out', from: { opacity: 0 } });
+        toggle.setAttribute('aria-expanded', 'true');
+        document.body.style.overflow = 'hidden';
       }
+
+      function closeDrawer() {
+        if (!drawerOpen) return;
+        drawerOpen = false;
+        gsap.to(drawer,  { x: '-100%', duration: 0.3, ease: 'power3.in' });
+        gsap.to(overlay, { opacity: 0, duration: 0.25, ease: 'power2.in', onComplete: () => { overlay.style.display = 'none'; } });
+        toggle.setAttribute('aria-expanded', 'false');
+        document.body.style.overflow = '';
+      }
+
+      if (toggle)  toggle.addEventListener('click',   openDrawer);
+      if (dclose)  dclose.addEventListener('click',   closeDrawer);
+      if (overlay) overlay.addEventListener('click',  closeDrawer);
+
+      // Drawer links — smooth scroll + close
+      drawer?.querySelectorAll('a[href^="#"]').forEach(a => {
+        a.addEventListener('click', e => {
+          e.preventDefault();
+          const id = a.getAttribute('href');
+          closeDrawer();
+          setTimeout(() => {
+            gsap.to(window, { duration: 1, scrollTo: { y: id, offsetY: 80 }, ease: 'power2.inOut' });
+          }, 320);
+        });
+      });
+
+      // Sync drawer active link
+      const drawerLinks = drawer?.querySelectorAll('a');
+      drawerLinks?.forEach(a => {
+        const href = a.getAttribute('href');
+        links.forEach(nl => {
+          if (nl.getAttribute('href') === href) {
+            new MutationObserver(() => {
+              a.classList.toggle('active', nl.classList.contains('active'));
+            }).observe(nl, { attributes: true, attributeFilter: ['class'] });
+          }
+        });
+      });
+
+      // Inject mode toggle into drawer
+      const drawerModeWrap = document.getElementById('drawer-mode-wrap');
+      if (drawerModeWrap) {
+        drawerModeWrap.innerHTML = `
+          <span style="font-size:12px;letter-spacing:1.5px">MODO</span>
+          <button onclick="setMode('simple')"  style="background:rgba(0,255,179,0.08);border:1px solid var(--border);border-radius:6px;padding:6px 14px;color:var(--accent);font-family:var(--f-display);font-size:10px;letter-spacing:2px;cursor:pointer">SIMPLE</button>
+          <button onclick="setMode('experto')" style="background:rgba(0,255,179,0.08);border:1px solid var(--border);border-radius:6px;padding:6px 14px;color:var(--accent);font-family:var(--f-display);font-size:10px;letter-spacing:2px;cursor:pointer">EXPERTO</button>`;
+      }
+
+      // Smooth scroll for desktop nav links
+      links.forEach(a => {
+        a.addEventListener('click', e => {
+          const href = a.getAttribute('href');
+          if (!href || href === '#') return;
+          e.preventDefault();
+          gsap.to(window, { duration: 1, scrollTo: { y: href, offsetY: 80 }, ease: 'power2.inOut' });
+        });
+      });
     })();
 
     /* ============================================================
@@ -2455,7 +3173,7 @@
        5. GSAP ENTRANCE ANIMATIONS
     ============================================================ */
     (function initGSAP() {
-      gsap.registerPlugin(ScrollTrigger);
+      gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
 
       /* ── Terminal decode effect for hero logo ── */
       function decodeText(el, finalText, onDone) {
@@ -2579,6 +3297,20 @@
                               : '$' + n.toFixed(6);
     const fmtLg = n => n >= 1e12 ? (n/1e12).toFixed(2)+'T' : n >= 1e9 ? (n/1e9).toFixed(1)+'B' : n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n.toFixed(0);
 
+    // AbortController fetch with 8s timeout
+    async function fetchWithTimeout(url, opts = {}, ms = 8000) {
+      const ctrl = new AbortController();
+      const tid  = setTimeout(() => ctrl.abort(), ms);
+      try {
+        const r = await fetch(url, { ...opts, signal: ctrl.signal });
+        clearTimeout(tid);
+        return r;
+      } catch(e) {
+        clearTimeout(tid);
+        throw e;
+      }
+    }
+
     /* ── Mode toggle ── */
     function setMode(m) {
       JCAHS.mode = m;
@@ -2610,7 +3342,7 @@
     // === Fear & Greed ===
     async function fetchFNG() {
       try {
-        const r = await fetch('https://api.alternative.me/fng/?limit=1');
+        const r = await fetchWithTimeout('https://api.alternative.me/fng/?limit=1');
         const d = await r.json();
         const item = d.data?.[0];
         if (!item) return;
@@ -2624,7 +3356,7 @@
     // === CoinGecko Global (dominance) ===
     async function fetchGlobal() {
       try {
-        const r = await fetch('https://api.coingecko.com/api/v3/global');
+        const r = await fetchWithTimeout('https://api.coingecko.com/api/v3/global');
         const d = await r.json();
         const btcDom = d.data?.market_cap_percentage?.btc;
         if (btcDom == null) return;
@@ -2636,7 +3368,7 @@
     // === CoinGecko Prices (ticker + dashboard) ===
     async function fetchPrices() {
       try {
-        const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,ripple,dogecoin,solana&vs_currencies=usd&include_24hr_change=true');
+        const r = await fetchWithTimeout('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,ripple,dogecoin,solana&vs_currencies=usd&include_24hr_change=true');
         const d = await r.json();
         JCAHS.prices = d;
         updateTicker(d);
@@ -2648,7 +3380,7 @@
     // === CoinGecko Top 100 movers ===
     async function fetchTop5() {
       try {
-        const r = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false&price_change_percentage=24h');
+        const r = await fetchWithTimeout('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false&price_change_percentage=24h');
         const d = await r.json();
         JCAHS.top5 = d
           .filter(c => c.price_change_percentage_24h != null)
@@ -2678,7 +3410,7 @@
 
     async function fetchSignal(id) {
       try {
-        const r = await fetch(`https://api.coingecko.com/api/v3/coins/${id}/ohlc?vs_currency=usd&days=14`);
+        const r = await fetchWithTimeout(`https://api.coingecko.com/api/v3/coins/${id}/ohlc?vs_currency=usd&days=14`);
         const data = await r.json();
         const closes = data.map(c => c[4]);
         const rsi    = calcRSI(closes);
@@ -2709,7 +3441,7 @@
     async function fetchOdds() {
       try {
         const url = 'https://api.the-odds-api.com/v4/sports/soccer/odds/?apiKey=80e2cc925122c3aec2b46ba756ad0df1&regions=eu&markets=h2h&oddsFormat=decimal';
-        const r   = await fetch(PROXY + encodeURIComponent(url));
+        const r   = await fetchWithTimeout(PROXY + encodeURIComponent(url));
         const d   = await r.json();
         if (!Array.isArray(d)) { JCAHS.valueBets = []; renderValueBets(); return; }
         JCAHS.valueBets = findValueBets(d);
@@ -2768,7 +3500,7 @@
     async function fetchFixtures() {
       try {
         const url = 'https://api.football-data.org/v4/matches?token=b153b71ca08f4ae8bfe48f8f85f79014&competitions=CL,PL,PD,BL1,SA&status=LIVE,SCHEDULED';
-        const r   = await fetch(PROXY + encodeURIComponent(url));
+        const r   = await fetchWithTimeout(PROXY + encodeURIComponent(url));
         const d   = await r.json();
         if (!d.matches) { JCAHS.fixtures = []; renderFixtures(); return; }
         JCAHS.fixtures = d.matches.slice(0, 12);
@@ -3869,6 +4601,239 @@
       const fd = document.getElementById('hf-fecha');
       if (fd) fd.value = new Date().toISOString().split('T')[0];
     });
+
+    /* ============================================================
+       === PARTE 4 — MOBILE & POLISH ===
+    ============================================================ */
+
+    /* ── 1. Loading screen ─────────────────────────────────────── */
+    (function initLoadingScreen() {
+      const screen = document.getElementById('loading-screen');
+      const scan   = document.getElementById('loading-scan');
+      const bar    = document.getElementById('loading-bar');
+      const txt    = document.getElementById('loading-text');
+      if (!screen || typeof gsap === 'undefined') {
+        if (screen) screen.classList.add('hidden');
+        return;
+      }
+
+      // Animate scan line down
+      const logoEl = document.getElementById('loading-logo');
+      const logoH  = logoEl ? logoEl.offsetHeight : 80;
+
+      gsap.set(scan, { top: 0 });
+      gsap.to(scan, { top: logoH, duration: 0.9, ease: 'power1.inOut', repeat: -1, yoyo: true });
+
+      // Progress bar fill
+      let pct = 0;
+      const interval = setInterval(() => {
+        pct = Math.min(pct + Math.random() * 14 + 4, 95);
+        bar.style.width = pct + '%';
+        if (pct >= 60 && txt) txt.textContent = 'Conectando APIs...';
+        if (pct >= 85 && txt) txt.textContent = 'Listo.';
+      }, 120);
+
+      // After 1.5s — complete and hide
+      setTimeout(() => {
+        clearInterval(interval);
+        bar.style.width = '100%';
+        setTimeout(() => {
+          gsap.to(screen, {
+            opacity: 0, duration: 0.45, ease: 'power2.in',
+            onComplete: () => screen.classList.add('hidden')
+          });
+        }, 280);
+      }, 1500);
+    })();
+
+    /* ── 2. Emergencia logic ───────────────────────────────────── */
+    function emgCalcStats() {
+      const ops   = JCAHS.ops || [];
+      const today = new Date().toISOString().slice(0, 10);
+
+      const opsHoy = ops.filter(op => (op.fecha || '').slice(0, 10) === today);
+
+      const pnlHoy = opsHoy.reduce((s, op) => s + (opPnl(op) || 0), 0);
+
+      // Consecutive losing streak (from most recent)
+      let racha = 0;
+      for (let i = ops.length - 1; i >= 0; i--) {
+        const res = opResult(ops[i]);
+        if (res === 'PERDIÓ') racha--;
+        else if (res === 'GANÓ') break;
+        else continue; // PENDIENTE
+      }
+
+      const bankroll = JCAHS.bankroll || 500;
+      const pct      = bankroll > 0 ? (pnlHoy / bankroll) * 100 : 0;
+      const rachaNum = Math.abs(racha);
+
+      return { pnlHoy, racha, rachaNum, opsHoyCount: opsHoy.length, pct, bankroll };
+    }
+
+    function emgRender() {
+      const sem     = document.getElementById('emg-semaforo');
+      const iconEl  = document.getElementById('emg-icon');
+      const estadoEl= document.getElementById('emg-estado');
+      const textoEl = document.getElementById('emg-texto');
+      const accionEl= document.getElementById('emg-accion');
+      if (!sem) return;
+
+      const { pnlHoy, racha, rachaNum, opsHoyCount, pct } = emgCalcStats();
+
+      // Update stats row
+      const pnlEl = document.getElementById('emg-pnnl-hoy') || document.getElementById('emg-pnl-hoy');
+      if (pnlEl) {
+        pnlEl.textContent = (pnlHoy >= 0 ? '+' : '') + '$' + Math.abs(pnlHoy).toFixed(2);
+        pnlEl.className = 'emg-stat-val ' + (pnlHoy >= 0 ? 'pos' : 'neg');
+      }
+      const rachaEl = document.getElementById('emg-racha');
+      if (rachaEl) {
+        if (racha < 0) {
+          rachaEl.textContent = rachaNum + ' ❌';
+          rachaEl.className   = 'emg-stat-val neg';
+        } else if (racha > 0) {
+          rachaEl.textContent = racha + ' ✅';
+          rachaEl.className   = 'emg-stat-val pos';
+        } else {
+          rachaEl.textContent = '0';
+          rachaEl.className   = 'emg-stat-val';
+        }
+      }
+      const opsEl = document.getElementById('emg-ops-count');
+      if (opsEl) opsEl.textContent = opsHoyCount;
+      const pctEl = document.getElementById('emg-bankroll-pct');
+      if (pctEl) {
+        pctEl.textContent = (pnlHoy >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+        pctEl.className = 'emg-stat-val ' + (pnlHoy >= 0 ? 'pos' : 'neg');
+      }
+
+      // Determine semáforo state
+      let state, icon, estado, texto, accion;
+
+      const stopLoss = pct <= -20 || rachaNum >= 4;
+      const caution  = pnlHoy < 0 || rachaNum === 3;
+
+      if (stopLoss) {
+        state  = 'rojo';
+        icon   = '🔴';
+        estado = 'STOP — NO OPERAR HOY';
+        texto  = 'DETENTE. NO HAGAS MÁS OPERACIONES HOY.';
+        accion = 'Las decisiones bajo presión destruyen el bankroll. Mañana es otro día.';
+      } else if (caution) {
+        state  = 'amarillo';
+        icon   = '🟡';
+        estado = 'PRECAUCIÓN';
+        texto  = 'Reduce el tamaño de apuesta un 50%.';
+        accion = 'Recomendación: tomar pausa de 30 minutos antes de la siguiente operación';
+      } else {
+        state  = 'verde';
+        icon   = '🟢';
+        estado = 'OPERAR CON NORMALIDAD';
+        texto  = 'Estás en control. Indicadores favorables.';
+        accion = `P&L hoy: ${pnlHoy >= 0 ? '+' : ''}$${pnlHoy.toFixed(2)} · ${opsHoyCount} operación${opsHoyCount !== 1 ? 'es' : ''} hoy`;
+      }
+
+      sem.className      = 'emg-semaforo ' + state;
+      iconEl.textContent  = icon;
+      estadoEl.textContent = estado;
+      textoEl.textContent  = texto;
+      accionEl.textContent = accion;
+
+      // Check if day was closed
+      const closedKey = 'jcahs_closed_' + new Date().toISOString().slice(0,10);
+      if (localStorage.getItem(closedKey)) emgShowClosed();
+    }
+
+    function emgOpenModal() {
+      const { pnlHoy, opsHoyCount } = emgCalcStats();
+      const body = document.getElementById('emg-modal-body');
+      if (body) {
+        body.innerHTML =
+          `P&amp;L del día: <strong style="color:${pnlHoy>=0?'var(--accent)':'var(--alert)'}">${pnlHoy>=0?'+':''}$${Math.abs(pnlHoy).toFixed(2)}</strong><br>` +
+          `Operaciones: <strong>${opsHoyCount}</strong><br><br>` +
+          `Una vez confirmado, no se registrarán nuevas operaciones hoy.`;
+      }
+      const overlay = document.getElementById('emg-modal-overlay');
+      if (overlay) overlay.classList.add('open');
+    }
+
+    function emgCancelModal() {
+      const overlay = document.getElementById('emg-modal-overlay');
+      if (overlay) overlay.classList.remove('open');
+    }
+
+    function emgConfirmClose() {
+      const key = 'jcahs_closed_' + new Date().toISOString().slice(0,10);
+      localStorage.setItem(key, '1');
+      emgCancelModal();
+      emgShowClosed();
+    }
+
+    function emgShowClosed() {
+      const btn = document.getElementById('emg-btn-close');
+      const msg = document.getElementById('emg-closed-msg');
+      if (btn) btn.style.display = 'none';
+      if (msg) msg.style.display = 'block';
+    }
+
+    /* ── 3. Ripple effect on all buttons ───────────────────────── */
+    (function initRipple() {
+      document.addEventListener('click', e => {
+        const btn = e.target.closest('button, [role="button"]');
+        if (!btn) return;
+        const rect = btn.getBoundingClientRect();
+        const r    = document.createElement('span');
+        r.className = 'ripple';
+        r.style.cssText = `
+          left: ${e.clientX - rect.left - 16}px;
+          top:  ${e.clientY - rect.top  - 16}px;
+          width: 32px; height: 32px;
+        `;
+        btn.appendChild(r);
+        r.addEventListener('animationend', () => r.remove());
+      }, true);
+    })();
+
+    /* ── 4. Lazy-init emergencia on first viewport entry ──────── */
+    (function initLazyEmg() {
+      const emgEl = document.getElementById('emergencia');
+      if (!emgEl) return;
+      const obs = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+          emgRender();
+          obs.disconnect();
+        }
+      }, { threshold: 0.05 });
+      obs.observe(emgEl);
+    })();
+
+    /* ── 5. Emergencia GSAP scroll animation ───────────────────── */
+    (function initEmgGSAP() {
+      if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
+
+      gsap.from('.emg-semaforo', {
+        scrollTrigger: { trigger: '#emergencia', start: 'top 80%', toggleActions: 'play none none reverse' },
+        opacity: 0, y: 50, duration: 0.9, ease: 'power3.out'
+      });
+      gsap.from('.emg-reglas', {
+        scrollTrigger: { trigger: '.emg-reglas', start: 'top 80%', toggleActions: 'play none none reverse' },
+        opacity: 0, y: 40, duration: 0.8, delay: 0.15, ease: 'power3.out'
+      });
+      gsap.from('.emg-close-day', {
+        scrollTrigger: { trigger: '.emg-close-day', start: 'top 90%', toggleActions: 'play none none reverse' },
+        opacity: 0, y: 30, duration: 0.7, delay: 0.25, ease: 'power3.out'
+      });
+    })();
+
+    // JCAHS v2.0 — Rediseño completo
+    // Partes: 1-Base/Hero | 2-Dashboard/Crypto/Deportes
+    //         3-Calculadoras/Historial/IA | 4-Mobile/Polish/Emergencia
+    // Política: CERO datos inventados
+    // Fuentes: CoinGecko | Alternative.me | football-data.org
+    //          The Odds API | CoinDesk RSS | MyMemory
+    // Proxy: jcahs-proxy.jh050447.workers.dev
+    // Deploy: GitHub Pages via Actions → rama principal
   </script>
 
 </body>
