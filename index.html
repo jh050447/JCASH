@@ -2238,6 +2238,569 @@
     }
 
     /* ================================================================
+       PARTE 7 — CALCULADORA INTELIGENTE
+    ================================================================ */
+    .ci-subtitle {
+      font-family: var(--f-ui);
+      font-size: 22px;
+      color: var(--text-dim);
+      margin-top: 6px;
+      font-weight: 400;
+    }
+
+    /* Type selector */
+    .ci-type-selector {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 2px solid var(--border);
+      margin-bottom: 36px;
+    }
+
+    .ci-type-btn {
+      padding: 24px;
+      font-family: var(--f-display);
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      border: none;
+      cursor: pointer;
+      transition: background 0.3s, color 0.3s;
+      background: rgba(255,255,255,0.02);
+      color: var(--accent);
+    }
+
+    .ci-type-btn.active {
+      background: var(--accent);
+      color: #000;
+    }
+
+    .ci-type-btn:first-child { border-right: 1px solid var(--border); }
+
+    /* Mode toggle */
+    .ci-mode-toggle {
+      display: flex;
+      gap: 0;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border-dim);
+      margin-bottom: 32px;
+      width: fit-content;
+    }
+
+    .ci-mode-btn {
+      padding: 12px 28px;
+      font-family: var(--f-ui);
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      border: none;
+      cursor: pointer;
+      background: none;
+      color: var(--text-muted);
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .ci-mode-btn.active {
+      background: rgba(0,255,179,0.1);
+      color: var(--accent);
+    }
+
+    /* Form layout */
+    .ci-form {
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+      max-width: 720px;
+    }
+
+    .ci-field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .ci-label {
+      font-family: var(--f-ui);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .ci-label-sm {
+      font-family: var(--f-ui);
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .ci-hint {
+      font-family: var(--f-ui);
+      font-size: 18px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Inputs */
+    .ci-input-prefix-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .ci-prefix {
+      position: absolute;
+      left: 18px;
+      font-family: var(--f-mono);
+      font-size: 28px;
+      color: var(--text-muted);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .ci-input-xl {
+      width: 100%;
+      background: rgba(255,255,255,0.05);
+      border: 2px solid var(--border-dim);
+      border-radius: 12px;
+      padding: 18px 18px 18px 52px;
+      color: var(--text);
+      font-family: var(--f-mono);
+      font-size: 36px;
+      font-weight: 700;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .ci-input-xl:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .ci-input-xl::placeholder { color: rgba(232,244,255,0.2); }
+
+    .ci-input-md {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-dim);
+      border-radius: 10px;
+      padding: 14px 18px;
+      color: var(--text);
+      font-family: var(--f-mono);
+      font-size: 22px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .ci-input-md:focus { border-color: var(--accent); }
+    .ci-input-md::placeholder { color: rgba(232,244,255,0.2); }
+
+    /* Tabs */
+    .ci-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border-dim);
+      margin-bottom: 16px;
+    }
+
+    .ci-tab {
+      padding: 14px;
+      font-family: var(--f-ui);
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      border: none;
+      cursor: pointer;
+      background: none;
+      color: var(--text-muted);
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .ci-tab:first-child { border-right: 1px solid var(--border-dim); }
+
+    .ci-tab.active {
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+
+    /* Search results */
+    .ci-search-results {
+      background: var(--bg-mid);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 6px;
+      display: none;
+    }
+
+    .ci-search-results.visible { display: block; }
+
+    .ci-search-item {
+      padding: 14px 18px;
+      font-family: var(--f-ui);
+      font-size: 20px;
+      color: var(--text);
+      cursor: pointer;
+      border-bottom: 1px solid var(--border-dim);
+      transition: background 0.15s;
+    }
+
+    .ci-search-item:last-child { border-bottom: none; }
+    .ci-search-item:hover { background: var(--accent-dim); }
+
+    .ci-search-item-sub {
+      font-size: 16px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Markets */
+    .ci-markets {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .ci-market-btn {
+      padding: 10px 18px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-dim);
+      border-radius: 8px;
+      font-family: var(--f-ui);
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .ci-market-btn.active,
+    .ci-market-btn:hover {
+      background: var(--accent-dim);
+      border-color: var(--border);
+      color: var(--accent);
+    }
+
+    /* Odds grid */
+    .ci-odds-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .ci-odd-btn {
+      padding: 18px 12px;
+      background: rgba(255,255,255,0.04);
+      border: 2px solid var(--border-dim);
+      border-radius: 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .ci-odd-btn.active {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .ci-odd-outcome {
+      font-family: var(--f-ui);
+      font-size: 18px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .ci-odd-val {
+      font-family: var(--f-mono);
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .ci-odd-bk {
+      font-family: var(--f-mono);
+      font-size: 16px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Coin selector */
+    .ci-coin-grid {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .ci-coin-btn {
+      padding: 14px 22px;
+      background: rgba(255,255,255,0.04);
+      border: 2px solid var(--border-dim);
+      border-radius: 10px;
+      font-family: var(--f-display);
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .ci-coin-btn.active,
+    .ci-coin-btn:hover {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+
+    .ci-coin-price {
+      font-family: var(--f-mono);
+      font-size: 24px;
+      color: var(--text);
+      padding: 10px 0;
+    }
+
+    /* Leverage buttons */
+    .ci-lev-btns {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .ci-lev-btn {
+      padding: 10px 20px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-dim);
+      border-radius: 8px;
+      font-family: var(--f-mono);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .ci-lev-btn.active {
+      border-color: #FBBF24;
+      background: rgba(251,191,36,0.08);
+      color: #FBBF24;
+    }
+
+    /* Prices grid */
+    .ci-prices-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    /* Result card */
+    .ci-result-card {
+      margin-top: 36px;
+      background: linear-gradient(135deg, rgba(10,22,40,0.95) 0%, rgba(6,13,24,0.98) 100%);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 40px;
+      overflow: hidden;
+    }
+
+    .ci-semaforo {
+      font-size: 80px;
+      line-height: 1;
+      margin-bottom: 8px;
+      transition: transform 0.3s;
+    }
+
+    .ci-verdict {
+      font-family: var(--f-display);
+      font-size: 48px;
+      font-weight: 900;
+      letter-spacing: 5px;
+      text-transform: uppercase;
+      margin-bottom: 32px;
+      line-height: 1;
+    }
+
+    .ci-result-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border-dim);
+      gap: 20px;
+    }
+
+    .ci-result-row:last-of-type { border-bottom: none; }
+
+    .ci-result-label {
+      font-family: var(--f-ui);
+      font-size: 20px;
+      color: var(--text-muted);
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .ci-result-val {
+      font-family: var(--f-mono);
+      font-size: 36px;
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .ci-result-val.sm { font-size: 28px; }
+    .ci-result-val.xs { font-size: 22px; }
+
+    .ci-explanation {
+      margin-top: 28px;
+      padding: 24px;
+      background: rgba(0,0,0,0.25);
+      border-radius: 12px;
+      border-left: 4px solid var(--border);
+      font-family: var(--f-ui);
+      font-size: 20px;
+      color: var(--text-dim);
+      line-height: 1.7;
+    }
+
+    /* Detail panel */
+    .ci-detail-panel {
+      margin-top: 32px;
+    }
+
+    .ci-detail-title {
+      font-family: var(--f-display);
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: 3px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .ci-detail-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: rgba(10,22,40,0.6);
+      border: 1px solid var(--border-dim);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    .ci-detail-table td {
+      padding: 14px 20px;
+      font-size: 22px;
+      border-bottom: 1px solid var(--border-dim);
+    }
+
+    .ci-detail-table td:first-child {
+      font-family: var(--f-ui);
+      color: var(--text-muted);
+      font-weight: 600;
+      width: 55%;
+    }
+
+    .ci-detail-table td:last-child {
+      font-family: var(--f-mono);
+      color: var(--text);
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .ci-detail-table tr:last-child td { border-bottom: none; }
+
+    /* Simulation canvas */
+    .ci-sim-wrap {
+      background: rgba(10,22,40,0.5);
+      border: 1px solid var(--border-dim);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+
+    #ci-sim-canvas { width: 100%; display: block; border-radius: 8px; }
+
+    /* Calc history */
+    .ci-hist-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 18px;
+    }
+
+    .ci-hist-table th {
+      padding: 14px 12px;
+      text-align: left;
+      font-family: var(--f-ui);
+      font-size: 16px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      border-bottom: 2px solid var(--border-dim);
+      white-space: nowrap;
+      font-weight: 700;
+    }
+
+    .ci-hist-table td {
+      padding: 14px 12px;
+      font-family: var(--f-mono);
+      color: var(--text);
+      border-bottom: 1px solid var(--border-dim);
+      white-space: nowrap;
+      font-size: 18px;
+    }
+
+    .ci-hist-table tr:last-child td { border-bottom: none; }
+    .ci-hist-table tbody tr:hover { background: rgba(0,255,179,0.03); }
+
+    .ci-hist-wrap {
+      background: rgba(10,22,40,0.5);
+      border: 1px solid var(--border-dim);
+      border-radius: 12px;
+      overflow-x: auto;
+    }
+
+    .ci-verdict-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-family: var(--f-display);
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+    }
+
+    .ci-verdict-badge.apostar   { background: rgba(0,255,179,0.12); color: var(--accent); border: 1px solid var(--border); }
+    .ci-verdict-badge.revisar   { background: rgba(251,191,36,0.12); color: #FBBF24;       border: 1px solid rgba(251,191,36,0.25); }
+    .ci-verdict-badge.no-apostar { background: rgba(255,107,53,0.12); color: var(--alert);  border: 1px solid rgba(255,107,53,0.25); }
+
+    /* Mobile */
+    @media (max-width: 767px) {
+      .ci-type-btn  { font-size: 18px; padding: 18px 10px; }
+      .ci-input-xl  { font-size: 28px; }
+      .ci-verdict   { font-size: 32px; letter-spacing: 3px; }
+      .ci-result-val { font-size: 28px; }
+      .ci-result-val.sm { font-size: 22px; }
+      .ci-prices-grid { grid-template-columns: 1fr; }
+      .ci-detail-table td { font-size: 18px; }
+      .ci-sim-wrap canvas { height: 200px !important; }
+    }
+
+    /* ================================================================
        PART 3 — CALCULADORAS · HISTORIAL · IA
     ================================================================ */
 
@@ -3040,114 +3603,186 @@
   </section>
 
   <!-- ============================================================
-       PARTE 3 — CALCULADORAS
+       PARTE 7 — CALCULADORA INTELIGENTE
   ============================================================ -->
   <section class="p2-section" id="calculadora">
     <div class="p2-inner">
       <div class="p2-header">
-        <h2 class="p2-title" style="color:#818CF8">Calculadoras</h2>
-        <div style="font-family:var(--f-mono);font-size:11px;color:var(--text-muted);letter-spacing:2px">Kelly · Value · Apalancamiento · Sistema</div>
+        <div>
+          <h2 class="p2-title" style="color:#818CF8">Calculadora Inteligente</h2>
+          <p class="ci-subtitle">Analiza tu operación antes de ejecutarla — datos reales, decisión informada</p>
+        </div>
       </div>
 
-      <div class="calc-grid-2">
+      <!-- === PARTE 7 — CALCULADORA INTELIGENTE === -->
 
-        <!-- CALC 1: Kelly Criterion -->
-        <div class="p2-card">
-          <div class="calc-title">KELLY CRITERION</div>
-          <div class="calc-sub" id="kc-sub-exp" style="display:none">Tamaño óptimo de apuesta basado en tu edge real</div>
+      <!-- Selector de tipo -->
+      <div class="ci-type-selector">
+        <button class="ci-type-btn active" id="ci-btn-apuesta" onclick="ciSelectType('apuesta')">⚽ APUESTA DEPORTIVA</button>
+        <button class="ci-type-btn"        id="ci-btn-cripto"  onclick="ciSelectType('cripto')">₿ OPERACIÓN CRIPTO</button>
+      </div>
 
-          <label class="calc-lbl">BANKROLL ($)</label>
-          <input class="calc-inp" id="kc-bk" type="number" inputmode="decimal" min="0" step="1" placeholder="500" oninput="calcKelly()">
+      <!-- ── PANEL APUESTA ── -->
+      <div id="ci-panel-apuesta" class="ci-panel">
+        <div class="ci-mode-toggle">
+          <button class="ci-mode-btn active" id="ci-bet-mode-rapido"    onclick="ciSetBetMode('rapido')">⚡ RÁPIDO</button>
+          <button class="ci-mode-btn"        id="ci-bet-mode-detallado" onclick="ciSetBetMode('detallado')">🔍 DETALLADO</button>
+        </div>
 
-          <label class="calc-lbl">ODD DECIMAL</label>
-          <input class="calc-inp" id="kc-odd" type="number" inputmode="decimal" min="1.01" step="0.05" placeholder="1.85" oninput="calcKelly()">
-
-          <label class="calc-lbl">TU PROBABILIDAD (%)</label>
-          <input class="calc-inp" id="kc-prob" type="number" inputmode="decimal" min="1" max="99" step="1" placeholder="60" oninput="calcKelly()">
-
-          <label class="calc-lbl">FRACCIÓN KELLY: <span id="kc-frac-disp" style="color:var(--accent)">25%</span></label>
-          <input class="calc-slider" id="kc-frac" type="range" min="25" max="100" step="25" value="25"
-                 oninput="document.getElementById('kc-frac-disp').textContent=this.value+'%';calcKelly()">
-          <div style="display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:10px;color:var(--text-muted);margin-bottom:4px">
-            <span>25% Conservador</span><span>50%</span><span>75%</span><span>100% Agresivo</span>
+        <div class="ci-form">
+          <div class="ci-field-group">
+            <label class="ci-label">¿Cuánto vas a apostar?</label>
+            <div class="ci-input-prefix-wrap">
+              <span class="ci-prefix">$</span>
+              <input class="ci-input-xl" id="ci-bet-stake" type="number" inputmode="decimal"
+                     min="0" step="0.01" placeholder="50" oninput="ciCalcBet()">
+            </div>
+            <div class="ci-hint" id="ci-bet-stake-hint">Capital actual: cargando...</div>
           </div>
 
-          <div class="calc-out" id="kc-out">
-            <div style="color:var(--text-muted);font-family:var(--f-mono);text-align:center;padding:20px">Completa los campos para calcular</div>
+          <div class="ci-field-group">
+            <label class="ci-label">¿Qué vas a apostar?</label>
+            <div class="ci-tabs">
+              <button class="ci-tab active" id="ci-bet-tab-buscar" onclick="ciSetBetTab('buscar')">BUSCAR PARTIDO</button>
+              <button class="ci-tab"        id="ci-bet-tab-manual" onclick="ciSetBetTab('manual')">INGRESAR MANUAL</button>
+            </div>
+
+            <!-- BUSCAR tab -->
+            <div id="ci-bet-search-panel">
+              <input class="ci-input-md" id="ci-bet-search" type="search"
+                     placeholder="Escribe el nombre del equipo..." oninput="ciSearchTeam(this.value)">
+              <div class="ci-search-results" id="ci-search-results"></div>
+              <div id="ci-markets-panel" style="display:none;margin-top:16px">
+                <div class="ci-label-sm" style="margin-bottom:10px">Mercados disponibles:</div>
+                <div class="ci-markets" id="ci-markets"></div>
+                <div id="ci-odds-panel" style="display:none;margin-top:16px">
+                  <div class="ci-label-sm" style="margin-bottom:10px">Selecciona resultado:</div>
+                  <div class="ci-odds-grid" id="ci-odds-grid"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- MANUAL tab -->
+            <div id="ci-bet-manual-panel" style="display:none">
+              <input class="ci-input-md" id="ci-bet-desc" type="text"
+                     placeholder="Ej: Real Madrid gana" style="margin-bottom:16px">
+              <label class="ci-label-sm">Cuota (Odd) decimal</label>
+              <div class="ci-input-prefix-wrap" style="margin-bottom:8px">
+                <input class="ci-input-xl" id="ci-bet-odd" type="number" inputmode="decimal"
+                       min="1.01" step="0.05" placeholder="2.50" oninput="ciCalcBet()">
+              </div>
+              <div class="ci-hint" style="margin-bottom:16px">
+                Ejemplo: si la casa paga $2.50 por cada $1 apostado → odd = 2.50
+              </div>
+              <label class="ci-label-sm">Tu probabilidad estimada (%)</label>
+              <div class="ci-input-prefix-wrap">
+                <input class="ci-input-xl" id="ci-bet-prob" type="number" inputmode="decimal"
+                       min="1" max="99" step="1" placeholder="55" oninput="ciCalcBet()">
+              </div>
+              <div class="ci-hint">¿Qué % de probabilidad crees que tiene de ocurrir?</div>
+            </div>
           </div>
         </div>
 
-        <!-- CALC 2: Value Bet Detector -->
-        <div class="p2-card">
-          <div class="calc-title">DETECTOR VALUE BET</div>
+        <div class="ci-result-card" id="ci-bet-result" style="display:none"></div>
+        <div class="ci-detail-panel" id="ci-bet-detail" style="display:none"></div>
+      </div><!-- /ci-panel-apuesta -->
 
-          <label class="calc-lbl">ODD QUE OFRECE LA CASA</label>
-          <input class="calc-inp" id="vb-odd" type="number" inputmode="decimal" min="1.01" step="0.05" placeholder="2.10" oninput="calcValueBet()">
+      <!-- ── PANEL CRIPTO ── -->
+      <div id="ci-panel-cripto" class="ci-panel" style="display:none">
+        <div class="ci-mode-toggle">
+          <button class="ci-mode-btn active" id="ci-cryp-mode-rapido"    onclick="ciSetCrypMode('rapido')">⚡ RÁPIDO</button>
+          <button class="ci-mode-btn"        id="ci-cryp-mode-detallado" onclick="ciSetCrypMode('detallado')">🔍 DETALLADO</button>
+        </div>
 
-          <label class="calc-lbl">TU PROBABILIDAD ESTIMADA (%)</label>
-          <input class="calc-inp" id="vb-prob" type="number" inputmode="decimal" min="1" max="99" step="1" placeholder="55" oninput="calcValueBet()">
+        <div class="ci-form">
+          <div class="ci-field-group">
+            <label class="ci-label">¿Cuánto capital vas a usar?</label>
+            <div class="ci-input-prefix-wrap">
+              <span class="ci-prefix">$</span>
+              <input class="ci-input-xl" id="ci-cry-cap" type="number" inputmode="decimal"
+                     min="1" step="1" placeholder="100" oninput="ciCalcCrypto()">
+            </div>
+          </div>
 
-          <label class="calc-lbl">BANKROLL ($)</label>
-          <input class="calc-inp" id="vb-bk" type="number" inputmode="decimal" min="0" step="1" placeholder="500" oninput="calcValueBet()">
+          <div class="ci-field-group">
+            <label class="ci-label">¿Qué moneda?</label>
+            <div class="ci-coin-grid">
+              <button class="ci-coin-btn active" data-id="bitcoin"  onclick="ciSelectCoin('bitcoin','BTC')">BTC</button>
+              <button class="ci-coin-btn"         data-id="ethereum" onclick="ciSelectCoin('ethereum','ETH')">ETH</button>
+              <button class="ci-coin-btn"         data-id="solana"   onclick="ciSelectCoin('solana','SOL')">SOL</button>
+              <button class="ci-coin-btn"         data-id="ripple"   onclick="ciSelectCoin('ripple','XRP')">XRP</button>
+              <button class="ci-coin-btn"         data-id="other"    onclick="ciSelectCoin('other','')">OTRA</button>
+            </div>
+            <div id="ci-coin-other-wrap" style="display:none;margin-top:10px">
+              <input class="ci-input-md" id="ci-coin-other-sym" type="text"
+                     placeholder="Símbolo (ej: ADA, DOT...)" oninput="ciCalcCrypto()">
+            </div>
+            <div class="ci-coin-price">
+              <span id="ci-coin-name">BTC</span> = <span id="ci-coin-val" style="color:var(--accent)">cargando precio real...</span>
+            </div>
+          </div>
 
-          <div class="calc-out" id="vb-out">
-            <div style="color:var(--text-muted);font-family:var(--f-mono);text-align:center;padding:20px">Completa los campos para calcular</div>
+          <div class="ci-field-group">
+            <label class="ci-label">¿Tipo de operación?</label>
+            <div class="ci-tabs" style="grid-template-columns:repeat(3,1fr)">
+              <button class="ci-tab active" id="ci-op-contado" onclick="ciSetOpType('contado')">📈 CONTADO</button>
+              <button class="ci-tab"        id="ci-op-long"    onclick="ciSetOpType('long')">⚡ LONG APALANCADO</button>
+              <button class="ci-tab"        id="ci-op-short"   onclick="ciSetOpType('short')">📉 SHORT APALANCADO</button>
+            </div>
+
+            <div id="ci-lev-row" style="display:none;margin-top:16px">
+              <label class="ci-label-sm">Apalancamiento</label>
+              <div class="ci-lev-btns">
+                <button class="ci-lev-btn active" data-lev="2"   onclick="ciSetLev(2)">2x</button>
+                <button class="ci-lev-btn"         data-lev="5"   onclick="ciSetLev(5)">5x</button>
+                <button class="ci-lev-btn"         data-lev="10"  onclick="ciSetLev(10)">10x</button>
+                <button class="ci-lev-btn"         data-lev="20"  onclick="ciSetLev(20)">20x</button>
+                <button class="ci-lev-btn"         data-lev="50"  onclick="ciSetLev(50)">50x</button>
+                <button class="ci-lev-btn"         data-lev="100" onclick="ciSetLev(100)">100x</button>
+              </div>
+            </div>
+
+            <div class="ci-prices-grid" style="margin-top:16px">
+              <div>
+                <label class="ci-label-sm">Precio de entrada ($)</label>
+                <input class="ci-input-md" id="ci-entry" type="number" inputmode="decimal"
+                       placeholder="Auto: precio actual" oninput="ciCalcCrypto()">
+              </div>
+              <div>
+                <label class="ci-label-sm">Take Profit ($)</label>
+                <input class="ci-input-md" id="ci-tp" type="number" inputmode="decimal"
+                       placeholder="Precio objetivo" oninput="ciCalcCrypto()">
+              </div>
+              <div>
+                <label class="ci-label-sm">Stop Loss ($)</label>
+                <input class="ci-input-md" id="ci-sl" type="number" inputmode="decimal"
+                       placeholder="Precio límite pérdida" oninput="ciCalcCrypto()">
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- CALC 3: Apalancamiento Crypto -->
-        <div class="p2-card">
-          <div class="calc-title">APALANCAMIENTO CRYPTO</div>
+        <div class="ci-result-card" id="ci-cry-result" style="display:none"></div>
+        <div class="ci-detail-panel" id="ci-cry-detail" style="display:none"></div>
+      </div><!-- /ci-panel-cripto -->
 
-          <label class="calc-lbl">CAPITAL A ARRIESGAR ($)</label>
-          <input class="calc-inp" id="lev-cap" type="number" inputmode="decimal" min="1" step="1" placeholder="100" oninput="calcLeverage()">
-
-          <label class="calc-lbl">APALANCAMIENTO: <span id="lev-lev-disp" style="color:var(--dorado,#FBBF24)">2x</span></label>
-          <input class="calc-slider" id="lev-lev" type="range" min="2" max="100" step="1" value="2"
-                 oninput="document.getElementById('lev-lev-disp').textContent=this.value+'x';calcLeverage()">
-          <div style="display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:10px;color:var(--text-muted);margin-bottom:8px">
-            <span>2x</span><span>10x</span><span>25x</span><span>50x</span><span>100x</span>
+      <!-- ── HISTORIAL DE CÁLCULOS ── -->
+      <div id="ci-history-section" style="margin-top:72px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+          <div style="font-family:var(--f-display);font-size:clamp(22px,3vw,32px);font-weight:900;letter-spacing:3px;color:var(--text)">
+            ÚLTIMAS 10 OPERACIONES CALCULADAS
           </div>
-
-          <label class="calc-lbl">PRECIO ENTRADA ($)</label>
-          <div style="display:flex;gap:8px;margin-bottom:12px">
-            <input class="calc-inp" id="lev-entry" type="number" inputmode="decimal" min="0" step="0.01" placeholder="103000" oninput="calcLeverage()" style="margin-bottom:0;flex:1">
-            <button onclick="useCurrentCoinPrice('bitcoin')" style="background:rgba(247,147,26,0.1);border:1px solid rgba(247,147,26,0.3);border-radius:8px;color:#F7931A;font-family:var(--f-mono);font-size:10px;cursor:pointer;padding:0 10px;white-space:nowrap">BTC</button>
-            <button onclick="useCurrentCoinPrice('ethereum')" style="background:rgba(98,126,234,0.1);border:1px solid rgba(98,126,234,0.3);border-radius:8px;color:#627EEA;font-family:var(--f-mono);font-size:10px;cursor:pointer;padding:0 10px;white-space:nowrap">ETH</button>
-          </div>
-
-          <label class="calc-lbl">DIRECCIÓN</label>
-          <div class="dir-toggle">
-            <button class="dir-btn long active" id="lev-btn-long" onclick="setLevDir('long')">▲ LONG</button>
-            <button class="dir-btn short" id="lev-btn-short" onclick="setLevDir('short')">▼ SHORT</button>
-          </div>
-
-          <label class="calc-lbl">% STOP LOSS</label>
-          <input class="calc-inp" id="lev-sl" type="number" inputmode="decimal" min="0.1" max="50" step="0.5" placeholder="5" oninput="calcLeverage()">
-
-          <div class="calc-out" id="lev-out">
-            <div style="color:var(--text-muted);font-family:var(--f-mono);text-align:center;padding:20px">Completa los campos para calcular</div>
-          </div>
-        </div>
-
-        <!-- CALC 4: Sistema / Múltiple -->
-        <div class="p2-card">
-          <div class="calc-title">SISTEMA / MÚLTIPLE</div>
-
-          <div id="sys-selections"></div>
-
-          <button onclick="addSysSelection()" style="width:100%;padding:10px;background:rgba(255,255,255,0.03);border:1px dashed var(--border-dim);border-radius:8px;color:var(--text-dim);font-family:var(--f-display);font-size:11px;letter-spacing:2px;cursor:pointer;margin-bottom:12px;transition:all 0.2s"
-                  onmouseover="this.style.borderColor='var(--border)';this.style.color='var(--text)'"
-                  onmouseout="this.style.borderColor='var(--border-dim)';this.style.color='var(--text-dim)'">
-            + AÑADIR SELECCIÓN (máx. 6)
+          <button onclick="ciClearHistory()"
+                  style="padding:10px 20px;background:rgba(255,107,53,0.08);border:1px solid rgba(255,107,53,0.25);border-radius:8px;color:var(--alert);font-family:var(--f-display);font-size:16px;letter-spacing:2px;cursor:pointer">
+            LIMPIAR
           </button>
-
-          <div class="calc-out" id="sys-out">
-            <div style="color:var(--text-muted);font-family:var(--f-mono);text-align:center;padding:20px">Añade selecciones para calcular el sistema</div>
-          </div>
         </div>
+        <div class="ci-hist-wrap" id="ci-hist-wrap">
+          <div class="empty-state">Aún no hay cálculos. Usa la calculadora para registrarlos automáticamente.</div>
+        </div>
+      </div>
 
-      </div><!-- /calc-grid-2 -->
     </div><!-- /p2-inner -->
   </section>
 
@@ -5802,9 +6437,706 @@
       });
     })();
 
+    /* ============================================================
+       === PARTE 7 — CALCULADORA INTELIGENTE ===
+    ============================================================ */
+
+    const CI = {
+      type:      localStorage.getItem('jcahs_ci_type') || 'apuesta',
+      betMode:   'rapido',
+      betTab:    'manual',
+      cryptoMode:'rapido',
+      opType:    'contado',
+      leverage:  2,
+      coinId:    'bitcoin',
+      coinSym:   'BTC',
+      selectedOdd:     null,
+      selectedOutcome: null,
+      history: JSON.parse(localStorage.getItem('jcahs_calc_history') || '[]')
+    };
+
+    // ── Type & mode selectors ────────────────────────────────────
+    function ciSelectType(t) {
+      CI.type = t;
+      localStorage.setItem('jcahs_ci_type', t);
+      document.getElementById('ci-btn-apuesta').classList.toggle('active', t === 'apuesta');
+      document.getElementById('ci-btn-cripto').classList.toggle('active', t === 'cripto');
+      document.getElementById('ci-panel-apuesta').style.display = t === 'apuesta' ? 'block' : 'none';
+      document.getElementById('ci-panel-cripto').style.display  = t === 'cripto'  ? 'block' : 'none';
+    }
+
+    function ciSetBetMode(m) {
+      CI.betMode = m;
+      document.getElementById('ci-bet-mode-rapido').classList.toggle('active', m === 'rapido');
+      document.getElementById('ci-bet-mode-detallado').classList.toggle('active', m === 'detallado');
+      ciCalcBet();
+    }
+
+    function ciSetCrypMode(m) {
+      CI.cryptoMode = m;
+      document.getElementById('ci-cryp-mode-rapido').classList.toggle('active', m === 'rapido');
+      document.getElementById('ci-cryp-mode-detallado').classList.toggle('active', m === 'detallado');
+      ciCalcCrypto();
+    }
+
+    function ciSetBetTab(tab) {
+      CI.betTab = tab;
+      document.getElementById('ci-bet-tab-buscar').classList.toggle('active', tab === 'buscar');
+      document.getElementById('ci-bet-tab-manual').classList.toggle('active', tab === 'manual');
+      document.getElementById('ci-bet-search-panel').style.display = tab === 'buscar' ? 'block' : 'none';
+      document.getElementById('ci-bet-manual-panel').style.display = tab === 'manual' ? 'block' : 'none';
+      ciCalcBet();
+    }
+
+    function ciSetOpType(t) {
+      CI.opType = t;
+      ['contado','long','short'].forEach(id => document.getElementById('ci-op-'+id).classList.toggle('active', id === t));
+      document.getElementById('ci-lev-row').style.display = (t === 'contado') ? 'none' : 'block';
+      ciCalcCrypto();
+    }
+
+    function ciSetLev(n) {
+      CI.leverage = n;
+      document.querySelectorAll('.ci-lev-btn').forEach(b => b.classList.toggle('active', +b.dataset.lev === n));
+      ciCalcCrypto();
+    }
+
+    function ciSelectCoin(id, sym) {
+      CI.coinId  = id;
+      CI.coinSym = sym;
+      document.querySelectorAll('.ci-coin-btn').forEach(b => b.classList.toggle('active', b.dataset.id === id));
+      document.getElementById('ci-coin-other-wrap').style.display = id === 'other' ? 'block' : 'none';
+
+      const nameEl = document.getElementById('ci-coin-name');
+      const valEl  = document.getElementById('ci-coin-val');
+      if (nameEl) nameEl.textContent = sym || 'OTRA';
+
+      if (id !== 'other') {
+        const price = JCAHS.prices[id];
+        if (price) {
+          if (valEl) valEl.textContent = fmtP(price.usd);
+          // Pre-fill entry price
+          const entryEl = document.getElementById('ci-entry');
+          if (entryEl && !entryEl.value) entryEl.value = price.usd;
+        } else {
+          if (valEl) valEl.textContent = 'Sin precio disponible';
+        }
+      } else {
+        if (valEl) valEl.textContent = 'Precio no disponible para moneda personalizada';
+      }
+      ciCalcCrypto();
+    }
+
+    // ── Team search ──────────────────────────────────────────────
+    function ciSearchTeam(q) {
+      const res = document.getElementById('ci-search-results');
+      if (!res) return;
+      if (!q || q.length < 2) { res.classList.remove('visible'); return; }
+
+      const lq = q.toLowerCase();
+      // Search in loaded fixtures + value bets
+      const matches = [];
+      const seen = new Set();
+
+      (JCAHS.fixtures || []).forEach(f => {
+        const home = f.homeTeam?.name || '';
+        const away = f.awayTeam?.name || '';
+        const key  = home + '|' + away;
+        if (!seen.has(key) && (home.toLowerCase().includes(lq) || away.toLowerCase().includes(lq))) {
+          seen.add(key);
+          matches.push({ type: 'fixture', fixture: f, label: `${home} vs ${away}`, sub: (f.competition?.name || '') + (f.utcDate ? ' · ' + new Date(f.utcDate).toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'}) : '') });
+        }
+      });
+
+      (JCAHS.valueBets || []).forEach(b => {
+        const key = b.game;
+        if (!seen.has(key) && b.game.toLowerCase().includes(lq)) {
+          seen.add(key);
+          matches.push({ type: 'bet', bet: b, label: b.game, sub: b.league });
+        }
+      });
+
+      if (!matches.length) {
+        res.innerHTML = `<div class="ci-search-item" style="color:var(--text-muted)">Sin partidos encontrados — prueba modo manual</div>`;
+        res.classList.add('visible');
+        return;
+      }
+
+      res.innerHTML = matches.slice(0, 6).map((m, i) => `
+        <div class="ci-search-item" onclick="ciSelectMatch(${i})" id="ci-match-${i}">
+          <div>${m.label}</div>
+          <div class="ci-search-item-sub">${m.sub}</div>
+        </div>`).join('');
+      res.classList.add('visible');
+      res._matches = matches;
+    }
+
+    function ciSelectMatch(i) {
+      const res = document.getElementById('ci-search-results');
+      if (!res?._matches) return;
+      const m = res._matches[i];
+      res.classList.remove('visible');
+
+      const searchEl = document.getElementById('ci-bet-search');
+      if (searchEl) searchEl.value = m.label;
+
+      // Show markets
+      const marketsPanel = document.getElementById('ci-markets-panel');
+      const marketsEl    = document.getElementById('ci-markets');
+      if (!marketsPanel || !marketsEl) return;
+      marketsPanel.style.display = 'block';
+
+      // Markets: always show Resultado 1X2 plus whatever the bet has
+      const markets = ['Resultado 1X2'];
+      if (m.type === 'bet') markets.push(m.bet.league.includes('Soccer') || true ? 'Más/Menos 2.5' : '');
+      const uniqueMarkets = [...new Set(markets.filter(Boolean))];
+
+      marketsEl.innerHTML = uniqueMarkets.map(mk => `
+        <button class="ci-market-btn ${mk === 'Resultado 1X2' ? 'active' : ''}"
+                onclick="ciSelectMarket('${mk}', ${JSON.stringify(m).replace(/'/g,"\\'")})">${mk}</button>`).join('');
+
+      // Show odds for 1X2 automatically
+      ciShowOddsForMatch(m, 'Resultado 1X2');
+    }
+
+    function ciSelectMarket(market, m) {
+      document.querySelectorAll('.ci-market-btn').forEach(b => b.classList.toggle('active', b.textContent === market));
+      ciShowOddsForMatch(m, market);
+    }
+
+    function ciShowOddsForMatch(m, market) {
+      const oddsPanel = document.getElementById('ci-odds-panel');
+      const oddsGrid  = document.getElementById('ci-odds-grid');
+      if (!oddsPanel || !oddsGrid) return;
+      oddsPanel.style.display = 'block';
+
+      // Build odds from valueBets data
+      let outcomes = [];
+
+      if (m.type === 'bet') {
+        // Find all valueBets for this game
+        const gameBets = (JCAHS.valueBets || []).filter(b => b.game === m.label);
+        outcomes = gameBets.map(b => ({ outcome: translateOutcome(b.outcome), odd: b.odd, bk: b.bk, isValue: parseFloat(b.edge) > 0 }));
+      }
+
+      // Always provide 3 placeholders if no data
+      if (!outcomes.length) {
+        outcomes = [
+          { outcome: 'Local', odd: null, bk: '--' },
+          { outcome: 'Empate', odd: null, bk: '--' },
+          { outcome: 'Visitante', odd: null, bk: '--' }
+        ];
+      }
+
+      oddsGrid.innerHTML = outcomes.map(o => `
+        <div class="ci-odd-btn ${CI.selectedOutcome === o.outcome ? 'active' : ''}"
+             onclick="ciSelectOdd(${o.odd}, '${o.outcome}')">
+          <div class="ci-odd-outcome">${o.outcome}</div>
+          <div class="ci-odd-val">${o.odd != null ? o.odd : 'Sin datos'}</div>
+          <div class="ci-odd-bk">${o.bk}${o.isValue ? ' ✅' : ''}</div>
+        </div>`).join('');
+    }
+
+    function ciSelectOdd(odd, outcome) {
+      if (odd == null) return;
+      CI.selectedOdd     = odd;
+      CI.selectedOutcome = outcome;
+      document.querySelectorAll('.ci-odd-btn').forEach(b => {
+        b.classList.toggle('active', b.querySelector('.ci-odd-outcome')?.textContent === outcome);
+      });
+      ciCalcBet();
+    }
+
+    // ── BET CALCULATION ──────────────────────────────────────────
+    function ciCalcBet() {
+      const stakeEl = document.getElementById('ci-bet-stake');
+      const stake   = parseFloat(stakeEl?.value) || 0;
+
+      let odd     = null;
+      let myProb  = null;
+      let desc    = '';
+
+      if (CI.betTab === 'manual') {
+        odd    = parseFloat(document.getElementById('ci-bet-odd')?.value);
+        myProb = parseFloat(document.getElementById('ci-bet-prob')?.value);
+        desc   = document.getElementById('ci-bet-desc')?.value || 'Apuesta manual';
+      } else {
+        odd  = CI.selectedOdd;
+        desc = CI.selectedOutcome || 'Apuesta seleccionada';
+      }
+
+      const resultEl = document.getElementById('ci-bet-result');
+      const detailEl = document.getElementById('ci-bet-detail');
+      if (!resultEl) return;
+
+      if (!stake || !odd || odd < 1.01) { resultEl.style.display = 'none'; if (detailEl) detailEl.style.display = 'none'; return; }
+
+      // Math
+      const impliedProb = (1 / odd) * 100;
+      const edge        = myProb != null ? myProb - impliedProb : null;
+      const kellyFull   = edge != null ? Math.max(0, (edge/100 * (odd-1) - (1 - edge/100)) / (odd-1) * 100) : null;
+      const kelly25     = kellyFull != null ? kellyFull * 0.25 : null;
+      const kelly50     = kellyFull != null ? kellyFull * 0.50 : null;
+      const bankroll    = JCAHS.bankroll || 500;
+      const optBet25    = kelly25 != null ? Math.max(0, bankroll * kelly25/100) : null;
+      const gain        = stake * (odd - 1);
+      const loss        = stake;
+      const ev          = myProb != null ? stake * ((myProb/100)*(odd-1) - (1 - myProb/100)) : null;
+      const roi         = ev != null ? (ev / stake) * 100 : null;
+
+      // Convert odd formats
+      const oddFrac = ciDecimalToFractional(odd);
+      const oddAm   = ciDecimalToAmerican(odd);
+      const margin  = myProb != null ? ((1/odd + (1 - myProb/100)) - 1) * 100 : null;
+      const longRunGain = ev != null ? ev * 100 : null;
+
+      // Semáforo
+      let semaforo, verdict, verdictColor, verdictKey;
+      if (odd < 1.20) {
+        semaforo = '🔴'; verdict = 'NO APOSTAR'; verdictColor = 'var(--alert)'; verdictKey = 'no-apostar';
+      } else if (edge != null && edge < 0) {
+        semaforo = '🔴'; verdict = 'NO APOSTAR'; verdictColor = 'var(--alert)'; verdictKey = 'no-apostar';
+      } else if (edge != null && edge > 5 && (kelly25 || 0) > 1) {
+        semaforo = '🟢'; verdict = 'APOSTAR'; verdictColor = 'var(--accent)'; verdictKey = 'apostar';
+      } else {
+        semaforo = '🟡'; verdict = 'REVISAR'; verdictColor = '#FBBF24'; verdictKey = 'revisar';
+      }
+
+      // Explanation
+      let explanation = '';
+      if (edge == null) {
+        explanation = `La cuota ${odd} implica un ${impliedProb.toFixed(1)}% de probabilidad para la casa. Ingresa tu probabilidad estimada para calcular la ventaja real y decidir si hay valor.`;
+      } else if (verdictKey === 'no-apostar') {
+        explanation = `La cuota ${odd} implica ${impliedProb.toFixed(1)}% de probabilidad. Tu estimación del ${myProb}% da una ventaja de ${edge.toFixed(1)}% — ${edge < 0 ? 'negativa' : 'insuficiente'}. La casa tiene ventaja matemática. No apostar protege tu capital a largo plazo.`;
+      } else if (verdictKey === 'apostar') {
+        explanation = `La cuota ${odd} implica ${impliedProb.toFixed(1)}% para la casa. Tu estimación del ${myProb}% da ventaja real (Edge) de +${edge.toFixed(1)}%. Con Kelly del ${kelly25?.toFixed(1)}%, la apuesta óptima son $${optBet25?.toFixed(2) || '--'} de tu capital. Matemáticamente favorables a largo plazo.`;
+      } else {
+        explanation = `La cuota ${odd} implica ${impliedProb.toFixed(1)}% de probabilidad. Tu ventaja es moderada${edge != null ? ` (${edge.toFixed(1)}%)` : ''}. Evalúa si tu estimación del ${myProb || '?'}% es confiable antes de apostar. Considera reducir el tamaño de apuesta.`;
+      }
+
+      // Render result
+      resultEl.style.display = 'block';
+      resultEl.innerHTML = `
+        <div style="text-align:center;margin-bottom:32px">
+          <div class="ci-semaforo" id="ci-semaforo-icon">${semaforo}</div>
+          <div class="ci-verdict" style="color:${verdictColor}">${verdict}</div>
+        </div>
+        <div class="ci-result-row">
+          <span class="ci-result-label">Si Ganas</span>
+          <span class="ci-result-val pos">+$${gain.toFixed(2)}</span>
+        </div>
+        <div class="ci-result-row">
+          <span class="ci-result-label">Si Pierdes</span>
+          <span class="ci-result-val neg">-$${loss.toFixed(2)}</span>
+        </div>
+        ${ev != null ? `
+        <div class="ci-result-row">
+          <span class="ci-result-label">Valor Esperado (EV)</span>
+          <span class="ci-result-val sm ${ev >= 0 ? 'pos' : 'neg'}">${ev >= 0 ? '+' : ''}$${ev.toFixed(2)}</span>
+        </div>` : ''}
+        ${edge != null ? `
+        <div class="ci-result-row">
+          <span class="ci-result-label">Prob. de la Casa</span>
+          <span class="ci-result-val sm">${impliedProb.toFixed(1)}%</span>
+        </div>
+        <div class="ci-result-row">
+          <span class="ci-result-label">Tu Probabilidad</span>
+          <span class="ci-result-val sm">${myProb}%</span>
+        </div>
+        <div class="ci-result-row">
+          <span class="ci-result-label">Ventaja (Edge)</span>
+          <span class="ci-result-val sm ${edge >= 0 ? 'pos' : 'neg'}">${edge >= 0 ? '+' : ''}${edge.toFixed(1)}%</span>
+        </div>
+        <div class="ci-result-row">
+          <span class="ci-result-label">Kelly Recomendado (25%)</span>
+          <span class="ci-result-val sm">${kelly25 != null ? kelly25.toFixed(1) + '%' : '--'}</span>
+        </div>
+        <div class="ci-result-row">
+          <span class="ci-result-label">Apuesta Óptima</span>
+          <span class="ci-result-val sm pos">$${optBet25 != null ? optBet25.toFixed(2) : '--'}</span>
+        </div>` : ''}
+        ${roi != null ? `
+        <div class="ci-result-row">
+          <span class="ci-result-label">Retorno Esperado (ROI)</span>
+          <span class="ci-result-val xs ${roi >= 0 ? 'pos' : 'neg'}">${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%</span>
+        </div>
+        <div class="ci-result-row">
+          <span class="ci-result-label">A largo plazo (100 ops)</span>
+          <span class="ci-result-val xs ${longRunGain >= 0 ? 'pos' : 'neg'}">${longRunGain >= 0 ? '+' : ''}$${Math.abs(longRunGain).toFixed(0)}</span>
+        </div>` : ''}
+        <div class="ci-explanation" style="border-left-color:${verdictColor}">
+          ${semaforo} ${explanation}
+        </div>`;
+
+      // Detailed panel
+      if (detailEl) {
+        if (CI.betMode === 'detallado' && edge != null) {
+          detailEl.style.display = 'block';
+          detailEl.innerHTML = `
+            <div class="ci-detail-title">ANÁLISIS COMPLETO</div>
+            <table class="ci-detail-table">
+              <tr><td>Odd decimal</td><td>${odd}</td></tr>
+              <tr><td>Odd fraccional</td><td>${oddFrac}</td></tr>
+              <tr><td>Odd americana</td><td>${oddAm}</td></tr>
+              <tr><td>Prob. implícita de la casa</td><td>${impliedProb.toFixed(1)}%</td></tr>
+              <tr><td>Tu probabilidad</td><td>${myProb}%</td></tr>
+              <tr><td>Ventaja (Edge)</td><td class="${edge>=0?'pos':'neg'}">${edge>=0?'+':''}${edge.toFixed(1)}%</td></tr>
+              <tr><td>Kelly completo</td><td>${kellyFull?.toFixed(2) || '--'}%</td></tr>
+              <tr><td>Kelly 25% (conservador)</td><td>${kelly25?.toFixed(2) || '--'}%</td></tr>
+              <tr><td>Kelly 50%</td><td>${kelly50?.toFixed(2) || '--'}%</td></tr>
+              <tr><td>Apuesta con Kelly 25%</td><td class="pos">$${optBet25?.toFixed(2) || '--'}</td></tr>
+              <tr><td>Valor Esperado (EV)</td><td class="${ev>=0?'pos':'neg'}">${ev>=0?'+':''}$${ev?.toFixed(2) || '--'}</td></tr>
+              <tr><td>ROI por apuesta</td><td class="${roi>=0?'pos':'neg'}">${roi>=0?'+':''}${roi?.toFixed(2) || '--'}%</td></tr>
+            </table>
+            ${ev != null ? `
+            <div class="ci-detail-title" style="margin-top:24px">SIMULACIÓN A LARGO PLAZO</div>
+            <div class="ci-sim-wrap">
+              <canvas id="ci-sim-canvas" height="260"></canvas>
+            </div>
+            <div class="ci-hint" style="margin-top:8px;text-align:center">
+              Capital proyectado en 50 operaciones: <strong style="color:var(--accent)">$${(bankroll + longRunGain/2).toFixed(0)}</strong>
+            </div>` : ''}`;
+          if (ev != null) setTimeout(() => ciDrawSimulation('ci-sim-canvas', { bankroll, ev, stake, n: 50 }), 50);
+        } else {
+          detailEl.style.display = 'none';
+        }
+      }
+
+      // Auto-save to history
+      ciSaveHistory({
+        tipo: 'Apuesta', desc, stake,
+        referencia: `Odd ${odd}`,
+        ventaja: edge != null ? edge.toFixed(1)+'%' : '--',
+        veredicto: verdictKey,
+        ganancia: gain.toFixed(2),
+        perdida:  loss.toFixed(2)
+      });
+    }
+
+    // ── CRYPTO CALCULATION ───────────────────────────────────────
+    function ciCalcCrypto() {
+      const cap     = parseFloat(document.getElementById('ci-cry-cap')?.value) || 0;
+      const entryEl = document.getElementById('ci-entry');
+      const tpEl    = document.getElementById('ci-tp');
+      const slEl    = document.getElementById('ci-sl');
+
+      // Auto-fill entry from live price
+      const livePrice = CI.coinId !== 'other' ? JCAHS.prices[CI.coinId]?.usd : null;
+      let entry = parseFloat(entryEl?.value) || livePrice || 0;
+      let tp    = parseFloat(tpEl?.value) || 0;
+      let sl    = parseFloat(slEl?.value) || 0;
+
+      // Update price display
+      const valEl = document.getElementById('ci-coin-val');
+      if (valEl && livePrice) valEl.textContent = fmtP(livePrice);
+
+      const resultEl = document.getElementById('ci-cry-result');
+      const detailEl = document.getElementById('ci-cry-detail');
+      if (!resultEl) return;
+
+      if (!cap || !entry || !tp || !sl) { resultEl.style.display = 'none'; if (detailEl) detailEl.style.display = 'none'; return; }
+
+      const lev   = CI.opType === 'contado' ? 1 : CI.leverage;
+      const isLong  = CI.opType !== 'short';
+
+      // Gains / losses
+      const gainPct = isLong ? (tp - entry) / entry * 100 * lev : (entry - tp) / entry * 100 * lev;
+      const lossPct = isLong ? (entry - sl) / entry * 100 * lev : (sl - entry) / entry * 100 * lev;
+      const gainUSD = cap * gainPct / 100;
+      const lossUSD = cap * lossPct / 100;
+      const rr      = gainPct > 0 && lossPct > 0 ? gainPct / lossPct : 0;
+
+      // Liquidation (simplified: exchange usually liquidates before 100% loss)
+      let liqPrice = null, liqDist = null;
+      if (CI.opType !== 'contado' && lev > 1) {
+        liqPrice = isLong
+          ? entry * (1 - 0.9 / lev)
+          : entry * (1 + 0.9 / lev);
+        liqDist = Math.abs(entry - liqPrice) / entry * 100;
+      }
+
+      // Probability from signal
+      const sig     = JCAHS.signals[CI.coinId];
+      let probEst   = 50;
+      if (sig?.confidence && sig?.signal) {
+        if ((isLong && sig.signal === 'COMPRAR') || (!isLong && sig.signal === 'VENDER'))
+          probEst = sig.confidence;
+        else if (sig.signal === 'ESPERAR')
+          probEst = 50;
+        else
+          probEst = Math.max(20, 100 - sig.confidence);
+      }
+
+      // Semáforo
+      let semaforo, verdict, verdictColor, verdictKey;
+      const liqWarning = liqDist != null && liqDist < 3;
+      if (rr < 1 || liqWarning || (lev > 20 && sig?.signal !== (isLong ? 'COMPRAR' : 'VENDER'))) {
+        semaforo = '🔴'; verdict = 'NO OPERAR'; verdictColor = 'var(--alert)'; verdictKey = 'no-apostar';
+      } else if (rr >= 2 && sig?.signal === (isLong ? 'COMPRAR' : 'VENDER') && probEst >= 60) {
+        semaforo = '🟢'; verdict = 'OPERAR'; verdictColor = 'var(--accent)'; verdictKey = 'apostar';
+      } else {
+        semaforo = '🟡'; verdict = 'REVISAR'; verdictColor = '#FBBF24'; verdictKey = 'revisar';
+      }
+
+      // Explanation
+      const sigTxt = sig ? `RSI ${sig.rsi ?? 'N/A'} · Señal: ${sig.signal} (${sig.confidence}% confianza) · Tendencia: ${sig.trend}` : 'Sin datos de señal disponibles';
+      let explanation = '';
+      if (verdictKey === 'no-apostar') {
+        explanation = liqWarning
+          ? `⚠️ La liquidación está a solo ${liqDist.toFixed(1)}% del precio actual (${fmtP(liqPrice)}). Con ${lev}x de apalancamiento el riesgo es extremo. Reducir el apalancamiento o no operar.`
+          : `El ratio Riesgo/Beneficio de 1:${rr.toFixed(1)} es desfavorable. ${sigTxt}. No es el momento óptimo para esta operación.`;
+      } else if (verdictKey === 'apostar') {
+        explanation = `Ratio 1:${rr.toFixed(1)} favorable. ${sigTxt}. Probabilidad estimada de éxito: ${probEst}%. Usar stop loss disciplinado en ${fmtP(sl)}.`;
+      } else {
+        explanation = `Ratio 1:${rr.toFixed(1)} moderado. ${sigTxt}. Considera reducir tamaño de posición o esperar mejor punto de entrada.`;
+      }
+
+      // Render
+      resultEl.style.display = 'block';
+      resultEl.innerHTML = `
+        <div style="text-align:center;margin-bottom:32px">
+          <div class="ci-semaforo">${semaforo}</div>
+          <div class="ci-verdict" style="color:${verdictColor}">${verdict}</div>
+        </div>
+        <div class="ci-result-row">
+          <span class="ci-result-label">Si llega al objetivo</span>
+          <span class="ci-result-val pos">+$${gainUSD.toFixed(2)}</span>
+        </div>
+        <div class="ci-result-row">
+          <span class="ci-result-label">Si toca Stop Loss</span>
+          <span class="ci-result-val neg">-$${lossUSD.toFixed(2)}</span>
+        </div>
+        <div class="ci-result-row">
+          <span class="ci-result-label">Ratio Riesgo/Beneficio</span>
+          <span class="ci-result-val sm">1:${rr.toFixed(2)}</span>
+        </div>
+        ${liqPrice ? `
+        <div class="ci-result-row">
+          <span class="ci-result-label">Precio de Liquidación${liqWarning ? ' ⚠️' : ''}</span>
+          <span class="ci-result-val sm neg">${fmtP(liqPrice)} &nbsp;<span style="font-size:18px">(−${liqDist.toFixed(1)}%)</span></span>
+        </div>` : ''}
+        <div class="ci-result-row">
+          <span class="ci-result-label">Ganancia en $</span>
+          <span class="ci-result-val sm pos">+$${gainUSD.toFixed(2)}</span>
+        </div>
+        <div class="ci-result-row">
+          <span class="ci-result-label">Ganancia en %</span>
+          <span class="ci-result-val sm pos">+${gainPct.toFixed(2)}%</span>
+        </div>
+        <div class="ci-result-row">
+          <span class="ci-result-label">Pérdida máxima</span>
+          <span class="ci-result-val sm neg">-$${lossUSD.toFixed(2)}</span>
+        </div>
+        <div class="ci-result-row">
+          <span class="ci-result-label">Prob. de éxito estimada</span>
+          <span class="ci-result-val sm">${probEst}%</span>
+        </div>
+        <div class="ci-explanation" style="border-left-color:${verdictColor}">
+          ${semaforo} ${explanation}
+        </div>`;
+
+      // Detail panel
+      if (detailEl) {
+        if (CI.cryptoMode === 'detallado') {
+          detailEl.style.display = 'block';
+          const price24h = JCAHS.prices[CI.coinId];
+          detailEl.innerHTML = `
+            <div class="ci-detail-title">ANÁLISIS TÉCNICO COMPLETO</div>
+            <table class="ci-detail-table">
+              <tr><td>Precio actual (${CI.coinSym})</td><td>${livePrice ? fmtP(livePrice) : 'Sin datos'}</td></tr>
+              <tr><td>Cambio 24h</td><td class="${(price24h?.usd_24h_change||0)>=0?'pos':'neg'}">${price24h?.usd_24h_change!=null?((price24h.usd_24h_change>=0?'+':'')+price24h.usd_24h_change.toFixed(2)+'%'):'Sin datos'}</td></tr>
+              <tr><td>RSI (14 períodos)</td><td>${sig?.rsi != null ? `${sig.rsi} — ${sig.rsi<35?'Sobrevendido':sig.rsi>65?'Sobrecomprado':'Neutral'}` : 'Sin datos'}</td></tr>
+              <tr><td>Señal del sistema</td><td class="${sig?.signal==='COMPRAR'?'pos':sig?.signal==='VENDER'?'neg':''}">${sig?.signal || 'Sin datos'}</td></tr>
+              <tr><td>Tendencia</td><td>${sig?.trend || 'Sin datos'}</td></tr>
+              <tr><td>Capital en operación</td><td>$${cap.toFixed(2)}</td></tr>
+              <tr><td>Apalancamiento</td><td>${lev}x</td></tr>
+              ${lev > 1 ? `<tr><td>Margen requerido</td><td>$${(cap/lev).toFixed(2)}</td></tr>` : ''}
+              <tr><td>Precio de entrada</td><td>${fmtP(entry)}</td></tr>
+              <tr><td>Take Profit</td><td class="pos">${fmtP(tp)}</td></tr>
+              <tr><td>Stop Loss</td><td class="neg">${fmtP(sl)}</td></tr>
+              ${liqPrice ? `<tr><td>Precio de liquidación</td><td class="neg">${fmtP(liqPrice)}</td></tr>` : ''}
+              <tr><td>Ratio R/B</td><td>1:${rr.toFixed(2)}</td></tr>
+              <tr><td>Kelly sugerido</td><td>${sig?.confidence ? (Math.max(0,(sig.confidence-50)/10)).toFixed(1)+'% del capital' : '--'}</td></tr>
+            </table>`;
+        } else {
+          detailEl.style.display = 'none';
+        }
+      }
+
+      // Save to history
+      ciSaveHistory({
+        tipo: `Cripto ${CI.coinSym}`,
+        desc: `${isLong ? 'Long' : 'Short'} ${CI.opType === 'contado' ? 'contado' : lev+'x'}`,
+        stake: cap,
+        referencia: `R/B 1:${rr.toFixed(1)}`,
+        ventaja: `1:${rr.toFixed(1)}`,
+        veredicto: verdictKey,
+        ganancia: gainUSD.toFixed(2),
+        perdida:  lossUSD.toFixed(2)
+      });
+    }
+
+    // ── Simulation canvas ────────────────────────────────────────
+    function ciDrawSimulation(canvasId, { bankroll, ev, stake, n }) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      canvas.width = canvas.parentElement.clientWidth - 40;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+
+      // Generate expected-value path and ±1σ band
+      const points = [{ x: 0, cap: bankroll }];
+      let cap = bankroll;
+      for (let i = 1; i <= n; i++) {
+        cap += ev;
+        points.push({ x: i, cap });
+      }
+
+      const minCap = Math.min(bankroll * 0.7, ...points.map(p => p.cap));
+      const maxCap = Math.max(bankroll * 1.3, ...points.map(p => p.cap));
+      const scX = p => (p / n) * (W - 40) + 20;
+      const scY = c => H - 30 - ((c - minCap) / (maxCap - minCap)) * (H - 50);
+
+      // Grid
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 5; i++) {
+        const y = H - 30 - (i/5) * (H - 50);
+        ctx.beginPath(); ctx.moveTo(20, y); ctx.lineTo(W-20, y); ctx.stroke();
+      }
+
+      // Bankroll baseline
+      const baseY = scY(bankroll);
+      ctx.setLineDash([4, 8]);
+      ctx.strokeStyle = 'rgba(232,244,255,0.2)';
+      ctx.beginPath(); ctx.moveTo(20, baseY); ctx.lineTo(W-20, baseY); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Variance band (±√n * σ where σ ≈ stake)
+      const sigma = stake;
+      const band = points.map(p => ({ x: scX(p.x), yHi: scY(p.cap + Math.sqrt(p.x) * sigma), yLo: scY(p.cap - Math.sqrt(p.x) * sigma) }));
+      ctx.beginPath();
+      band.forEach((b, i) => i === 0 ? ctx.moveTo(b.x, b.yHi) : ctx.lineTo(b.x, b.yHi));
+      band.slice().reverse().forEach(b => ctx.lineTo(b.x, b.yLo));
+      ctx.closePath();
+      ctx.fillStyle = ev >= 0 ? 'rgba(0,255,179,0.06)' : 'rgba(255,107,53,0.06)';
+      ctx.fill();
+
+      // Main line
+      ctx.beginPath();
+      points.forEach((p, i) => i === 0 ? ctx.moveTo(scX(p.x), scY(p.cap)) : ctx.lineTo(scX(p.x), scY(p.cap)));
+      ctx.strokeStyle = ev >= 0 ? 'var(--accent)' : 'var(--alert)';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+
+      // Labels
+      ctx.fillStyle = 'rgba(232,244,255,0.4)';
+      ctx.font = '13px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('$' + bankroll.toFixed(0), 4, baseY - 4);
+      ctx.textAlign = 'right';
+      ctx.fillText('$' + points[n].cap.toFixed(0), W - 4, scY(points[n].cap) - 4);
+    }
+
+    // ── Odd format converters ────────────────────────────────────
+    function ciDecimalToFractional(d) {
+      const num = Math.round((d - 1) * 100), den = 100;
+      const g   = ciGcd(num, den);
+      return `${num/g}/${den/g}`;
+    }
+
+    function ciDecimalToAmerican(d) {
+      if (d >= 2) return '+' + Math.round((d - 1) * 100);
+      return '-' + Math.round(100 / (d - 1));
+    }
+
+    function ciGcd(a, b) { return b ? ciGcd(b, a % b) : a; }
+
+    // ── Calc history ─────────────────────────────────────────────
+    function ciSaveHistory(entry) {
+      entry.timestamp = new Date().toISOString();
+      CI.history.unshift(entry);
+      if (CI.history.length > 10) CI.history = CI.history.slice(0, 10);
+      localStorage.setItem('jcahs_calc_history', JSON.stringify(CI.history));
+      ciRenderHistory();
+    }
+
+    function ciClearHistory() {
+      CI.history = [];
+      localStorage.removeItem('jcahs_calc_history');
+      ciRenderHistory();
+    }
+
+    function ciRenderHistory() {
+      const wrap = document.getElementById('ci-hist-wrap');
+      if (!wrap) return;
+      if (!CI.history.length) {
+        wrap.innerHTML = '<div class="empty-state">Aún no hay cálculos. Usa la calculadora para registrarlos automáticamente.</div>';
+        return;
+      }
+      wrap.innerHTML = `<table class="ci-hist-table">
+        <thead><tr>
+          <th>Hora</th><th>Tipo</th><th>Descripción</th><th>Stake</th>
+          <th>Ventaja/R:R</th><th>Veredicto</th><th>G. Potencial</th><th>P. Máxima</th><th>Acción</th>
+        </tr></thead>
+        <tbody>${CI.history.map((h, i) => {
+          const hora = h.timestamp ? new Date(h.timestamp).toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'}) : '--';
+          const badgeClass = h.veredicto === 'apostar' ? 'apostar' : h.veredicto === 'revisar' ? 'revisar' : 'no-apostar';
+          const badgeText  = h.veredicto === 'apostar' ? 'APOSTAR' : h.veredicto === 'revisar' ? 'REVISAR' : 'NO APOSTAR';
+          return `<tr>
+            <td>${hora}</td>
+            <td style="font-size:16px;color:var(--text-muted)">${h.tipo}</td>
+            <td>${h.desc || '--'}</td>
+            <td>$${parseFloat(h.stake).toFixed(2)}</td>
+            <td style="color:var(--accent)">${h.ventaja}</td>
+            <td><span class="ci-verdict-badge ${badgeClass}">${badgeText}</span></td>
+            <td class="pos">+$${parseFloat(h.ganancia).toFixed(2)}</td>
+            <td class="neg">-$${parseFloat(h.perdida).toFixed(2)}</td>
+            <td>
+              <button onclick="ciReuseEntry(${i})" style="padding:6px 12px;background:var(--accent-dim);border:1px solid var(--border);border-radius:6px;color:var(--accent);font-family:var(--f-display);font-size:14px;letter-spacing:1px;cursor:pointer">USAR</button>
+            </td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>`;
+    }
+
+    function ciReuseEntry(i) {
+      const h = CI.history[i];
+      if (!h) return;
+      // Scroll to calculator and pre-fill
+      if (typeof gsap !== 'undefined') gsap.to(window, { duration: 1, scrollTo: { y: '#calculadora', offsetY: 90 }, ease: 'power2.inOut' });
+      if (h.tipo === 'Apuesta') {
+        ciSelectType('apuesta');
+        ciSetBetTab('manual');
+        setTimeout(() => {
+          const stakeEl = document.getElementById('ci-bet-stake');
+          const descEl  = document.getElementById('ci-bet-desc');
+          if (stakeEl) stakeEl.value = h.stake;
+          if (descEl)  descEl.value  = h.desc || '';
+          ciCalcBet();
+        }, 400);
+      }
+    }
+
+    // ── Init calculator ──────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      ciSelectType(CI.type);
+      ciSetBetTab('manual');
+      ciRenderHistory();
+      // Pre-fill bankroll hint
+      const hintEl = document.getElementById('ci-bet-stake-hint');
+      if (hintEl) hintEl.textContent = `Capital actual: $${(JCAHS.bankroll || 500).toFixed(2)} (del historial)`;
+      // Pre-fill entry coin price when prices load
+      const cap = document.getElementById('ci-cry-cap');
+      if (cap && !cap.value && JCAHS.bankroll) cap.value = Math.min(100, JCAHS.bankroll * 0.1).toFixed(0);
+    });
+
     // JCAHS v2.0 — Rediseño completo
     // Partes: 1-Base/Hero | 2-Dashboard/Crypto/Deportes
-    //         3-Calculadoras/Historial/IA | 4-Mobile/Polish/Emergencia
+    //         3-Historial/IA | 4-Mobile/Polish/Emergencia
+    //         5-Top100/Fichas/Español | 6-Cards Cripto/Tipografía
+    //         7-Calculadora Inteligente (Apuesta + Cripto)
     // Política: CERO datos inventados
     // Fuentes: CoinGecko | Alternative.me | football-data.org
     //          The Odds API | CoinDesk RSS | MyMemory
