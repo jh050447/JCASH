@@ -543,6 +543,54 @@ body {
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 8px; }
+
+/* ── TOP 100 CRYPTO ─────────────────────────────────────── */
+.top100-wrap { display: none; margin-top: 12px; }
+.top100-wrap.visible { display: block; }
+.top100-tabs { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+.top100-tab {
+  padding: 5px 10px;
+  border-radius: var(--radius);
+  font-family: var(--f-ui);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-2);
+  transition: background .12s, color .12s;
+}
+.top100-tab.active { background: var(--tert-dim); color: var(--tertiary); border-color: var(--tert-mid); }
+.top100-search {
+  width: 100%;
+  margin-bottom: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--f-ui);
+  font-size: 14px;
+  padding: 8px 12px;
+  outline: none;
+  transition: border-color .15s;
+}
+.top100-search:focus { border-color: var(--tertiary); }
+.top100-search::placeholder { color: var(--text-3); }
+.top100-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+.top100-row:last-child { border-bottom: none; }
+.top100-pos { font-size: 16px; color: var(--text-3); min-width: 30px; text-align: right; font-family: var(--f-mono); }
+.top100-logo { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; background: var(--surface-3); }
+.top100-info { flex: 1; min-width: 0; }
+.top100-name { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top100-sym { font-size: 13px; color: var(--text-3); font-family: var(--f-mono); text-transform: uppercase; }
+.top100-price { font-family: var(--f-mono); font-size: 16px; font-weight: 600; text-align: right; white-space: nowrap; }
+.top100-chg { font-family: var(--f-mono); font-size: 16px; font-weight: 600; text-align: right; min-width: 72px; }
 </style>
 </head>
 <body>
@@ -1032,9 +1080,13 @@ const CFG = {
 
 // ─── ESTADO ─────────────────────────────────────────────────
 const STATE = {
-  precios:   {},
-  fng:       null,
-  senales:   {},
+  precios:         {},
+  fng:             null,
+  senales:         {},
+  top100:          [],
+  top100Expandido: false,
+  top100Filtro:    'todas',
+  top100Busqueda:  '',
   modo:      localStorage.getItem('jcahs_modo')     || 'principiante',
   bankroll:  parseFloat(localStorage.getItem('jcahs_bankroll')) || 200,
   secActiva: localStorage.getItem('jcahs_sec')      || 'sec-panel',
@@ -1139,9 +1191,9 @@ function iniciarReloj() {
 }
 
 // ─── CARGA DE PRECIOS (Binance primario) ────────────────────
-const BIN_SYMS = ['BTCUSDT','ETHUSDT','SOLUSDT','XRPUSDT'];
-const SYM_MAP  = { BTCUSDT:'BTC', ETHUSDT:'ETH', SOLUSDT:'SOL', XRPUSDT:'XRP' };
-const NOMBRES  = { BTC:'Bitcoin', ETH:'Ethereum', SOL:'Solana', XRP:'XRP' };
+const BIN_SYMS = ['BTCUSDT','ETHUSDT','BNBUSDT','SOLUSDT','XRPUSDT'];
+const SYM_MAP  = { BTCUSDT:'BTC', ETHUSDT:'ETH', BNBUSDT:'BNB', SOLUSDT:'SOL', XRPUSDT:'XRP' };
+const NOMBRES  = { BTC:'Bitcoin', ETH:'Ethereum', BNB:'BNB Chain', SOL:'Solana', XRP:'XRP' };
 
 async function cargarPrecios() {
   const url = `${CFG.binance}/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(BIN_SYMS))}`;
@@ -1309,9 +1361,9 @@ function renderPanel() {
     pnlEl.className   = 'card-value ' + (pnlHoy >= 0 ? 'pos' : 'neg');
   }
 
-  // Precios mini lista
-  const syms = ['BTC','ETH','SOL','XRP'];
-  const html = syms.map(sym => {
+  // Precios mini lista — TOP 5
+  const syms = ['BTC','ETH','BNB','SOL','XRP'];
+  const top5Html = syms.map(sym => {
     const d = STATE.precios[sym];
     if (!d) return '';
     const chgClass = d.cambio24h >= 0 ? 'pos' : 'neg';
@@ -1326,7 +1378,16 @@ function renderPanel() {
       </div>
     </div>`;
   }).join('');
-  setHTML('panel-precios', html || '<div class="loading">Sin datos de precio</div>');
+
+  const expandBtn = `<button class="btn btn-ghost" style="width:100%;font-size:14px;margin-top:12px" onclick="expandirTop100()">Ver las 100 monedas ↓</button>`;
+  const top100Div = `<div id="top100-wrap" class="top100-wrap"></div>`;
+
+  setHTML('panel-precios', (top5Html || '<div class="loading">Sin datos de precio</div>') + expandBtn + top100Div);
+
+  if (STATE.top100Expandido) {
+    if (STATE.top100.length > 0) renderTop100();
+    else cargarTop100();
+  }
 
   const fuenteSym = Object.values(STATE.precios)[0]?.fuente || '--';
   setText('panel-precios-src', `Fuente: ${fuenteSym} · ${ts()}`);
@@ -1379,6 +1440,118 @@ function renderOpsRecientes() {
     </tbody>
   </table>`;
   setHTML('panel-ops-recientes', html);
+}
+
+// ─── TOP 100 COINGECKO ───────────────────────────────────────
+async function expandirTop100() {
+  STATE.top100Expandido = true;
+  const wrap = qs('top100-wrap');
+  if (!wrap) return;
+  if (STATE.top100.length > 0) {
+    wrap.classList.add('visible');
+    renderTop100();
+  } else {
+    await cargarTop100();
+  }
+}
+
+async function cargarTop100() {
+  const wrap = qs('top100-wrap');
+  if (!wrap) return;
+  wrap.classList.add('visible');
+  wrap.innerHTML = '<div class="loading"><span class="spin">⌛</span> Cargando 100 monedas...</div>';
+  const cgUrl = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false&price_change_percentage=24h';
+  try {
+    const r = await fetchSeguro(proxyUrl(cgUrl), 15000);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    if (!Array.isArray(data) || !data.length) throw new Error('sin datos');
+    STATE.top100 = data;
+    renderTop100();
+  } catch (_) {
+    const w = qs('top100-wrap');
+    if (w) w.innerHTML = '<div class="loading">Sin datos disponibles</div>';
+  }
+}
+
+function renderTop100() {
+  const wrap = qs('top100-wrap');
+  if (!wrap) return;
+  wrap.classList.add('visible');
+
+  let coins = STATE.top100;
+  const busq = STATE.top100Busqueda.toLowerCase().trim();
+
+  if (STATE.top100Filtro === 'alcistas') {
+    coins = coins.filter(c => (c.price_change_percentage_24h ?? 0) > 0);
+  } else if (STATE.top100Filtro === 'bajistas') {
+    coins = coins.filter(c => (c.price_change_percentage_24h ?? 0) < 0);
+  } else if (STATE.top100Filtro === 'mayor5') {
+    coins = coins.filter(c => Math.abs(c.price_change_percentage_24h ?? 0) >= 5);
+  }
+
+  if (busq) {
+    coins = coins.filter(c =>
+      c.name.toLowerCase().includes(busq) ||
+      c.symbol.toLowerCase().includes(busq)
+    );
+  }
+
+  const f = STATE.top100Filtro;
+  const tabsHtml = `<div class="top100-tabs">
+    <button class="top100-tab${f==='todas'    ?' active':''}" onclick="setTop100Filtro('todas')">TODAS</button>
+    <button class="top100-tab${f==='alcistas' ?' active':''}" onclick="setTop100Filtro('alcistas')">ALCISTAS ▲</button>
+    <button class="top100-tab${f==='bajistas' ?' active':''}" onclick="setTop100Filtro('bajistas')">BAJISTAS ▼</button>
+    <button class="top100-tab${f==='mayor5'   ?' active':''}" onclick="setTop100Filtro('mayor5')">&gt;5% HOY</button>
+  </div>`;
+
+  const safe = STATE.top100Busqueda.replace(/"/g, '&quot;');
+  const searchHtml = `<input class="top100-search" type="text" placeholder="Buscar moneda..." value="${safe}" oninput="buscarTop100(this.value)">`;
+
+  const listHtml = coins.map((c, i) => {
+    const chg = c.price_change_percentage_24h ?? 0;
+    const chgClass = chg >= 0 ? 'pos' : 'neg';
+    const chgStr = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+    return `<div class="top100-row">
+      <span class="top100-pos">#${c.market_cap_rank || (i + 1)}</span>
+      <img class="top100-logo" src="${c.image}" alt="${c.symbol}" loading="lazy" onerror="this.style.display='none'">
+      <div class="top100-info">
+        <div class="top100-name">${c.name}</div>
+        <div class="top100-sym">${c.symbol.toUpperCase()}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="top100-price">${fmtUSD(c.current_price)}</div>
+        <div class="top100-chg ${chgClass}">${chgStr}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const sourceHtml = `<div style="margin-top:10px;font-size:12px;color:var(--text-3);font-family:var(--f-mono)">Fuente: CoinGecko · ${ts()} · ${coins.length} monedas</div>`;
+  const collapseBtn = `<button class="btn btn-ghost" style="width:100%;font-size:14px;margin-top:10px" onclick="colapsarTop100()">Colapsar ↑</button>`;
+
+  wrap.innerHTML = tabsHtml + searchHtml
+    + '<div>'
+    + (listHtml || '<div class="loading">Sin resultados para esta búsqueda</div>')
+    + '</div>'
+    + sourceHtml + collapseBtn;
+}
+
+function setTop100Filtro(filtro) {
+  STATE.top100Filtro = filtro;
+  renderTop100();
+}
+
+function buscarTop100(val) {
+  STATE.top100Busqueda = val;
+  renderTop100();
+}
+
+function colapsarTop100() {
+  STATE.top100Expandido = false;
+  STATE.top100Busqueda  = '';
+  STATE.top100Filtro    = 'todas';
+  const wrap = qs('top100-wrap');
+  if (wrap) { wrap.classList.remove('visible'); wrap.innerHTML = ''; }
 }
 
 // ─── CARGAR TODO EL PANEL ────────────────────────────────────
