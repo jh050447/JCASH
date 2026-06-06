@@ -1639,6 +1639,15 @@
       margin: 16px 0;
     }
 
+    .fa-source-label {
+      font-family: var(--f-mono);
+      font-size: 13px !important;
+      color: var(--text-muted);
+      text-align: center;
+      margin: 8px 0 4px;
+      opacity: 0.7;
+    }
+
     .fa-price-row {
       display: flex;
       justify-content: space-between;
@@ -5128,6 +5137,37 @@
       }
     }
 
+    // fetchSeguro — returns parsed JSON or null (never throws)
+    async function fetchSeguro(url, ms = 8000) {
+      try { const r = await fetchWithTimeout(url, {}, ms); return r.ok ? await r.json() : null; }
+      catch { return null; }
+    }
+
+    // ── Cross-source symbol maps ─────────────────────────────────
+    const BINANCE_SYMBOLS = {
+      bitcoin: 'BTCUSDT', ethereum: 'ETHUSDT', solana: 'SOLUSDT',
+      ripple: 'XRPUSDT', dogecoin: 'DOGEUSDT'
+    };
+    const YAHOO_SYMBOLS = {
+      bitcoin: 'BTC-USD', ethereum: 'ETH-USD', solana: 'SOL-USD',
+      ripple: 'XRP-USD', dogecoin: 'DOGE-USD'
+    };
+
+    // ── SVG_RSI — visual RSI gauge (used in analysis cards) ──────
+    const SVG_RSI = (valor) => {
+      if (valor === null || valor === undefined)
+        return '<div style="font-size:16px;color:#666">Sin datos</div>';
+      const pct = Math.max(0, Math.min(100, valor));
+      const color = pct < 30 ? '#FF4444' : pct > 70 ? '#FF9500' : '#00FFB3';
+      return '<div style="position:relative;margin:8px 0">' +
+        '<div style="height:10px;border-radius:5px;background:linear-gradient(to right,#FF4444 0%,#FF4444 30%,#333 30%,#333 70%,#FF9500 70%,#FF9500 100%)">' +
+        '<div style="position:absolute;left:' + pct + '%;top:-5px;transform:translateX(-50%);width:4px;height:20px;background:' + color + ';border-radius:2px"></div></div>' +
+        '<div style="display:flex;justify-content:space-between;font-size:14px;color:#666;margin-top:4px"><span>0</span><span>30</span><span>50</span><span>70</span><span>100</span></div></div>';
+    };
+    const SVG_MACD = '<div style="font-family:var(--f-ui);font-size:18px;color:var(--text-muted);text-align:center;padding:20px;border:1px dashed var(--border-dim);border-radius:8px">📊 MACD — Indicador de momento y tendencia</div>';
+    const SVG_HAMMER = '<div style="font-family:var(--f-ui);font-size:18px;color:var(--text-muted);text-align:center;padding:20px;border:1px dashed var(--border-dim);border-radius:8px">🔨 Martillo — Patrón de reversión alcista</div>';
+    const SVG_ENGULFING = '<div style="font-family:var(--f-ui);font-size:18px;color:var(--text-muted);text-align:center;padding:20px;border:1px dashed var(--border-dim);border-radius:8px">🌊 Engulfing — Patrón de reversión fuerte</div>';
+
     /* ── Mode toggle ── */
     function setMode(m) {
       JCAHS.mode = m;
@@ -5184,16 +5224,66 @@
 
     // === CoinGecko Prices (ticker + dashboard) ===
     async function fetchPrices() {
+      let prices = {}, source = '';
+      // Try 1: Binance 24hr ticker (no proxy, no rate limits)
       try {
-        const url = PROXY + encodeURIComponent('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,ripple,dogecoin,solana&vs_currencies=usd&include_24hr_change=true');
-        const r = await fetchWithTimeout(url);
-        const d = await r.json();
-        JCAHS.prices = d;
-        updateTicker(d);
-        renderSenal();
-        renderCryptoSignals();
-      } catch(e) { console.warn('Prices:', e); }
+        const symbols = ['BTCUSDT','ETHUSDT','SOLUSDT','XRPUSDT','DOGEUSDT'];
+        const data = await fetchSeguro('https://api.binance.com/api/v3/ticker/24hr?symbols=' + JSON.stringify(symbols), 5000);
+        if (data && data.length > 0) {
+          const map = { BTC:'bitcoin', ETH:'ethereum', SOL:'solana', XRP:'ripple', DOGE:'dogecoin' };
+          data.forEach(t => {
+            const id = map[t.symbol.replace('USDT','')];
+            if (id) prices[id] = { usd: parseFloat(t.lastPrice), usd_24h_change: parseFloat(t.priceChangePercent), _source: 'Binance' };
+          });
+          source = 'Binance';
+        }
+      } catch(e) {}
+      if (Object.keys(prices).length && source) {
+        JCAHS.prices = prices; JCAHS.priceSource = source;
+        updateTicker(); renderSenal(); renderCryptoSignals(); renderMercadosTicker();
+        return;
+      }
+      // Try 2: Yahoo Finance via proxy
+      try {
+        const yahooUrl = 'https://query1.finance.yahoo.com/v8/finance/quote?symbols=BTC-USD,ETH-USD,SOL-USD,XRP-USD,DOGE-USD';
+        const data = await fetchSeguro(PROXY + encodeURIComponent(yahooUrl), 6000);
+        if (data?.quoteResponse?.result) {
+          const map = { 'BTC-USD':'bitcoin', 'ETH-USD':'ethereum', 'SOL-USD':'solana', 'XRP-USD':'ripple', 'DOGE-USD':'dogecoin' };
+          data.quoteResponse.result.forEach(q => {
+            const id = map[q.symbol];
+            if (id && q.regularMarketPrice != null)
+              prices[id] = { usd: q.regularMarketPrice, usd_24h_change: (q.regularMarketChangePercent||0), _source: 'Yahoo Finance' };
+          });
+          source = 'Yahoo Finance';
+        }
+      } catch(e) {}
+      if (Object.keys(prices).length && source) {
+        JCAHS.prices = prices; JCAHS.priceSource = source;
+        updateTicker(); renderSenal(); renderCryptoSignals(); renderMercadosTicker();
+        return;
+      }
+      // Try 3: CoinGecko via proxy (last resort)
+      try {
+        const data = await fetchSeguro(PROXY + encodeURIComponent('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,ripple,dogecoin,solana&vs_currencies=usd&include_24hr_change=true'), 8000);
+        if (data) {
+          Object.keys(data).forEach(id => { data[id]._source = 'CoinGecko'; });
+          JCAHS.prices = data; JCAHS.priceSource = 'CoinGecko';
+          updateTicker(); renderSenal(); renderCryptoSignals(); renderMercadosTicker();
+          return;
+        }
+      } catch(e) {}
+      // All failed — keep existing prices if any
+      if (!Object.keys(JCAHS.prices||{}).length) console.warn('Prices: all sources failed');
     }
+
+    // === Global markets from Yahoo Finance (S&P 500, Gold, Oil, FX) ===
+    const GLOBAL_SYMBOLS = '^GSPC,^IXIC,^DJI,^GDAXI,^N225,GC=F,CL=F,EURUSD=X,DX-Y.NYB';
+    let JCAHS_mkts = [];
+    async function fetchMercadosGlobales() {
+      const data = await fetchSeguro(PROXY + encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/quote?symbols=' + GLOBAL_SYMBOLS), 8000);
+      if (data?.quoteResponse?.result) { JCAHS_mkts = data.quoteResponse.result; renderMercadosTicker(); }
+    }
+    function renderMercadosTicker() { updateTicker(); }
 
     // === CoinGecko Top 100 movers ===
     async function fetchTop5() {
@@ -5410,16 +5500,16 @@
     ============================================================ */
 
     // === Ticker real prices ===
-    function updateTicker(prices) {
-      const map = [
+    function updateTicker() {
+      const inner = document.getElementById('ticker-inner');
+      if (!inner) return;
+      const cryptoMap = [
         { sym: 'BTC', id: 'bitcoin' }, { sym: 'ETH', id: 'ethereum' },
         { sym: 'XRP', id: 'ripple' },  { sym: 'DOGE', id: 'dogecoin' },
         { sym: 'SOL', id: 'solana' }
       ];
-      const inner = document.getElementById('ticker-inner');
-      if (!inner) return;
-      const items = map.map(({ sym, id }) => {
-        const d = prices[id]; if (!d) return '';
+      const cryptos = cryptoMap.map(({ sym, id }) => {
+        const d = JCAHS.prices?.[id]; if (!d) return '';
         const price = d.usd; const chg = d.usd_24h_change;
         const ps = price >= 1 ? fmtP(price) : '$' + price.toFixed(4);
         const cls = chg >= 0 ? 'pos' : 'neg';
@@ -5428,11 +5518,16 @@
         const logoImg = logo ? `<img src="${logo}" width="16" height="16" style="border-radius:50%;vertical-align:middle;margin-right:4px" onerror="this.style.display='none'" loading="lazy">` : '';
         return `<span class="tick-item">${logoImg}<span class="tick-sym">${sym}</span><span class="tick-price">${ps}</span><span class="tick-chg ${cls}">${arrow} ${Math.abs(chg).toFixed(2)}%</span></span>`;
       }).join('');
-      const static_ = `<span class="tick-item"><span class="tick-sym">S&amp;P 500</span><span class="tick-price" style="color:var(--text-muted)">Ver Bloomberg</span></span>
-        <span class="tick-item"><span class="tick-sym">ORO</span><span class="tick-price" style="color:var(--text-muted)">Ver Bloomberg</span></span>
-        <span class="tick-item"><span class="tick-sym">EUR/USD</span><span class="tick-price" style="color:var(--text-muted)">Ver Bloomberg</span></span>`;
-      const full = items + static_;
-      inner.innerHTML = full + full;
+      const gmMap = { '^GSPC':'S&P 500', '^IXIC':'NASDAQ', '^DJI':'DOW JONES', 'GC=F':'ORO', 'CL=F':'PETRÓLEO', 'EURUSD=X':'EUR/USD', '^GDAXI':'DAX 40', '^N225':'NIKKEI 225', 'DX-Y.NYB':'DÓLAR' };
+      const mercados = (JCAHS_mkts||[]).map(q => {
+        const name = gmMap[q.symbol] || q.symbol;
+        const price = q.regularMarketPrice;
+        const chg = q.regularMarketChangePercent;
+        if (price == null) return '';
+        return `<span class="tick-item"><span class="tick-sym">${name}</span><span class="tick-price">${price.toFixed(2)}</span><span class="tick-chg ${chg>=0?'pos':'neg'}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span></span>`;
+      }).join('');
+      const all = cryptos + mercados;
+      inner.innerHTML = all ? all + all : inner.innerHTML;
     }
 
     // === Fear & Greed gauge ===
@@ -5794,7 +5889,7 @@
             Ver ficha de estrategia →
           </button>
 
-          <div class="csig-ts">Fuente: CoinGecko · OHLC 14 días · ${sig?.ts || '--'}</div>
+          <div class="csig-ts">Fuente: ${price?._source || JCAHS.priceSource || 'CoinGecko'} · ${sig?.ts || '--'}</div>
         </div>`;
       });
 
@@ -6229,6 +6324,7 @@
       // Initial data fetches (parallel, non-blocking)
       fetchFNG();
       fetchGlobal();
+      fetchMercadosGlobales();
       fetchPrices().then(() => {
         ['bitcoin','ethereum','solana','ripple'].forEach(fetchSignal);
       });
@@ -6240,9 +6336,10 @@
       fetchYahooNews();
 
       // Refresh intervals
-      setInterval(fetchPrices,    60000);
-      setInterval(fetchTop5,      60000);
-      setInterval(fetchTop100,    300000);
+      setInterval(fetchPrices,             60000);
+      setInterval(fetchTop5,               60000);
+      setInterval(fetchTop100,             300000);
+      setInterval(fetchMercadosGlobales,   300000);
       setInterval(() => { fetchFNG(); fetchGlobal(); }, 300000);
       setInterval(fetchOdds,      300000);
       setInterval(fetchFixtures,  120000);
@@ -8341,6 +8438,8 @@
           </div>
           ${ficha.slAjust?`<div style="font-family:var(--f-ui);font-size:18px;color:#FBBF24;margin:8px 0">⚙️ Stop Loss ajustado — ratio mínimo profesional 1:2</div>`:''}
 
+          <div class="fa-source-label">Fuente: ${(JCAHS.prices?.[COINS_ANALISIS.find(x=>x.sym===sym)?.id]?._source)||JCAHS.priceSource||'N/D'} · ${ts()}</div>
+
           <div class="fa-expand-btns">
             <button class="fa-expand-btn" onclick="toggleNivel(this)">📊 Ver Análisis</button>
             <button class="fa-expand-btn solo-principiante" onclick="toggleNivel(this)">🎓 Aprender</button>
@@ -8422,7 +8521,7 @@
             </div>
             <div style="font-family:var(--f-ui);font-size:22px;font-weight:700;margin-bottom:10px">¿Qué es el RSI?</div>
             <div class="fa-ind-edu" style="font-size:20px;line-height:1.7;margin-bottom:12px">${explicarRSI(ind.rsi1d)}</div>
-            <div class="fa-svg-wrap">${SVG_RSI}</div>
+            <div class="fa-svg-wrap">${SVG_RSI(ind.rsi1d)}</div>
             <div style="font-family:var(--f-mono);font-size:17px;color:var(--text-muted);text-align:center;margin-bottom:20px">RSI 1D actual: <strong>${ind.rsi1d?.toFixed(0)??'Sin datos'}</strong></div>
             <div style="font-family:var(--f-ui);font-size:22px;font-weight:700;margin-bottom:10px">¿Qué es el MACD?</div>
             <div class="fa-ind-edu" style="font-size:20px;line-height:1.7;margin-bottom:12px">${explicarMACD(ind.macd)}</div>
@@ -8566,24 +8665,47 @@
       } catch { return null; }
     }
 
-    // OHLC: Binance first, CoinGecko proxy as fallback, cache 5 min
+    // Yahoo Finance OHLC — fallback mid-tier
+    async function fetchOHLCYahoo(coinId, days) {
+      const symbolMap = { bitcoin:'BTC-USD', ethereum:'ETH-USD', solana:'SOL-USD', ripple:'XRP-USD', dogecoin:'DOGE-USD' };
+      const sym = symbolMap[coinId];
+      if (!sym) return null;
+      const range = days <= 7 ? '5d' : days <= 14 ? '14d' : '1mo';
+      const interval = days <= 7 ? '1h' : '1d';
+      try {
+        const url = PROXY + encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?range=${range}&interval=${interval}`);
+        const data = await fetchSeguro(url, 8000);
+        if (!data?.chart?.result?.[0]) return null;
+        const q = data.chart.result[0];
+        const times = q.timestamp;
+        if (!q.indicators?.quote?.[0]) return null;
+        const { open, high, low, close, volume } = q.indicators.quote[0];
+        const ohlc = [];
+        for (let i = 0; i < times.length; i++) {
+          if (close[i] != null)
+            ohlc.push([times[i]*1000, open[i], high[i], low[i], close[i], volume[i]||0]);
+        }
+        return ohlc.length ? ohlc : null;
+      } catch { return null; }
+    }
+
+    // OHLC: Binance → Yahoo → CoinGecko proxy → null, cache 5 min
     async function fetchOHLCConTimeout(coinId, days) {
-      const binData = days === 30
+      let data, src;
+      // Tier 1: Binance
+      data = days === 30
         ? await fetchOHLCBinance(coinId, '1d', 30)
         : await fetchOHLCBinance(coinId, '4h', 42);
-      if (binData) return binData;
-      // Binance failed → CoinGecko via proxy
-      const ctrl = new AbortController();
-      const tid  = setTimeout(() => ctrl.abort(), 6000);
-      try {
-        const r = await fetch(PROXY + encodeURIComponent(
-          `https://api.coingecko.com/api/v3/coins/${coinId}/ohlc?vs_currency=usd&days=${days}`
-        ), { signal: ctrl.signal });
-        clearTimeout(tid);
-        if (!r.ok) return null;
-        const d = await r.json();
-        return Array.isArray(d) ? d : null;
-      } catch { clearTimeout(tid); return null; }
+      if (data) { src = 'Binance'; return data; }
+      // Tier 2: Yahoo Finance
+      data = await fetchOHLCYahoo(coinId, days);
+      if (data) { src = 'Yahoo Finance'; return data; }
+      // Tier 3: CoinGecko via proxy
+      const dataCg = await fetchSeguro(PROXY + encodeURIComponent(
+        `https://api.coingecko.com/api/v3/coins/${coinId}/ohlc?vs_currency=usd&days=${days}`
+      ), 8000);
+      if (dataCg && Array.isArray(dataCg)) { src = 'CoinGecko'; return dataCg; }
+      return null;
     }
 
     // Cargar d30 + h4 de UNA moneda con cache
@@ -8772,7 +8894,7 @@
     }
 
     // ── SVG references (from existing globals) ───────────────────
-    // SVG_HAMMER, SVG_ENGULFING, SVG_RSI, SVG_MACD already defined above
+    // SVG_HAMMER, SVG_ENGULFING, SVG_RSI, SVG_MACD defined above at top of JS
 
     // ── Init: observer + intervals ───────────────────────────────
     (function initAnalisisObserver() {
