@@ -544,24 +544,27 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 8px; }
 
-/* ── VALUE BET CARD ─────────────────────────────────────── */
-.vbet-card {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px 18px;
-  margin-bottom: 12px;
-}
+/* ── VALUE BET CARD — REDISEÑO ──────────────────────────── */
+.vbet-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 16px; }
 .vbet-card:last-child { margin-bottom: 0; }
-.vbet-liga { font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-3); margin-bottom: 5px; font-family: var(--f-mono); }
-.vbet-partido { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 3px; line-height: 1.3; }
-.vbet-mercado { font-size: 16px; color: var(--text-2); margin-bottom: 12px; }
-.vbet-metrics { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
-.vbet-metric { display: flex; flex-direction: column; gap: 3px; }
-.vbet-metric-l { font-size: 11px; color: var(--text-3); letter-spacing: .8px; text-transform: uppercase; }
-.vbet-metric-v { font-family: var(--f-mono); font-size: 18px; font-weight: 700; }
-.vbet-apostar { font-size: 16px; color: var(--text-2); margin-bottom: 8px; line-height: 1.5; }
-.vbet-src { font-size: 12px; color: var(--text-3); font-family: var(--f-mono); }
+.vbet-header { padding: 14px 20px 13px; border-bottom: 1px solid var(--border); }
+.vbet-meta { font-size: 12px; color: var(--text-3); font-family: var(--f-mono); margin-bottom: 5px; }
+.vbet-partido { font-size: 20px; font-weight: 800; color: var(--text); line-height: 1.3; }
+.vbet-metricas { display: grid; grid-template-columns: repeat(4,1fr); padding: 16px 20px; border-bottom: 1px solid var(--border); gap: 6px; }
+.vbet-m { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.vbet-m-val { font-family: var(--f-mono); font-size: 26px; font-weight: 800; line-height: 1.15; margin-bottom: 5px; }
+.vbet-m-label { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text-3); margin-bottom: 2px; }
+.vbet-m-sub { font-size: 11px; color: var(--text-3); line-height: 1.3; }
+.vbet-financiero { display: grid; grid-template-columns: auto 1fr; gap: 7px 16px; padding: 14px 20px; border-bottom: 1px solid var(--border); align-items: baseline; }
+.vbet-fin-label { font-size: 14px; color: var(--text-3); white-space: nowrap; }
+.vbet-fin-val { font-family: var(--f-mono); font-size: 16px; font-weight: 700; }
+.vbet-explain { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: var(--radius); margin: 14px 20px; padding: 16px; }
+.vbet-explain-pick { font-size: 18px; font-weight: 800; color: var(--text); margin-bottom: 14px; line-height: 1.4; }
+.vbet-explain-q { font-size: 12px; font-weight: 700; color: var(--text-3); letter-spacing: .8px; text-transform: uppercase; margin-bottom: 5px; margin-top: 13px; }
+.vbet-explain-a { font-size: 16px; color: var(--text-2); line-height: 1.65; }
+.vbet-footer { padding: 12px 20px 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.vbet-footer-src { font-size: 12px; color: var(--text-3); font-family: var(--f-mono); line-height: 1.5; }
+.vbet-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
 /* ── PARTIDO ROW ─────────────────────────────────────────── */
 .partido-row { padding: 12px 0; border-bottom: 1px solid var(--border); }
@@ -1157,6 +1160,7 @@ const STATE = {
   top100Expandido: false,
   top100Filtro:    'todas',
   top100Busqueda:  '',
+  valueBets:       [],
   modo:      localStorage.getItem('jcahs_modo')     || 'principiante',
   bankroll:  parseFloat(localStorage.getItem('jcahs_bankroll')) || 200,
   secActiva: localStorage.getItem('jcahs_sec')      || 'sec-panel',
@@ -1767,6 +1771,7 @@ async function cargarDeportes() {
   }
 
   valueBets.sort((a, b) => b.edge - a.edge);
+  STATE.valueBets = valueBets;
 
   // ── Card 1: Value Bets ────────────────────────────────────
   if (!games.length) {
@@ -1783,44 +1788,83 @@ async function cargarDeportes() {
       <div style="margin-top:14px;font-size:12px;color:var(--text-3);font-family:var(--f-mono)">Fuente: The Odds API · ${ahora} · ${games.length} partidos analizados</div>
     </div>`);
   } else {
-    const header = `<div style="font-size:16px;color:var(--text-2);margin-bottom:16px">
+    const header = `<div style="font-size:16px;color:var(--text-2);margin-bottom:18px">
       <strong>${valueBets.length}</strong> value bet${valueBets.length !== 1 ? 's' : ''} detectado${valueBets.length !== 1 ? 's' : ''} en <strong>${games.length}</strong> partidos analizados
     </div>`;
-    const cards = valueBets.slice(0, 20).map(vb => {
-      const eColor   = vb.edge >= 5 ? 'var(--tertiary)' : vb.edge >= 2 ? 'var(--warning)' : 'var(--text)';
+    const cards = valueBets.slice(0, 20).map((vb, i) => {
+      const eColor   = vb.edge >= 5 ? 'var(--tertiary)' : 'var(--warning)';
       const fPartido = new Date(vb.fecha).toLocaleString('es-EC', {
-        weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+        weekday: 'long', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
       });
-      return `<div class="vbet-card">
-        <div class="vbet-liga">${vb.liga}</div>
-        <div class="vbet-partido">${vb.partido}</div>
-        <div class="vbet-mercado">Mercado: ${vb.mercado} · Pick: <strong>${vb.pick}</strong></div>
-        <div class="vbet-metrics">
-          <div class="vbet-metric">
-            <span class="vbet-metric-l">Odd</span>
-            <span class="vbet-metric-v">${vb.odd.toFixed(2)}</span>
+      const cardId   = `vb-${i}`;
+
+      const porQue = `La casa ofrece odd ${vb.odd.toFixed(2)}, que implica ${vb.probIp.toFixed(1)}% de probabilidad de que ocurra este resultado. Nuestro modelo calcula ${vb.probReal.toFixed(1)}% de probabilidad real. Tienes una ventaja de +${vb.edge.toFixed(1)}% sobre la casa. A largo plazo, apostar con ventaja positiva es matemáticamente rentable.`;
+      const cuanto  = `Kelly recomienda el ${vb.kelly.toFixed(1)}% de tu bankroll → ${fmtUSD(vb.stake)} en ${vb.bk}.`;
+
+      return `<div class="vbet-card" id="${cardId}">
+
+        <div class="vbet-header">
+          <div class="vbet-meta">${vb.liga} · ${fPartido}</div>
+          <div class="vbet-partido">${vb.partido}</div>
+        </div>
+
+        <div class="vbet-metricas">
+          <div class="vbet-m">
+            <div class="vbet-m-val">${vb.odd.toFixed(2)}</div>
+            <div class="vbet-m-label">ODD</div>
+            <div class="vbet-m-sub">Cuota de la casa</div>
           </div>
-          <div class="vbet-metric">
-            <span class="vbet-metric-l">Edge</span>
-            <span class="vbet-metric-v" style="color:${eColor}">+${vb.edge.toFixed(1)}%</span>
+          <div class="vbet-m">
+            <div class="vbet-m-val" style="color:${eColor}">+${vb.edge.toFixed(1)}%</div>
+            <div class="vbet-m-label">EDGE</div>
+            <div class="vbet-m-sub">Tu ventaja sobre la casa</div>
           </div>
-          <div class="vbet-metric">
-            <span class="vbet-metric-l">Kelly</span>
-            <span class="vbet-metric-v" style="color:var(--tertiary)">${vb.kelly.toFixed(1)}%</span>
+          <div class="vbet-m">
+            <div class="vbet-m-val" style="color:var(--tertiary)">${vb.kelly.toFixed(1)}%</div>
+            <div class="vbet-m-label">KELLY</div>
+            <div class="vbet-m-sub">% recomendado a apostar</div>
           </div>
-          <div class="vbet-metric">
-            <span class="vbet-metric-l">Casa</span>
-            <span class="vbet-metric-v" style="font-size:15px;color:var(--text-2)">${vb.bk}</span>
+          <div class="vbet-m">
+            <div class="vbet-m-val">${vb.probReal.toFixed(1)}%</div>
+            <div class="vbet-m-label">PROB.</div>
+            <div class="vbet-m-sub">Probabilidad de ganar</div>
           </div>
         </div>
-        <div class="vbet-apostar">
-          Apostar: <strong>${fmtUSD(vb.stake)}</strong> (${vb.kelly.toFixed(1)}% del bankroll) ·
-          Ganancia si gana: <span class="pos">+${fmtUSD(vb.ganancia)}</span>
+
+        <div class="vbet-financiero">
+          <span class="vbet-fin-label">Capital sugerido:</span>
+          <span class="vbet-fin-val">${fmtUSD(vb.stake)} <span style="font-size:13px;color:var(--text-3);font-family:var(--f-ui);font-weight:400">(${vb.kelly.toFixed(1)}% del bankroll)</span></span>
+          <span class="vbet-fin-label">Si GANA:</span>
+          <span class="vbet-fin-val pos">+${fmtUSD(vb.ganancia)}</span>
+          <span class="vbet-fin-label">Si PIERDE:</span>
+          <span class="vbet-fin-val neg">-${fmtUSD(vb.stake)}</span>
+          <span class="vbet-fin-label">Casa de apuestas:</span>
+          <span class="vbet-fin-val" style="color:var(--text-2)">${vb.bk}</span>
         </div>
-        <div class="vbet-src">
-          Prob. real: ${vb.probReal.toFixed(1)}% · Prob. implícita: ${vb.probIp.toFixed(1)}% ·
-          Partido: ${fPartido} · Fuente: The Odds API · ${ahora}
+
+        <div class="vbet-explain">
+          <div class="vbet-explain-pick">🎯 APOSTAR: ${vb.pick} <span style="font-size:14px;font-weight:400;color:var(--text-3)">(${vb.mercado})</span></div>
+          <div class="vbet-explain-q">¿Por qué esta apuesta?</div>
+          <div class="vbet-explain-a">${porQue}</div>
+          <div class="vbet-explain-q">¿Cuánto apostar?</div>
+          <div class="vbet-explain-a">${cuanto}</div>
+          <div class="vbet-explain-q">¿Cuándo apostar?</div>
+          <div class="vbet-explain-a">Antes del partido: ${fPartido}.</div>
         </div>
+
+        <div class="vbet-footer">
+          <div class="vbet-footer-src">
+            Prob. real: ${vb.probReal.toFixed(1)}% · Prob. casa: ${vb.probIp.toFixed(1)}%<br>
+            Fuente: The Odds API · ${ahora}
+          </div>
+          <div class="vbet-actions">
+            <button class="btn btn-primary" style="font-size:14px;padding:9px 16px"
+              onclick="registrarVbet(${i})">✅ Registrar apuesta</button>
+            <button class="btn btn-ghost" style="font-size:14px;padding:9px 16px"
+              onclick="ignorarVbet('${cardId}')">Ignorar</button>
+          </div>
+        </div>
+
       </div>`;
     }).join('');
     setHTML('dep-value-bets', header + cards);
@@ -1854,6 +1898,26 @@ async function cargarDeportes() {
   }
 
   setText('dep-sub', `${valueBets.length} value bets · ${games.length} partidos · The Odds API · ${ahora}`);
+}
+
+// ─── ACCIONES VALUE BET ──────────────────────────────────────
+function ignorarVbet(id) {
+  const el = qs(id);
+  if (el) el.style.display = 'none';
+}
+
+function registrarVbet(idx) {
+  const vb = STATE.valueBets?.[idx];
+  if (!vb) return;
+  const elDesc = qs('op-desc');
+  const elCap  = qs('op-capital');
+  const elOdd  = qs('op-odd');
+  const elTipo = qs('op-tipo');
+  if (elDesc) elDesc.value = `${vb.partido} | ${vb.pick}`;
+  if (elCap)  elCap.value  = vb.stake.toFixed(2);
+  if (elOdd)  elOdd.value  = vb.odd.toFixed(2);
+  if (elTipo) elTipo.value = 'deportes';
+  abrirModalOp();
 }
 
 // ─── CALCULADORA RÁPIDA APUESTA ──────────────────────────────
