@@ -1379,7 +1379,11 @@ function renderPanel() {
     </div>`;
   }).join('');
 
-  const expandBtn = `<button class="btn btn-ghost" style="width:100%;font-size:14px;margin-top:12px" onclick="expandirTop100()">Ver las 100 monedas ↓</button>`;
+  const colBtnStyle = STATE.top100Expandido ? '' : 'display:none';
+  const expandBtn = `<div style="display:flex;gap:8px;margin-top:12px">
+    <button class="btn btn-ghost" style="flex:1;font-size:14px" onclick="expandirTop100()">Ver las 100 monedas ↓</button>
+    <button id="btn-colapsar-top" class="btn btn-ghost" style="font-size:14px;${colBtnStyle}" onclick="colapsarTop100()">Colapsar ↑</button>
+  </div>`;
   const top100Div = `<div id="top100-wrap" class="top100-wrap"></div>`;
 
   setHTML('panel-precios', (top5Html || '<div class="loading">Sin datos de precio</div>') + expandBtn + top100Div);
@@ -1445,6 +1449,8 @@ function renderOpsRecientes() {
 // ─── TOP 100 COINGECKO ───────────────────────────────────────
 async function expandirTop100() {
   STATE.top100Expandido = true;
+  const topBtn = qs('btn-colapsar-top');
+  if (topBtn) topBtn.style.display = '';
   const wrap = qs('top100-wrap');
   if (!wrap) return;
   if (STATE.top100.length > 0) {
@@ -1550,6 +1556,8 @@ function colapsarTop100() {
   STATE.top100Expandido = false;
   STATE.top100Busqueda  = '';
   STATE.top100Filtro    = 'todas';
+  const topBtn = qs('btn-colapsar-top');
+  if (topBtn) topBtn.style.display = 'none';
   const wrap = qs('top100-wrap');
   if (wrap) { wrap.classList.remove('visible'); wrap.innerHTML = ''; }
 }
