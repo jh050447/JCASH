@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -7613,7 +7613,7 @@
     });
 
     /* ============================================================
-       === PARTE 10 — PLATAFORMA EDUCATIVA — MOTOR DE ANÁLISIS ===
+       === PARTE 10 — SISTEMA REACTIVO DE ANÁLISIS ===
     ============================================================ */
 
     // ── Global principiante/experto toggle ──────────────────────
@@ -7621,6 +7621,7 @@
 
     function setModoGlobal(m) {
       localStorage.setItem('jcahs_modo', m);
+      JCAHS_STATE.modo = m;
       document.body.classList.toggle('modo-experto',     m === 'experto');
       document.body.classList.toggle('modo-principiante', m !== 'experto');
       ['nav-modo-prin','sec-modo-prin'].forEach(id => document.getElementById(id)?.classList.toggle('active', m !== 'experto'));
@@ -7630,755 +7631,858 @@
     // Apply on load
     setModoGlobal(_modo);
 
+    // ── Constants ────────────────────────────────────────────────
+    const EXCHANGES_CONFIG = {
+      binance: { spot: 0.001,  futuros: 0.0004, nombre: 'Binance' },
+      bybit:   { spot: 0.001,  futuros: 0.0006, nombre: 'Bybit'   },
+      kucoin:  { spot: 0.001,  futuros: 0.0006, nombre: 'KuCoin'  },
+      kraken:  { spot: 0.0016, futuros: 0.0005, nombre: 'Kraken'  }
+    };
+
+    const NOMBRES_CRIPTO = { BTC: 'Bitcoin', ETH: 'Ethereum', SOL: 'Solana', XRP: 'XRP' };
+
+    const COINS_ANALISIS = [
+      { id: 'bitcoin',  sym: 'BTC' },
+      { id: 'ethereum', sym: 'ETH' },
+      { id: 'solana',   sym: 'SOL' },
+      { id: 'ripple',   sym: 'XRP' }
+    ];
+
+    // ── JCAHS_STATE — fuente única de verdad ─────────────────────
+    const JCAHS_STATE = {
+      precios:       {},
+      ohlc:          {},
+      fearGreed:     null,
+      dominanciaBTC: null,
+      volumen24h:    {},
+      indicadores:   { BTC:{}, ETH:{}, SOL:{}, XRP:{} },
+      fichasActuales: {},
+      bankroll:  parseFloat(localStorage.getItem('jcahs_bankroll')) || 200,
+      exchange:  localStorage.getItem('jcahs_exchange') || 'binance',
+      modo:      localStorage.getItem('jcahs_modo')     || 'principiante',
+      ultimaActualizacion: {}
+    };
+
+    function syncStateFromJCAHS() {
+      COINS_ANALISIS.forEach(({ id, sym }) => {
+        const p = JCAHS.prices[id];
+        if (p) {
+          JCAHS_STATE.precios[sym]    = p.usd;
+          JCAHS_STATE.volumen24h[sym] = null;
+        }
+        const t = JCAHS.top100.find(c => c.id === id);
+        if (t) JCAHS_STATE.volumen24h[sym] = t.total_volume || null;
+      });
+      JCAHS_STATE.fearGreed     = JCAHS.fng?.value ?? null;
+      JCAHS_STATE.dominanciaBTC = JCAHS.dom ?? null;
+      JCAHS_STATE.bankroll      = JCAHS.bankroll || 200;
+    }
+
     // ── Math utilities ───────────────────────────────────────────
-    function ema(data, n) {
-      if (!data?.length) return [];
-      const k = 2 / (n + 1);
-      const result = [data[0]];
-      for (let i = 1; i < data.length; i++) result.push(data[i] * k + result[i-1] * (1-k));
-      return result;
+    // ── Calculation functions (spec-aligned) ────────────────────
+
+    function calcularRSI(ohlcData, periodos = 14) {
+      if (!ohlcData?.length) return null;
+      const cierres = ohlcData.map(v => v[4]);
+      if (cierres.length < periodos + 1) return null;
+      const ganancias = [], perdidas = [];
+      for (let i = 1; i < cierres.length; i++) {
+        const d = cierres[i] - cierres[i-1];
+        ganancias.push(d > 0 ? d : 0);
+        perdidas.push(d < 0 ? Math.abs(d) : 0);
+      }
+      let avgG = ganancias.slice(0, periodos).reduce((a,b)=>a+b) / periodos;
+      let avgL = perdidas.slice(0, periodos).reduce((a,b)=>a+b) / periodos;
+      for (let i = periodos; i < ganancias.length; i++) {
+        avgG = (avgG*(periodos-1)+ganancias[i])/periodos;
+        avgL = (avgL*(periodos-1)+perdidas[i])/periodos;
+      }
+      if (avgL === 0) return 100;
+      return parseFloat((100 - 100/(1 + avgG/avgL)).toFixed(1));
     }
 
-    function sma(data, n) {
-      if (!data || data.length < n) return null;
-      return data.slice(-n).reduce((a, b) => a + b, 0) / n;
+    function scoreRSI(rsi) {
+      if (rsi === null) return null;
+      if (rsi < 20) return 10; if (rsi < 30) return 8; if (rsi < 40) return 6;
+      if (rsi < 50) return 4;  if (rsi < 60) return 2; if (rsi < 70) return 1;
+      if (rsi < 80) return 0;  return -2;
     }
 
-    function stdDev(data) {
-      const m = data.reduce((a, b) => a + b, 0) / data.length;
-      return Math.sqrt(data.reduce((a, b) => a + (b - m) ** 2, 0) / data.length);
+    function scoreRSIMulti(rsi4h, rsi1d, rsi1w) {
+      const s4h = scoreRSI(rsi4h), s1d = scoreRSI(rsi1d), s1w = scoreRSI(rsi1w);
+      if (s4h===null && s1d===null) return null;
+      const raw = (s4h!==null?s4h*0.2:0) + (s1d!==null?s1d*0.5:0) + (s1w!==null?s1w*0.3:0);
+      return Math.min(20, Math.max(0, raw * 2));
     }
 
-    // Wilder RSI (consistent with existing calcRSI)
-    function calcRSIFromOHLC(ohlc) {
-      if (!ohlc?.length) return null;
-      const closes = ohlc.map(c => c[4]);
-      return calcRSI(closes, 14); // reuse existing function
+    function calcularEMA(datos, periodo) {
+      if (!datos || datos.length < periodo) return null;
+      const k = 2 / (periodo + 1);
+      let e = datos.slice(0, periodo).reduce((a,b)=>a+b) / periodo;
+      for (let i = periodo; i < datos.length; i++) e = datos[i]*k + e*(1-k);
+      return e;
     }
 
-    function calcMACDFull(closes) {
-      if (!closes || closes.length < 35) return null;
-      const ema12s = ema(closes, 12);
-      const ema26s = ema(closes, 26);
-      const macdLine   = ema12s.map((v, i) => v - ema26s[i]);
-      const signalLine = ema(macdLine, 9);
-      const hist       = macdLine.map((v, i) => v - signalLine[i]);
+    function calcularEMAsSerie(cierres) {
+      if (!cierres?.length) return {};
+      return {
+        ema20:  calcularEMA(cierres, 20),
+        ema50:  calcularEMA(cierres, 50),
+        ema200: calcularEMA(cierres, Math.min(200, cierres.length))
+      };
+    }
 
-      // Find crossover in last 3 candles
+    function calcularMACD(cierres) {
+      if (!cierres || cierres.length < 26) return null;
+      const ema12s = [], ema26s = [];
+      for (let i = 11; i < cierres.length; i++)
+        ema12s.push(calcularEMA(cierres.slice(0, i+1), 12) ?? 0);
+      for (let i = 25; i < cierres.length; i++)
+        ema26s.push(calcularEMA(cierres.slice(0, i+1), 26) ?? 0);
+      const offset = ema12s.length - ema26s.length;
+      const macdLine = ema26s.map((v, i) => (ema12s[i + offset] ?? 0) - v);
+      if (macdLine.length < 9) return null;
+      const signal = calcularEMA(macdLine, 9) ?? 0;
+      const histograma = macdLine[macdLine.length-1] - signal;
       const n = macdLine.length;
-      let crossover = 'none';
-      for (let i = 1; i <= Math.min(3, n - 1); i++) {
-        const curr = macdLine[n-i] - signalLine[n-i];
-        const prev = macdLine[n-i-1] - signalLine[n-i-1];
-        if (prev < 0 && curr >= 0) { crossover = 'bullish'; break; }
-        if (prev > 0 && curr <= 0) { crossover = 'bearish'; break; }
+      let cruce = 'NINGUNO';
+      if (n >= 2) {
+        const currDiff = macdLine[n-1] - signal;
+        const prevDiff = macdLine[n-2] - signal * 0.999;
+        if (prevDiff < 0 && currDiff >= 0) cruce = 'ALCISTA';
+        if (prevDiff > 0 && currDiff <= 0) cruce = 'BAJISTA';
       }
-
-      const histGrowing = hist[n-1] > hist[n-2];
-
-      // Divergence: price made lower low but MACD higher low in last 10 candles
-      let divergence = 'none';
-      if (closes.length >= 10) {
-        const priceSlice = closes.slice(-10);
-        const macdSlice  = macdLine.slice(-10);
-        const priceLow   = Math.min(...priceSlice);
-        const priceHigh  = Math.max(...priceSlice);
-        const macdLow    = Math.min(...macdSlice);
-        const macdHigh   = Math.max(...macdSlice);
-        const priceLastLow  = closes[closes.length-1] < priceSlice[0];
-        const macdLastHigh  = macdLine[n-1] > macdSlice[0];
-        if (priceLastLow && macdLastHigh) divergence = 'bullish';
-        else if (!priceLastLow && !macdLastHigh) divergence = 'bearish';
-      }
-
-      return {
-        line: macdLine[n-1], signal: signalLine[n-1], hist: hist[n-1],
-        crossover, histGrowing, divergence
-      };
+      const divergenciaAlcista = cierres.length >= 5
+        && cierres[cierres.length-1] < cierres[cierres.length-5]
+        && macdLine[n-1] > macdLine[n-5];
+      const divergenciaBajista = cierres.length >= 5
+        && cierres[cierres.length-1] > cierres[cierres.length-5]
+        && macdLine[n-1] < macdLine[n-5];
+      return { macdActual: macdLine[n-1], signal, histograma, cruce, divergenciaAlcista, divergenciaBajista };
     }
 
-    function calcBollingerFull(closes, period = 20, mult = 2) {
-      if (!closes || closes.length < period) return null;
-      const slice = closes.slice(-period);
-      const mean  = slice.reduce((a, b) => a + b, 0) / period;
-      const sd    = stdDev(slice);
-      const upper = mean + mult * sd;
-      const lower = mean - mult * sd;
-      const curr  = closes[closes.length-1];
-      const pos   = (upper - lower) > 0 ? (curr - lower) / (upper - lower) : 0.5;
-      const bandwidth = (upper - lower) / mean;
-      const squeeze = bandwidth < 0.05;
-      // Detect bounce from lower band in last 3 candles
-      const prevPos = closes.length >= 3 ? (closes[closes.length-2] - lower) / (upper - lower) : pos;
-      const bouncedLow = prevPos < 0.15 && pos > 0.15;
-      return { upper, lower, mean, pos, bandwidth, squeeze, bouncedLow, curr };
+    function scoreMACD(macd) {
+      if (!macd) return null;
+      let s = 6;
+      if (macd.cruce === 'ALCISTA') s += 6; else if (macd.cruce === 'BAJISTA') s -= 6;
+      if (macd.histograma > 0) s += 3; else s -= 3;
+      if (macd.divergenciaAlcista) s += 3;
+      if (macd.divergenciaBajista) s -= 3;
+      return Math.max(0, Math.min(12, s));
     }
 
-    function calcEMALevels(closes) {
-      if (!closes?.length) return {};
-      const ema20  = ema(closes, 20);
-      const ema50  = ema(closes, 50);
-      const ema200 = ema(closes, Math.min(200, closes.length));
-      return {
-        ema20:  ema20[ema20.length-1],
-        ema50:  ema50[ema50.length-1],
-        ema200: ema200[ema200.length-1]
-      };
+    function calcularBollinger(cierres, periodo = 20, desv = 2) {
+      if (!cierres || cierres.length < periodo) return null;
+      const ultimos = cierres.slice(-periodo);
+      const smaVal = ultimos.reduce((a,b)=>a+b) / periodo;
+      const varianza = ultimos.reduce((acc,v)=>acc + (v-smaVal)**2, 0) / periodo;
+      const std = Math.sqrt(varianza);
+      const bandaSup = smaVal + desv*std, bandaInf = smaVal - desv*std;
+      const ancho = (bandaSup - bandaInf) / smaVal;
+      const precio = cierres[cierres.length-1];
+      const posicion = (bandaSup - bandaInf) > 0 ? (precio - bandaInf)/(bandaSup - bandaInf) : 0.5;
+      let zona = 'MEDIA';
+      if (posicion < 0.2) zona = 'INFERIOR'; else if (posicion > 0.8) zona = 'SUPERIOR';
+      const squeeze = ancho < 0.04;
+      return { bandaSup, bandaInf, sma: smaVal, posicion, zona, squeeze, ancho };
     }
 
-    function detectSupportResistance(ohlc) {
-      if (!ohlc || ohlc.length < 10) return { supports: [], resistances: [] };
-      const curr = ohlc[ohlc.length-1][4];
-      const highs = ohlc.map(c => c[2]);
-      const lows  = ohlc.map(c => c[3]);
-      const pivH = [], pivL = [];
-      for (let i = 2; i < ohlc.length-2; i++) {
-        if (highs[i] > highs[i-1] && highs[i] > highs[i-2] && highs[i] > highs[i+1] && highs[i] > highs[i+2]) pivH.push(highs[i]);
-        if (lows[i]  < lows[i-1]  && lows[i]  < lows[i-2]  && lows[i]  < lows[i+1]  && lows[i]  < lows[i+2])  pivL.push(lows[i]);
+    function scoreBollinger(b) {
+      if (!b) return null;
+      let s = b.zona === 'INFERIOR' ? 8 : b.zona === 'SUPERIOR' ? 0 : 4;
+      if (b.squeeze) s = Math.min(10, s + 2);
+      return s;
+    }
+
+    function calcularSoportes(ohlcData) {
+      if (!ohlcData || ohlcData.length < 20) return null;
+      const maximos = [], minimos = [];
+      for (let i = 2; i < ohlcData.length-2; i++) {
+        const h = ohlcData[i][2], l = ohlcData[i][3];
+        if (h > ohlcData[i-1][2] && h > ohlcData[i+1][2]) maximos.push(h);
+        if (l < ohlcData[i-1][3] && l < ohlcData[i+1][3]) minimos.push(l);
       }
-      function cluster(arr, sign) {
-        const filtered = arr.filter(v => sign > 0 ? v < curr : v > curr);
-        if (!filtered.length) return [];
-        filtered.sort((a, b) => a - b);
-        const cls = [];
-        let grp = [filtered[0]];
-        for (let i = 1; i < filtered.length; i++) {
-          if (Math.abs(filtered[i] - grp[0]) / grp[0] < 0.008) grp.push(filtered[i]);
-          else { cls.push({ level: grp.reduce((a,b)=>a+b)/grp.length, strength: grp.length }); grp = [filtered[i]]; }
+      const agrupar = arr => {
+        const grupos = [];
+        arr.sort((a,b)=>a-b);
+        for (const n of arr) {
+          const g = grupos.find(g => Math.abs(g.nivel-n)/g.nivel < 0.01);
+          if (g) { g.fuerza++; g.nivel = (g.nivel+n)/2; }
+          else grupos.push({ nivel: n, fuerza: 1 });
         }
-        cls.push({ level: grp.reduce((a,b)=>a+b)/grp.length, strength: grp.length });
-        return cls.sort((a,b) => b.strength - a.strength).slice(0, 3).map(c => c.level);
-      }
-      return { supports: cluster(pivL, 1), resistances: cluster(pivH, -1) };
+        return grupos.sort((a,b)=>b.fuerza-a.fuerza).slice(0,3);
+      };
+      return { soportes: agrupar(minimos), resistencias: agrupar(maximos) };
     }
 
-    function detectCandlePattern(ohlc) {
-      if (!ohlc || ohlc.length < 3) return { pattern: null, score: 5, desc: 'Sin datos' };
-      const raw = ohlc.slice(-3).map(c => ({
-        o: c[1], h: c[2], l: c[3], c: c[4],
-        body: Math.abs(c[4]-c[1]), range: c[2]-c[3], green: c[4] > c[1]
+    function scoreSoportes(precio, niveles) {
+      if (!precio || !niveles) return 4;
+      const cerca = (niveles.soportes||[]).filter(s => s.nivel < precio && (precio-s.nivel)/precio < 0.05);
+      if (!cerca.length) return 3;
+      const d = (precio - cerca[0].nivel)/precio, f = cerca[0].fuerza;
+      if (d < 0.02 && f >= 3) return 10; if (d < 0.02 && f >= 2) return 8;
+      if (d < 0.05 && f >= 2) return 6;  return 4;
+    }
+
+    function detectarPatron(ohlcData) {
+      if (!ohlcData || ohlcData.length < 3)
+        return { patron: 'NINGUNO', score: 5, alcista: null, descripcion: 'Sin datos' };
+      const c = ohlcData.slice(-3).map(r => ({
+        o: r[1], h: r[2], l: r[3], c: r[4],
+        cuerpo: Math.abs(r[4]-r[1]), rango: r[2]-r[3], verde: r[4]>r[1]
       }));
-      const [c2, c1, c0] = raw;
-      const lw = c0.green ? (c0.o - c0.l) : (c0.c - c0.l);
-      const uw = c0.green ? (c0.h - c0.c) : (c0.h - c0.o);
-
-      if (lw > 2 * c0.body && uw < c0.body * 1.5 && c0.range > 0)
-        return { pattern: 'MARTILLO', score: 8, desc: 'Martillo detectado — rechazo de precios bajos', bullish: true };
-      if (uw > 2 * c0.body && lw < c0.body * 1.5 && c0.range > 0 && c0.green)
-        return { pattern: 'MARTILLO INVERTIDO', score: 6, desc: 'Martillo invertido — posible reversión', bullish: true };
-      if (c0.green && !c1.green && c0.o < c1.c && c0.c > c1.o)
-        return { pattern: 'ENGULFING ALCISTA', score: 10, desc: 'Engulfing alcista — compradores dominan', bullish: true };
-      if (!c0.green && c1.green && c0.o > c1.c && c0.c < c1.o)
-        return { pattern: 'ENGULFING BAJISTA', score: 0, desc: 'Engulfing bajista — vendedores dominan', bullish: false };
-      if (c2 && !c2.green && c1.body < c2.body*0.3 && c0.green && c0.c > (c2.o+c2.c)/2)
-        return { pattern: 'ESTRELLA MATUTINA', score: 9, desc: 'Estrella matutina — reversión alcista fuerte', bullish: true };
-      if (c2 && c2.green && c1.body < c2.body*0.3 && !c0.green && c0.c < (c2.o+c2.c)/2)
-        return { pattern: 'ESTRELLA VESPERTINA', score: 1, desc: 'Estrella vespertina — reversión bajista', bullish: false };
-      if (uw > 2 * c0.body && lw < c0.body)
-        return { pattern: 'ESTRELLA FUGAZ', score: 2, desc: 'Estrella fugaz — rechazo de precios altos', bullish: false };
-      if (c0.body < c0.range * 0.1 && c0.range > 0)
-        return { pattern: 'DOJI', score: 5, desc: 'Doji — indecisión en el mercado', bullish: null };
-      if (c0.body > c0.range * 0.88) {
-        if (c0.green) return { pattern: 'MARUBOZU ALCISTA', score: 7, desc: 'Vela alcista sin mechas — momentum fuerte', bullish: true };
-        return { pattern: 'MARUBOZU BAJISTA', score: 3, desc: 'Vela bajista sin mechas — presión vendedora', bullish: false };
-      }
-      return { pattern: null, score: 5, desc: 'Sin patrón claro en las últimas 3 velas', bullish: null };
+      const [c2, c1, c0] = c;
+      const mechaInf = Math.min(c0.o,c0.c) - c0.l;
+      const mechaSup = c0.h - Math.max(c0.o,c0.c);
+      if (mechaInf > c0.cuerpo*2 && mechaSup < c0.cuerpo*0.5 && c0.rango > 0)
+        return c0.verde
+          ? { patron:'MARTILLO', score:8, alcista:true, descripcion:'Compradores rechazaron precios bajos con fuerza' }
+          : { patron:'HOMBRE COLGADO', score:2, alcista:false, descripcion:'Señal de posible reversión bajista' };
+      if (mechaSup > c0.cuerpo*2 && mechaInf < c0.cuerpo*0.5 && c0.rango > 0)
+        return c0.verde
+          ? { patron:'MARTILLO INVERTIDO', score:7, alcista:true, descripcion:'Posible cambio de tendencia alcista' }
+          : { patron:'ESTRELLA FUGAZ', score:1, alcista:false, descripcion:'Vendedores rechazaron precios altos' };
+      if (c0.verde && !c1.verde && c0.o < c1.c && c0.c > c1.o)
+        return { patron:'ENGULFING ALCISTA', score:10, alcista:true, descripcion:'Compradores tomaron control total' };
+      if (!c0.verde && c1.verde && c0.o > c1.c && c0.c < c1.o)
+        return { patron:'ENGULFING BAJISTA', score:0, alcista:false, descripcion:'Vendedores tomaron control total' };
+      if (c2 && !c2.verde && c1.cuerpo < c2.cuerpo*0.3 && c0.verde && c0.c > (c2.o+c2.c)/2)
+        return { patron:'ESTRELLA MATUTINA', score:9, alcista:true, descripcion:'Reversión alcista confirmada en 3 velas' };
+      if (c2 && c2.verde && c1.cuerpo < c2.cuerpo*0.3 && !c0.verde && c0.c < (c2.o+c2.c)/2)
+        return { patron:'ESTRELLA VESPERTINA', score:1, alcista:false, descripcion:'Reversión bajista confirmada en 3 velas' };
+      if (c0.cuerpo < c0.rango*0.1 && c0.rango > 0)
+        return { patron:'DOJI', score:5, alcista:null, descripcion:'Indecisión total en el mercado' };
+      if (c0.cuerpo > c0.rango*0.85)
+        return c0.verde
+          ? { patron:'MARUBOZU ALCISTA', score:8, alcista:true, descripcion:'Dominio total de compradores sin mecha' }
+          : { patron:'MARUBOZU BAJISTA', score:2, alcista:false, descripcion:'Dominio total de vendedores sin mecha' };
+      return { patron:'SIN PATRÓN CLARO', score:5, alcista:null, descripcion:'No hay patrón definido en las últimas 3 velas' };
     }
 
-    // ── Score calculators ────────────────────────────────────────
-    function scoreRSISingle(rsi) {
-      if (rsi == null) return 3;
-      if (rsi < 20)  return 10;
-      if (rsi < 30)  return 8;
-      if (rsi < 40)  return 6;
-      if (rsi < 50)  return 4;
-      if (rsi < 60)  return 2;
-      if (rsi < 70)  return 1;
-      if (rsi < 80)  return 0;
-      return -2;
+    function scoreFearGreed(valor) {
+      if (valor===null) return null;
+      if (valor<10) return 20; if (valor<25) return 18; if (valor<35) return 14;
+      if (valor<45) return 10; if (valor<55) return 6;  if (valor<65) return 3;
+      if (valor<75) return 1;  return 0;
     }
 
-    function buildScores(coin) {
-      const d = coin._analysisData;
-      if (!d) return null;
-      const { ohlc30, ohlc7, price, fng, dom, chg24, isAlt } = d;
-      const closes30 = ohlc30?.map(c => c[4]) || [];
-      const closes7  = ohlc7?.map(c => c[4])  || [];
+    function scoreVolumen(volActual, mktCap) {
+      // proxy: vol/mktcap ratio (typical: 5-10% = normal)
+      if (!volActual || !mktCap || mktCap === 0) return null;
+      const r = volActual / mktCap;
+      if (r > 0.12) return 15; if (r > 0.08) return 12; if (r > 0.05) return 9;
+      if (r > 0.03) return 6;  if (r > 0.02) return 3;  return 0;
+    }
 
-      // 1. RSI multi-timeframe (20 pts)
-      const rsi1d = closes30.length ? calcRSI(closes30, 14) : null;
-      const rsi4h = closes7.length  ? calcRSI(closes7,  14) : null;
-      // weekly proxy from longer close series sliced to 14 weekly candles
-      const rsi1w = closes30.length >= 10 ? calcRSI(closes30.filter((_,i,a) => i % 2 === 0), 14) : null;
+    function scoreTendencia24h(cambio24h) {
+      if (cambio24h===null) return null;
+      if (cambio24h<-10) return 10; if (cambio24h<-5) return 8; if (cambio24h<-2) return 6;
+      if (cambio24h<-1)  return 4;  if (cambio24h<1)  return 3; if (cambio24h<3)  return 2;
+      return 0;
+    }
 
-      const rsiRaw = (scoreRSISingle(rsi4h)*0.2 + scoreRSISingle(rsi1d)*0.5 + scoreRSISingle(rsi1w)*0.3);
-      const rsiScore = Math.min(20, Math.max(0, rsiRaw * 2)); // scale to 20
-
-      // 2. MACD (12 pts max, min 0)
-      const macd = calcMACDFull(closes30);
-      let macdScore = 6; // neutral baseline
-      if (macd) {
-        if (macd.crossover === 'bullish')  macdScore += 6;
-        if (macd.crossover === 'bearish')  macdScore -= 6;
-        if (macd.histGrowing && macd.hist > 0)  macdScore += 3;
-        if (!macd.histGrowing && macd.hist < 0) macdScore -= 3;
-        if (macd.divergence === 'bullish') macdScore += 3;
-        if (macd.divergence === 'bearish') macdScore -= 3;
+    function scoreDominancia(dominancia, esAltcoin) {
+      if (!dominancia) return null;
+      if (esAltcoin) {
+        if (dominancia>60) return 1; if (dominancia>55) return 2;
+        if (dominancia>50) return 3; if (dominancia>45) return 4; return 5;
+      } else {
+        if (dominancia>60) return 5; if (dominancia>55) return 4;
+        if (dominancia>50) return 3; if (dominancia>45) return 2; return 1;
       }
-      macdScore = Math.min(12, Math.max(0, macdScore));
+    }
 
-      // 3. EMA (10 pts)
-      const emaLvl = calcEMALevels(closes30);
-      let emaScore = 0;
-      if (emaLvl.ema20 && price) {
-        if (price > emaLvl.ema20 && emaLvl.ema20 > emaLvl.ema50 && emaLvl.ema50 > emaLvl.ema200) emaScore = 10;
-        else if (price > emaLvl.ema20 && emaLvl.ema20 > emaLvl.ema50) emaScore = 7;
-        else if (price > emaLvl.ema20) emaScore = 4;
-        else if (price < emaLvl.ema20 && price > emaLvl.ema50) emaScore = 2;
-        else if (price < emaLvl.ema20 && price < emaLvl.ema50) emaScore = 1;
-        else emaScore = 0;
-      } else { emaScore = 5; } // no data
+    function calcularIndicadoresMoneda(sym) {
+      const ind = JCAHS_STATE.indicadores[sym];
+      const ohlc = JCAHS_STATE.ohlc[sym];
+      if (!ohlc?.d30?.length) return;
+      const cierres = ohlc.d30.map(c=>c[4]);
+      ind.rsi1d = calcularRSI(ohlc.d30, 14);
+      ind.rsi4h = ohlc.h4?.length ? calcularRSI(ohlc.h4, 14) : null;
+      // weekly proxy: subsample daily (every 5th candle)
+      const subsampled = ohlc.d30.filter((_,i)=>i%5===0);
+      ind.rsi1w  = subsampled.length >= 5 ? calcularRSI(subsampled, Math.min(14, subsampled.length-1)) : null;
+      ind.macd   = calcularMACD(cierres);
+      const emas = calcularEMAsSerie(cierres);
+      ind.ema20 = emas.ema20; ind.ema50 = emas.ema50; ind.ema200 = emas.ema200;
+      ind.bollinger = calcularBollinger(cierres);
+      ind.soportes  = calcularSoportes(ohlc.d30);
+      ind.patron    = detectarPatron(ohlc.d30);
+      const p     = JCAHS.prices[COINS_ANALISIS.find(c=>c.sym===sym)?.id];
+      ind.cambio24h  = p?.usd_24h_change ?? null;
+      const t100     = JCAHS.top100.find(c => c.id === COINS_ANALISIS.find(x=>x.sym===sym)?.id);
+      ind.volRelativo = t100 && t100.market_cap ? t100.total_volume / t100.market_cap : null;
+    }
 
-      // 4. Bollinger (8 pts)
-      const bb = calcBollingerFull(closes30);
-      let bbScore = 4;
-      if (bb) {
-        if (bb.bouncedLow)       bbScore = 8;
-        else if (bb.pos < 0.25)  bbScore = 6;
-        else if (bb.pos < 0.55)  bbScore = 4;
-        else if (bb.pos < 0.80)  bbScore = 2;
-        else                     bbScore = 0;
-        if (bb.squeeze) bbScore = Math.min(8, bbScore + 2);
-      }
-
-      // 5. Support/Resistance (10 pts)
-      const sr = detectSupportResistance(ohlc30);
-      let srScore = 3;
-      if (sr.supports.length && price) {
-        const nearestSup = sr.supports.reduce((a, b) => Math.abs(a - price) < Math.abs(b - price) ? a : b);
-        const dist = Math.abs(price - nearestSup) / price * 100;
-        if (dist < 2)      srScore = 10;
-        else if (dist < 5) srScore = 7;
-        else               srScore = 4;
-      }
-
-      // 6. Candle pattern (10 pts)
-      const candle = detectCandlePattern(ohlc30);
-      const candleScore = Math.min(10, Math.max(0, candle.score));
-
-      const technical = rsiScore + macdScore + emaScore + bbScore + srScore + candleScore;
-
-      // 7. Fear & Greed (20 pts)
-      const fngVal = fng?.value;
-      let fngScore = 6;
-      if (fngVal != null) {
-        if (fngVal <= 10)       fngScore = 20;
-        else if (fngVal <= 25)  fngScore = 18;
-        else if (fngVal <= 35)  fngScore = 14;
-        else if (fngVal <= 45)  fngScore = 10;
-        else if (fngVal <= 55)  fngScore = 6;
-        else if (fngVal <= 65)  fngScore = 3;
-        else if (fngVal <= 75)  fngScore = 1;
-        else                    fngScore = 0;
-      }
-
-      // 8. Volume relative (15 pts) — use chg24 as proxy if no 7d vol avg
-      const vol24h = price?._vol24 || 0;
-      let volScore = 6;
-      // We use top100 data if available
-      const top100coin = JCAHS.top100.find(c => c.id === coin.id);
-      if (top100coin) {
-        const relVol = top100coin.total_volume / (top100coin.market_cap / 100 || 1);
-        if (relVol > 0.04)      volScore = 15;
-        else if (relVol > 0.025) volScore = 12;
-        else if (relVol > 0.015) volScore = 9;
-        else if (relVol > 0.008) volScore = 6;
-        else if (relVol > 0.004) volScore = 3;
-        else                     volScore = 0;
-      }
-
-      // 9. 24h trend (10 pts — contrarian: more down = more bullish opportunity)
-      let trendScore = 3;
-      if (chg24 != null) {
-        if (chg24 <= -10)     trendScore = 10;
-        else if (chg24 <= -5) trendScore = 8;
-        else if (chg24 <= -2) trendScore = 6;
-        else if (chg24 <= -1) trendScore = 4;
-        else if (chg24 <= 1)  trendScore = 3;
-        else if (chg24 <= 3)  trendScore = 2;
-        else                  trendScore = 0;
-      }
-
-      // 10. BTC dominance (5 pts)
-      let domScore = 3;
-      if (dom != null) {
-        if (isAlt) {
-          // For alts: low BTC dom = better
-          if (dom < 45)      domScore = 5;
-          else if (dom < 50) domScore = 4;
-          else if (dom < 55) domScore = 3;
-          else if (dom < 60) domScore = 2;
-          else               domScore = 1;
-        } else {
-          // For BTC: high dom = better
-          if (dom > 60)      domScore = 5;
-          else if (dom > 55) domScore = 4;
-          else if (dom > 50) domScore = 3;
-          else if (dom > 45) domScore = 2;
-          else               domScore = 1;
-        }
-      }
-
-      const sentiment = fngScore + volScore + trendScore + domScore;
-      const total = Math.min(100, Math.round(technical + sentiment));
-
-      return {
-        total, technical: Math.round(technical), sentiment: Math.round(sentiment),
-        rsiScore, rsi1d, rsi4h, rsi1w,
-        macdScore, macd,
-        emaScore, emaLvl,
-        bbScore, bb,
-        srScore, sr,
-        candleScore, candle,
-        fngScore, fngVal: fngVal ?? null,
-        volScore, trendScore, domScore, chg24
+    function calcularScoreTotal(sym) {
+      syncStateFromJCAHS();
+      calcularIndicadoresMoneda(sym);
+      const ind = JCAHS_STATE.indicadores[sym];
+      const precio = JCAHS_STATE.precios[sym];
+      const esAlt = sym !== 'BTC';
+      const t100 = JCAHS.top100.find(c=>c.id===COINS_ANALISIS.find(x=>x.sym===sym)?.id);
+      const scores = {
+        rsi:       scoreRSIMulti(ind.rsi4h, ind.rsi1d, ind.rsi1w),
+        macd:      scoreMACD(ind.macd),
+        emas:      (() => {
+          if (!precio || !ind.ema20) return null;
+          if (precio>ind.ema20 && ind.ema20>ind.ema50 && ind.ema50>ind.ema200) return 10;
+          if (precio>ind.ema20 && ind.ema20>ind.ema50) return 7;
+          if (precio>ind.ema20) return 4;
+          if (precio<ind.ema20 && ind.ema20<ind.ema50 && ind.ema50<ind.ema200) return 0;
+          if (precio<ind.ema20 && ind.ema20<ind.ema50) return 1;
+          return 2;
+        })(),
+        bollinger: scoreBollinger(ind.bollinger),
+        soportes:  scoreSoportes(precio, ind.soportes),
+        patron:    ind.patron?.score ?? 5,
+        fearGreed: scoreFearGreed(JCAHS_STATE.fearGreed),
+        volumen:   scoreVolumen(t100?.total_volume, t100?.market_cap),
+        tendencia: scoreTendencia24h(ind.cambio24h),
+        dominancia:scoreDominancia(JCAHS_STATE.dominanciaBTC, esAlt)
       };
+      ind.scores = scores;
+      const total = Object.values(scores).filter(s=>s!==null).reduce((a,b)=>a+b, 0);
+      ind.scoreTotal = Math.round(Math.min(100, Math.max(0, total)));
+      return ind.scoreTotal;
     }
 
     // ── Strategy determination ───────────────────────────────────
-    function determineStrategy(score, price) {
-      const STRATS = [
-        { minScore:85, type:'LONG FUERTE',      cls:'long-fuerte',  color:'var(--accent)', isShort:false, tp1:0.025, tp2:0.05,  sl:0.012, horizon:'Scalping 1-4h / Swing 2-5 días', lev:'3x-5x futuros O spot' },
-        { minScore:70, type:'LONG — SWING',     cls:'long-swing',   color:'#4ADE80',       isShort:false, tp1:0.04,  tp2:0.09,  sl:0.035, horizon:'2-7 días',                       lev:'Sin apalancamiento O 2x' },
-        { minScore:55, type:'LONG CAUTELOSO',   cls:'long-caut',    color:'#FBBF24',       isShort:false, tp1:0.06,  tp2:0.12,  sl:0.04,  horizon:'5-14 días',                      lev:'Sin apalancamiento', capMult:0.5 },
-        { minScore:45, type:'ESPERAR',          cls:'esperar',      color:'var(--text-muted)', isShort:false },
-        { minScore:30, type:'SHORT CAUTELOSO',  cls:'short-caut',   color:'#FF9500',       isShort:true,  tp1:0.03,  tp2:0.06,  sl:0.02,  horizon:'2-5 días',                       lev:'2x máximo' },
-        { minScore:15, type:'SHORT FUERTE',     cls:'short-fuerte', color:'var(--alert)',   isShort:true,  tp1:0.04,  tp2:0.08,  sl:0.025, horizon:'1-3 días',                       lev:'3x-5x futuros' },
-        { minScore:0,  type:'SHORT 🔥',         cls:'short-exc',    color:'#FF4444',       isShort:true,  tp1:0.025, tp2:0.05,  sl:0.015, horizon:'Scalping / 1-2 días',           lev:'5x máximo' }
-      ];
+    function determinarEstrategia(score, precio, sym) {
+      const exchange = JCAHS_STATE.exchange;
+      const bankroll = JCAHS_STATE.bankroll;
+      const comision = EXCHANGES_CONFIG[exchange] || EXCHANGES_CONFIG.binance;
 
-      const strat = STRATS.find(s => score >= s.minScore) || STRATS[STRATS.length-1];
-      if (!strat.tp1) return strat;
+      let cfg;
+      if      (score >= 85) cfg = { tipo:'LONG FUERTE 🔥',     cls:'long-fuerte',  dir:'LONG',  tp1:0.025, tp2:0.05,  sl:0.012, tipoOp:'futuros', hor:'Scalping 1-4h o Swing 2-5 días',  lev:'3x-5x futuros o spot' };
+      else if (score >= 70) cfg = { tipo:'LONG — SWING ✅',    cls:'long-swing',   dir:'LONG',  tp1:0.04,  tp2:0.09,  sl:0.035, tipoOp:'spot',    hor:'2-7 días',                         lev:'Sin apalancamiento o 2x' };
+      else if (score >= 55) cfg = { tipo:'LONG CAUTELOSO 📊',  cls:'long-caut',    dir:'LONG',  tp1:0.06,  tp2:0.12,  sl:0.04,  tipoOp:'spot',    hor:'5-14 días',                        lev:'Sin apalancamiento', capMult:0.5 };
+      else if (score >= 45) return null;
+      else if (score >= 30) cfg = { tipo:'SHORT CAUTELOSO 📉', cls:'short-caut',   dir:'SHORT', tp1:0.03,  tp2:0.06,  sl:0.02,  tipoOp:'futuros', hor:'2-5 días',                         lev:'2x máximo' };
+      else if (score >= 15) cfg = { tipo:'SHORT FUERTE ❌',    cls:'short-fuerte', dir:'SHORT', tp1:0.04,  tp2:0.08,  sl:0.025, tipoOp:'futuros', hor:'1-3 días',                         lev:'3x-5x futuros' };
+      else                  cfg = { tipo:'SHORT 🔥📉',         cls:'short-exc',    dir:'SHORT', tp1:0.025, tp2:0.05,  sl:0.015, tipoOp:'futuros', hor:'Scalping o 1-2 días',             lev:'5x máximo' };
 
-      const entry = price;
-      const tp1   = strat.isShort ? price * (1 - strat.tp1) : price * (1 + strat.tp1);
-      const tp2   = strat.isShort ? price * (1 - strat.tp2) : price * (1 + strat.tp2);
-      let slPrice = strat.isShort ? price * (1 + strat.sl)  : price * (1 - strat.sl);
+      const isShort  = cfg.dir === 'SHORT';
+      const entrada  = precio;
+      const tp1p     = isShort ? precio*(1-cfg.tp1) : precio*(1+cfg.tp1);
+      const tp2p     = isShort ? precio*(1-cfg.tp2) : precio*(1+cfg.tp2);
+      let   slp      = isShort ? precio*(1+cfg.sl)  : precio*(1-cfg.sl);
 
-      // Enforce minimum 1:2 R/B
-      const gain = Math.abs(tp1 - entry);
-      let   risk = Math.abs(entry - slPrice);
-      let   rr   = risk > 0 ? gain / risk : 0;
-      let   slAdjusted = false;
+      // Kelly
+      const ind = JCAHS_STATE.indicadores[sym] || {};
+      const bonus = (JCAHS_STATE.fearGreed??50)<25?0.1:0;
+      const prob  = Math.min(0.89, Math.max(0.45, score/100*0.7 + bonus + (ind.macd?.cruce&&ind.macd.cruce!=='NINGUNO'?0.08:0)));
+      const ratio = Math.abs(cfg.tp1)/Math.abs(cfg.sl);
+      const kelly = Math.max(0, (prob*ratio-(1-prob))/ratio);
+      const cap   = Math.max(1, Math.min(bankroll*0.1, bankroll*kelly*0.25*(cfg.capMult||1)));
 
-      if (rr < 2 && gain > 0) {
-        risk     = gain / 2;
-        slPrice  = strat.isShort ? entry + risk : entry - risk;
-        rr       = 2;
-        slAdjusted = true;
+      const comTot   = cap * (comision[cfg.tipoOp]||0.001) * 2;
+      const gain1    = cap * Math.abs(cfg.tp1) - comTot;
+      const gain2    = cap * Math.abs(cfg.tp2) - comTot;
+      const risk     = cap * Math.abs(cfg.sl);
+      let   ratioRB  = risk > 0 ? gain1/risk : 0;
+      let   slAjust  = false;
+
+      if (ratioRB < 2 && gain1 > 0) {
+        const newSL = Math.abs(cfg.tp1)/2;
+        slp         = isShort ? precio*(1+newSL) : precio*(1-newSL);
+        ratioRB     = 2;
+        slAjust     = true;
       }
 
-      return { ...strat, entry, tp1, tp2, sl: slPrice, rr, slAdjusted };
+      const fmt2 = v => v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+      return {
+        ...cfg, sym, precio, entrada,
+        tp1:    fmt2(tp1p), tp2: fmt2(tp2p), stopLoss: fmt2(slp), slAjust,
+        capitalSugerido: cap.toFixed(2), comisionTotal: comTot.toFixed(3),
+        gananciaNetaObj1: gain1.toFixed(2), gananciaNetaObj2: gain2.toFixed(2),
+        riesgoMaximo: risk.toFixed(2), ratioRB: ratioRB.toFixed(1),
+        prob: (prob*100).toFixed(0), score, exchange, tipoOp: cfg.tipoOp
+      };
     }
 
-    // ── SVG Illustrations ────────────────────────────────────────
-    const SVG_HAMMER = `<svg viewBox="0 0 120 160" width="100" xmlns="http://www.w3.org/2000/svg">
-      <line x1="60" y1="0" x2="60" y2="30" stroke="#E8F4FF" stroke-width="2"/>
-      <rect x="42" y="30" width="36" height="50" fill="#00FFB3" rx="3"/>
-      <line x1="60" y1="80" x2="60" y2="160" stroke="#00FFB3" stroke-width="3"/>
-      <text x="70" y="18" fill="#E8F4FF" font-size="12">Mecha</text>
-      <text x="70" y="60" fill="#020408" font-size="11" font-weight="bold">Cuerpo</text>
-      <text x="68" y="120" fill="#00FFB3" font-size="11">Mecha</text>
-      <text x="68" y="132" fill="#00FFB3" font-size="11">larga</text>
-    </svg>`;
+    // ── Exchange instructions ────────────────────────────────────
+    function instruccionesExchange(ficha, exch) {
+      const ex = EXCHANGES_CONFIG[exch] || EXCHANGES_CONFIG.binance;
+      const pares = { BTC:'BTCUSDT', ETH:'ETHUSDT', SOL:'SOLUSDT', XRP:'XRPUSDT' };
+      const par   = pares[ficha.sym] || ficha.sym+'USDT';
+      const urls  = {
+        binance:`https://www.binance.com/trade/${par}`,
+        bybit:`https://www.bybit.com/trade/spot/${ficha.sym}/USDT`,
+        kucoin:`https://www.kucoin.com/trade/${ficha.sym}-USDT`,
+        kraken:`https://pro.kraken.com/app/trade/${ficha.sym === 'BTC'?'XBT':ficha.sym}-USD`
+      };
+      const pasos = {
+        binance: [
+          `Abre Binance → "Mercados" → busca <strong>${par}</strong> → click "Trade"`,
+          `Selecciona <strong>Límite</strong> (NO uses Mercado — pagarás más comisión)`,
+          `Precio de entrada: <strong>$${ficha.entrada}</strong> · Capital: <strong>$${ficha.capitalSugerido}</strong>`,
+          `Click "OCO Order" → Stop Loss en <strong>$${ficha.stopLoss}</strong>`,
+          `Orden de venta límite Objetivo 1: <strong>$${ficha.tp1}</strong>`,
+          `Opcional: segunda orden en <strong>$${ficha.tp2}</strong> con 50% de la posición`
+        ],
+        bybit: [
+          `Abre Bybit → "Spot" o "Derivados" → busca <strong>${par}</strong>`,
+          `"Limit Order" → precio $${ficha.entrada} · tamaño $${ficha.capitalSugerido}`,
+          `Activa "TP/SL" → Stop Loss: <strong>$${ficha.stopLoss}</strong>`,
+          `Take Profit: <strong>$${ficha.tp1}</strong>`,
+          `Confirma en "Órdenes Abiertas" que aparecen las 3 órdenes`,
+          `Segunda orden de venta en $${ficha.tp2} para Objetivo 2`
+        ],
+        kucoin: [
+          `Abre KuCoin → "Mercados" → busca <strong>${ficha.sym}-USDT</strong> → "Trade"`,
+          `Selecciona "Limit" → precio $${ficha.entrada} y cantidad`,
+          `Usa "Stop Order" separado para Stop Loss en <strong>$${ficha.stopLoss}</strong>`,
+          `Orden de venta límite en $${ficha.tp1} (Objetivo 1)`,
+          `Activa notificaciones de precio para seguimiento automatizado`,
+          `Con KCS puedes reducir comisiones un 20%`
+        ],
+        kraken: [
+          `Abre pro.kraken.com → "Trade" → par <strong>${ficha.sym==='BTC'?'XBT':ficha.sym}/USD</strong>`,
+          `Order Type: "Limit" → precio de entrada: $${ficha.entrada}`,
+          `"Conditional Close" → tipo "Stop Loss" → precio $${ficha.stopLoss}`,
+          `Segunda orden límite de venta en $${ficha.tp1}`,
+          `En Kraken BTC se llama <strong>XBT</strong> — verifica el par correcto`,
+          `Revisa "Open Orders" para confirmar que todo está activo`
+        ]
+      };
+      const advertencias = {
+        binance: 'Nunca muevas el Stop Loss hacia abajo una vez colocado',
+        bybit:   'Verifica que el par sea USDT, no USD',
+        kucoin:  'Usa KCS para reducir comisiones un 20%',
+        kraken:  'En Kraken BTC = XBT — no confundir el par'
+      };
+      return {
+        nombre: ex.nombre, url: urls[exch] || urls.binance,
+        comisionTexto: `${(ex[ficha.tipoOp]||0.001)*100}% por operación (ida + vuelta: ${((ex[ficha.tipoOp]||0.001)*2*100).toFixed(3)}%)`,
+        pasos: pasos[exch] || pasos.binance,
+        advertencia: advertencias[exch] || advertencias.binance
+      };
+    }
 
-    const SVG_ENGULFING = `<svg viewBox="0 0 140 160" width="120" xmlns="http://www.w3.org/2000/svg">
-      <rect x="30" y="50" width="30" height="60" fill="#FF4444" rx="2"/>
-      <line x1="45" y1="40" x2="45" y2="50" stroke="#FF4444" stroke-width="2"/>
-      <line x1="45" y1="110" x2="45" y2="120" stroke="#FF4444" stroke-width="2"/>
-      <rect x="70" y="30" width="40" height="100" fill="#00FFB3" rx="2"/>
-      <line x1="90" y1="10" x2="90" y2="30" stroke="#00FFB3" stroke-width="2"/>
-      <line x1="90" y1="130" x2="90" y2="150" stroke="#00FFB3" stroke-width="2"/>
-      <text x="10" y="145" fill="#FF4444" font-size="11">Roja</text>
-      <text x="72" y="155" fill="#00FFB3" font-size="11">Verde</text>
-    </svg>`;
+    // ── Explanation functions ────────────────────────────────────
+    function explicarRSI(rsi) {
+      if (rsi===null) return 'Cargando datos históricos...';
+      if (rsi<20) return `RSI en ${rsi.toFixed(0)}: sobreventas extrema. Históricamente el precio rebota desde aquí. Probabilidad de recuperación alta.`;
+      if (rsi<30) return `RSI en ${rsi.toFixed(0)}: sobrevendido. Los compradores suelen aparecer aquí buscando precios de descuento.`;
+      if (rsi<40) return `RSI en ${rsi.toFixed(0)}: debilidad sin llegar a sobreventas. Zona de posible acumulación gradual.`;
+      if (rsi<60) return `RSI en ${rsi.toFixed(0)}: territorio neutral. Sin señal extrema — otros indicadores pesan más.`;
+      if (rsi<70) return `RSI en ${rsi.toFixed(0)}: fortaleza acercándose a zona de cuidado. Considera reducir el tamaño de posición.`;
+      return `RSI en ${rsi.toFixed(0)}: sobrecomprado. El precio subió muy rápido. Zona de posible corrección próxima.`;
+    }
 
-    const SVG_RSI = `<svg viewBox="0 0 260 70" width="220" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="15" width="78" height="40" fill="rgba(255,68,68,0.25)" rx="4"/>
-      <rect x="78" y="15" width="104" height="40" fill="rgba(255,255,255,0.06)" rx="0"/>
-      <rect x="182" y="15" width="78" height="40" fill="rgba(255,68,68,0.25)" rx="4"/>
-      <text x="4" y="11" fill="#FF4444" font-size="10">Sobrevendido</text>
-      <text x="90" y="11" fill="#9CA3AF" font-size="10">Neutral</text>
-      <text x="184" y="11" fill="#FF9500" font-size="10">Sobrecomprado</text>
-      <text x="4" y="62" fill="#E8F4FF" font-size="10">0</text>
-      <text x="36" y="62" fill="#E8F4FF" font-size="10">30</text>
-      <text x="123" y="62" fill="#E8F4FF" font-size="10">70</text>
-      <text x="243" y="62" fill="#E8F4FF" font-size="10">100</text>
-    </svg>`;
+    function explicarMACD(macd) {
+      if (!macd) return 'Calculando MACD con datos históricos...';
+      if (macd.cruce==='ALCISTA') return 'El MACD cruzó hacia arriba la línea señal — señal confiable de cambio de tendencia a favor compradores.';
+      if (macd.cruce==='BAJISTA') return 'El MACD cruzó hacia abajo — la presión vendedora está tomando control del momentum.';
+      if (macd.divergenciaAlcista) return 'Divergencia alcista: precio hizo nuevo mínimo pero MACD no — señal avanzada de reversión al alza.';
+      if (macd.divergenciaBajista) return 'Divergencia bajista: precio en nuevos máximos pero MACD no confirma — posible agotamiento de tendencia.';
+      return macd.histograma>0 ? 'Histograma positivo y creciendo — momentum alcista fortaleciéndose.' : 'Histograma negativo — momentum bajista dominante por ahora.';
+    }
 
-    const SVG_MACD = `<svg viewBox="0 0 220 100" width="200" xmlns="http://www.w3.org/2000/svg">
-      <polyline points="0,60 30,55 60,50 90,45 110,30 130,25 160,20 190,22 220,18" fill="none" stroke="#00FFB3" stroke-width="2"/>
-      <polyline points="0,70 30,68 60,65 90,60 110,50 130,42 160,38 190,35 220,32" fill="none" stroke="#FF9500" stroke-width="2" stroke-dasharray="4,3"/>
-      <rect x="108" y="28" width="6" height="14" fill="rgba(0,255,179,0.4)"/>
-      <circle cx="110" cy="28" r="5" fill="#00FFB3"/>
-      <text x="118" y="24" fill="#00FFB3" font-size="10">Cruce alcista</text>
-      <text x="2" y="96" fill="#00FFB3" font-size="10">── MACD</text>
-      <text x="60" y="96" fill="#FF9500" font-size="10">- - Señal</text>
-    </svg>`;
+    function explicarBollinger(b) {
+      if (!b) return 'Calculando Bandas de Bollinger...';
+      const base = b.zona==='INFERIOR'
+        ? `En la banda inferior ($${b.bandaInf?.toFixed(0)}). El precio tiende a regresar a la media ($${b.sma?.toFixed(0)}). Zona de valor estadístico.`
+        : b.zona==='SUPERIOR' ? 'En la banda superior. Sobreextensión estadística — el precio tiende a corregir.'
+        : `En zona media de Bollinger. Media en $${b.sma?.toFixed(0)}.`;
+      return base + (b.squeeze ? ' ⚡ SQUEEZE: volatilidad comprimida, movimiento explosivo próximo.' : '');
+    }
 
-    // ── Ficha HTML builder ───────────────────────────────────────
-    function buildFichaHTML(coin, sc, strat, rank) {
-      if (!sc || strat.type === 'ESPERAR') return null;
+    function explicarPatron(p) {
+      if (!p || p.patron==='SIN PATRÓN CLARO') return 'No hay patrón definido. Las velas son más confiables cuando confirman otras señales técnicas.';
+      const m = { 'MARTILLO':'El Martillo en soporte tiene >60% tasa de éxito histórica. Los compradores rechazaron los mínimos.', 'ENGULFING ALCISTA':'Los compradores dominaron completamente. Una de las señales de reversión más confiables.', 'ESTRELLA MATUTINA':'Patrón de 3 velas con alta confiabilidad para reversiones alcistas.', 'DOJI':'Empate entre compradores y vendedores. El siguiente movimiento suele ser decisivo.', 'ESTRELLA FUGAZ':'Los vendedores rechazaron precios altos. Posible techo de mercado.' };
+      return m[p.patron] || p.descripcion;
+    }
 
-      const { id, sym, name } = coin;
-      const { total, technical, sentiment } = sc;
-      const scoreColor = total >= 70 ? 'var(--accent)' : total >= 55 ? '#FBBF24' : total < 35 ? 'var(--alert)' : '#9CA3AF';
-      const scoreLabel = total >= 85 ? 'SEÑAL EXCEPCIONAL 🔥' : total >= 70 ? 'SEÑAL FUERTE ✅' : total >= 55 ? 'SEÑAL MODERADA ⚠️' : total < 35 ? 'SEÑAL BAJISTA ⚠️' : 'SIN SEÑAL';
-      const rankBadges = ['🥇','🥈','🥉','🏅'];
-      const rankBadge  = rankBadges[rank] || '';
+    function explicarFearGreed(v) {
+      if (v===null) return 'Cargando índice...';
+      if (v<25) return `Índice en ${v} (Miedo Extremo). Warren Buffett: "Sé codicioso cuando otros tienen miedo." Comprar en pánico extremo fue rentable el 78% de las veces en los últimos 5 años.`;
+      if (v<45) return `Índice en ${v} (Miedo). Inversores nerviosos = zona de acumulación para traders pacientes.`;
+      if (v<55) return `Índice en ${v} (Neutral). Sin sesgo claro de sentimiento. Confiar más en los indicadores técnicos.`;
+      if (v<75) return `Índice en ${v} (Codicia). Mercado optimista. Momento de ser más cauteloso con el tamaño de posición.`;
+      return `Índice en ${v} (Codicia Extrema). Zona de peligro histórico. Muchos traders novatos entran aquí antes de correcciones.`;
+    }
 
-      const pFmt = v => v >= 1 ? '$' + v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '$' + v.toFixed(6);
+    function obtenerEtiquetaScore(s) {
+      if (s>=85) return 'SEÑAL EXCEPCIONAL 🔥'; if (s>=70) return 'SEÑAL FUERTE ✅';
+      if (s>=55) return 'SEÑAL MODERADA ⚠️';   if (s>=45) return 'SIN SEÑAL CLARA';
+      if (s>=30) return 'SEÑAL BAJISTA ⚠️';    return 'SEÑAL BAJISTA FUERTE ❌';
+    }
 
-      // Individual indicator rows
-      function indRow(name, score, maxScore, detail, edu) {
-        const pct  = Math.round(score / maxScore * 100);
-        const barColor = pct >= 65 ? 'var(--accent)' : pct >= 35 ? '#FBBF24' : 'var(--alert)';
-        return `<div class="fa-ind-block">
-          <div class="fa-ind-header">
-            <div class="fa-ind-name">${name}</div>
-            <div class="fa-ind-score" style="color:${barColor}">${score}/${maxScore}</div>
-          </div>
-          <div class="fa-ind-bar-track"><div class="fa-ind-bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
-          <div class="fa-ind-detail">${detail}</div>
-          ${edu ? `<div class="fa-ind-edu solo-principiante">${edu}</div>` : ''}
-        </div>`;
-      }
+    function obtenerCategoria(s) {
+      if (s>=85) return 'A+'; if (s>=70) return 'A'; if (s>=55) return 'B';
+      if (s>=45) return 'N'; if (s>=30) return 'C'; return 'D';
+    }
 
-      // RSI detail text
-      const rsiDetail = `4H: ${sc.rsi4h ?? 'Sin datos'} · 1D: ${sc.rsi1d ?? 'Sin datos'} · Semanal: ${sc.rsi1w ?? 'Sin datos'}`;
-      const rsiEdu = sc.rsi1d != null
-        ? (sc.rsi1d < 35 ? '📖 RSI bajo 30 = sobrevendido. El precio bajó muy rápido y estadísticamente tiende a recuperarse. No es garantía, pero la probabilidad histórica es favorable.'
-         : sc.rsi1d > 65 ? '📖 RSI sobre 70 = sobrecomprado. El precio subió muy rápido. Mayor riesgo de corrección inminente.'
-         : '📖 RSI entre 30 y 70 = zona neutral. No hay señal extrema. Otros indicadores pesan más en la decisión.')
-        : '📖 RSI (Índice de Fuerza Relativa): mide qué tan rápido subió o bajó el precio. Bajo 30 = rebote probable; sobre 70 = corrección probable.';
+    // ── HTML generator — fila indicador ─────────────────────────
+    function generarFilaIndicador(nombre, score, maxScore, valorCorto, explicacion) {
+      const pct = score!==null ? Math.round(score/maxScore*100) : 0;
+      const col = pct>=65 ? 'var(--accent)' : pct>=35 ? '#FBBF24' : 'var(--alert)';
+      return `<div class="fa-ind-block">
+        <div class="fa-ind-header">
+          <div class="fa-ind-name">${nombre}</div>
+          <div class="fa-ind-score" style="color:${col}">${score!==null?score:'N/A'}/${maxScore}</div>
+        </div>
+        <div class="fa-ind-bar-track"><div class="fa-ind-bar-fill" style="width:${pct}%;background:${col}"></div></div>
+        <div class="fa-ind-detail">${valorCorto||'Sin datos'}</div>
+        ${explicacion?`<div class="fa-ind-edu solo-principiante">${explicacion}</div>`:''}
+      </div>`;
+    }
 
-      const macdDetail = sc.macd ? `Cruce: ${sc.macd.crossover === 'bullish' ? '✅ Alcista' : sc.macd.crossover === 'bearish' ? '❌ Bajista' : 'Sin cruce reciente'} · Histograma: ${sc.macd.histGrowing ? '▲ Creciendo' : '▼ Decreciendo'} · Divergencia: ${sc.macd.divergence}` : 'Sin datos';
-      const macdEdu = '📖 El MACD detecta cambios de momentum. Cuando la línea verde cruza hacia arriba la línea naranja, indica que la fuerza compradora está tomando el control. Es una señal de entrada en dirección alcista.';
-
-      const emaDetail = sc.emaLvl.ema20 ? `EMA20: ${pFmt(sc.emaLvl.ema20)} · EMA50: ${pFmt(sc.emaLvl.ema50)} · EMA200: ${pFmt(sc.emaLvl.ema200)}` : 'Sin datos suficientes';
-      const emaEdu = '📖 Las EMAs son promedios móviles. Si el precio está sobre todas las EMAs y están ordenadas (20>50>200), es una señal de tendencia alcista sólida.';
-
-      const bbDetail = sc.bb ? `Posición: ${(sc.bb.pos*100).toFixed(0)}% del canal · Banda sup: ${pFmt(sc.bb.upper)} · Banda inf: ${pFmt(sc.bb.lower)}${sc.bb.squeeze ? ' · ⚡ SQUEEZE detectado' : ''}` : 'Sin datos';
-      const bbEdu = sc.bb?.bouncedLow ? '📖 El precio tocó la banda inferior y rebotó. Estadísticamente el precio tiende a regresar a la media. Alta probabilidad de continuación alcista desde aquí.' : '📖 Las Bandas de Bollinger muestran el rango de precio "normal". Precio en la banda inferior = zona de valor histórica. Precio en la banda superior = zona cara.';
-
-      const nearSup = sc.sr.supports[0] ? pFmt(sc.sr.supports[0]) : 'Sin soporte identificado';
-      const nearRes = sc.sr.resistances[0] ? pFmt(sc.sr.resistances[0]) : 'Sin resistencia identificada';
-      const srDetail = `Soporte más cercano: ${nearSup} · Resistencia: ${nearRes}`;
-      const srEdu = '📖 Los soportes son niveles de precio donde compradores aparecieron antes y frenaron la caída. Si el precio baja al soporte y rebota, es señal de entrada. Nunca pongas Stop Loss justo en el soporte.';
-
-      const candleEdu = sc.candle.bullish
-        ? `📖 El patrón ${sc.candle.pattern} indica que los compradores rechazaron precios bajos con fuerza. Es una señal visual de reversión o continuación alcista.`
-        : sc.candle.bullish === false
-        ? `📖 El patrón ${sc.candle.pattern} indica presión vendedora. Precaución antes de entrar en largo.`
-        : '📖 Las velas japonesas muestran la psicología del mercado en cada período. Patrones específicos tienen alta probabilidad histórica de predecir movimientos.';
-
-      const fngEdu = sc.fngVal != null
-        ? (sc.fngVal < 30 ? '📖 Comprar en miedo extremo y vender en codicia extrema es históricamente la estrategia más rentable a largo plazo en crypto. Warren Buffett: "Sé codicioso cuando otros tienen miedo."' : sc.fngVal > 70 ? '📖 Codicia extrema = muchos ya compraron. El potencial de alza se reduce. Considera tomar ganancias parciales.' : '')
-        : '';
-
-      const volEdu = '📖 Volumen alto confirma que hay interés real detrás del movimiento. Una señal técnica sin volumen es poco confiable. Con volumen alto, la señal tiene más peso.';
-      const trendEdu = sc.chg24 != null && sc.chg24 < -3 ? '📖 La caída de hoy puede crear la oportunidad. Las otras señales sugieren que es temporal. El mercado tiende a sobreexagerar los movimientos a corto plazo.' : '';
-
-      // Capital management
-      const bankroll = JCAHS.bankroll || 500;
-      const capMult  = strat.capMult || 1;
-      const kellyPct = sc.rsiScore > 0 ? Math.max(1, Math.min(5, (sc.total - 50) / 10)) * capMult : 1;
-      const capUSD   = (bankroll * kellyPct / 100).toFixed(2);
-      const gain1    = strat.tp1 ? (parseFloat(capUSD) * Math.abs(strat.tp1 - strat.entry) / strat.entry).toFixed(2) : '--';
-      const gain2    = strat.tp2 ? (parseFloat(capUSD) * Math.abs(strat.tp2 - strat.entry) / strat.entry).toFixed(2) : '--';
-      const lossMax  = strat.sl  ? (parseFloat(capUSD) * Math.abs(strat.entry - strat.sl) / strat.entry).toFixed(2) : '--';
-      const commPct  = 0.001; // 0.1% per side × 2
-      const commUSD  = (parseFloat(capUSD) * commPct * 2).toFixed(3);
-
-      // Execution instructions (Binance by default)
-      const qtyBTC = strat.entry ? (parseFloat(capUSD) / strat.entry).toFixed(6) : '--';
-      const exchangeInstructions = {
-        'BINANCE': `
-          <div class="fa-step"><div class="fa-step-num">1</div><div class="fa-step-body">Abre Binance → <strong>Mercados</strong> → busca <strong>${sym}USDT</strong> → click en <strong>Trade</strong></div></div>
-          <div class="fa-step"><div class="fa-step-num">2</div><div class="fa-step-body">Selecciona <strong>Límite</strong> (no uses Mercado — pagarás más comisión)<br>Precio de entrada: <strong>${strat.entry ? pFmt(strat.entry) : '--'}</strong><br>Cantidad: <strong>${capUSD} ÷ ${pFmt(strat.entry||0)} = ${qtyBTC} ${sym}</strong></div></div>
-          <div class="fa-step"><div class="fa-step-num">3</div><div class="fa-step-body">Ve a <strong>OCO Order</strong> → Stop: <strong>${strat.sl ? pFmt(strat.sl) : '--'}</strong><br><span class="warn">⚠️ NUNCA muevas el Stop Loss hacia abajo</span></div></div>
-          <div class="fa-step"><div class="fa-step-num">4</div><div class="fa-step-body">Orden de venta límite en Objetivo 1: <strong>${strat.tp1 ? pFmt(strat.tp1) : '--'}</strong><br>Opcional: vende 50% en Obj.1 y 50% en Obj.2 para asegurar ganancias</div></div>
-          <div class="fa-step"><div class="fa-step-num">5</div><div class="fa-step-body">Verifica que tienes las 3 órdenes activas:<br>✅ Compra en ${strat.entry ? pFmt(strat.entry) : '--'}<br>✅ Stop Loss en ${strat.sl ? pFmt(strat.sl) : '--'}<br>✅ Take Profit en ${strat.tp1 ? pFmt(strat.tp1) : '--'}</div></div>`,
-        'BYBIT':   `<div class="fa-step"><div class="fa-step-num">1</div><div class="fa-step-body">Bybit → <strong>Spot</strong> → busca <strong>${sym}USDT</strong></div></div><div class="fa-step"><div class="fa-step-num">2</div><div class="fa-step-body">Orden <strong>Límite</strong> · Entrada: <strong>${strat.entry ? pFmt(strat.entry) : '--'}</strong> · Stop: <strong>${strat.sl ? pFmt(strat.sl) : '--'}</strong> · TP: <strong>${strat.tp1 ? pFmt(strat.tp1) : '--'}</strong></div></div>`,
-        'KUCOIN':  `<div class="fa-step"><div class="fa-step-num">1</div><div class="fa-step-body">KuCoin → <strong>Mercados</strong> → busca <strong>${sym}-USDT</strong></div></div><div class="fa-step"><div class="fa-step-num">2</div><div class="fa-step-body">Orden <strong>Límite</strong> · Mismos valores que arriba</div></div>`,
-        'KRAKEN':  `<div class="fa-step"><div class="fa-step-num">1</div><div class="fa-step-body">Kraken → <strong>Trade</strong> → par <strong>${sym}/USD</strong></div></div><div class="fa-step"><div class="fa-step-num">2</div><div class="fa-step-body">Orden <strong>Limit</strong> · Stop-Loss disponible como orden condicional</div></div>`
+    // ── HTML generator — ficha completa ─────────────────────────
+    function generarHTMLFicha(ficha, sc, rank) {
+      const { sym, score } = ficha;
+      const ind = JCAHS_STATE.indicadores[sym] || {};
+      const instruccs = instruccionesExchange(ficha, ficha.exchange);
+      const rankEmoji = ['🥇','🥈','🥉','🏅'][rank] || `#${rank+1}`;
+      const sColor = score>=70?'var(--accent)':score>=55?'#FBBF24':score<35?'var(--alert)':'#9CA3AF';
+      const pFmt = v => Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+      const t100 = JCAHS.top100.find(c=>c.id===COINS_ANALISIS.find(x=>x.sym===sym)?.id);
+      const scoresTec = sc.rsiScore + sc.macdScore + sc.emaScore + sc.bbScore + sc.srScore + sc.candleScore;
+      const scoresSen = (sc.fngScore||0) + (sc.volScore||0) + (sc.trendScore||0) + (sc.domScore||0);
+      const scoreMap  = {
+        rsi:sc.rsiScore, macd:sc.macdScore, emas:sc.emaScore,
+        bollinger:sc.bbScore, soportes:sc.srScore, patron:sc.candleScore,
+        fearGreed:sc.fngScore, volumen:sc.volScore, tendencia:sc.trendScore, dominancia:sc.domScore
       };
 
-      return `
-      <div class="fa-card" id="fa-${id}">
-        <!-- NIVEL 1 — siempre visible -->
-        <div class="fa-lvl1" style="border-left-color:${strat.color}">
+      return `<div class="fa-card" data-moneda="${sym}" data-score="${score}">
+        <div class="fa-lvl1" style="border-left-color:${ficha.cls.includes('short')?'var(--alert)':sColor}">
           <div class="fa-coin-header">
             <div>
               <div style="display:flex;align-items:center;gap:10px">
-                <span class="fa-rank-badge">${rankBadge}</span>
+                <span style="font-size:22px">${rankEmoji}</span>
                 <span class="fa-coin-sym">${sym}</span>
               </div>
-              <div class="fa-coin-name">${name}</div>
+              <div class="fa-coin-name">${NOMBRES_CRIPTO[sym]||sym}</div>
             </div>
+            ${t100?.image?`<img src="${t100.image}" width="40" height="40" style="border-radius:50%;flex-shrink:0" onerror="this.style.display='none'" loading="lazy">` : ''}
           </div>
 
-          <div class="fa-badge ${strat.cls}">${strat.type}</div>
+          <div class="fa-badge ${ficha.cls}" data-campo="badge">${ficha.tipo}</div>
 
           <div class="fa-score-wrap">
-            <div class="fa-score-bar-track"><div class="fa-score-bar-fill" style="width:${total}%;background:${scoreColor}"></div></div>
-            <div class="fa-score-num" style="color:${scoreColor}">${total}/100</div>
+            <div class="fa-score-bar-track"><div class="fa-score-bar-fill" style="width:${score}%;background:${sColor}"></div></div>
+            <div class="fa-score-num" style="color:${sColor}" data-campo="score">${score}/100</div>
           </div>
-          <div class="fa-score-label" style="margin-bottom:16px">${scoreLabel}</div>
+          <div class="fa-score-label" style="margin-bottom:18px;color:${sColor}">${obtenerEtiquetaScore(score)}</div>
 
-          ${strat.tp1 ? `
           <div class="fa-price-table">
-            <div class="fa-price-row"><span class="fa-price-label">Precio actual</span><span class="fa-price-val">${pFmt(strat.entry)}</span></div>
-            <div class="fa-price-row"><span class="fa-price-label">Entrada</span><span class="fa-price-val" style="color:var(--accent)">${pFmt(strat.entry)}</span></div>
-            <div class="fa-price-row"><span class="fa-price-label">Stop Loss${strat.slAdjusted ? ' ⚙️' : ''}</span><span class="fa-price-val" style="color:var(--alert)">${pFmt(strat.sl)}</span></div>
-            <div class="fa-price-row"><span class="fa-price-label">Objetivo 1</span><span class="fa-price-val pos">${pFmt(strat.tp1)}</span></div>
-            <div class="fa-price-row"><span class="fa-price-label">Objetivo 2</span><span class="fa-price-val pos">${pFmt(strat.tp2)}</span></div>
+            <div class="fa-price-row"><span class="fa-price-label">Precio actual</span><span class="fa-price-val" data-campo="precio">$${pFmt(ficha.precio)}</span></div>
+            <div class="fa-price-row"><span class="fa-price-label">Entrada</span><span class="fa-price-val" style="color:var(--accent)" data-campo="entrada">$${ficha.entrada}</span></div>
+            <div class="fa-price-row"><span class="fa-price-label">Stop Loss${ficha.slAjust?' ⚙️':''}</span><span class="fa-price-val" style="color:var(--alert)" data-campo="stopLoss">$${ficha.stopLoss}</span></div>
+            <div class="fa-price-row"><span class="fa-price-label">Objetivo 1</span><span class="fa-price-val pos" data-campo="tp1">$${ficha.tp1}</span></div>
+            <div class="fa-price-row"><span class="fa-price-label">Objetivo 2</span><span class="fa-price-val" style="color:#00CC66" data-campo="tp2">$${ficha.tp2}</span></div>
           </div>
-          ${strat.slAdjusted ? `<div style="font-family:var(--f-ui);font-size:18px;color:#FBBF24;margin-top:8px">⚙️ Stop Loss ajustado para ratio mínimo profesional 1:2</div>` : ''}` : ''}
+          ${ficha.slAjust?`<div style="font-family:var(--f-ui);font-size:18px;color:#FBBF24;margin:8px 0">⚙️ Stop Loss ajustado — ratio mínimo profesional 1:2</div>`:''}
 
           <div class="fa-expand-btns">
-            <button class="fa-expand-btn" onclick="faToggleLevel('${id}','analisis')" id="fa-btn-analisis-${id}">▼ Ver Análisis</button>
-            <button class="fa-expand-btn solo-principiante" onclick="faToggleLevel('${id}','aprender')" id="fa-btn-aprender-${id}">📖 Aprender</button>
-            <button class="fa-expand-btn" onclick="faToggleLevel('${id}','ejecutar')" id="fa-btn-ejecutar-${id}">▶ Cómo Ejecutar</button>
-            <button class="fa-expand-btn" onclick="faToggleLevel('${id}','monitorear')" id="fa-btn-monitorear-${id}">👁 Qué Monitorear</button>
+            <button class="fa-expand-btn" onclick="toggleNivel(this)">📊 Ver Análisis</button>
+            <button class="fa-expand-btn solo-principiante" onclick="toggleNivel(this)">🎓 Aprender</button>
+            <button class="fa-expand-btn" onclick="toggleNivel(this)">⚡ Cómo Ejecutar</button>
+            <button class="fa-expand-btn" onclick="toggleNivel(this)">👁 Monitorear</button>
           </div>
         </div>
 
-        <!-- NIVEL 2 — Análisis con pesos -->
-        <div class="fa-level-panel" id="fa-lvl-analisis-${id}">
+        <!-- N2: Análisis -->
+        <div class="fa-level-panel" style="height:0">
           <div class="fa-level-inner">
             <div class="fa-level-title">¿Por qué esta señal?</div>
+            <div class="fa-section-label">━━ TÉCNICO: ${Math.round(scoresTec)}/60 ━━━━━━━━━</div>
+            ${generarFilaIndicador('RSI Multi-temporalidad', Math.round(scoreMap.rsi??0), 20,
+              `4H: ${ind.rsi4h?.toFixed(0)??'N/D'} · 1D: ${ind.rsi1d?.toFixed(0)??'N/D'} · Semanal: ${ind.rsi1w?.toFixed(0)??'N/D'}`,
+              explicarRSI(ind.rsi1d))}
+            ${generarFilaIndicador('MACD + Divergencias', Math.round(scoreMap.macd??0), 12,
+              ind.macd ? `Cruce: ${ind.macd.cruce} · Histograma: ${ind.macd.histograma>0?'▲ Positivo':'▼ Negativo'}` : 'Sin datos',
+              explicarMACD(ind.macd))}
+            ${generarFilaIndicador('EMA 20 / 50 / 200', Math.round(scoreMap.emas??0), 10,
+              ind.ema20 ? `EMA20: $${ind.ema20.toFixed(0)} · EMA50: $${ind.ema50?.toFixed(0)??'N/D'}` : 'Sin datos',
+              'Las EMAs son promedios móviles. Precio sobre todas las EMAs ordenadas = tendencia alcista sólida.')}
+            ${generarFilaIndicador('Bandas de Bollinger', Math.round(scoreMap.bollinger??0), 8,
+              ind.bollinger ? `Zona: ${ind.bollinger.zona} · Posición: ${(ind.bollinger.posicion*100).toFixed(0)}%${ind.bollinger.squeeze?' · ⚡ SQUEEZE':''}` : 'Sin datos',
+              explicarBollinger(ind.bollinger))}
+            ${generarFilaIndicador('Soporte / Resistencia', Math.round(scoreMap.soportes??0), 10,
+              ind.soportes?.soportes?.[0] ? `Soporte: $${ind.soportes.soportes[0].nivel.toFixed(0)} (fuerza ${ind.soportes.soportes[0].fuerza})` : 'Sin soporte identificado',
+              'Los soportes son niveles donde compradores aparecieron antes. Si el precio rebota desde el soporte, es señal de entrada.')}
+            ${generarFilaIndicador(`Patrón: ${ind.patron?.patron||'Sin patrón'}`, Math.round(scoreMap.patron??0), 10,
+              ind.patron?.descripcion||'Sin datos',
+              explicarPatron(ind.patron))}
 
-            <div class="fa-section-label">━━ TÉCNICO: ${sc.technical}/50 ━━━━━━━━━━</div>
-            ${indRow('RSI Multi-temporalidad', Math.round(sc.rsiScore), 20, rsiDetail, rsiEdu)}
-            ${indRow('MACD + Divergencias',    Math.round(sc.macdScore), 12, macdDetail, macdEdu)}
-            ${indRow('EMA 20/50/200',          Math.round(sc.emaScore), 10, emaDetail, emaEdu)}
-            ${indRow('Bandas de Bollinger',    Math.round(sc.bbScore), 8, bbDetail, bbEdu)}
-            ${indRow('Soporte / Resistencia',  Math.round(sc.srScore), 10, srDetail, srEdu)}
-            ${indRow('Patrón de Velas',        Math.round(sc.candleScore), 10, sc.candle.desc, candleEdu)}
+            <div class="fa-section-label" style="margin-top:20px">━━ SENTIMIENTO: ${Math.round(scoresSen)}/50 ━━━━━━</div>
+            ${generarFilaIndicador('Índice Miedo y Codicia', Math.round(scoreMap.fearGreed??0), 20,
+              JCAHS_STATE.fearGreed!==null ? `${JCAHS_STATE.fearGreed} — ${fngLabel(JCAHS.fng?.label||'')}` : 'Sin datos',
+              explicarFearGreed(JCAHS_STATE.fearGreed))}
+            ${generarFilaIndicador('Volumen Relativo', Math.round(scoreMap.volumen??0), 15,
+              t100 ? `Vol: ${fmtLg(t100.total_volume)} · Cap: ${fmtLg(t100.market_cap)}` : 'Sin datos',
+              'Volumen alto confirma interés real. Una señal técnica sin volumen es poco confiable.')}
+            ${generarFilaIndicador('Tendencia 24h', Math.round(scoreMap.tendencia??0), 10,
+              ind.cambio24h!=null ? `${ind.cambio24h>=0?'+':''}${ind.cambio24h.toFixed(2)}%` : 'Sin datos',
+              ind.cambio24h!=null&&ind.cambio24h<-3 ? 'La caída de hoy puede crear la oportunidad. Las otras señales sugieren que es temporal.' : undefined)}
+            ${generarFilaIndicador('Dominancia BTC', Math.round(scoreMap.dominancia??0), 5,
+              JCAHS_STATE.dominanciaBTC!=null ? `${JCAHS_STATE.dominanciaBTC.toFixed(1)}%` : 'Sin datos')}
 
-            <div class="fa-section-label">━━ SENTIMIENTO: ${sc.sentiment}/50 ━━━━━━</div>
-            ${indRow('Índice Miedo y Codicia (Fear &amp; Greed)', Math.round(sc.fngScore), 20, sc.fngVal != null ? `${sc.fngVal} — ${fngLabel(JCAHS.fng?.label || '')}` : 'Sin datos', fngEdu)}
-            ${indRow('Volumen Relativo', Math.round(sc.volScore), 15, JCAHS.top100.find(c=>c.id===id) ? `Vol 24h: ${fmtLg(JCAHS.top100.find(c=>c.id===id).total_volume)}` : 'Sin datos', volEdu)}
-            ${indRow('Tendencia 24h', Math.round(sc.trendScore), 10, sc.chg24 != null ? `${sc.chg24 >= 0 ? '+' : ''}${sc.chg24.toFixed(2)}%` : 'Sin datos', trendEdu || undefined)}
-            ${indRow('Dominancia BTC', Math.round(sc.domScore), 5, JCAHS.dom != null ? `${JCAHS.dom.toFixed(1)}%` : 'Sin datos')}
-
-            ${strat.tp1 ? `
-            <div class="fa-section-label" style="margin-top:20px">━━ GESTIÓN DE CAPITAL ━━━━━━━━━━━</div>
+            <div class="fa-section-label" style="margin-top:20px">━━ GESTIÓN DE CAPITAL ━━━━━━━━━━</div>
             <div class="fa-capital-table">
-              <div class="fa-capital-row"><span>Capital actual</span><span>$${bankroll}</span></div>
-              <div class="fa-capital-row"><span>Capital sugerido</span><span class="pos">$${capUSD} (${kellyPct.toFixed(1)}%)</span></div>
-              <div class="fa-capital-row"><span>Apalancamiento</span><span>${strat.lev || 'Sin apalancamiento'}</span></div>
-              <div class="fa-capital-row"><span>Ganancia Objetivo 1</span><span class="pos">+$${gain1}</span></div>
-              <div class="fa-capital-row"><span>Ganancia Objetivo 2</span><span class="pos">+$${gain2}</span></div>
-              <div class="fa-capital-row"><span>Riesgo máximo</span><span class="neg">-$${lossMax}</span></div>
-              <div class="fa-capital-row"><span>Ratio R/B</span><span>1:${strat.rr?.toFixed(1) || '--'}</span></div>
-              <div class="fa-capital-row"><span>Comisión estimada</span><span class="neg">-$${commUSD}</span></div>
-              <div class="fa-capital-row"><span>Horizonte temporal</span><span>${strat.horizon || '--'}</span></div>
-            </div>` : ''}
+              <div class="fa-capital-row"><span>Capital actual</span><span>$${JCAHS_STATE.bankroll}</span></div>
+              <div class="fa-capital-row"><span>Capital sugerido</span><span class="pos" data-campo="capitalSugerido">$${ficha.capitalSugerido} (${(parseFloat(ficha.capitalSugerido)/JCAHS_STATE.bankroll*100).toFixed(1)}%)</span></div>
+              <div class="fa-capital-row"><span>Apalancamiento sugerido</span><span>${ficha.lev}</span></div>
+              <div class="fa-capital-row"><span>Ganancia neta Obj. 1</span><span class="pos" data-campo="gananciaNetaObj1">+$${ficha.gananciaNetaObj1}</span></div>
+              <div class="fa-capital-row"><span>Ganancia neta Obj. 2</span><span style="color:#00CC66" data-campo="gananciaNetaObj2">+$${ficha.gananciaNetaObj2}</span></div>
+              <div class="fa-capital-row"><span>Riesgo máximo</span><span class="neg" data-campo="riesgoMaximo">-$${ficha.riesgoMaximo}</span></div>
+              <div class="fa-capital-row"><span>Ratio Riesgo/Beneficio</span><span style="color:${parseFloat(ficha.ratioRB)>=2?'var(--accent)':'#FBBF24'}" data-campo="ratioRB">1:${ficha.ratioRB} ${parseFloat(ficha.ratioRB)>=2?'✅':'⚠️'}</span></div>
+              <div class="fa-capital-row"><span>Comisión ${instruccs.nombre}</span><span class="neg" data-campo="comisionTotal">-$${ficha.comisionTotal}</span></div>
+              <div class="fa-capital-row"><span>Probabilidad estimada</span><span data-campo="prob">${ficha.prob}%</span></div>
+            </div>
+
+            <div style="margin-top:20px">
+              <div style="font-family:var(--f-ui);font-size:18px;color:var(--text-muted);margin-bottom:10px;letter-spacing:2px;text-transform:uppercase">Exchange</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                ${['binance','bybit','kucoin','kraken'].map(ex=>`
+                  <button class="fa-exch-tab${ficha.exchange===ex?' active':''}"
+                          onclick="cambiarExchange('${ex}','${sym}',this)">${ex.toUpperCase()}</button>`).join('')}
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- NIVEL 3 — Aprender (solo principiante) -->
-        <div class="fa-level-panel solo-principiante" id="fa-lvl-aprender-${id}">
+        <!-- N3: Aprender (solo principiante) -->
+        <div class="fa-level-panel solo-principiante" style="height:0">
           <div class="fa-level-inner">
-            <div class="fa-level-title">Aprende esta estrategia</div>
-
-            <div style="font-family:var(--f-ui);font-size:22px;font-weight:700;color:var(--text);margin-bottom:10px">¿Qué es ${strat.type.includes('LONG') ? 'un Swing Trade' : 'una operación en corto (Short)'}?</div>
+            <div class="fa-level-title">🎓 Aprende Esta Estrategia</div>
+            <div style="font-family:var(--f-ui);font-size:22px;font-weight:700;margin-bottom:10px">¿Qué es ${ficha.dir==='LONG'?'un Swing Trade?':'una operación en corto (Short)?'}</div>
             <div class="fa-ind-edu" style="font-size:20px;line-height:1.7;margin-bottom:20px">
-              ${strat.type.includes('LONG') ? 'Es una operación que dura entre 2 y 7 días. No necesitas estar mirando la pantalla todo el tiempo. Pones tus órdenes y el mercado trabaja para ti. Ideal para personas con trabajo o estudios.' : 'Una operación en corto gana dinero cuando el precio baja. Es más avanzada y requiere futuros o margen. Solo usar con apalancamiento bajo y stop loss siempre definido.'}
+              ${ficha.dir==='LONG'
+                ? 'Es una operación que dura entre 2 y 7 días. No necesitas estar mirando la pantalla todo el tiempo. Pones tus órdenes y el mercado trabaja para ti. Ideal para personas con trabajo o estudios.'
+                : 'Una operación en corto gana cuando el precio baja. Requiere futuros o margen. Solo usar con apalancamiento bajo y stop loss siempre definido. Es más avanzada que una compra normal.'}
             </div>
-
-            <div style="font-family:var(--f-ui);font-size:22px;font-weight:700;color:var(--text);margin-bottom:10px">¿Qué es el RSI?</div>
-            <div class="fa-ind-edu" style="font-size:20px;line-height:1.7;margin-bottom:12px">El RSI (Índice de Fuerza Relativa) mide qué tan rápido subió o bajó el precio. Cuando está bajo 30, el precio bajó muy rápido y estadísticamente tiende a recuperarse. No es garantía, pero la probabilidad histórica es favorable.</div>
+            <div style="font-family:var(--f-ui);font-size:22px;font-weight:700;margin-bottom:10px">¿Qué es el RSI?</div>
+            <div class="fa-ind-edu" style="font-size:20px;line-height:1.7;margin-bottom:12px">${explicarRSI(ind.rsi1d)}</div>
             <div class="fa-svg-wrap">${SVG_RSI}</div>
-            <div style="font-family:var(--f-mono);font-size:17px;color:var(--text-muted);text-align:center;margin-bottom:20px">RSI actual: ${sc.rsi1d ?? 'Sin datos'}</div>
-
-            <div style="font-family:var(--f-ui);font-size:22px;font-weight:700;color:var(--text);margin-bottom:10px">¿Qué es el MACD?</div>
-            <div class="fa-ind-edu" style="font-size:20px;line-height:1.7;margin-bottom:12px">El MACD detecta cambios de momentum. Cuando la línea verde cruza hacia arriba la línea naranja, indica que la fuerza compradora está tomando el control.</div>
+            <div style="font-family:var(--f-mono);font-size:17px;color:var(--text-muted);text-align:center;margin-bottom:20px">RSI 1D actual: <strong>${ind.rsi1d?.toFixed(0)??'Sin datos'}</strong></div>
+            <div style="font-family:var(--f-ui);font-size:22px;font-weight:700;margin-bottom:10px">¿Qué es el MACD?</div>
+            <div class="fa-ind-edu" style="font-size:20px;line-height:1.7;margin-bottom:12px">${explicarMACD(ind.macd)}</div>
             <div class="fa-svg-wrap">${SVG_MACD}</div>
-
-            ${sc.candle.pattern ? `
-            <div style="font-family:var(--f-ui);font-size:22px;font-weight:700;color:var(--text);margin-top:16px;margin-bottom:10px">Patrón detectado: ${sc.candle.pattern}</div>
-            <div class="fa-svg-wrap">${sc.candle.pattern.includes('MARTILLO') ? SVG_HAMMER : sc.candle.pattern.includes('ENGULFING') ? SVG_ENGULFING : ''}</div>
-            <div class="fa-ind-edu" style="font-size:20px;line-height:1.7">${sc.candle.desc}</div>` : ''}
-
-            <div style="font-family:var(--f-ui);font-size:22px;font-weight:700;color:var(--text);margin-top:20px;margin-bottom:10px">¿Qué es el Stop Loss?</div>
-            <div class="fa-ind-edu" style="font-size:20px;line-height:1.7">Es tu protección. Si el precio baja a ${strat.sl ? pFmt(strat.sl) : '--'} en lugar de subir, el sistema cierra tu operación automáticamente. Limita tu pérdida máxima a -$${lossMax}. <strong>NUNCA operes sin Stop Loss.</strong></div>
+            ${ind.patron?.patron&&ind.patron.patron!=='SIN PATRÓN CLARO'?`
+            <div style="font-family:var(--f-ui);font-size:22px;font-weight:700;margin:16px 0 10px">Patrón detectado: ${ind.patron.patron}</div>
+            ${ind.patron.patron.includes('MARTILLO')?`<div class="fa-svg-wrap">${SVG_HAMMER}</div>`:''}
+            ${ind.patron.patron.includes('ENGULFING')?`<div class="fa-svg-wrap">${SVG_ENGULFING}</div>`:''}
+            <div class="fa-ind-edu" style="font-size:20px">${explicarPatron(ind.patron)}</div>`:''}
+            <div style="font-family:var(--f-ui);font-size:22px;font-weight:700;margin-top:20px;margin-bottom:10px">¿Qué es el Stop Loss?</div>
+            <div class="fa-ind-edu" style="font-size:20px;line-height:1.7">Es tu protección. Si el precio baja a <strong>$${ficha.stopLoss}</strong>, el sistema cierra la operación automáticamente. Limita tu pérdida máxima a -$${ficha.riesgoMaximo}. <strong>NUNCA operes sin Stop Loss.</strong></div>
           </div>
         </div>
 
-        <!-- NIVEL 4 — Cómo ejecutar -->
-        <div class="fa-level-panel" id="fa-lvl-ejecutar-${id}">
+        <!-- N4: Cómo ejecutar -->
+        <div class="fa-level-panel" style="height:0">
           <div class="fa-level-inner">
-            <div class="fa-level-title">Cómo abrir esta operación</div>
-            <div class="fa-exchange-tabs">
-              ${['BINANCE','BYBIT','KUCOIN','KRAKEN'].map((ex,i)=>`<button class="fa-exch-tab${i===0?' active':''}" onclick="faSelectExchange('${id}','${ex}',this)">${ex}</button>`).join('')}
+            <div class="fa-level-title">⚡ Cómo Abrir Esta Operación en ${instruccs.nombre}</div>
+            ${instruccs.pasos.map((p,i)=>`
+              <div class="fa-step">
+                <div class="fa-step-num">${i+1}</div>
+                <div class="fa-step-body">${p}</div>
+              </div>`).join('')}
+            <div style="color:#FBBF24;font-family:var(--f-ui);font-size:20px;margin:16px 0;padding:14px;background:rgba(251,191,36,0.06);border-radius:8px;border-left:3px solid #FBBF24">
+              ⚠️ ${instruccs.advertencia}
             </div>
-            <div id="fa-exch-steps-${id}">${exchangeInstructions['BINANCE']}</div>
-            <div style="margin-top:16px;font-family:var(--f-mono);font-size:18px;color:var(--text-muted)">Comisión estimada (Binance 0.1%×2): <span class="neg">-$${commUSD}</span></div>
+            <div style="font-family:var(--f-mono);font-size:18px;color:var(--text-muted);margin-bottom:16px">
+              Comisión ${instruccs.nombre}: <span class="neg">-$${ficha.comisionTotal}</span> (${instruccs.comisionTexto})
+            </div>
+            <a href="${instruccs.url}" target="_blank" rel="noopener noreferrer"
+               style="display:block;padding:16px;background:var(--accent);color:#000;border-radius:10px;text-align:center;font-family:var(--f-display);font-size:18px;font-weight:900;letter-spacing:2px;text-decoration:none;margin-top:8px">
+              ABRIR EN ${instruccs.nombre.toUpperCase()} →
+            </a>
           </div>
         </div>
 
-        <!-- NIVEL 5 — Qué monitorear -->
-        <div class="fa-level-panel" id="fa-lvl-monitorear-${id}">
+        <!-- N5: Monitorear -->
+        <div class="fa-level-panel" style="height:0">
           <div class="fa-level-inner">
-            <div class="fa-level-title">Señales de seguimiento</div>
-
+            <div class="fa-level-title">👁 Señales de Seguimiento</div>
             <div class="fa-monitor-block">
               <div class="fa-monitor-title" style="color:var(--alert)">🔴 Salir inmediatamente si:</div>
-              ${strat.sl ? `<div class="fa-monitor-item">El precio rompe y cierra bajo ${pFmt(strat.sl)} (Stop Loss)</div>` : ''}
-              <div class="fa-monitor-item">El volumen cae más del 50% de repente sin movimiento de precio</div>
-              <div class="fa-monitor-item">Noticia negativa importante sobre la moneda o el mercado cripto</div>
+              <div class="fa-monitor-item">El precio rompe y cierra bajo $${ficha.stopLoss} (Stop Loss actúa automáticamente)</div>
+              <div class="fa-monitor-item">Noticia negativa importante sobre ${sym} o el mercado cripto</div>
+              <div class="fa-monitor-item">El volumen cae más del 60% de repente sin llegar al objetivo</div>
             </div>
-
             <div class="fa-monitor-block">
               <div class="fa-monitor-title" style="color:#FBBF24">🟡 Precaución si:</div>
-              ${strat.tp1 ? `<div class="fa-monitor-item">El precio llega a Objetivo 1 (${pFmt(strat.tp1)}) pero RSI supera 65 — considera salida parcial</div>` : ''}
-              <div class="fa-monitor-item">Han pasado 5 días sin movimiento significativo — reevaluar la tesis</div>
-              <div class="fa-monitor-item">El Índice Miedo/Codicia sube a 75+ — mercado puede estar sobreextendido</div>
+              <div class="fa-monitor-item">Llevas ${ficha.hor} sin llegar al Objetivo 1 — reevaluar la tesis</div>
+              <div class="fa-monitor-item">RSI supera 65 sin haber llegado al objetivo — considera salida parcial del 50%</div>
+              <div class="fa-monitor-item">Fear & Greed sube sobre 70 — mercado sobreoptimista, proteger ganancias</div>
             </div>
-
             <div class="fa-monitor-block">
               <div class="fa-monitor-title" style="color:var(--accent)">🟢 Buenas señales si:</div>
-              ${strat.tp1 ? `<div class="fa-monitor-item">Precio llega a Objetivo 1 (${pFmt(strat.tp1)}) → mover Stop Loss al precio de entrada → operación sin riesgo desde ese punto</div>` : ''}
+              <div class="fa-monitor-item">Precio llega a Objetivo 1 ($${ficha.tp1}) → <strong>mover Stop Loss al precio de entrada</strong> → operación sin riesgo</div>
               <div class="fa-monitor-item">Volumen aumenta mientras el precio sube → señal de continuación confirmada</div>
-              <div class="fa-monitor-item">RSI se mantiene bajo 60 mientras el precio sube → espacio para continuar</div>
+              <div class="fa-monitor-item">MACD histograma sigue creciendo → mantener posición con confianza</div>
             </div>
-
             <div class="fa-monitor-block">
-              <div class="fa-monitor-title" style="color:var(--text)">⏰ ¿Cada cuánto revisar?</div>
-              <div class="fa-monitor-item solo-principiante">Swing trade: cada 12-24 horas es suficiente. No mires el precio cada 5 minutos — las emociones arruinan operaciones.</div>
-              <div class="fa-monitor-item solo-experto">Swing: revisar en apertura/cierre diario · Precio de liquidación: ${strat.sl ? pFmt(strat.sl) : '--'}</div>
+              <div class="fa-monitor-title" style="color:var(--text)">⏰ Frecuencia de revisión</div>
+              <div class="fa-monitor-item solo-principiante">${ficha.hor.includes('Scalping')?'Scalping requiere atención continua. Solo operar si puedes dedicarle 1-4 horas.':ficha.hor.includes('días')?'Swing: revisar cada 12-24 horas es suficiente. No mires el precio cada 5 minutos — las emociones arruinan buenas operaciones.':'Posición de largo plazo: revisar cada 2-3 días. La paciencia es tu mayor ventaja.'}</div>
+              <div class="fa-monitor-item solo-experto">Horizonte: ${ficha.hor} · SL: $${ficha.stopLoss} · TP1: $${ficha.tp1} · TP2: $${ficha.tp2}</div>
             </div>
-
-            <button onclick="openRegisterFromCalc && openRegisterFromCalc({tipo:'CRYPTO',descripcion:'${sym} ${strat.type}',stake:${capUSD},odd:null})"
-                    style="width:100%;margin-top:20px;padding:16px;background:var(--accent-dim);border:1px solid var(--border);border-radius:10px;font-family:var(--f-display);font-size:18px;font-weight:900;letter-spacing:2px;color:var(--accent);cursor:pointer">
+            <button onclick="openRegisterFromCalc&&openRegisterFromCalc({tipo:'CRYPTO',descripcion:'${sym} ${ficha.tipo}',stake:${ficha.capitalSugerido}})"
+                    style="width:100%;margin-top:16px;padding:16px;background:var(--accent-dim);border:1px solid var(--border);border-radius:10px;font-family:var(--f-display);font-size:18px;font-weight:900;letter-spacing:2px;color:var(--accent);cursor:pointer">
               ✅ REGISTRAR EN HISTORIAL
             </button>
           </div>
         </div>
 
-      </div><!-- /fa-card -->`;
+        <div style="font-size:16px;color:var(--text-muted);text-align:right;padding:8px 28px 12px;font-family:var(--f-mono)">
+          Fuente: CoinGecko OHLC · <span class="timestamp-fa">${new Date().toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'})}</span>
+        </div>
+      </div>`;
     }
 
-    // ── Panel toggle (GSAP) ─────────────────────────────────────
-    const _faOpen = {}; // { coinId_levelName: boolean }
+    // ── Toggle nivel con GSAP ────────────────────────────────────
+    function toggleNivel(btn) {
+      const card  = btn.closest('.fa-card');
+      if (!card) return;
+      // Find the corresponding panel (btn's index within fa-expand-btns maps to panel)
+      const btns   = [...card.querySelectorAll('.fa-expand-btn')];
+      const panels = [...card.querySelectorAll('.fa-level-panel')];
+      const idx    = btns.indexOf(btn);
+      if (idx < 0 || idx >= panels.length) return;
+      const panel = panels[idx];
 
-    function faToggleLevel(coinId, level) {
-      const key    = `${coinId}_${level}`;
-      const panel  = document.getElementById(`fa-lvl-${level}-${coinId}`);
-      const btn    = document.getElementById(`fa-btn-${level}-${coinId}`);
-      if (!panel) return;
-      const open = _faOpen[key];
-      _faOpen[key] = !open;
-      if (btn) { btn.classList.toggle('open', !open); btn.textContent = btn.textContent.replace(/[▼▲]/,''); btn.textContent = (_faOpen[key] ? '▲ ' : '▼ ') + btn.textContent.trim().replace(/^[▼▲]\s*/,''); }
-      if (_faOpen[key]) {
-        panel.style.height = 'auto';
+      const isOpen = panel.style.height !== '0px' && panel.style.height !== '0' && panel.style.height !== '';
+      // Close all panels
+      panels.forEach(p => { if (typeof gsap!=='undefined') gsap.to(p,{height:0,duration:0.3,ease:'power2.in'}); else p.style.height='0'; });
+      btns.forEach(b => b.classList.remove('open'));
+
+      if (!isOpen) {
+        btn.classList.add('open');
         const h = panel.scrollHeight;
-        panel.style.height = '0';
-        if (typeof gsap !== 'undefined') gsap.to(panel, { height: h, duration: 0.45, ease: 'power2.out', onComplete: () => { panel.style.height = 'auto'; } });
+        if (typeof gsap!=='undefined')
+          gsap.to(panel,{height:h,duration:0.45,ease:'power2.out',onComplete:()=>{panel.style.height='auto';}});
         else panel.style.height = 'auto';
-      } else {
-        if (typeof gsap !== 'undefined') gsap.to(panel, { height: 0, duration: 0.35, ease: 'power2.in' });
-        else panel.style.height = '0';
       }
     }
 
-    function faSelectExchange(coinId, exchange, btnEl) {
-      const stepsEl = document.getElementById(`fa-exch-steps-${coinId}`);
-      if (!stepsEl) return;
-      btnEl.closest('.fa-exchange-tabs').querySelectorAll('.fa-exch-tab').forEach(b => b.classList.remove('active'));
-      btnEl.classList.add('active');
-      // Find the ficha data
-      const ficha = _fichas.find(f => f.id === coinId);
-      if (!ficha?._instrucciones) return;
-      stepsEl.innerHTML = ficha._instrucciones[exchange] || '<div class="fa-step"><div class="fa-step-num">—</div><div class="fa-step-body">Pasos para este exchange próximamente.</div></div>';
+    function cambiarExchange(exch, sym, btnEl) {
+      JCAHS_STATE.exchange = exch;
+      localStorage.setItem('jcahs_exchange', exch);
+      // Update buttons in this card
+      btnEl.closest('.fa-level-inner')?.querySelectorAll('.fa-exch-tab').forEach(b => b.classList.toggle('active', b.textContent.toLowerCase()===exch));
+      // Recalculate and re-render affected ficha
+      recalcularTodo();
     }
 
-    // ── Fetch & analyze ─────────────────────────────────────────
-    let _fichas = [];
+    // ── Notifications ────────────────────────────────────────────
+    function notificarCambioImportante(msg, tipo) {
+      const n = document.createElement('div');
+      n.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:9999;padding:16px 24px;background:var(--bg-mid);border:1px solid ${tipo==='alerta'?'var(--alert)':'var(--accent)'};border-radius:10px;font-family:var(--f-ui);font-size:18px;color:var(--text);max-width:360px;line-height:1.5`;
+      n.textContent = '🔔 ' + msg;
+      document.body.appendChild(n);
+      if (typeof gsap!=='undefined') {
+        gsap.from(n,{x:80,opacity:0,duration:0.4,ease:'power2.out'});
+        setTimeout(()=>gsap.to(n,{x:80,opacity:0,duration:0.35,ease:'power2.in',onComplete:()=>n.remove()}), 5000);
+      } else { setTimeout(()=>n.remove(), 5000); }
+    }
 
-    async function fetchAnalysisData(coin) {
+    // ── Fetch OHLC for analysis ──────────────────────────────────
+    async function fetchOHLCAnalis(coinId, days) {
       try {
-        const [r30, r7] = await Promise.allSettled([
-          fetchWithTimeout(`https://api.coingecko.com/api/v3/coins/${coin.id}/ohlc?vs_currency=usd&days=30`),
-          fetchWithTimeout(`https://api.coingecko.com/api/v3/coins/${coin.id}/ohlc?vs_currency=usd&days=7`)
-        ]);
-        const ohlc30 = r30.status === 'fulfilled' ? await r30.value.json() : null;
-        const ohlc7  = r7.status  === 'fulfilled' ? await r7.value.json()  : null;
-
-        const priceData = JCAHS.prices[coin.id];
-        const price     = priceData?.usd || null;
-        const chg24     = priceData?.usd_24h_change ?? null;
-
-        coin._analysisData = {
-          ohlc30: Array.isArray(ohlc30) ? ohlc30 : null,
-          ohlc7:  Array.isArray(ohlc7)  ? ohlc7  : null,
-          price, chg24,
-          fng: JCAHS.fng,
-          dom: JCAHS.dom,
-          isAlt: coin.id !== 'bitcoin'
-        };
-      } catch(e) {
-        console.warn(`Analysis fetch for ${coin.id}:`, e);
-        coin._analysisData = null;
-      }
+        const r = await fetchWithTimeout(`https://api.coingecko.com/api/v3/coins/${coinId}/ohlc?vs_currency=usd&days=${days}`);
+        const d = await r.json();
+        return Array.isArray(d) ? d : null;
+      } catch(e) { return null; }
     }
 
-    async function runAnalysis() {
+    // ── recalcularTodo ───────────────────────────────────────────
+    async function recalcularTodo() {
       const el = document.getElementById('analisis-fichas');
       if (!el) return;
-      el.innerHTML = '<div class="fa-loading">⚡ Calculando señales con datos reales de CoinGecko...</div>';
 
-      const COINS = [
-        { id:'bitcoin',  sym:'BTC', name:'Bitcoin'  },
-        { id:'ethereum', sym:'ETH', name:'Ethereum' },
-        { id:'solana',   sym:'SOL', name:'Solana'   },
-        { id:'ripple',   sym:'XRP', name:'XRP'      }
-      ];
+      syncStateFromJCAHS();
 
-      // Fetch in parallel
-      await Promise.allSettled(COINS.map(c => fetchAnalysisData(c)));
+      // Fetch OHLC if not cached or stale
+      const now = Date.now();
+      const stale30  = !JCAHS_STATE.ultimaActualizacion.ohlc30  || now - JCAHS_STATE.ultimaActualizacion.ohlc30  > 300000;
+      const stale4h  = !JCAHS_STATE.ultimaActualizacion.ohlc4h  || now - JCAHS_STATE.ultimaActualizacion.ohlc4h  > 14400000;
 
-      // Score & sort
-      const scored = COINS.map(c => {
-        const sc    = buildScores(c);
-        const price = c._analysisData?.price || 0;
-        const strat = sc ? determineStrategy(sc.total, price) : { type:'ESPERAR', cls:'esperar', color:'var(--text-muted)' };
-        return { ...c, sc, strat, price };
-      }).filter(c => c.sc && c.strat.type !== 'ESPERAR').sort((a, b) => b.sc.total - a.sc.total);
+      if (stale30 || stale4h) {
+        el.innerHTML = '<div class="fa-loading">⚡ Cargando datos de mercado (CoinGecko OHLC)...</div>';
+        await Promise.allSettled(COINS_ANALISIS.map(async ({ id, sym }) => {
+          if (!JCAHS_STATE.ohlc[sym]) JCAHS_STATE.ohlc[sym] = {};
+          if (stale30) {
+            const d = await fetchOHLCAnalis(id, 30);
+            if (d) { JCAHS_STATE.ohlc[sym].d30 = d; JCAHS_STATE.ultimaActualizacion.ohlc30 = now; }
+          }
+          if (stale4h) {
+            const d = await fetchOHLCAnalis(id, 7);
+            if (d) { JCAHS_STATE.ohlc[sym].h4  = d; JCAHS_STATE.ultimaActualizacion.ohlc4h  = now; }
+          }
+        }));
+      }
 
-      _fichas = scored;
+      // Score and strategy
+      const prevScores = {};
+      const fichas = [];
 
-      if (!scored.length) {
-        el.innerHTML = '<div class="fa-loading">Sin señales claras en este momento. El mercado está en zona neutral (45-54 puntos). Vuelve más tarde.</div>';
+      COINS_ANALISIS.forEach(({ sym }) => {
+        if (!JCAHS_STATE.indicadores[sym]) JCAHS_STATE.indicadores[sym] = {};
+        prevScores[sym] = JCAHS_STATE.indicadores[sym]?.scoreTotal ?? null;
+        const score  = calcularScoreTotal(sym);
+        const precio = JCAHS_STATE.precios[sym];
+        if (!precio) return;
+        const ficha  = determinarEstrategia(score, precio, sym);
+        if (ficha) {
+          const sc = JCAHS_STATE.indicadores[sym];
+          const scores = sc.scores || {};
+          fichas.push({
+            ...ficha,
+            _sc: {
+              rsiScore:sc.scoreTotal, macdScore:scores.macd??0,
+              emaScore:scores.emas??0, bbScore:scores.bollinger??0,
+              srScore:scores.soportes??0, candleScore:scores.patron??0,
+              fngScore:scores.fearGreed??0, volScore:scores.volumen??0,
+              trendScore:scores.tendencia??0, domScore:scores.dominancia??0,
+              rsi1d:sc.rsi1d, rsi4h:sc.rsi4h, rsi1w:sc.rsi1w,
+              macd:sc.macd, ema20:sc.ema20, ema50:sc.ema50, ema200:sc.ema200,
+              bollinger:sc.bollinger, soportes:sc.soportes, patron:sc.patron
+            }
+          });
+
+          // Notify if score changed category
+          if (prevScores[sym] !== null && obtenerCategoria(prevScores[sym]) !== obtenerCategoria(score))
+            notificarCambioImportante(`${sym} cambió a ${ficha.tipo}`, 'señal');
+          if (prevScores[sym] !== null && score - prevScores[sym] > 10)
+            notificarCambioImportante(`${sym} score subió ${score - prevScores[sym]} puntos (${prevScores[sym]}→${score})`, 'alza');
+        }
+      });
+
+      // Notify F&G if reached extreme
+      if (JCAHS_STATE.fearGreed !== null && JCAHS_STATE.fearGreed <= 10)
+        notificarCambioImportante('Miedo Extremo — Zona histórica de compra (índice ≤10)', 'alerta');
+
+      fichas.sort((a,b)=>b.score-a.score);
+
+      if (!fichas.length) {
+        el.innerHTML = '<div class="fa-loading">Mercado en zona neutral (45-54 pts). Sin señales claras ahora. Vuelve más tarde.</div>';
         return;
       }
 
-      el.innerHTML = scored.slice(0, 6).map((c, i) => buildFichaHTML(c, c.sc, c.strat, i) || '').filter(Boolean).join('');
+      el.innerHTML = fichas.slice(0,6).map((f,i) => {
+        // Rebuild sc object for generarHTMLFicha
+        const sc = f._sc;
+        return generarHTMLFicha(f, sc, i);
+      }).join('');
     }
 
-    // Auto-run when section enters viewport
-    (function initAnalysisObserver() {
+    // ── SVG references (from existing globals) ───────────────────
+    // SVG_HAMMER, SVG_ENGULFING, SVG_RSI, SVG_MACD already defined above
+
+    // ── Init: observer + intervals ───────────────────────────────
+    (function initAnalisisObserver() {
       const el = document.getElementById('analisis');
       if (!el) return;
       let ran = false;
       const obs = new IntersectionObserver(entries => {
         if (entries[0].isIntersecting && !ran) {
           ran = true;
-          // Wait for prices to load first
-          const tryRun = () => Object.keys(JCAHS.prices).length ? runAnalysis() : setTimeout(tryRun, 1000);
+          const tryRun = () => Object.keys(JCAHS.prices).length ? recalcularTodo() : setTimeout(tryRun, 1000);
           tryRun();
           obs.disconnect();
         }
@@ -8386,15 +8490,19 @@
       obs.observe(el);
     })();
 
-    // Refresh every 5 minutes
-    setInterval(() => { if (document.getElementById('analisis-fichas')?.children.length > 0 && !document.getElementById('analisis-fichas').querySelector('.fa-loading')) runAnalysis(); }, 300000);
+    setInterval(() => {
+      const el = document.getElementById('analisis-fichas');
+      if (el && el.children.length && !el.querySelector('.fa-loading'))
+        recalcularTodo();
+    }, 300000);
+
 
     // JCAHS v2.0 — Rediseño completo
     // Partes: 1-Base/Hero | 2-Dashboard/Crypto/Deportes
     //         3-Historial/IA | 4-Mobile/Polish/Emergencia
     //         5-Top100/Fichas/Español | 6-Cards Cripto/Tipografía
     //         7-Calculadora Inteligente (Apuesta + Cripto)
-    //         10-Plataforma Educativa + Motor de Análisis
+    //         10-Plataforma Educativa + Sistema Reactivo de Análisis
     // Política: CERO datos inventados
     // Fuentes: CoinGecko | Alternative.me | football-data.org
     //          The Odds API | CoinDesk RSS | MyMemory
