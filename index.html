@@ -4077,6 +4077,77 @@
         flex-shrink: 0;
       }
     }
+
+    /* ================================================================
+       SPA LAYOUT — Una sección visible a la vez
+    ================================================================ */
+
+    /* El body es la columna flex principal */
+    html { height: 100%; overflow: hidden; }
+
+    body {
+      height: 100vh;
+      overflow: hidden !important;
+      display: flex !important;
+      flex-direction: column !important;
+      /* El padding-left mantiene el sidebar de 256px */
+    }
+
+    /* Topbar ocupa su alto fijo */
+    .ea-topbar {
+      flex-shrink: 0;
+      position: relative !important; /* quitar sticky — ya es el primero del flex */
+      z-index: 100;
+    }
+
+    /* Ticker siempre visible, sticky dentro del contenedor scrollable */
+    .ticker-wrap {
+      position: sticky !important;
+      top: 0;
+      z-index: 89;
+      flex-shrink: 0;
+    }
+
+    /* Área scrollable con las secciones */
+    #spa-content {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      scroll-behavior: smooth;
+    }
+
+    /* Vistas SPA — ocultas por defecto */
+    .spa-view {
+      display: none !important;
+      min-height: auto !important;
+    }
+
+    .spa-view.spa-active {
+      display: block !important;
+    }
+
+    /* Sección activa: padding cómodo sin exceso del navbar fijo anterior */
+    .spa-view.p2-section,
+    .spa-view.module-section {
+      padding-top: 48px !important;
+      min-height: calc(100vh - var(--topbar-h) - 54px) !important;
+    }
+
+    /* Topbar — título de sección activa */
+    .ea-topbar-section {
+      font-family: 'Inter', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      color: #d8e3fb;
+      letter-spacing: 0.3px;
+      flex: 1;
+      text-align: center;
+    }
+
+    @media (max-width: 600px) {
+      .ea-topbar-section { display: none; }
+    }
   </style>
 </head>
 
@@ -4205,26 +4276,27 @@
       <input type="search"
              placeholder="Buscar sección..."
              aria-label="Buscar sección"
-             onkeydown="if(event.key==='Enter'){
+             onkeydown="if(event.key==='Enter' && window.spaNavigateTo){
                const q=this.value.toLowerCase();
-               const secs=document.querySelectorAll('section[id]');
-               for(const s of secs){
-                 if(s.id.toLowerCase().includes(q)){
-                   s.scrollIntoView({behavior:'smooth'});
-                   this.value='';
-                   break;
-                 }
+               const map={'panel':'dashboard','cripto':'crypto','crypto':'crypto',
+                 'deporte':'deportes','calculadora':'calculadora','estrategia':'analisis',
+                 'historial':'historial','ia':'ia','asesor':'ia','emergencia':'emergencia'};
+               for(const[k,v] of Object.entries(map)){
+                 if(q.includes(k)){ spaNavigateTo(v); this.value=''; break; }
                }
              }">
     </div>
+
+    <!-- Título sección activa -->
+    <span class="ea-topbar-section" id="ea-section-title" aria-live="polite">Panel Principal</span>
 
     <!-- Controles derecha -->
     <div class="ea-topbar-right">
       <button class="ea-topbar-btn" title="Notificaciones" aria-label="Notificaciones">
         <span class="material-symbols-outlined">notifications</span>
       </button>
-      <button class="ea-topbar-btn" title="Configuración" aria-label="Configuración"
-              onclick="document.getElementById('historial').scrollIntoView({behavior:'smooth'})">
+      <button class="ea-topbar-btn" title="Historial" aria-label="Historial"
+              onclick="if(window.spaNavigateTo) spaNavigateTo('historial')">
         <span class="material-symbols-outlined">settings</span>
       </button>
       <span class="ea-topbar-time" id="ea-clock" aria-live="polite" aria-label="Hora actual">--:--:--</span>
@@ -4243,6 +4315,11 @@
       setInterval(tick, 1000);
     })();
   </script>
+
+  <!-- ============================================================
+       SPA CONTENT — Área scrollable con todas las vistas
+  ============================================================ -->
+  <div id="spa-content">
 
   <!-- ============================================================
        HERO SECTION
@@ -5098,6 +5175,8 @@
     </div><!-- /p2-inner -->
   </section>
 
+  </div><!-- /spa-content -->
+
   <!-- Day-close modal -->
   <div class="emg-modal-overlay" id="emg-modal-overlay">
     <div class="emg-modal">
@@ -5126,6 +5205,134 @@
       <a href="#emergencia" class="danger">Emergencia</a>
     </nav>
   </footer>
+
+  <!-- ============================================================
+       SPA ROUTER — Navegación por secciones sin recarga
+  ============================================================ -->
+  <script>
+    /* ── Config: id → título en español ─────────────────────────── */
+    var SPA_VIEWS = {
+      'hero':        'Bienvenida',
+      'dashboard':   'Panel Principal',
+      'crypto':      'Cripto Trading',
+      'analisis':    'Estrategias',
+      'deportes':    'Deportes & Value Bets',
+      'calculadora': 'Calculadoras',
+      'historial':   'Historial de Operaciones',
+      'ia':          'Asesores IA',
+      'emergencia':  'Protocolo de Emergencia'
+    };
+
+    var SPA_DEFAULT = 'dashboard';
+    var _spaActive  = null;
+
+    /* ── Navegar a una sección ───────────────────────────────────── */
+    function spaNavigateTo(id) {
+      if (!SPA_VIEWS.hasOwnProperty(id)) return;
+      if (_spaActive === id) return;
+
+      /* 1. Ocultar vista anterior */
+      if (_spaActive) {
+        var prev = document.getElementById(_spaActive);
+        if (prev) prev.classList.remove('spa-active');
+      }
+
+      /* 2. Mostrar nueva vista */
+      var target = document.getElementById(id);
+      if (target) {
+        target.classList.add('spa-active');
+        /* Scroll al tope del contenedor */
+        var sc = document.getElementById('spa-content');
+        if (sc) sc.scrollTop = 0;
+      }
+
+      _spaActive = id;
+
+      /* 3. Actualizar título en topbar */
+      var titleEl = document.getElementById('ea-section-title');
+      if (titleEl) titleEl.textContent = SPA_VIEWS[id];
+
+      /* 4. Marcar enlace activo en sidebar y drawer */
+      document.querySelectorAll('.nav-links a, .nav-drawer a').forEach(function(a) {
+        a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+      });
+
+      /* 5. Actualizar hash sin disparar scroll */
+      if (history.replaceState) {
+        history.replaceState(null, '', '#' + id);
+      }
+    }
+
+    /* ── Inicializar SPA ─────────────────────────────────────────── */
+    function spaInit() {
+      /* Marcar todas las secciones como spa-view */
+      Object.keys(SPA_VIEWS).forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.classList.add('spa-view');
+      });
+
+      /* Interceptar clics en sidebar */
+      document.querySelectorAll('.nav-links a[href^="#"]').forEach(function(a) {
+        a.addEventListener('click', function(e) {
+          e.preventDefault();
+          spaNavigateTo(this.getAttribute('href').slice(1));
+        });
+      });
+
+      /* Interceptar clics en drawer móvil */
+      document.querySelectorAll('.nav-drawer a[href^="#"]').forEach(function(a) {
+        a.addEventListener('click', function(e) {
+          var id = this.getAttribute('href').slice(1);
+          if (SPA_VIEWS.hasOwnProperty(id)) {
+            e.preventDefault();
+            spaNavigateTo(id);
+            /* Cerrar drawer si está abierto */
+            var overlay = document.getElementById('drawer-overlay');
+            var drawer  = document.getElementById('nav-drawer');
+            if (overlay) overlay.style.display = 'none';
+            if (drawer && window.gsap) gsap.to(drawer, { x: '-100%', duration: 0.3 });
+          }
+        });
+      });
+
+      /* Interceptar clics en footer */
+      document.querySelectorAll('.site-footer-links a[href^="#"]').forEach(function(a) {
+        a.addEventListener('click', function(e) {
+          var id = this.getAttribute('href').slice(1);
+          if (SPA_VIEWS.hasOwnProperty(id)) {
+            e.preventDefault();
+            spaNavigateTo(id);
+          }
+        });
+      });
+
+      /* Botón "Nueva Operación" en sidebar */
+      var cta = document.querySelector('.ea-nueva-op-btn');
+      if (cta) cta.onclick = function() { spaNavigateTo('calculadora'); };
+
+      /* Delegación global — captura cualquier <a href="#seccion"> en el contenido */
+      document.getElementById('spa-content').addEventListener('click', function(e) {
+        var a = e.target.closest('a[href^="#"]');
+        if (!a) return;
+        var id = a.getAttribute('href').slice(1);
+        if (SPA_VIEWS.hasOwnProperty(id) && id !== _spaActive) {
+          e.preventDefault();
+          spaNavigateTo(id);
+        }
+      });
+
+      /* Navegación inicial: hash en URL o sección por defecto */
+      var hash = window.location.hash.slice(1);
+      spaNavigateTo((hash && SPA_VIEWS.hasOwnProperty(hash)) ? hash : SPA_DEFAULT);
+    }
+
+    /* Arrancar cuando el DOM esté listo */
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', spaInit);
+    } else {
+      spaInit();
+    }
+  </script>
 
   <!-- ============================================================
        GSAP 3 + ScrollTrigger  (final del body — buena práctica)
