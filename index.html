@@ -544,6 +544,33 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 8px; }
 
+/* ── VALUE BET CARD ─────────────────────────────────────── */
+.vbet-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 12px;
+}
+.vbet-card:last-child { margin-bottom: 0; }
+.vbet-liga { font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-3); margin-bottom: 5px; font-family: var(--f-mono); }
+.vbet-partido { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 3px; line-height: 1.3; }
+.vbet-mercado { font-size: 16px; color: var(--text-2); margin-bottom: 12px; }
+.vbet-metrics { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.vbet-metric { display: flex; flex-direction: column; gap: 3px; }
+.vbet-metric-l { font-size: 11px; color: var(--text-3); letter-spacing: .8px; text-transform: uppercase; }
+.vbet-metric-v { font-family: var(--f-mono); font-size: 18px; font-weight: 700; }
+.vbet-apostar { font-size: 16px; color: var(--text-2); margin-bottom: 8px; line-height: 1.5; }
+.vbet-src { font-size: 12px; color: var(--text-3); font-family: var(--f-mono); }
+
+/* ── PARTIDO ROW ─────────────────────────────────────────── */
+.partido-row { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.partido-row:last-child { border-bottom: none; }
+.partido-equipos { font-size: 18px; font-weight: 700; margin-bottom: 4px; line-height: 1.3; }
+.partido-meta { font-size: 14px; color: var(--text-3); font-family: var(--f-mono); margin-bottom: 7px; }
+.partido-badges { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
+.dep-src { font-size: 12px; color: var(--text-3); font-family: var(--f-mono); margin-top: 10px; }
+
 /* ── TOP 100 CRYPTO ─────────────────────────────────────── */
 .top100-wrap { display: none; margin-top: 12px; }
 .top100-wrap.visible { display: block; }
@@ -769,15 +796,58 @@ body {
         <div class="sec-header">
           <div>
             <div class="sec-title">Apuestas Deportivas</div>
-            <div class="sec-sub">Value Bets detectados — Fuente: The Odds API</div>
+            <div class="sec-sub" id="dep-sub">Fuente: The Odds API · football-data.org</div>
           </div>
           <button class="btn btn-ghost" onclick="cargarDeportes()">
             <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px">refresh</span>
-            Buscar Value Bets
+            Refrescar
           </button>
         </div>
-        <div id="deportes-bets">
-          <div class="loading"><span class="spin">⌛</span> Buscando value bets...</div>
+
+        <!-- Card 1: Value Bets — ancho completo -->
+        <div class="card" style="margin-bottom:20px">
+          <div class="card-title" style="margin-bottom:16px">Value Bets Detectados</div>
+          <div id="dep-value-bets">
+            <div class="loading"><span class="spin">⌛</span> Buscando value bets...</div>
+          </div>
+        </div>
+
+        <!-- Card 2 + Card 3 -->
+        <div class="grid-2">
+
+          <!-- Partidos próximos -->
+          <div class="card">
+            <div class="card-title" style="margin-bottom:14px">Partidos Próximos</div>
+            <div id="dep-partidos">
+              <div class="loading"><span class="spin">⌛</span> Cargando partidos...</div>
+            </div>
+          </div>
+
+          <!-- Calculadora rápida -->
+          <div class="card">
+            <div class="card-title" style="margin-bottom:14px">Calculadora Rápida de Apuesta</div>
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <div>
+                <label class="label">Capital a apostar ($)</label>
+                <input class="input" id="dep-cap" type="number" min="1" step="0.01"
+                  placeholder="Ej: 20" oninput="calcDepUI()">
+              </div>
+              <div>
+                <label class="label">Odd decimal de la casa</label>
+                <input class="input" id="dep-odd" type="number" min="1.01" step="0.01"
+                  placeholder="Ej: 2.10" oninput="calcDepUI()">
+              </div>
+              <div>
+                <label class="label">Tu probabilidad estimada (%)</label>
+                <input class="input" id="dep-prob" type="number" min="1" max="99" step="1"
+                  placeholder="Ej: 55" oninput="calcDepUI()">
+              </div>
+            </div>
+            <div class="calc-result" id="dep-calc-result" style="margin-top:16px">
+              <div class="loading" style="padding:10px">Completa los campos</div>
+            </div>
+          </div>
+
         </div>
       </section>
 
@@ -1623,91 +1693,197 @@ async function cargarCripto() {
 
 // ─── SECCIÓN DEPORTES (The Odds API) ────────────────────────
 async function cargarDeportes() {
-  setHTML('deportes-bets', '<div class="loading"><span class="spin">⌛</span> Buscando value bets...</div>');
+  setHTML('dep-value-bets', '<div class="loading"><span class="spin">⌛</span> Buscando value bets...</div>');
+  setHTML('dep-partidos',   '<div class="loading"><span class="spin">⌛</span> Cargando partidos...</div>');
 
-  const SPORTS  = ['soccer_epl','soccer_spain_la_liga','soccer_usa_mls'];
-  const BASE    = 'https://api.the-odds-api.com/v4/sports';
-  let allBets   = [];
+  const ahora   = ts();
+  const oddsUrl = `https://api.the-odds-api.com/v4/sports/soccer/odds?apiKey=${CFG.oddsKey}&regions=eu&markets=h2h,totals&oddsFormat=decimal`;
 
-  for (const sport of SPORTS) {
-    try {
-      const url = `${BASE}/${sport}/odds/?apiKey=${CFG.oddsKey}&regions=eu&markets=h2h&oddsFormat=decimal&bookmakers=bet365,pinnacle,draftkings`;
-      const r   = await fetchSeguro(proxyUrl(url), 10000);
-      if (!r.ok) continue;
-      const games = await r.json();
+  let games = [];
+  try {
+    const r = await fetchSeguro(proxyUrl(oddsUrl), 14000);
+    if (r.ok) games = await r.json();
+  } catch (_) {}
+  if (!Array.isArray(games)) games = [];
 
-      for (const game of games) {
-        if (!game.bookmakers?.length) continue;
-        const outcomeMap = {};
-        for (const bk of game.bookmakers) {
-          for (const market of bk.markets || []) {
-            for (const outcome of market.outcomes || []) {
-              if (!outcomeMap[outcome.name]) outcomeMap[outcome.name] = [];
-              outcomeMap[outcome.name].push({ odd: outcome.price, bk: bk.title });
-            }
-          }
-        }
-        for (const [name, odds] of Object.entries(outcomeMap)) {
-          if (odds.length < 2) continue;
-          const withIP   = odds.map(o => ({ ...o, ip: 1 / o.odd }));
-          const totalIP  = withIP.reduce((s, o) => s + o.ip, 0);
-          const withReal = withIP.map(o => ({ ...o, real: o.ip / totalIP }));
-          const best     = withReal.reduce((b, o) => o.odd > b.odd ? o : b);
-          const edge     = (best.real - best.ip) * 100;
-          if (edge > 0.5) {
-            const kelly = Math.max(0, Math.min(
-              (edge/100 * (best.odd-1) - (1 - edge/100)) / (best.odd-1) * 25, 5
-            ));
-            const commence = new Date(game.commence_time);
-            allBets.push({
-              partido:  `${game.home_team} vs ${game.away_team}`,
-              liga:     game.sport_title || sport,
-              pick:     name,
-              odd:      best.odd.toFixed(2),
-              bk:       best.bk,
-              ip:       (best.ip * 100).toFixed(1),
-              real:     (best.real * 100).toFixed(1),
-              edge:     edge.toFixed(2),
-              kelly:    kelly.toFixed(1),
-              fecha:    commence.toLocaleDateString('es-EC', { weekday:'short', day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }),
-            });
-          }
+  const valueBets       = [];
+  const valueBetGameIds = new Set();
+
+  for (const game of games) {
+    if (!game.bookmakers?.length) continue;
+
+    // Agrupar por mercado → tomar mejor odd entre casas
+    const mktMap = {};
+    for (const bk of game.bookmakers) {
+      for (const mkt of bk.markets || []) {
+        if (!mktMap[mkt.key]) mktMap[mkt.key] = {};
+        for (const oc of mkt.outcomes || []) {
+          const prev = mktMap[mkt.key][oc.name];
+          if (!prev || oc.price > prev.odd)
+            mktMap[mkt.key][oc.name] = { odd: oc.price, bk: bk.title };
         }
       }
-    } catch (e) { console.warn('Odds API error:', e); }
+    }
+
+    for (const [mktKey, outcomes] of Object.entries(mktMap)) {
+      const list = Object.entries(outcomes).map(([name, { odd, bk }]) => ({
+        name, odd, bk, ip: 1 / odd,
+      }));
+      if (list.length < 2) continue;
+
+      const totalIP = list.reduce((s, o) => s + o.ip, 0);
+      if (totalIP <= 0) continue;
+
+      for (const item of list) {
+        const probReal = item.ip / totalIP;
+        const edge     = (probReal - item.ip) * 100;
+        if (edge <= 0) continue;
+
+        const b      = item.odd - 1;
+        const q      = 1 - probReal;
+        const kelly  = b > 0 ? Math.max(0, Math.min((probReal * b - q) / b * 0.25, 0.05)) : 0;
+        const stake  = STATE.bankroll * kelly;
+        const mktLbl = mktKey === 'h2h'    ? '1X2 (Resultado)'
+                     : mktKey === 'totals' ? 'Más/Menos goles'
+                     : mktKey;
+
+        valueBets.push({
+          gameId:  game.id,
+          partido: `${game.home_team} vs ${game.away_team}`,
+          liga:    game.sport_title || '',
+          mercado: mktLbl,
+          pick:    item.name,
+          odd:     item.odd,
+          bk:      item.bk,
+          probReal: probReal * 100,
+          probIp:   item.ip * 100,
+          edge, kelly: kelly * 100, stake,
+          ganancia: stake * b,
+          fecha:   game.commence_time,
+        });
+        valueBetGameIds.add(game.id);
+      }
+    }
   }
 
-  if (!allBets.length) {
-    setHTML('deportes-bets', `<div class="card"><div class="loading">Sin value bets detectados en este momento.<br><span style="font-size:13px">Fuente: The Odds API · ${ts()}</span></div></div>`);
+  valueBets.sort((a, b) => b.edge - a.edge);
+
+  // ── Card 1: Value Bets ────────────────────────────────────
+  if (!games.length) {
+    setHTML('dep-value-bets', `<div style="text-align:center;padding:32px">
+      <div style="font-size:18px;color:var(--text-2);margin-bottom:10px">Sin datos disponibles.</div>
+      <div style="font-size:16px;color:var(--text-3);font-family:var(--f-mono)">Fuente: The Odds API · ${ahora}</div>
+    </div>`);
+  } else if (!valueBets.length) {
+    const proxHora = new Date(Date.now() + 300000)
+      .toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });
+    setHTML('dep-value-bets', `<div style="text-align:center;padding:32px">
+      <div style="font-size:18px;color:var(--text-2);margin-bottom:8px">Sin value bets detectados ahora.</div>
+      <div style="font-size:16px;color:var(--text-3);font-family:var(--f-mono)">Próxima revisión: ${proxHora}</div>
+      <div style="margin-top:14px;font-size:12px;color:var(--text-3);font-family:var(--f-mono)">Fuente: The Odds API · ${ahora} · ${games.length} partidos analizados</div>
+    </div>`);
+  } else {
+    const header = `<div style="font-size:16px;color:var(--text-2);margin-bottom:16px">
+      <strong>${valueBets.length}</strong> value bet${valueBets.length !== 1 ? 's' : ''} detectado${valueBets.length !== 1 ? 's' : ''} en <strong>${games.length}</strong> partidos analizados
+    </div>`;
+    const cards = valueBets.slice(0, 20).map(vb => {
+      const eColor   = vb.edge >= 5 ? 'var(--tertiary)' : vb.edge >= 2 ? 'var(--warning)' : 'var(--text)';
+      const fPartido = new Date(vb.fecha).toLocaleString('es-EC', {
+        weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+      });
+      return `<div class="vbet-card">
+        <div class="vbet-liga">${vb.liga}</div>
+        <div class="vbet-partido">${vb.partido}</div>
+        <div class="vbet-mercado">Mercado: ${vb.mercado} · Pick: <strong>${vb.pick}</strong></div>
+        <div class="vbet-metrics">
+          <div class="vbet-metric">
+            <span class="vbet-metric-l">Odd</span>
+            <span class="vbet-metric-v">${vb.odd.toFixed(2)}</span>
+          </div>
+          <div class="vbet-metric">
+            <span class="vbet-metric-l">Edge</span>
+            <span class="vbet-metric-v" style="color:${eColor}">+${vb.edge.toFixed(1)}%</span>
+          </div>
+          <div class="vbet-metric">
+            <span class="vbet-metric-l">Kelly</span>
+            <span class="vbet-metric-v" style="color:var(--tertiary)">${vb.kelly.toFixed(1)}%</span>
+          </div>
+          <div class="vbet-metric">
+            <span class="vbet-metric-l">Casa</span>
+            <span class="vbet-metric-v" style="font-size:15px;color:var(--text-2)">${vb.bk}</span>
+          </div>
+        </div>
+        <div class="vbet-apostar">
+          Apostar: <strong>${fmtUSD(vb.stake)}</strong> (${vb.kelly.toFixed(1)}% del bankroll) ·
+          Ganancia si gana: <span class="pos">+${fmtUSD(vb.ganancia)}</span>
+        </div>
+        <div class="vbet-src">
+          Prob. real: ${vb.probReal.toFixed(1)}% · Prob. implícita: ${vb.probIp.toFixed(1)}% ·
+          Partido: ${fPartido} · Fuente: The Odds API · ${ahora}
+        </div>
+      </div>`;
+    }).join('');
+    setHTML('dep-value-bets', header + cards);
+  }
+
+  // ── Card 2: Partidos próximos ─────────────────────────────
+  if (!games.length) {
+    setHTML('dep-partidos', '<div class="loading">Sin partidos disponibles</div>');
+  } else {
+    const sorted = [...games]
+      .sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time))
+      .slice(0, 12);
+    const now2  = new Date();
+    const rows  = sorted.map(g => {
+      const fecha    = new Date(g.commence_time);
+      const fechaStr = fecha.toLocaleString('es-EC', {
+        weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+      });
+      const estado = fecha < now2
+        ? '<span class="badge badge-warn">FINALIZADO</span>'
+        : '<span class="badge badge-gray">PRÓXIMO</span>';
+      const valor  = valueBetGameIds.has(g.id)
+        ? ' <span class="badge badge-green">VALUE ✓</span>' : '';
+      return `<div class="partido-row">
+        <div class="partido-equipos">${g.home_team} vs ${g.away_team}</div>
+        <div class="partido-meta">${g.sport_title || ''} · ${fechaStr}</div>
+        <div class="partido-badges">${estado}${valor}</div>
+      </div>`;
+    }).join('');
+    setHTML('dep-partidos', rows + `<div class="dep-src">Fuente: The Odds API · ${ahora}</div>`);
+  }
+
+  setText('dep-sub', `${valueBets.length} value bets · ${games.length} partidos · The Odds API · ${ahora}`);
+}
+
+// ─── CALCULADORA RÁPIDA APUESTA ──────────────────────────────
+function calcDepUI() {
+  const cap  = parseFloat(qs('dep-cap')?.value)  || 0;
+  const odd  = parseFloat(qs('dep-odd')?.value)  || 0;
+  const prob = parseFloat(qs('dep-prob')?.value) / 100 || 0;
+  const out  = qs('dep-calc-result');
+  if (!out) return;
+  if (!cap || !odd || odd <= 1 || !prob || prob <= 0 || prob >= 1) {
+    out.innerHTML = '<div class="loading" style="padding:10px">Completa los campos</div>';
     return;
   }
-
-  allBets.sort((a, b) => parseFloat(b.edge) - parseFloat(a.edge));
-  const html = `<div class="card">
-    <div style="font-size:13px;color:var(--text-3);margin-bottom:14px;font-family:var(--f-mono)">
-      ${allBets.length} value bet${allBets.length !== 1 ? 's' : ''} encontrado${allBets.length !== 1 ? 's' : ''} · Fuente: The Odds API · ${ts()}
+  const ip    = 1 / odd;
+  const edge  = (prob - ip) * 100;
+  const b     = odd - 1;
+  const q     = 1 - prob;
+  const kelly = b > 0 ? Math.max(0, (prob * b - q) / b * 0.25) : 0;
+  const isVal = edge > 0;
+  const eColor = edge >= 5 ? 'var(--tertiary)' : edge > 0 ? 'var(--warning)' : 'var(--error)';
+  out.innerHTML = `
+    <div style="text-align:center;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border)">
+      <div style="font-family:var(--f-mono);font-size:32px;font-weight:900;color:${eColor}">${edge >= 0 ? '+' : ''}${edge.toFixed(1)}%</div>
+      <div style="font-size:20px;font-weight:800;margin-top:4px;color:${isVal ? 'var(--tertiary)' : 'var(--error)'}">${isVal ? 'VALUE BET ✓' : 'SIN VALOR ✗'}</div>
     </div>
-    <table class="tabla">
-      <thead><tr>
-        <th>Partido</th><th>Pick</th><th>Odd</th><th>Casa</th><th>Edge</th><th>Kelly %</th><th>Fecha</th>
-      </tr></thead>
-      <tbody>${allBets.map(b => `
-        <tr>
-          <td>
-            <div style="font-weight:600;font-size:15px">${b.partido}</div>
-            <div style="font-size:12px;color:var(--text-3)">${b.liga}</div>
-          </td>
-          <td style="font-weight:600">${b.pick}</td>
-          <td style="font-family:var(--f-mono);font-size:16px;font-weight:700">${b.odd}</td>
-          <td style="font-size:13px;color:var(--text-2)">${b.bk}</td>
-          <td style="font-family:var(--f-mono)" class="pos">+${b.edge}%</td>
-          <td style="font-family:var(--f-mono);color:var(--tertiary)">${b.kelly}%</td>
-          <td style="font-size:13px;color:var(--text-3)">${b.fecha}</td>
-        </tr>`).join('')}
-      </tbody>
-    </table>
-  </div>`;
-  setHTML('deportes-bets', html);
+    <div class="calc-row"><span class="calc-row-l">Prob. implícita casa</span><span class="calc-row-v">${(ip*100).toFixed(1)}%</span></div>
+    <div class="calc-row"><span class="calc-row-l">Edge calculado</span><span class="calc-row-v" style="color:${eColor}">${edge >= 0 ? '+' : ''}${edge.toFixed(2)}%</span></div>
+    <div class="calc-row"><span class="calc-row-l">Kelly recomendado</span><span class="calc-row-v" style="color:${isVal ? 'var(--tertiary)' : 'var(--text-3)'}">${(kelly*100).toFixed(2)}%</span></div>
+    <div class="calc-row"><span class="calc-row-l">Ganancia si gana</span><span class="calc-row-v pos">+${fmtUSD(cap * b)}</span></div>
+    <div class="calc-row"><span class="calc-row-l">Pérdida si pierde</span><span class="calc-row-v neg">-${fmtUSD(cap)}</span></div>`;
 }
 
 // ─── CALCULADORAS ────────────────────────────────────────────
@@ -2084,6 +2260,11 @@ async function init() {
     await cargarFearGreed();
     await Promise.all(['BTC','ETH','SOL','XRP'].map(s => generarSenalCrypto(s)));
     renderPanel();
+  }, CFG.refresh.senales);
+
+  // Auto-refresh deportes solo cuando la sección está activa
+  setInterval(() => {
+    if (STATE.secActiva === 'sec-deportes') cargarDeportes();
   }, CFG.refresh.senales);
 
   // GSAP sidebar entrance
