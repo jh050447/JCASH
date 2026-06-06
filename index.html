@@ -5168,6 +5168,20 @@
     const SVG_HAMMER = '<div style="font-family:var(--f-ui);font-size:18px;color:var(--text-muted);text-align:center;padding:20px;border:1px dashed var(--border-dim);border-radius:8px">🔨 Martillo — Patrón de reversión alcista</div>';
     const SVG_ENGULFING = '<div style="font-family:var(--f-ui);font-size:18px;color:var(--text-muted);text-align:center;padding:20px;border:1px dashed var(--border-dim);border-radius:8px">🌊 Engulfing — Patrón de reversión fuerte</div>';
 
+    // ── fetchYahoo — Yahoo Finance fetcher with browser headers ──
+    const fetchYahoo = async (yahooUrl) => {
+      const urls = [
+        `https://query1.finance.yahoo.com${yahooUrl}`,
+        `https://query2.finance.yahoo.com${yahooUrl}`
+      ];
+      for (const url of urls) {
+        const encoded = encodeURIComponent(url);
+        const result = await fetchSeguro(PROXY + encoded + '&provider=yahoo', 8000);
+        if (result && !result.error) return result;
+      }
+      return null;
+    };
+
     /* ── Mode toggle ── */
     function setMode(m) {
       JCAHS.mode = m;
@@ -5243,10 +5257,9 @@
         updateTicker(); renderSenal(); renderCryptoSignals(); renderMercadosTicker();
         return;
       }
-      // Try 2: Yahoo Finance via proxy
+      // Try 2: Yahoo Finance via proxy with browser headers
       try {
-        const yahooUrl = 'https://query1.finance.yahoo.com/v8/finance/quote?symbols=BTC-USD,ETH-USD,SOL-USD,XRP-USD,DOGE-USD';
-        const data = await fetchSeguro(PROXY + encodeURIComponent(yahooUrl), 6000);
+        const data = await fetchYahoo('/v8/finance/quote?symbols=BTC-USD,ETH-USD,SOL-USD,XRP-USD,DOGE-USD');
         if (data?.quoteResponse?.result) {
           const map = { 'BTC-USD':'bitcoin', 'ETH-USD':'ethereum', 'SOL-USD':'solana', 'XRP-USD':'ripple', 'DOGE-USD':'dogecoin' };
           data.quoteResponse.result.forEach(q => {
@@ -5276,12 +5289,34 @@
       if (!Object.keys(JCAHS.prices||{}).length) console.warn('Prices: all sources failed');
     }
 
-    // === Global markets from Yahoo Finance (S&P 500, Gold, Oil, FX) ===
+    // === Global markets (Yahoo Finance → free APIs → static fallback) ===
     const GLOBAL_SYMBOLS = '^GSPC,^IXIC,^DJI,^GDAXI,^N225,GC=F,CL=F,EURUSD=X,DX-Y.NYB';
     let JCAHS_mkts = [];
     async function fetchMercadosGlobales() {
-      const data = await fetchSeguro(PROXY + encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/quote?symbols=' + GLOBAL_SYMBOLS), 8000);
-      if (data?.quoteResponse?.result) { JCAHS_mkts = data.quoteResponse.result; renderMercadosTicker(); }
+      let data;
+      // Tier 1: Yahoo Finance via proxy with browser headers
+      data = await fetchYahoo('/v8/finance/quote?symbols=' + GLOBAL_SYMBOLS);
+      if (data?.quoteResponse?.result) { JCAHS_mkts = data.quoteResponse.result; renderMercadosTicker(); return; }
+      // Tier 2: Free fallback APIs (forex, metals) — build synthetic response
+      try {
+        const [fxData, metalsData] = await Promise.all([
+          fetchSeguro('https://api.exchangerate-api.com/v4/latest/USD', 5000),
+          fetchSeguro('https://api.metals.live/v1/spot', 5000),
+        ]);
+        const synthetic = [];
+        if (fxData?.rates) {
+          synthetic.push({ symbol:'EURUSD=X', regularMarketPrice: fxData.rates.EUR ? +(1/fxData.rates.EUR).toFixed(4) : null, regularMarketChangePercent: 0 });
+          synthetic.push({ symbol:'^GSPC', regularMarketPrice: null, regularMarketChangePercent: null });
+        }
+        if (metalsData && metalsData.length) {
+          const gold = metalsData.find(m => m.metal === 'gold' || m.symbol === 'XAU');
+          if (gold) synthetic.push({ symbol:'GC=F', regularMarketPrice: parseFloat(gold.price || gold.rate), regularMarketChangePercent: 0 });
+          const silver = metalsData.find(m => m.metal === 'silver' || m.symbol === 'XAG');
+          if (silver) synthetic.push({ symbol:'SI=F', regularMarketPrice: parseFloat(silver.price || silver.rate), regularMarketChangePercent: 0 });
+        }
+        if (synthetic.length) { JCAHS_mkts = synthetic; renderMercadosTicker(); return; }
+      } catch(e) {}
+      // Tier 3: Keep existing data silently
     }
     function renderMercadosTicker() { updateTicker(); }
 
@@ -5462,9 +5497,7 @@
 
     async function fetchYahooNews() {
       try {
-        const url = PROXY + encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/news?symbols=BTC-USD,ETH-USD,SOL-USD,XRP-USD');
-        const r = await fetch(url);
-        const d = await r.json();
+        const d = await fetchYahoo('/v8/finance/news?symbols=BTC-USD,ETH-USD,SOL-USD,XRP-USD');
         if (!d?.items?.result?.length) return;
         const items = d.items.result.slice(0, 5);
         const translated = await Promise.all(items.map(async n => {
@@ -8673,8 +8706,7 @@
       const range = days <= 7 ? '5d' : days <= 14 ? '14d' : '1mo';
       const interval = days <= 7 ? '1h' : '1d';
       try {
-        const url = PROXY + encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?range=${range}&interval=${interval}`);
-        const data = await fetchSeguro(url, 8000);
+        const data = await fetchYahoo(`/v8/finance/chart/${sym}?range=${range}&interval=${interval}`);
         if (!data?.chart?.result?.[0]) return null;
         const q = data.chart.result[0];
         const times = q.timestamp;
