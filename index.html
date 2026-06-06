@@ -2044,6 +2044,52 @@
       border-top: 1px solid var(--border-dim);
     }
 
+    /* News tabs */
+    .news-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 20px;
+    }
+    .news-tab {
+      flex: 1;
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border-dim);
+      border-radius: 8px;
+      font-family: var(--f-ui);
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.3s;
+      text-transform: uppercase;
+    }
+    .news-tab:hover {
+      border-color: var(--border);
+      color: var(--text);
+    }
+    .news-tab.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-dim);
+    }
+    .news-tab.active.purple {
+      border-color: #A78BFA;
+      color: #A78BFA;
+      background: rgba(167,139,250,0.08);
+    }
+    .badge-purple {
+      display: inline-block;
+      padding: 2px 10px;
+      background: rgba(167,139,250,0.15);
+      border: 1px solid rgba(167,139,250,0.3);
+      border-radius: 4px;
+      font-family: var(--f-mono);
+      font-size: 16px;
+      color: #A78BFA;
+      letter-spacing: 1px;
+    }
     /* Number sizes */
     .n96 { font-family: var(--f-mono); font-size: clamp(72px, 10vw, 96px); font-weight: 400; line-height: 1; }
     .n72 { font-family: var(--f-mono); font-size: clamp(54px, 7vw, 72px); font-weight: 400; line-height: 1; }
@@ -3959,11 +4005,14 @@
 
           <!-- Noticias card -->
           <div class="p2-card" id="crypto-news-card">
-            <div class="card-label">📰 NOTICIAS CRYPTO RECIENTES</div>
+            <div class="news-tabs">
+              <button class="news-tab active" data-news-tab="crypto" onclick="switchNewsTab('crypto')">₿ CRIPTO</button>
+              <button class="news-tab purple" data-news-tab="mercados" onclick="switchNewsTab('mercados')">📊 MERCADOS</button>
+            </div>
             <div id="crypto-news-list">
               <div style="color:var(--text-muted);font-family:var(--f-mono);font-size:13px">Cargando noticias...</div>
             </div>
-            <div class="ts-row">Fuente: CoinDesk RSS &nbsp;·&nbsp; <span id="ts-crypto-news">--</span></div>
+            <div class="ts-row">Fuente: <span id="news-source-label">CoinDesk RSS</span> &nbsp;·&nbsp; <span id="ts-crypto-news">--</span></div>
           </div>
         </div>
 
@@ -4188,10 +4237,10 @@
           <div class="ci-field-group">
             <label class="ci-label">¿Qué moneda?</label>
             <div class="ci-coin-grid">
-              <button class="ci-coin-btn active" data-id="bitcoin"  onclick="ciSelectCoin('bitcoin','BTC')">BTC</button>
-              <button class="ci-coin-btn"         data-id="ethereum" onclick="ciSelectCoin('ethereum','ETH')">ETH</button>
-              <button class="ci-coin-btn"         data-id="solana"   onclick="ciSelectCoin('solana','SOL')">SOL</button>
-              <button class="ci-coin-btn"         data-id="ripple"   onclick="ciSelectCoin('ripple','XRP')">XRP</button>
+              <button class="ci-coin-btn active" data-id="bitcoin"  onclick="ciSelectCoin('bitcoin','BTC')"><img src="https://assets.coingecko.com/coins/images/1/large/bitcoin.png" width="18" height="18" style="border-radius:50%;vertical-align:middle;margin-right:4px" onerror="this.style.display='none'" loading="lazy"> BTC</button>
+              <button class="ci-coin-btn"         data-id="ethereum" onclick="ciSelectCoin('ethereum','ETH')"><img src="https://assets.coingecko.com/coins/images/279/large/ethereum.png" width="18" height="18" style="border-radius:50%;vertical-align:middle;margin-right:4px" onerror="this.style.display='none'" loading="lazy"> ETH</button>
+              <button class="ci-coin-btn"         data-id="solana"   onclick="ciSelectCoin('solana','SOL')"><img src="https://assets.coingecko.com/coins/images/4128/large/solana.png" width="18" height="18" style="border-radius:50%;vertical-align:middle;margin-right:4px" onerror="this.style.display='none'" loading="lazy"> SOL</button>
+              <button class="ci-coin-btn"         data-id="ripple"   onclick="ciSelectCoin('ripple','XRP')"><img src="https://assets.coingecko.com/coins/images/44/large/xrp.png" width="18" height="18" style="border-radius:50%;vertical-align:middle;margin-right:4px" onerror="this.style.display='none'" loading="lazy"> XRP</button>
               <button class="ci-coin-btn"         data-id="other"    onclick="ciSelectCoin('other','')">OTRA</button>
             </div>
             <div id="ci-coin-other-wrap" style="display:none;margin-top:10px">
@@ -5073,7 +5122,8 @@
     // === CoinGecko Prices (ticker + dashboard) ===
     async function fetchPrices() {
       try {
-        const r = await fetchWithTimeout('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,ripple,dogecoin,solana&vs_currencies=usd&include_24hr_change=true');
+        const url = PROXY + encodeURIComponent('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,ripple,dogecoin,solana&vs_currencies=usd&include_24hr_change=true');
+        const r = await fetchWithTimeout(url);
         const d = await r.json();
         JCAHS.prices = d;
         updateTicker(d);
@@ -5085,7 +5135,8 @@
     // === CoinGecko Top 100 movers ===
     async function fetchTop5() {
       try {
-        const r = await fetchWithTimeout('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false&price_change_percentage=24h');
+        const url = PROXY + encodeURIComponent('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false&price_change_percentage=24h');
+        const r = await fetchWithTimeout(url);
         const d = await r.json();
         JCAHS.top5 = d
           .filter(c => c.price_change_percentage_24h != null)
@@ -5115,8 +5166,18 @@
 
     async function fetchSignal(id) {
       try {
-        const r = await fetchWithTimeout(`https://api.coingecko.com/api/v3/coins/${id}/ohlc?vs_currency=usd&days=14`);
-        const data = await r.json();
+        const ctrl = new AbortController();
+        const tid  = setTimeout(() => ctrl.abort(), 6000);
+        const url = PROXY + encodeURIComponent(`https://api.coingecko.com/api/v3/coins/${id}/ohlc?vs_currency=usd&days=14`);
+        const r = await fetch(url, { signal: ctrl.signal });
+        clearTimeout(tid);
+        let data = r.ok ? await r.json() : null;
+        if (!data || !data.length) {
+          // Binance fallback
+          const b = await fetchOHLCBinance(id, '1d', 14);
+          if (b) data = b;
+        }
+        if (!data || !data.length) throw new Error('sin datos');
         const closes = data.map(c => c[4]);
         const rsi    = calcRSI(closes);
         const p      = JCAHS.prices[id];
@@ -5233,6 +5294,54 @@
       } catch(e) { console.warn('News:', e); }
     }
 
+    // === Yahoo Finance news via proxy ===
+    let _yahooNews = [];
+    const NEWS_TAB = { active: 'crypto' };
+
+    function switchNewsTab(tab) {
+      NEWS_TAB.active = tab;
+      document.querySelectorAll('[data-news-tab]').forEach(b => b.classList.toggle('active', b.dataset.newsTab === tab));
+      const srcLabel = document.getElementById('news-source-label');
+      if (srcLabel) srcLabel.textContent = tab === 'crypto' ? 'CoinDesk RSS' : 'Yahoo Finance';
+      if (tab === 'crypto') renderCryptoNews();
+      else renderYahooNews();
+    }
+
+    async function fetchYahooNews() {
+      try {
+        const url = PROXY + encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/news?symbols=BTC-USD,ETH-USD,SOL-USD,XRP-USD');
+        const r = await fetch(url);
+        const d = await r.json();
+        if (!d?.items?.result?.length) return;
+        const items = d.items.result.slice(0, 5);
+        const translated = await Promise.all(items.map(async n => {
+          try {
+            const tr = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent((n.title||'').substring(0,400))}&langpair=en|es`);
+            const td = await tr.json();
+            return { ...n, titleEs: td.responseData?.translatedText || n.title };
+          } catch { return { ...n, titleEs: n.title }; }
+        }));
+        _yahooNews = translated;
+        if (NEWS_TAB.active === 'mercados') renderYahooNews();
+      } catch(e) { console.warn('Yahoo News:', e); }
+    }
+
+    function renderYahooNews() {
+      const el = document.getElementById('crypto-news-list');
+      if (!el) return;
+      if (!_yahooNews.length) {
+        el.innerHTML = '<div style="color:var(--text-muted);font-family:var(--f-mono);font-size:13px">Sin noticias de mercados disponibles</div>';
+        return;
+      }
+      el.innerHTML = _yahooNews.map(n => `
+        <div class="news-item" onclick="window.open('${n.link||'https://finance.yahoo.com'}','_blank')">
+          <div class="news-src"><span class="badge-purple">YAHOO FINANCE</span> · ${n.provider_publish_time ? new Date(n.provider_publish_time * 1000).toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'}) : '--'}</div>
+          <div class="news-title">${n.titleEs || n.title || 'Sin título'}</div>
+        </div>`).join('');
+      const ts_ = document.getElementById('ts-crypto-news');
+      if (ts_) ts_.textContent = ts();
+    }
+
     /* ============================================================
        PARTE 2 — RENDER FUNCTIONS
     ============================================================ */
@@ -5252,7 +5361,9 @@
         const ps = price >= 1 ? fmtP(price) : '$' + price.toFixed(4);
         const cls = chg >= 0 ? 'pos' : 'neg';
         const arrow = chg >= 0 ? '▲' : '▼';
-        return `<span class="tick-item"><span class="tick-sym">${sym}</span><span class="tick-price">${ps}</span><span class="tick-chg ${cls}">${arrow} ${Math.abs(chg).toFixed(2)}%</span></span>`;
+        const logo = getCryptoLogo(id);
+        const logoImg = logo ? `<img src="${logo}" width="16" height="16" style="border-radius:50%;vertical-align:middle;margin-right:4px" onerror="this.style.display='none'" loading="lazy">` : '';
+        return `<span class="tick-item">${logoImg}<span class="tick-sym">${sym}</span><span class="tick-price">${ps}</span><span class="tick-chg ${cls}">${arrow} ${Math.abs(chg).toFixed(2)}%</span></span>`;
       }).join('');
       const static_ = `<span class="tick-item"><span class="tick-sym">S&amp;P 500</span><span class="tick-price" style="color:var(--text-muted)">Ver Bloomberg</span></span>
         <span class="tick-item"><span class="tick-sym">ORO</span><span class="tick-price" style="color:var(--text-muted)">Ver Bloomberg</span></span>
@@ -5395,9 +5506,10 @@
         const cls = chg >= 0 ? 'pos' : 'neg';
         const arrow = chg >= 0 ? '▲' : '▼';
         const price = c.current_price >= 1 ? fmtP(c.current_price) : '$' + c.current_price.toFixed(6);
+        const logoT5 = c.image ? `<img src="${c.image}" width="16" height="16" style="border-radius:50%;vertical-align:middle;margin-right:6px" onerror="this.style.display='none'" loading="lazy">` : '';
         return `<div class="mover-item">
           <div>
-            <div class="mover-name">${c.name}</div>
+            <div class="mover-name">${logoT5}${c.name}</div>
             <div class="mover-sym">${c.symbol.toUpperCase()} · #${c.market_cap_rank}</div>
           </div>
           <div>
@@ -5514,6 +5626,8 @@
         const chgStr  = chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '--';
         const chgCls  = chg != null && chg >= 0 ? 'pos' : 'neg';
         const chgArrow = chg != null && chg >= 0 ? '▲' : '▼';
+        const logo = getCryptoLogo(c.id);
+        const logoImg = logo ? `<img src="${logo}" width="24" height="24" style="border-radius:50%;vertical-align:middle;margin-right:8px" onerror="this.style.display='none'" loading="lazy">` : '';
 
         // Signal colors
         const signal      = sig?.signal || 'ESPERAR';
@@ -5563,9 +5677,12 @@
         <div class="crypto-signal-card" style="border-left-color:${borderColor}">
 
           <div class="csig-header">
-            <div>
-              <div class="csig-sym">${c.sym}</div>
-              <div class="csig-name">${c.name}</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              ${logoImg}
+              <div>
+                <div class="csig-sym">${c.sym}</div>
+                <div class="csig-name">${c.name}</div>
+              </div>
             </div>
             <div style="text-align:right">
               <div class="csig-price">${ps}</div>
@@ -5635,6 +5752,7 @@
 
     // === Crypto news render ===
     function renderCryptoNews() {
+      if (NEWS_TAB.active !== 'crypto') return;
       const el = document.getElementById('crypto-news-list');
       if (!el || !JCAHS.news.length) return;
       el.innerHTML = JCAHS.news.map(n => `
@@ -5742,7 +5860,8 @@
       renderBankroll();
       renderCryptoSignals();
       renderContext();
-      renderCryptoNews();
+      if (NEWS_TAB.active === 'crypto') renderCryptoNews();
+      else renderYahooNews();
       renderValueBets();
       renderFixtures();
       renderFichasCrypto();
@@ -5756,11 +5875,12 @@
     // === fetchTop100 — CoinGecko Markets top 100 ===
     async function fetchTop100() {
       try {
-        const r = await fetchWithTimeout(
+        const url = PROXY + encodeURIComponent(
           'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd' +
           '&order=market_cap_desc&per_page=100&page=1&sparkline=false' +
           '&price_change_percentage=24h'
         );
+        const r = await fetchWithTimeout(url);
         const d = await r.json();
         if (!Array.isArray(d)) return;
         JCAHS.top100 = d;
@@ -5808,9 +5928,10 @@
           const pr = c.current_price >= 1
             ? '$' + c.current_price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
             : '$' + c.current_price.toFixed(6);
+          const logoT100 = c.image ? `<img src="${c.image}" width="18" height="18" style="border-radius:50%;vertical-align:middle;margin-right:6px" onerror="this.style.display='none'" loading="lazy">` : '';
           return `<div class="top100-card" style="border-left:3px solid ${bdr}">
             <div class="top100-rank">#${c.market_cap_rank || '--'}</div>
-            <div class="top100-name">${c.name} <span class="top100-sym">${c.symbol.toUpperCase()}</span></div>
+            <div class="top100-name">${logoT100}${c.name} <span class="top100-sym">${c.symbol.toUpperCase()}</span></div>
             <div class="top100-price">${pr}</div>
             <div class="top100-chg ${cls}">${arrow} ${Math.abs(chg).toFixed(2)}%</div>
             <div class="top100-meta">Cap: ${fmtLg(c.market_cap || 0)}<br>Vol: ${fmtLg(c.total_volume || 0)}</div>
@@ -5864,7 +5985,7 @@
       ];
 
       const activas = COINS.map(c => ({
-        ...c, sig: JCAHS.signals[c.id], price: JCAHS.prices[c.id]
+        ...c, sig: JCAHS.signals[c.id], price: JCAHS.prices[c.id], logo: getCryptoLogo(c.id)
       })).filter(c => c.sig && (c.sig.signal === 'COMPRAR' || c.sig.signal === 'VENDER') && c.price);
 
       if (!activas.length) {
@@ -5910,6 +6031,7 @@
         const chg24   = price.usd_24h_change;
         const chgStr  = chg24 != null ? `${chg24 >= 0 ? '+' : ''}${chg24.toFixed(2)}%` : 'N/A';
 
+        const logoImgC = c.logo ? `<img src="${c.logo}" width="22" height="22" style="border-radius:50%;vertical-align:middle;margin-right:6px" onerror="this.style.display='none'" loading="lazy">` : '';
         return `<div class="ficha-card" style="border-top:3px solid ${color}">
           <div class="ficha-header">
             <span class="ficha-badge" style="background:${color}20;color:${color};border:1px solid ${color}40">
@@ -5917,7 +6039,7 @@
             </span>
             <span class="ficha-badge-tipo">CRIPTO</span>
           </div>
-          <div class="ficha-title">${name} <span class="ficha-sym">(${sym})</span></div>
+          <div class="ficha-title">${logoImgC}${name} <span class="ficha-sym">(${sym})</span></div>
 
           <div class="ficha-tabla">
             <div class="ficha-row"><span>ENTRADA</span><span>${pr}</span></div>
@@ -6048,6 +6170,7 @@
       fetchOdds();
       fetchFixtures();
       fetchCryptoNews();
+      fetchYahooNews();
 
       // Refresh intervals
       setInterval(fetchPrices,    60000);
@@ -6057,6 +6180,7 @@
       setInterval(fetchOdds,      300000);
       setInterval(fetchFixtures,  120000);
       setInterval(fetchCryptoNews,300000);
+      setInterval(fetchYahooNews, 300000);
       setInterval(() => {
         ['bitcoin','ethereum','solana','ripple'].forEach(fetchSignal);
       }, 300000);
@@ -6989,7 +7113,11 @@
 
       const nameEl = document.getElementById('ci-coin-name');
       const valEl  = document.getElementById('ci-coin-val');
-      if (nameEl) nameEl.textContent = sym || 'OTRA';
+      if (nameEl) {
+        const logoUrl = getCryptoLogo(id);
+        const logoSrc = logoUrl ? `<img src="${logoUrl}" width="18" height="18" style="border-radius:50%;vertical-align:middle;margin-right:6px" onerror="this.style.display='none'" loading="lazy">` : '';
+        nameEl.innerHTML = logoSrc + (sym || 'OTRA');
+      }
 
       if (id !== 'other') {
         const price = JCAHS.prices[id];
@@ -7564,9 +7692,13 @@
           const hora = h.timestamp ? new Date(h.timestamp).toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'}) : '--';
           const badgeClass = h.veredicto === 'apostar' ? 'apostar' : h.veredicto === 'revisar' ? 'revisar' : 'no-apostar';
           const badgeText  = h.veredicto === 'apostar' ? 'APOSTAR' : h.veredicto === 'revisar' ? 'REVISAR' : 'NO APOSTAR';
+          const isCrypto = h.tipo && h.tipo.includes('Cripto');
+          const cryptoSym = isCrypto ? h.tipo.replace('Cripto ', '') : '';
+          const histLogo = cryptoSym ? getCryptoLogo(CRYPTO_ID_MAP[cryptoSym]) : '';
+          const histLogoImg = histLogo ? `<img src="${histLogo}" width="16" height="16" style="border-radius:50%;vertical-align:middle;margin-right:4px" onerror="this.style.display='none'" loading="lazy">` : '';
           return `<tr>
             <td>${hora}</td>
-            <td style="font-size:16px;color:var(--text-muted)">${h.tipo}</td>
+            <td style="font-size:16px;color:var(--text-muted)">${histLogoImg}${h.tipo}</td>
             <td>${h.desc || '--'}</td>
             <td>$${parseFloat(h.stake).toFixed(2)}</td>
             <td style="color:var(--accent)">${h.ventaja}</td>
@@ -7640,6 +7772,24 @@
     };
 
     const NOMBRES_CRIPTO = { BTC: 'Bitcoin', ETH: 'Ethereum', SOL: 'Solana', XRP: 'XRP' };
+    const CRYPTO_ID_MAP = { BTC: 'bitcoin', ETH: 'ethereum', SOL: 'solana', XRP: 'ripple' };
+
+    const CRYPTO_LOGOS = {
+      bitcoin: 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png',
+      ethereum: 'https://assets.coingecko.com/coins/images/279/large/ethereum.png',
+      solana: 'https://assets.coingecko.com/coins/images/4128/large/solana.png',
+      ripple: 'https://assets.coingecko.com/coins/images/44/large/xrp.png',
+      dogecoin: 'https://assets.coingecko.com/coins/images/5/large/dogecoin.png',
+      bnb: 'https://assets.coingecko.com/coins/images/825/large/bnb-icon2_2x.png'
+    };
+    function getCryptoLogo(id) {
+      if (!id) return '';
+      if (CRYPTO_LOGOS[id]) return CRYPTO_LOGOS[id];
+      const mapped = CRYPTO_ID_MAP[id];
+      if (mapped && CRYPTO_LOGOS[mapped]) return CRYPTO_LOGOS[mapped];
+      const c = JCAHS.top100?.find(c => c.id === id);
+      return c?.image || '';
+    }
 
     const COINS_ANALISIS = [
       { id: 'bitcoin',  sym: 'BTC' },
@@ -8139,6 +8289,7 @@
       const sColor = score>=70?'var(--accent)':score>=55?'#FBBF24':score<35?'var(--alert)':'#9CA3AF';
       const pFmt = v => Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
       const t100 = JCAHS.top100.find(c=>c.id===COINS_ANALISIS.find(x=>x.sym===sym)?.id);
+      const logoEl = getCryptoLogo(COINS_ANALISIS.find(x=>x.sym===sym)?.id);
       const scoresTec = sc.rsiScore + sc.macdScore + sc.emaScore + sc.bbScore + sc.srScore + sc.candleScore;
       const scoresSen = (sc.fngScore||0) + (sc.volScore||0) + (sc.trendScore||0) + (sc.domScore||0);
       const scoreMap  = {
@@ -8157,7 +8308,7 @@
               </div>
               <div class="fa-coin-name">${NOMBRES_CRIPTO[sym]||sym}</div>
             </div>
-            ${t100?.image?`<img src="${t100.image}" width="40" height="40" style="border-radius:50%;flex-shrink:0" onerror="this.style.display='none'" loading="lazy">` : ''}
+            ${logoEl?`<img src="${logoEl}" width="40" height="40" style="border-radius:50%;flex-shrink:0" onerror="this.style.display='none'" loading="lazy">` : ''}
           </div>
 
           <div class="fa-badge ${ficha.cls}" data-campo="badge">${ficha.tipo}</div>
@@ -8383,17 +8534,44 @@
 
     // === FIX CARGA ANÁLISIS — paralelo + progresivo + timeout ===
 
-    // OHLC fetch con AbortController propio 8s
+    // Binance fallback: fetch last N candles (1d / 4h)
+    async function fetchOHLCBinance(coinId, interval, limit) {
+      const symbolMap = { bitcoin:'BTCUSDT', ethereum:'ETHUSDT', solana:'SOLUSDT', ripple:'XRPUSDT' };
+      const sym = symbolMap[coinId];
+      if (!sym) return null;
+      try {
+        const ctrl = new AbortController();
+        const tid  = setTimeout(() => ctrl.abort(), 6000);
+        const r = await fetch(
+          `https://api.binance.com/api/v3/klines?symbol=${sym}&interval=${interval}&limit=${limit}`,
+          { signal: ctrl.signal }
+        );
+        clearTimeout(tid);
+        if (!r.ok) return null;
+        const data = await r.json();
+        return data.map(k => [k[0], +k[1], +k[2], +k[3], +k[4], +k[5]]);
+        // format: [timestamp, open, high, low, close, volume] (matches CoinGecko ohlc)
+      } catch { return null; }
+    }
+
+    // OHLC fetch via proxy + AbortController propio 6s + Binance fallback
     function fetchOHLCConTimeout(coinId, days) {
       const ctrl = new AbortController();
-      const tid  = setTimeout(() => ctrl.abort(), 8000);
-      return fetch(
-        `https://api.coingecko.com/api/v3/coins/${coinId}/ohlc?vs_currency=usd&days=${days}`,
-        { signal: ctrl.signal }
-      )
+      const tid  = setTimeout(() => ctrl.abort(), 6000);
+      const url = PROXY + encodeURIComponent(
+        `https://api.coingecko.com/api/v3/coins/${coinId}/ohlc?vs_currency=usd&days=${days}`
+      );
+      return fetch(url, { signal: ctrl.signal })
         .then(r => { clearTimeout(tid); return r.ok ? r.json() : null; })
         .then(d  => Array.isArray(d) ? d : null)
-        .catch(() => { clearTimeout(tid); return null; });
+        .catch(() => { clearTimeout(tid); return null; })
+        .then(data => {
+          if (data) return data;
+          // Binance fallback: 30d → 30 1d candles, 7d → 42 4h candles
+          return days === 30
+            ? fetchOHLCBinance(coinId, '1d', 30)
+            : fetchOHLCBinance(coinId, '4h', 42);
+        });
     }
 
     // Cargar d30 + h4 de UNA moneda en PARALELO
@@ -8541,9 +8719,9 @@
       };
       mostrarProgresoCarga(estado);
 
-      // Global 12-second timeout
+      // Global 10-second timeout
       let globalTimer;
-      const timeoutP = new Promise(res => { globalTimer = setTimeout(res, 12000); });
+      const timeoutP = new Promise(res => { globalTimer = setTimeout(res, 10000); });
 
       // Fetch all 4 coins in parallel, each coin d30+h4 also in parallel
       const fetchAll = Promise.allSettled(
