@@ -5103,6 +5103,17 @@
     }
     setModoGlobal(_modo);
 
+    // ── OHLC cache (5 min TTL) ──────────────────────────────────
+    const OHLC_CACHE = {};
+    const CACHE_DURATION = 300000;
+    function getCachedOHLC(key) {
+      const entry = OHLC_CACHE[key];
+      return entry && Date.now() - entry.timestamp < CACHE_DURATION ? entry.data : null;
+    }
+    function setCachedOHLC(key, data) {
+      OHLC_CACHE[key] = { data, timestamp: Date.now() };
+    }
+
     // AbortController fetch with 8s timeout
     async function fetchWithTimeout(url, opts = {}, ms = 8000) {
       const ctrl = new AbortController();
@@ -6231,7 +6242,7 @@
       // Refresh intervals
       setInterval(fetchPrices,    60000);
       setInterval(fetchTop5,      60000);
-      setInterval(fetchTop100,    60000);
+      setInterval(fetchTop100,    300000);
       setInterval(() => { fetchFNG(); fetchGlobal(); }, 300000);
       setInterval(fetchOdds,      300000);
       setInterval(fetchFixtures,  120000);
@@ -8536,7 +8547,7 @@
 
     // === FIX CARGA ANÁLISIS — paralelo + progresivo + timeout ===
 
-    // Binance fallback: fetch last N candles (1d / 4h)
+    // Binance klines — primary source (no rate limits, no proxy needed)
     async function fetchOHLCBinance(coinId, interval, limit) {
       const symbolMap = { bitcoin:'BTCUSDT', ethereum:'ETHUSDT', solana:'SOLUSDT', ripple:'XRPUSDT' };
       const sym = symbolMap[coinId];
@@ -8552,42 +8563,54 @@
         if (!r.ok) return null;
         const data = await r.json();
         return data.map(k => [k[0], +k[1], +k[2], +k[3], +k[4], +k[5]]);
-        // format: [timestamp, open, high, low, close, volume] (matches CoinGecko ohlc)
       } catch { return null; }
     }
 
-    // OHLC fetch via proxy + AbortController propio 6s + Binance fallback
-    function fetchOHLCConTimeout(coinId, days) {
+    // OHLC: Binance first, CoinGecko proxy as fallback, cache 5 min
+    async function fetchOHLCConTimeout(coinId, days) {
+      const binData = days === 30
+        ? await fetchOHLCBinance(coinId, '1d', 30)
+        : await fetchOHLCBinance(coinId, '4h', 42);
+      if (binData) return binData;
+      // Binance failed → CoinGecko via proxy
       const ctrl = new AbortController();
       const tid  = setTimeout(() => ctrl.abort(), 6000);
-      const url = PROXY + encodeURIComponent(
-        `https://api.coingecko.com/api/v3/coins/${coinId}/ohlc?vs_currency=usd&days=${days}`
-      );
-      return fetch(url, { signal: ctrl.signal })
-        .then(r => { clearTimeout(tid); return r.ok ? r.json() : null; })
-        .then(d  => Array.isArray(d) ? d : null)
-        .catch(() => { clearTimeout(tid); return null; })
-        .then(data => {
-          if (data) return data;
-          // Binance fallback: 30d → 30 1d candles, 7d → 42 4h candles
-          return days === 30
-            ? fetchOHLCBinance(coinId, '1d', 30)
-            : fetchOHLCBinance(coinId, '4h', 42);
-        });
+      try {
+        const r = await fetch(PROXY + encodeURIComponent(
+          `https://api.coingecko.com/api/v3/coins/${coinId}/ohlc?vs_currency=usd&days=${days}`
+        ), { signal: ctrl.signal });
+        clearTimeout(tid);
+        if (!r.ok) return null;
+        const d = await r.json();
+        return Array.isArray(d) ? d : null;
+      } catch { clearTimeout(tid); return null; }
     }
 
-    // Cargar d30 + h4 de UNA moneda en PARALELO
+    // Cargar d30 + h4 de UNA moneda con cache
     async function cargarOHLCMoneda(id, sym, stale30, stale4h) {
       if (!JCAHS_STATE.ohlc[sym]) JCAHS_STATE.ohlc[sym] = {};
       const now = Date.now();
+      const ck30 = `${id}_d30`, ck4h = `${id}_h4`;
+      const cc30 = stale30 ? getCachedOHLC(ck30) : null;
+      const cc4h = stale4h ? getCachedOHLC(ck4h) : null;
+      if (cc30) { JCAHS_STATE.ohlc[sym].d30 = cc30; JCAHS_STATE.ultimaActualizacion.ohlc30 = now; }
+      if (cc4h) { JCAHS_STATE.ohlc[sym].h4  = cc4h; JCAHS_STATE.ultimaActualizacion.ohlc4h  = now; }
+      if (!stale30 && !stale4h) return !!JCAHS_STATE.ohlc[sym].d30;
+      if (cc30 && cc4h) return true;
       const [r30, r4h] = await Promise.allSettled([
-        stale30 ? fetchOHLCConTimeout(id, 30) : Promise.resolve(null),
-        stale4h ? fetchOHLCConTimeout(id, 7)  : Promise.resolve(null)
+        stale30 && !cc30 ? fetchOHLCConTimeout(id, 30) : Promise.resolve(null),
+        stale4h && !cc4h ? fetchOHLCConTimeout(id, 7)  : Promise.resolve(null)
       ]);
-      if (stale30 && r30.status==='fulfilled' && r30.value)
-        { JCAHS_STATE.ohlc[sym].d30 = r30.value; JCAHS_STATE.ultimaActualizacion.ohlc30 = now; }
-      if (stale4h && r4h.status==='fulfilled' && r4h.value)
-        { JCAHS_STATE.ohlc[sym].h4  = r4h.value; JCAHS_STATE.ultimaActualizacion.ohlc4h  = now; }
+      if (stale30 && !cc30 && r30.status==='fulfilled' && r30.value) {
+        JCAHS_STATE.ohlc[sym].d30 = r30.value;
+        JCAHS_STATE.ultimaActualizacion.ohlc30 = now;
+        setCachedOHLC(ck30, r30.value);
+      }
+      if (stale4h && !cc4h && r4h.status==='fulfilled' && r4h.value) {
+        JCAHS_STATE.ohlc[sym].h4  = r4h.value;
+        JCAHS_STATE.ultimaActualizacion.ohlc4h  = now;
+        setCachedOHLC(ck4h, r4h.value);
+      }
       return !!JCAHS_STATE.ohlc[sym].d30;
     }
 
@@ -8725,14 +8748,15 @@
       let globalTimer;
       const timeoutP = new Promise(res => { globalTimer = setTimeout(res, 10000); });
 
-      // Fetch all 4 coins in parallel, each coin d30+h4 also in parallel
-      const fetchAll = Promise.allSettled(
-        COINS_ANALISIS.map(async ({ id, sym }) => {
+      // Fetch all 4 coins staggered (1s apart) to avoid 429 rate limits
+      const fetchAll = (async () => {
+        for (const [i, { id, sym }] of COINS_ANALISIS.entries()) {
+          if (i > 0) await new Promise(r => setTimeout(r, 1000));
           const ok = await cargarOHLCMoneda(id, sym, stale30, stale4h);
           estado[sym] = ok;
-          mostrarProgresoCarga(estado); // update UI as each coin arrives
-        })
-      );
+          mostrarProgresoCarga(estado);
+        }
+      })();
 
       // Race: all done OR 10s timeout
       await Promise.race([fetchAll, timeoutP]);
