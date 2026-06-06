@@ -6,10 +6,13 @@
   <title>JCAHS — Centro de Operaciones Financieras</title>
   <meta name="description" content="JCAHS — Sistema de inteligencia financiera. Crypto, deportes y estrategia.">
 
-  <!-- Google Fonts: Orbitron · Share Tech Mono · Barlow Condensed -->
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <!-- Google Fonts: Inter · JetBrains Mono · Material Symbols -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
 
   <style>
     /* ================================================================
@@ -3681,6 +3684,400 @@
       .tick-chg      { display: none; }
     }
   </style>
+
+  <!-- ============================================================
+       EXECUTIVE ALPHA — Tailwind Config
+  ============================================================ -->
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface":                  "#081425",
+            "surface-container-low":    "#111c2d",
+            "surface-container":        "#152031",
+            "surface-container-high":   "#1f2a3c",
+            "surface-container-highest":"#2a3548",
+            "on-surface":               "#d8e3fb",
+            "on-surface-variant":       "#c6c6cd",
+            "tertiary":                 "#4edea3",
+            "tertiary-container":       "#001c10",
+            "on-tertiary":              "#003824",
+            "outline-variant":          "#45464d",
+            "outline":                  "#909097",
+            "error":                    "#ffb4ab",
+            "background":               "#081425"
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- ============================================================
+       EXECUTIVE ALPHA — Design System Override CSS
+  ============================================================ -->
+  <style>
+    /* ── Variables ── */
+    :root {
+      --bg:           #081425;
+      --bg-mid:       #111c2d;
+      --bg-card:      rgba(21, 32, 49, 0.7);
+      --accent:       #4edea3;
+      --accent-dim:   rgba(78, 222, 163, 0.10);
+      --accent-glow:  rgba(78, 222, 163, 0.25);
+      --alert:        #ffb4ab;
+      --alert-dim:    rgba(255, 180, 171, 0.12);
+      --text:         #d8e3fb;
+      --text-dim:     rgba(216, 227, 251, 0.65);
+      --text-muted:   rgba(198, 198, 205, 0.55);
+      --border:       rgba(69, 70, 77, 0.4);
+      --border-dim:   rgba(69, 70, 77, 0.15);
+      --f-display:    'Inter', sans-serif;
+      --f-mono:       'JetBrains Mono', monospace;
+      --f-ui:         'Inter', sans-serif;
+      --sidebar-w:    256px;
+      --topbar-h:     60px;
+    }
+
+    /* ── Body ── */
+    body {
+      background-color: #081425 !important;
+      color: #d8e3fb !important;
+      font-family: 'Inter', sans-serif !important;
+      padding-left: var(--sidebar-w);
+    }
+
+    /* ── Utility classes ── */
+    .glass-panel {
+      background: rgba(21, 32, 49, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(144, 144, 151, 0.1);
+      border-radius: 8px;
+    }
+
+    .terminal-glow { box-shadow: 0 0 20px rgba(78, 222, 163, 0.1); }
+
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #45464d; border-radius: 2px; }
+
+    /* ── JetBrains Mono para datos numéricos ── */
+    .n72, .n64, .n56, .n48, .n42, .n36, .n32, .n28, .n24,
+    .data-tiny, .data-small, .data-medium, .data-large, .data-huge, .data-hero,
+    .mono, .tick-price, .tick-chg, .tick-sym,
+    .fa-price-val, .fa-score-num,
+    .emg-stat-val, .top100-price, .top100-chg,
+    .ficha-tiempo, .ficha-row span:last-child,
+    .bk-stat span[id], .ea-topbar-time {
+      font-family: 'JetBrains Mono', monospace !important;
+    }
+
+    /* ── Sidebar (reemplaza .navbar horizontal) ── */
+    .navbar {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: auto !important;
+      width: var(--sidebar-w) !important;
+      height: 100dvh !important;
+      z-index: 900;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: stretch !important;
+      justify-content: flex-start !important;
+      background: rgba(11, 18, 30, 0.97) !important;
+      backdrop-filter: blur(20px) !important;
+      -webkit-backdrop-filter: blur(20px) !important;
+      border-right: 1px solid rgba(69, 70, 77, 0.2) !important;
+      border-bottom: none !important;
+      padding: 0 !important;
+      overflow: hidden;
+    }
+
+    .navbar.scrolled {
+      background: rgba(11, 18, 30, 0.99) !important;
+      border-color: rgba(69, 70, 77, 0.25) !important;
+    }
+
+    /* Sidebar — Logo */
+    .ea-sidebar-logo {
+      padding: 24px 20px 18px;
+      border-bottom: 1px solid rgba(69, 70, 77, 0.12);
+      flex-shrink: 0;
+    }
+
+    .ea-logo-link { text-decoration: none; display: block; }
+
+    .ea-logo-wordmark {
+      font-family: 'Inter', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 5px;
+      color: #d8e3fb;
+      display: block;
+      line-height: 1;
+    }
+
+    .ea-logo-wordmark em { font-style: normal; color: #4edea3; }
+
+    .ea-logo-sub {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: rgba(198, 198, 205, 0.4);
+      display: block;
+      margin-top: 5px;
+    }
+
+    /* Sidebar — CTA */
+    .ea-nueva-op-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin: 14px 14px 6px;
+      padding: 11px 14px;
+      background: #4edea3;
+      color: #003824;
+      border: none;
+      border-radius: 6px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.15s;
+      flex-shrink: 0;
+    }
+
+    .ea-nueva-op-btn:hover { background: #5ee8b0; transform: translateY(-1px); }
+    .ea-nueva-op-btn:active { transform: scale(0.97); }
+    .ea-nueva-op-btn .material-symbols-outlined { font-size: 17px; }
+
+    /* Sidebar — Nav links */
+    .nav-links {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 1px !important;
+      padding: 8px 10px !important;
+      flex: 1;
+      overflow-y: auto;
+      list-style: none;
+    }
+
+    .nav-links a {
+      display: flex !important;
+      align-items: center;
+      gap: 10px;
+      font-family: 'Inter', sans-serif !important;
+      font-size: 14px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.2px !important;
+      text-transform: none !important;
+      color: rgba(198, 198, 205, 0.75) !important;
+      padding: 10px 12px !important;
+      border-radius: 6px !important;
+      border: none !important;
+      border-left: none !important;
+      white-space: nowrap !important;
+      transition: color 0.18s, background 0.18s !important;
+    }
+
+    .nav-links a .material-symbols-outlined { font-size: 20px; flex-shrink: 0; }
+
+    .nav-links a:hover,
+    .nav-links a.active {
+      color: #4edea3 !important;
+      background: rgba(78, 222, 163, 0.08) !important;
+      border-color: transparent !important;
+    }
+
+    .nav-links a.danger { color: rgba(255, 180, 171, 0.75) !important; }
+    .nav-links a.danger:hover {
+      color: #ffb4ab !important;
+      background: rgba(255, 180, 171, 0.08) !important;
+    }
+
+    /* Sidebar — Mode toggle */
+    .ea-sidebar-mode {
+      padding: 10px;
+      border-top: 1px solid rgba(69, 70, 77, 0.12);
+      flex-shrink: 0;
+    }
+
+    .nav-modo-toggle {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 0 !important;
+      border-radius: 6px !important;
+      overflow: hidden !important;
+      border: 1px solid rgba(69, 70, 77, 0.25) !important;
+      width: 100% !important;
+    }
+
+    .nav-modo-btn {
+      padding: 9px 12px !important;
+      font-family: 'Inter', sans-serif !important;
+      font-size: 13px !important;
+      font-weight: 600 !important;
+      letter-spacing: 0.5px !important;
+      text-transform: uppercase !important;
+      border: none !important;
+      cursor: pointer !important;
+      background: none !important;
+      color: rgba(198, 198, 205, 0.5) !important;
+      text-align: left !important;
+      transition: background 0.2s, color 0.2s !important;
+    }
+
+    .nav-modo-btn.active {
+      background: #4edea3 !important;
+      color: #003824 !important;
+    }
+
+    /* Sidebar — Status */
+    .ea-sidebar-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px 18px;
+      font-size: 12px;
+      font-family: 'Inter', sans-serif;
+      color: rgba(198, 198, 205, 0.4);
+      letter-spacing: 0.3px;
+      flex-shrink: 0;
+    }
+
+    .ea-status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #4edea3;
+      box-shadow: 0 0 6px rgba(78, 222, 163, 0.6);
+      animation: dotPulse 2s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+
+    /* ── Topbar ── */
+    .ea-topbar {
+      height: var(--topbar-h);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      background: rgba(8, 20, 37, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(69, 70, 77, 0.15);
+      gap: 14px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .ea-topbar-search {
+      flex: 1;
+      max-width: 380px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(21, 32, 49, 0.7);
+      border: 1px solid rgba(69, 70, 77, 0.2);
+      border-radius: 6px;
+      padding: 7px 12px;
+    }
+
+    .ea-topbar-search input {
+      background: none;
+      border: none;
+      outline: none;
+      color: #d8e3fb;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      width: 100%;
+    }
+
+    .ea-topbar-search input::placeholder { color: rgba(198, 198, 205, 0.3); }
+    .ea-topbar-search .material-symbols-outlined { color: rgba(198, 198, 205, 0.35); font-size: 18px; flex-shrink: 0; }
+
+    .ea-topbar-right { display: flex; align-items: center; gap: 6px; }
+
+    .ea-topbar-btn {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: 1px solid rgba(69, 70, 77, 0.2);
+      border-radius: 6px;
+      color: rgba(198, 198, 205, 0.6);
+      cursor: pointer;
+      transition: background 0.18s, color 0.18s, border-color 0.18s;
+    }
+
+    .ea-topbar-btn:hover {
+      background: rgba(21, 32, 49, 0.7);
+      color: #d8e3fb;
+      border-color: rgba(69, 70, 77, 0.4);
+    }
+
+    .ea-topbar-btn .material-symbols-outlined { font-size: 18px; }
+
+    .ea-topbar-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(198, 198, 205, 0.6);
+      white-space: nowrap;
+      padding: 0 4px;
+    }
+
+    /* Topbar: hamburger visible solo en mobile */
+    .ea-topbar .nav-toggle { display: none !important; }
+
+    /* ── Cards glass effect ── */
+    .p2-card {
+      background: rgba(21, 32, 49, 0.7) !important;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-color: rgba(144, 144, 151, 0.1) !important;
+    }
+
+    .top100-card {
+      background: rgba(21, 32, 49, 0.6) !important;
+      border-color: rgba(144, 144, 151, 0.1) !important;
+    }
+
+    .ficha-card, .fa-card {
+      background: rgba(21, 32, 49, 0.65) !important;
+      border-color: rgba(144, 144, 151, 0.1) !important;
+    }
+
+    /* Secciones: quitar padding-top excesivo de navbar fijo */
+    .p2-section {
+      padding-top: 64px !important;
+    }
+
+    /* ── Mobile ── */
+    @media (max-width: 960px) {
+      body { padding-left: 0 !important; }
+
+      .navbar {
+        transform: translateX(-100%) !important;
+        transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        box-shadow: 4px 0 24px rgba(0,0,0,0.4);
+      }
+
+      .ea-topbar .nav-toggle {
+        display: flex !important;
+        margin-right: 6px;
+        flex-shrink: 0;
+      }
+    }
+  </style>
 </head>
 
 <body>
@@ -3729,35 +4126,123 @@
   </nav>
 
   <!-- ============================================================
-       NAVBAR
+       SIDEBAR — Navegación lateral (Executive Alpha)
   ============================================================ -->
-  <nav class="navbar" id="navbar" aria-label="Navegación principal">
-    <a href="#" class="nav-logo" aria-label="JCAHS inicio">
-      <div class="nav-dot" aria-hidden="true"></div>
-      <span class="nav-logo-wordmark">JC<em>AHS</em></span>
-    </a>
+  <nav class="navbar" id="navbar" aria-label="Navegación lateral">
 
+    <!-- Logo -->
+    <div class="ea-sidebar-logo">
+      <a href="#" class="ea-logo-link" aria-label="JCAHS inicio">
+        <span class="ea-logo-wordmark">JC<em>AHS</em></span>
+        <span class="ea-logo-sub">Institutional Grade</span>
+      </a>
+    </div>
+
+    <!-- Nueva Operación -->
+    <button class="ea-nueva-op-btn"
+            onclick="document.getElementById('calculadora').scrollIntoView({behavior:'smooth'})">
+      <span class="material-symbols-outlined">add_circle</span>
+      Nueva Operación
+    </button>
+
+    <!-- Nav Links -->
     <ul class="nav-links" role="list">
-      <li><a href="#dashboard">Panel</a></li>
-      <li><a href="#crypto">Cripto</a></li>
-      <li><a href="#analisis">Análisis</a></li>
-      <li><a href="#deportes">Deportes</a></li>
-      <li><a href="#calculadora">Calculadoras</a></li>
-      <li><a href="#historial">Historial</a></li>
-      <li><a href="#ia">Asesores IA</a></li>
-      <li><a href="#emergencia" class="danger">🚨 Emergencia</a></li>
+      <li><a href="#dashboard">
+        <span class="material-symbols-outlined">insights</span>Panel
+      </a></li>
+      <li><a href="#crypto">
+        <span class="material-symbols-outlined">currency_bitcoin</span>Cripto
+      </a></li>
+      <li><a href="#deportes">
+        <span class="material-symbols-outlined">sports_soccer</span>Deportes
+      </a></li>
+      <li><a href="#calculadora">
+        <span class="material-symbols-outlined">calculate</span>Calculadoras
+      </a></li>
+      <li><a href="#analisis">
+        <span class="material-symbols-outlined">query_stats</span>Estrategias
+      </a></li>
+      <li><a href="#historial">
+        <span class="material-symbols-outlined">history</span>Historial
+      </a></li>
+      <li><a href="#ia">
+        <span class="material-symbols-outlined">smart_toy</span>Asesores IA
+      </a></li>
+      <li><a href="#emergencia" class="danger">
+        <span class="material-symbols-outlined">warning</span>Emergencia
+      </a></li>
     </ul>
 
     <!-- Principiante / Experto toggle -->
-    <div class="nav-modo-toggle" id="nav-modo-toggle">
-      <button class="nav-modo-btn active" id="nav-modo-prin" onclick="setModoGlobal('principiante')">🎓 Principiante</button>
-      <button class="nav-modo-btn"        id="nav-modo-exp"  onclick="setModoGlobal('experto')">⚡ Experto</button>
+    <div class="ea-sidebar-mode">
+      <div class="nav-modo-toggle" id="nav-modo-toggle">
+        <button class="nav-modo-btn active" id="nav-modo-prin" onclick="setModoGlobal('principiante')">🎓 Principiante</button>
+        <button class="nav-modo-btn"        id="nav-modo-exp"  onclick="setModoGlobal('experto')">⚡ Experto</button>
+      </div>
     </div>
 
+    <!-- Estado del sistema -->
+    <div class="ea-sidebar-status">
+      <div class="ea-status-dot"></div>
+      <span>Sistemas en línea</span>
+    </div>
+
+  </nav>
+
+  <!-- ============================================================
+       TOPBAR — Barra superior (Executive Alpha)
+  ============================================================ -->
+  <div class="ea-topbar" id="ea-topbar" role="banner">
+
+    <!-- Hamburger (mobile, abre nav-drawer existente) -->
     <button class="nav-toggle" id="nav-toggle" aria-label="Abrir menú" aria-expanded="false">
       <span></span><span></span><span></span>
     </button>
-  </nav>
+
+    <!-- Barra de búsqueda -->
+    <div class="ea-topbar-search" role="search">
+      <span class="material-symbols-outlined" aria-hidden="true">search</span>
+      <input type="search"
+             placeholder="Buscar sección..."
+             aria-label="Buscar sección"
+             onkeydown="if(event.key==='Enter'){
+               const q=this.value.toLowerCase();
+               const secs=document.querySelectorAll('section[id]');
+               for(const s of secs){
+                 if(s.id.toLowerCase().includes(q)){
+                   s.scrollIntoView({behavior:'smooth'});
+                   this.value='';
+                   break;
+                 }
+               }
+             }">
+    </div>
+
+    <!-- Controles derecha -->
+    <div class="ea-topbar-right">
+      <button class="ea-topbar-btn" title="Notificaciones" aria-label="Notificaciones">
+        <span class="material-symbols-outlined">notifications</span>
+      </button>
+      <button class="ea-topbar-btn" title="Configuración" aria-label="Configuración"
+              onclick="document.getElementById('historial').scrollIntoView({behavior:'smooth'})">
+        <span class="material-symbols-outlined">settings</span>
+      </button>
+      <span class="ea-topbar-time" id="ea-clock" aria-live="polite" aria-label="Hora actual">--:--:--</span>
+    </div>
+
+  </div>
+
+  <!-- Reloj en tiempo real -->
+  <script>
+    (function eaClock() {
+      function tick() {
+        const el = document.getElementById('ea-clock');
+        if (el) el.textContent = new Date().toLocaleTimeString('es-ES', { hour12: false });
+      }
+      tick();
+      setInterval(tick, 1000);
+    })();
+  </script>
 
   <!-- ============================================================
        HERO SECTION
