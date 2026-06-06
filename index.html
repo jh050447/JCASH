@@ -4846,7 +4846,7 @@
         drawerOpen = true;
         overlay.style.display = 'block';
         gsap.to(drawer,  { x: 0, duration: 0.38, ease: 'power3.out' });
-        gsap.to(overlay, { opacity: 1, duration: 0.3, ease: 'power2.out', from: { opacity: 0 } });
+        gsap.fromTo(overlay, { opacity: 0 }, { opacity: 1, duration: 0.3, ease: 'power2.out' });
         toggle.setAttribute('aria-expanded', 'true');
         document.body.style.overflow = 'hidden';
       }
@@ -4968,8 +4968,7 @@
         .from('.navbar', { y: -64, opacity: 0, duration: 0.75 }, 0.2)
 
         // Eyebrow line
-        .to('.hero-eyebrow', { opacity: 1, y: 0, duration: 0.6,
-          from: { y: 14 } }, 0.5)
+        .fromTo('.hero-eyebrow', { y: 14 }, { opacity: 1, y: 0, duration: 0.6 }, 0.5)
 
         // Logo — reveal then decode, then glow
         .add(() => {
@@ -4983,12 +4982,10 @@
         }, 0.75)
 
         // Subtitle
-        .to('.hero-subtitle', { opacity: 1, y: 0, duration: 0.7,
-          from: { y: 22 } }, 1.7)
+        .fromTo('.hero-subtitle', { y: 22 }, { opacity: 1, y: 0, duration: 0.7 }, 1.7)
 
         // Tagline
-        .to('.hero-tagline',  { opacity: 1, y: 0, duration: 0.6,
-          from: { y: 14 } }, 1.95)
+        .fromTo('.hero-tagline',  { y: 14 }, { opacity: 1, y: 0, duration: 0.6 }, 1.95)
 
         // Scroll indicator
         .to('#scroll-ind',    { opacity: 1, duration: 0.5 }, 2.2);
@@ -5050,6 +5047,61 @@
     const fmtP  = n => n >= 1 ? '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                               : '$' + n.toFixed(6);
     const fmtLg = n => n >= 1e12 ? (n/1e12).toFixed(2)+'T' : n >= 1e9 ? (n/1e9).toFixed(1)+'B' : n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n.toFixed(0);
+
+    // ── Constants for analysis & logos (moved to top to avoid TDZ errors) ──
+    const EXCHANGES_CONFIG = {
+      binance: { spot: 0.001,  futuros: 0.0004, nombre: 'Binance' },
+      bybit:   { spot: 0.001,  futuros: 0.0006, nombre: 'Bybit'   },
+      kucoin:  { spot: 0.001,  futuros: 0.0006, nombre: 'KuCoin'  },
+      kraken:  { spot: 0.0016, futuros: 0.0005, nombre: 'Kraken'  }
+    };
+    const NOMBRES_CRIPTO = { BTC: 'Bitcoin', ETH: 'Ethereum', SOL: 'Solana', XRP: 'XRP' };
+    const CRYPTO_ID_MAP = { BTC: 'bitcoin', ETH: 'ethereum', SOL: 'solana', XRP: 'ripple' };
+    const CRYPTO_LOGOS = {
+      bitcoin: 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png',
+      ethereum: 'https://assets.coingecko.com/coins/images/279/large/ethereum.png',
+      solana: 'https://assets.coingecko.com/coins/images/4128/large/solana.png',
+      ripple: 'https://assets.coingecko.com/coins/images/44/large/xrp.png',
+      dogecoin: 'https://assets.coingecko.com/coins/images/5/large/dogecoin.png',
+      bnb: 'https://assets.coingecko.com/coins/images/825/large/bnb-icon2_2x.png'
+    };
+    function getCryptoLogo(id) {
+      if (!id) return '';
+      if (CRYPTO_LOGOS[id]) return CRYPTO_LOGOS[id];
+      const mapped = CRYPTO_ID_MAP[id];
+      if (mapped && CRYPTO_LOGOS[mapped]) return CRYPTO_LOGOS[mapped];
+      const c = JCAHS.top100?.find(c => c.id === id);
+      return c?.image || '';
+    }
+    const COINS_ANALISIS = [
+      { id: 'bitcoin',  sym: 'BTC' },
+      { id: 'ethereum', sym: 'ETH' },
+      { id: 'solana',   sym: 'SOL' },
+      { id: 'ripple',   sym: 'XRP' }
+    ];
+    const JCAHS_STATE = {
+      precios:       {},
+      ohlc:          {},
+      fearGreed:     null,
+      dominanciaBTC: null,
+      volumen24h:    {},
+      indicadores:   { BTC:{}, ETH:{}, SOL:{}, XRP:{} },
+      fichasActuales: {},
+      bankroll:  parseFloat(localStorage.getItem('jcahs_bankroll')) || 200,
+      exchange:  localStorage.getItem('jcahs_exchange') || 'binance',
+      modo:      localStorage.getItem('jcahs_modo')     || 'principiante',
+      ultimaActualizacion: {}
+    };
+    const _modo = localStorage.getItem('jcahs_modo') || 'principiante';
+    function setModoGlobal(m) {
+      localStorage.setItem('jcahs_modo', m);
+      JCAHS_STATE.modo = m;
+      document.body.classList.toggle('modo-experto',     m === 'experto');
+      document.body.classList.toggle('modo-principiante', m !== 'experto');
+      ['nav-modo-prin','sec-modo-prin'].forEach(id => document.getElementById(id)?.classList.toggle('active', m !== 'experto'));
+      ['nav-modo-exp','sec-modo-exp'].forEach(id => document.getElementById(id)?.classList.toggle('active', m === 'experto'));
+    }
+    setModoGlobal(_modo);
 
     // AbortController fetch with 8s timeout
     async function fetchWithTimeout(url, opts = {}, ms = 8000) {
@@ -7761,74 +7813,7 @@
       if (cap && !cap.value && JCAHS.bankroll) cap.value = Math.min(100, JCAHS.bankroll * 0.1).toFixed(0);
     });
 
-    /* ============================================================
-       === PARTE 10 — SISTEMA REACTIVO DE ANÁLISIS ===
-    ============================================================ */
-
-    // ── Global principiante/experto toggle ──────────────────────
-    const _modo = localStorage.getItem('jcahs_modo') || 'principiante';
-
-    function setModoGlobal(m) {
-      localStorage.setItem('jcahs_modo', m);
-      JCAHS_STATE.modo = m;
-      document.body.classList.toggle('modo-experto',     m === 'experto');
-      document.body.classList.toggle('modo-principiante', m !== 'experto');
-      ['nav-modo-prin','sec-modo-prin'].forEach(id => document.getElementById(id)?.classList.toggle('active', m !== 'experto'));
-      ['nav-modo-exp','sec-modo-exp'].forEach(id => document.getElementById(id)?.classList.toggle('active', m === 'experto'));
-    }
-
-    // Apply on load
-    setModoGlobal(_modo);
-
-    // ── Constants ────────────────────────────────────────────────
-    const EXCHANGES_CONFIG = {
-      binance: { spot: 0.001,  futuros: 0.0004, nombre: 'Binance' },
-      bybit:   { spot: 0.001,  futuros: 0.0006, nombre: 'Bybit'   },
-      kucoin:  { spot: 0.001,  futuros: 0.0006, nombre: 'KuCoin'  },
-      kraken:  { spot: 0.0016, futuros: 0.0005, nombre: 'Kraken'  }
-    };
-
-    const NOMBRES_CRIPTO = { BTC: 'Bitcoin', ETH: 'Ethereum', SOL: 'Solana', XRP: 'XRP' };
-    const CRYPTO_ID_MAP = { BTC: 'bitcoin', ETH: 'ethereum', SOL: 'solana', XRP: 'ripple' };
-
-    const CRYPTO_LOGOS = {
-      bitcoin: 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png',
-      ethereum: 'https://assets.coingecko.com/coins/images/279/large/ethereum.png',
-      solana: 'https://assets.coingecko.com/coins/images/4128/large/solana.png',
-      ripple: 'https://assets.coingecko.com/coins/images/44/large/xrp.png',
-      dogecoin: 'https://assets.coingecko.com/coins/images/5/large/dogecoin.png',
-      bnb: 'https://assets.coingecko.com/coins/images/825/large/bnb-icon2_2x.png'
-    };
-    function getCryptoLogo(id) {
-      if (!id) return '';
-      if (CRYPTO_LOGOS[id]) return CRYPTO_LOGOS[id];
-      const mapped = CRYPTO_ID_MAP[id];
-      if (mapped && CRYPTO_LOGOS[mapped]) return CRYPTO_LOGOS[mapped];
-      const c = JCAHS.top100?.find(c => c.id === id);
-      return c?.image || '';
-    }
-
-    const COINS_ANALISIS = [
-      { id: 'bitcoin',  sym: 'BTC' },
-      { id: 'ethereum', sym: 'ETH' },
-      { id: 'solana',   sym: 'SOL' },
-      { id: 'ripple',   sym: 'XRP' }
-    ];
-
-    // ── JCAHS_STATE — fuente única de verdad ─────────────────────
-    const JCAHS_STATE = {
-      precios:       {},
-      ohlc:          {},
-      fearGreed:     null,
-      dominanciaBTC: null,
-      volumen24h:    {},
-      indicadores:   { BTC:{}, ETH:{}, SOL:{}, XRP:{} },
-      fichasActuales: {},
-      bankroll:  parseFloat(localStorage.getItem('jcahs_bankroll')) || 200,
-      exchange:  localStorage.getItem('jcahs_exchange') || 'binance',
-      modo:      localStorage.getItem('jcahs_modo')     || 'principiante',
-      ultimaActualizacion: {}
-    };
+    /* ── PARTE 10 — (globals moved to top) ───────────────────── */
 
     function syncStateFromJCAHS() {
       COINS_ANALISIS.forEach(({ id, sym }) => {
