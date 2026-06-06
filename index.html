@@ -8381,94 +8381,190 @@
       } else { setTimeout(()=>n.remove(), 5000); }
     }
 
-    // ── Fetch OHLC for analysis ──────────────────────────────────
-    async function fetchOHLCAnalis(coinId, days) {
-      try {
-        const r = await fetchWithTimeout(`https://api.coingecko.com/api/v3/coins/${coinId}/ohlc?vs_currency=usd&days=${days}`);
-        const d = await r.json();
-        return Array.isArray(d) ? d : null;
-      } catch(e) { return null; }
+    // === FIX CARGA ANÁLISIS — paralelo + progresivo + timeout ===
+
+    // OHLC fetch con AbortController propio 8s
+    function fetchOHLCConTimeout(coinId, days) {
+      const ctrl = new AbortController();
+      const tid  = setTimeout(() => ctrl.abort(), 8000);
+      return fetch(
+        `https://api.coingecko.com/api/v3/coins/${coinId}/ohlc?vs_currency=usd&days=${days}`,
+        { signal: ctrl.signal }
+      )
+        .then(r => { clearTimeout(tid); return r.ok ? r.json() : null; })
+        .then(d  => Array.isArray(d) ? d : null)
+        .catch(() => { clearTimeout(tid); return null; });
     }
 
-    // ── recalcularTodo ───────────────────────────────────────────
-    async function recalcularTodo() {
+    // Cargar d30 + h4 de UNA moneda en PARALELO
+    async function cargarOHLCMoneda(id, sym, stale30, stale4h) {
+      if (!JCAHS_STATE.ohlc[sym]) JCAHS_STATE.ohlc[sym] = {};
+      const now = Date.now();
+      const [r30, r4h] = await Promise.allSettled([
+        stale30 ? fetchOHLCConTimeout(id, 30) : Promise.resolve(null),
+        stale4h ? fetchOHLCConTimeout(id, 7)  : Promise.resolve(null)
+      ]);
+      if (stale30 && r30.status==='fulfilled' && r30.value)
+        { JCAHS_STATE.ohlc[sym].d30 = r30.value; JCAHS_STATE.ultimaActualizacion.ohlc30 = now; }
+      if (stale4h && r4h.status==='fulfilled' && r4h.value)
+        { JCAHS_STATE.ohlc[sym].h4  = r4h.value; JCAHS_STATE.ultimaActualizacion.ohlc4h  = now; }
+      return !!JCAHS_STATE.ohlc[sym].d30;
+    }
+
+    // UI de progreso
+    function mostrarProgresoCarga(estado) {
       const el = document.getElementById('analisis-fichas');
       if (!el) return;
+      const total = 2 + COINS_ANALISIS.length;
+      const hechos = [estado.precios, estado.fearGreed, ...COINS_ANALISIS.map(c => estado[c.sym] !== undefined)].filter(Boolean).length;
+      const pct = Math.min(95, Math.round(hechos / total * 100));
+      el.innerHTML = `
+        <div class="fa-loading" style="max-width:600px;margin:0 auto;text-align:left">
+          <div style="display:flex;justify-content:space-between;margin-bottom:10px;font-family:var(--f-mono);font-size:18px">
+            <span>Cargando análisis inteligente...</span>
+            <span style="color:var(--accent)">${pct}%</span>
+          </div>
+          <div style="background:rgba(255,255,255,0.06);border-radius:4px;height:8px;overflow:hidden;margin-bottom:20px">
+            <div style="width:${pct}%;height:100%;background:var(--accent);transition:width 0.4s;border-radius:4px"></div>
+          </div>
+          <div style="font-family:var(--f-ui);font-size:20px;line-height:2.2">
+            <div>${estado.precios ? '✅' : '⏳'} Precios en tiempo real${JCAHS_STATE.fearGreed!=null ? ' · F&G: '+JCAHS_STATE.fearGreed : ''}</div>
+            <div>${estado.fearGreed ? '✅' : '⏳'} Índice Miedo y Codicia</div>
+            ${COINS_ANALISIS.map(({sym}) => {
+              const st = estado[sym];
+              return `<div>${st===true?'✅':st===false?'❌':'⏳'} Historial OHLC ${sym}${st===false?' <span style="color:#FBBF24;font-size:17px">(sin datos — análisis parcial)</span>':''}</div>`;
+            }).join('')}
+          </div>
+        </div>`;
+    }
 
-      syncStateFromJCAHS();
-
-      // Fetch OHLC if not cached or stale
-      const now = Date.now();
-      const stale30  = !JCAHS_STATE.ultimaActualizacion.ohlc30  || now - JCAHS_STATE.ultimaActualizacion.ohlc30  > 300000;
-      const stale4h  = !JCAHS_STATE.ultimaActualizacion.ohlc4h  || now - JCAHS_STATE.ultimaActualizacion.ohlc4h  > 14400000;
-
-      if (stale30 || stale4h) {
-        el.innerHTML = '<div class="fa-loading">⚡ Cargando datos de mercado (CoinGecko OHLC)...</div>';
-        await Promise.allSettled(COINS_ANALISIS.map(async ({ id, sym }) => {
-          if (!JCAHS_STATE.ohlc[sym]) JCAHS_STATE.ohlc[sym] = {};
-          if (stale30) {
-            const d = await fetchOHLCAnalis(id, 30);
-            if (d) { JCAHS_STATE.ohlc[sym].d30 = d; JCAHS_STATE.ultimaActualizacion.ohlc30 = now; }
-          }
-          if (stale4h) {
-            const d = await fetchOHLCAnalis(id, 7);
-            if (d) { JCAHS_STATE.ohlc[sym].h4  = d; JCAHS_STATE.ultimaActualizacion.ohlc4h  = now; }
-          }
-        }));
-      }
-
-      // Score and strategy
-      const prevScores = {};
+    // Render fichas con datos disponibles (sin bloquear)
+    function renderizarFichas(prevScores) {
+      const el = document.getElementById('analisis-fichas');
+      if (!el) return;
       const fichas = [];
 
       COINS_ANALISIS.forEach(({ sym }) => {
         if (!JCAHS_STATE.indicadores[sym]) JCAHS_STATE.indicadores[sym] = {};
-        prevScores[sym] = JCAHS_STATE.indicadores[sym]?.scoreTotal ?? null;
         const score  = calcularScoreTotal(sym);
         const precio = JCAHS_STATE.precios[sym];
         if (!precio) return;
         const ficha  = determinarEstrategia(score, precio, sym);
-        if (ficha) {
-          const sc = JCAHS_STATE.indicadores[sym];
-          const scores = sc.scores || {};
-          fichas.push({
-            ...ficha,
-            _sc: {
-              rsiScore:sc.scoreTotal, macdScore:scores.macd??0,
-              emaScore:scores.emas??0, bbScore:scores.bollinger??0,
-              srScore:scores.soportes??0, candleScore:scores.patron??0,
-              fngScore:scores.fearGreed??0, volScore:scores.volumen??0,
-              trendScore:scores.tendencia??0, domScore:scores.dominancia??0,
-              rsi1d:sc.rsi1d, rsi4h:sc.rsi4h, rsi1w:sc.rsi1w,
-              macd:sc.macd, ema20:sc.ema20, ema50:sc.ema50, ema200:sc.ema200,
-              bollinger:sc.bollinger, soportes:sc.soportes, patron:sc.patron
-            }
-          });
+        if (!ficha) return;
 
-          // Notify if score changed category
-          if (prevScores[sym] !== null && obtenerCategoria(prevScores[sym]) !== obtenerCategoria(score))
-            notificarCambioImportante(`${sym} cambió a ${ficha.tipo}`, 'señal');
-          if (prevScores[sym] !== null && score - prevScores[sym] > 10)
-            notificarCambioImportante(`${sym} score subió ${score - prevScores[sym]} puntos (${prevScores[sym]}→${score})`, 'alza');
-        }
+        const sc     = JCAHS_STATE.indicadores[sym];
+        const scores = sc.scores || {};
+        const parcial = !JCAHS_STATE.ohlc[sym]?.d30;
+
+        fichas.push({
+          ...ficha, _parcial: parcial,
+          _sc: {
+            rsiScore:   scores.rsi       ?? 0, macdScore:  scores.macd     ?? 0,
+            emaScore:   scores.emas      ?? 0, bbScore:    scores.bollinger ?? 0,
+            srScore:    scores.soportes  ?? 0, candleScore:scores.patron   ?? 0,
+            fngScore:   scores.fearGreed ?? 0, volScore:   scores.volumen  ?? 0,
+            trendScore: scores.tendencia ?? 0, domScore:   scores.dominancia?? 0,
+            rsi1d: sc.rsi1d, rsi4h: sc.rsi4h, rsi1w: sc.rsi1w,
+            macd: sc.macd, ema20: sc.ema20, ema50: sc.ema50, ema200: sc.ema200,
+            bollinger: sc.bollinger, soportes: sc.soportes, patron: sc.patron
+          }
+        });
+
+        // Notifications for score changes
+        if (prevScores[sym] !== null && obtenerCategoria(prevScores[sym]) !== obtenerCategoria(score))
+          notificarCambioImportante(`${sym} cambió a ${ficha.tipo}`, 'señal');
+        if (prevScores[sym] !== null && score - prevScores[sym] > 10)
+          notificarCambioImportante(`${sym} score subió ${score - prevScores[sym]} pts`, 'alza');
       });
 
-      // Notify F&G if reached extreme
       if (JCAHS_STATE.fearGreed !== null && JCAHS_STATE.fearGreed <= 10)
-        notificarCambioImportante('Miedo Extremo — Zona histórica de compra (índice ≤10)', 'alerta');
+        notificarCambioImportante('Miedo Extremo — Zona histórica de compra (F&G ≤10)', 'alerta');
 
-      fichas.sort((a,b)=>b.score-a.score);
+      fichas.sort((a,b) => b.score - a.score);
 
       if (!fichas.length) {
-        el.innerHTML = '<div class="fa-loading">Mercado en zona neutral (45-54 pts). Sin señales claras ahora. Vuelve más tarde.</div>';
+        const hayOHLC = COINS_ANALISIS.some(({ sym }) => JCAHS_STATE.ohlc[sym]?.d30);
+        el.innerHTML = `<div class="fa-loading" style="text-align:center">
+          <div style="margin-bottom:16px">${hayOHLC
+            ? 'Mercado en zona neutral (45-54 pts). Sin señales claras ahora.'
+            : '⚠️ Datos históricos no disponibles en este momento.<br>Análisis requiere conexión con CoinGecko.'}</div>
+          <button onclick="recalcularTodo()"
+                  style="padding:12px 28px;background:var(--accent-dim);border:1px solid var(--border);border-radius:8px;color:var(--accent);font-family:var(--f-display);font-size:18px;letter-spacing:2px;cursor:pointer">
+            🔄 REINTENTAR
+          </button>
+        </div>`;
         return;
       }
 
-      el.innerHTML = fichas.slice(0,6).map((f,i) => {
-        // Rebuild sc object for generarHTMLFicha
-        const sc = f._sc;
-        return generarHTMLFicha(f, sc, i);
+      el.innerHTML = fichas.slice(0, 6).map((f, i) => {
+        const html = generarHTMLFicha(f, f._sc, i);
+        return f._parcial
+          ? html + `<div style="font-size:16px;color:#FBBF24;padding:2px 28px 10px;font-family:var(--f-ui)">⚠️ Score parcial: datos técnicos RSI/MACD no disponibles. Análisis basado en sentimiento.</div>`
+          : html;
       }).join('');
+    }
+
+    // ── recalcularTodo — paralelo + progresivo + 12s max ─────────
+    let _rcTodo = false; // semáforo anti-concurrencia
+
+    async function recalcularTodo() {
+      if (_rcTodo) return;
+      _rcTodo = true;
+
+      const el = document.getElementById('analisis-fichas');
+      if (!el) { _rcTodo = false; return; }
+
+      syncStateFromJCAHS();
+
+      const now     = Date.now();
+      const stale30 = !JCAHS_STATE.ultimaActualizacion.ohlc30 || now - JCAHS_STATE.ultimaActualizacion.ohlc30 > 300000;
+      const stale4h = !JCAHS_STATE.ultimaActualizacion.ohlc4h || now - JCAHS_STATE.ultimaActualizacion.ohlc4h > 14400000;
+      const needFetch = stale30 || stale4h;
+
+      // Capture previous scores before recalculation
+      const prevScores = {};
+      COINS_ANALISIS.forEach(({ sym }) => {
+        prevScores[sym] = JCAHS_STATE.indicadores[sym]?.scoreTotal ?? null;
+      });
+
+      if (!needFetch) {
+        // Data is fresh — render immediately
+        renderizarFichas(prevScores);
+        _rcTodo = false;
+        return;
+      }
+
+      // Show initial progress
+      const estado = {
+        precios:   Object.keys(JCAHS_STATE.precios).length > 0,
+        fearGreed: JCAHS_STATE.fearGreed !== null
+      };
+      mostrarProgresoCarga(estado);
+
+      // Global 12-second timeout
+      let globalTimer;
+      const timeoutP = new Promise(res => { globalTimer = setTimeout(res, 12000); });
+
+      // Fetch all 4 coins in parallel, each coin d30+h4 also in parallel
+      const fetchAll = Promise.allSettled(
+        COINS_ANALISIS.map(async ({ id, sym }) => {
+          const ok = await cargarOHLCMoneda(id, sym, stale30, stale4h);
+          estado[sym] = ok;
+          mostrarProgresoCarga(estado); // update UI as each coin arrives
+        })
+      );
+
+      // Race: all done OR 12s timeout
+      await Promise.race([fetchAll, timeoutP]);
+      clearTimeout(globalTimer);
+
+      // Mark any still-pending coins as failed
+      COINS_ANALISIS.forEach(({ sym }) => {
+        if (estado[sym] === undefined) estado[sym] = false;
+      });
+
+      renderizarFichas(prevScores);
+      _rcTodo = false;
     }
 
     // ── SVG references (from existing globals) ───────────────────
