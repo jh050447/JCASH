@@ -693,8 +693,17 @@ body {
 .mkt-cell.nv { border-color:rgba(255,180,171,0.25); }
 .mkt-label { font-size:13px; font-weight:700; color:var(--text-3); text-align:center; letter-spacing:.5px; text-transform:uppercase; }
 .mkt-ref { font-size:12px; color:var(--text-3); text-align:center; font-family:var(--f-mono); }
-.mkt-inp { background:var(--surface-3); border:1px solid var(--border); border-radius:var(--radius); padding:8px 4px; font-size:18px; font-weight:800; font-family:var(--f-mono); color:var(--text); text-align:center; width:100%; outline:none; }
+.mkt-inp { background:var(--surface-3); border:1px solid var(--border); border-radius:var(--radius); padding:8px 4px; font-size:18px; font-weight:800; font-family:var(--f-mono); color:var(--text); text-align:center; width:100%; outline:none; transition:border-color .12s; }
 .mkt-inp:focus { border-color:var(--tert-mid); }
+.mkt-inp.ok { border-color:rgba(78,222,163,0.45); }
+.mkt-inp.bad { border-color:var(--error); }
+.mkt-err { font-size:14px; color:var(--error); text-align:center; line-height:1.3; }
+.an-tooltip { position:relative; display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:50%; background:var(--surface-3); color:var(--text-3); font-size:12px; font-weight:700; cursor:help; margin-left:6px; vertical-align:middle; }
+.an-tooltip:hover .an-tooltip-txt { display:block; }
+.an-tooltip-txt { display:none; position:absolute; bottom:130%; left:50%; transform:translateX(-50%); background:var(--surface-3); border:1px solid var(--border); border-radius:var(--radius); padding:8px 12px; font-size:13px; font-weight:400; color:var(--text-2); white-space:nowrap; z-index:20; box-shadow:0 4px 16px rgba(0,0,0,.3); }
+.an-grupo-msg { font-size:14px; font-weight:700; padding:8px 12px; border-radius:var(--radius); margin-top:8px; }
+.an-grupo-msg.warn { background:var(--warn-dim); color:var(--warning); border:1px solid rgba(255,217,102,0.3); }
+.an-grupo-msg.ok { background:rgba(78,222,163,0.06); color:var(--tertiary); border:1px solid var(--tert-mid); }
 .mkt-prob-txt { font-size:13px; color:var(--text-3); text-align:center; font-family:var(--f-mono); }
 .mkt-edge { font-family:var(--f-mono); font-size:15px; font-weight:800; text-align:center; }
 .mkt-kelly-txt { font-size:13px; color:var(--text-2); text-align:center; font-family:var(--f-mono); }
@@ -3590,8 +3599,13 @@ function analizarManual() {
 // ── STEP 2 — análisis completo ───────────────────────────────
 function anOddChanged(key, val) {
   const v=parseFloat(val);
-  if (!isNaN(v)&&v>1) STATE.an.ecuabet[key]=v;
-  else delete STATE.an.ecuabet[key];
+  if (val===''||val===null||isNaN(v)) delete STATE.an.ecuabet[key];
+  else STATE.an.ecuabet[key]=v;
+  actualizarCeldaUI(key);
+  if (key.startsWith('1x2_')) {
+    const g=qs('an-1x2-grupo');
+    if (g) g.innerHTML=validarGrupo1X2();
+  }
   renderBestBets();
   renderCupon();
 }
@@ -3655,32 +3669,88 @@ function renderAnStep2() {
 }
 
 // ── UTILIDAD SECCIÓN ─────────────────────────────────────────
-function anSec(titulo, body) {
+const AN_ODD_MIN=1.01, AN_ODD_MAX=200;
+
+function anSec(titulo, body, tip) {
+  const tipHtml=tip?`<span class="an-tooltip">❓<span class="an-tooltip-txt">${tip}</span></span>`:'';
   return `<div class="an-section card" style="margin-bottom:12px;padding:14px 16px">
-    <div style="font-size:14px;font-weight:800;color:var(--text-2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">${titulo}</div>
+    <div style="font-size:14px;font-weight:800;color:var(--text-2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">${titulo}${tipHtml}</div>
     ${body}
   </div>`;
 }
 
-function mktCell(key, label, apiOdd, refProb) {
-  const ec=STATE.an.ecuabet[key]||'';
-  let edgeHtml='';
-  if (ec&&ec>1&&refProb>0) {
+function validarOdd(val) {
+  if (val===''||val===null||val===undefined) return {estado:'vacio', msg:''};
+  const v=parseFloat(val);
+  if (isNaN(v)) return {estado:'bad', msg:'Solo números decimales'};
+  if (v<AN_ODD_MIN) return {estado:'bad', msg:`Odd mínima: ${AN_ODD_MIN.toFixed(2)}`};
+  if (v>AN_ODD_MAX) return {estado:'bad', msg:`Odd máxima: ${AN_ODD_MAX}`};
+  return {estado:'ok', msg:''};
+}
+
+function mktCell(key, label, apiOdd, refProb, placeholder) {
+  const ecRaw=STATE.an.ecuabet[key];
+  const ec=ecRaw!==undefined?ecRaw:'';
+  const val=validarOdd(ecRaw!==undefined?String(ecRaw):'');
+  let edgeTxt='', edgeColor='var(--tertiary)', isV=false;
+  if (val.estado==='ok'&&refProb>0) {
     const edge=(refProb-1/ec)*100;
-    const isV=edge>0;
-    edgeHtml=`<div class="mkt-edge" style="color:${isV?'var(--tertiary)':'var(--error)'}">${edge>=0?'+':''}${edge.toFixed(1)}%</div>`;
+    isV=edge>0;
+    edgeColor=isV?'var(--tertiary)':'var(--error)';
+    edgeTxt=`${edge>=0?'+':''}${edge.toFixed(1)}%`;
   }
   const apiRef=apiOdd>1?`<div style="font-size:11px;color:var(--text-3);font-family:var(--f-mono);text-align:center">API: ${apiOdd.toFixed(2)}</div>`:'';
-  const isV=ec&&ec>1&&refProb>0&&(refProb-1/ec)*100>0;
-  return `<div class="mkt-cell${isV?' v':ec&&ec>1&&refProb>0?' nv':''}">
+  const inpClass=val.estado==='ok'?' ok':val.estado==='bad'?' bad':'';
+  const cellClass=isV?' v':(val.estado==='ok'&&refProb>0)?' nv':'';
+  const lbl=label.replace(/'/g,"\\'");
+  const cuponBtn=isV?`<button class="mkt-add" onclick="addCupon('${key}','${lbl}',${ec},${((refProb-1/ec)*100).toFixed(2)},${refProb.toFixed(4)})">+ Cupón</button>`:'';
+  return `<div class="mkt-cell${cellClass}" id="mkt-cell-${key}">
     <div style="font-size:13px;font-weight:700;color:var(--text-2);text-align:center">${label}</div>
     ${apiRef}
     <div style="font-size:11px;color:var(--text-3);font-family:var(--f-mono);text-align:center">Prob: ${refProb>0?(refProb*100).toFixed(1)+'%':'—'}</div>
-    <input class="mkt-inp" placeholder="Odd Ecuabet" type="number" min="1.01" step="0.01"
-      value="${ec||''}" oninput="anOddChanged('${key}',this.value)">
-    ${edgeHtml}
-    ${isV?`<button class="mkt-add" onclick="addCupon('${key}','${label}',${ec},${((refProb-1/ec)*100).toFixed(2)},${refProb.toFixed(4)})">+ Cupón</button>`:''}
+    <input class="mkt-inp${inpClass}" id="mkt-inp-${key}" placeholder="${placeholder||'Odd Ecuabet'}" type="number" min="${AN_ODD_MIN}" max="${AN_ODD_MAX}" step="0.01"
+      value="${ec===''?'':ec}" oninput="anOddChanged('${key}',this.value)">
+    <div class="mkt-err" id="mkt-err-${key}">${val.estado==='bad'?val.msg:''}</div>
+    <div class="mkt-edge" id="mkt-edge-${key}" style="color:${edgeColor}">${edgeTxt}</div>
+    <div id="mkt-add-${key}">${cuponBtn}</div>
   </div>`;
+}
+
+// ── VALIDACIÓN GRUPAL 1X2 ────────────────────────────────────
+function validarGrupo1X2() {
+  const {ecuabet}=STATE.an;
+  const h=ecuabet['1x2_H'], d=ecuabet['1x2_D'], a=ecuabet['1x2_A'];
+  if (!(validarOdd(String(h)).estado==='ok'&&validarOdd(String(d)).estado==='ok'&&validarOdd(String(a)).estado==='ok')) return '';
+  const sumPct=(1/h+1/d+1/a)*100;
+  if (sumPct<100) return `<div class="an-grupo-msg warn">⚠️ Odds incoherentes — revisa los valores (suma de probabilidades implícitas: ${sumPct.toFixed(1)}%)</div>`;
+  if (sumPct>130) return `<div class="an-grupo-msg warn">⚠️ Margen muy alto — verifica en Ecuabet (suma de probabilidades implícitas: ${sumPct.toFixed(1)}%)</div>`;
+  return `<div class="an-grupo-msg ok">✓ Odds coherentes (margen de casa: ${(sumPct-100).toFixed(1)}%)</div>`;
+}
+
+// ── ACTUALIZACIÓN VISUAL DE CELDA (sin perder foco del input) ─
+function actualizarCeldaUI(key) {
+  const ecRaw=STATE.an.ecuabet[key];
+  const val=validarOdd(ecRaw!==undefined?String(ecRaw):'');
+  const refProb=getRefProb(key);
+  const inp=qs('mkt-inp-'+key);
+  if (inp) { inp.classList.remove('ok','bad'); if (val.estado==='ok'||val.estado==='bad') inp.classList.add(val.estado); }
+  const errEl=qs('mkt-err-'+key);
+  if (errEl) errEl.textContent = val.estado==='bad'?val.msg:'';
+  let edge=0, isV=false;
+  if (val.estado==='ok'&&refProb>0) { edge=(refProb-1/ecRaw)*100; isV=edge>0; }
+  const edgeEl=qs('mkt-edge-'+key);
+  if (edgeEl) {
+    edgeEl.textContent=(val.estado==='ok'&&refProb>0)?`${edge>=0?'+':''}${edge.toFixed(1)}%`:'';
+    edgeEl.style.color=isV?'var(--tertiary)':'var(--error)';
+  }
+  const addEl=qs('mkt-add-'+key);
+  if (addEl) addEl.innerHTML = isV?`<button class="mkt-add" onclick="addCupon('${key}','${getLabelForKey(key).replace(/'/g,"\\'")}',${ecRaw},${edge.toFixed(2)},${refProb.toFixed(4)})">+ Cupón</button>`:'';
+  const cellEl=qs('mkt-cell-'+key);
+  if (cellEl) {
+    cellEl.classList.remove('v','nv');
+    if (isV) cellEl.classList.add('v');
+    else if (val.estado==='ok'&&refProb>0) cellEl.classList.add('nv');
+  }
 }
 
 // ── MERCADOS ─────────────────────────────────────────────────
@@ -3691,11 +3761,12 @@ function renderMkt1X2() {
   const [pH,pD,pA]=probs;
   return anSec('1X2 — Resultado Final',`
     <div class="mkt-grid-3">
-      ${mktCell('1x2_H',`1 · ${partido.local}`,hasApi?apiH2h[0]:0,pH)}
-      ${mktCell('1x2_D','X · Empate',hasApi?apiH2h[1]:0,pD)}
-      ${mktCell('1x2_A',`2 · ${partido.visitante}`,hasApi?apiH2h[2]:0,pA)}
+      ${mktCell('1x2_H',`1 · ${partido.local}`,hasApi?apiH2h[0]:0,pH,'Ej: 1.95')}
+      ${mktCell('1x2_D','X · Empate',hasApi?apiH2h[1]:0,pD,'Ej: 3.05')}
+      ${mktCell('1x2_A',`2 · ${partido.visitante}`,hasApi?apiH2h[2]:0,pA,'Ej: 4.30')}
     </div>
-  `);
+    <div id="an-1x2-grupo">${validarGrupo1X2()}</div>
+  `,'Ingresa la odd exacta que aparece en Ecuabet para este mercado');
 }
 
 function renderMktDC() {
@@ -3715,7 +3786,7 @@ function renderMktDC() {
       ${mktCell('dc_X2',`X2 · Empate/${partido.visitante}`,apiDC[1]>1?apiDC[1]:0,pX2)}
       ${mktCell('dc_12',`12 · ${partido.local}/${partido.visitante}`,apiDC[2]>1?apiDC[2]:0,p12)}
     </div>
-  `);
+  `,'Ingresa la odd exacta que aparece en Ecuabet para este mercado');
 }
 
 function renderMktOU() {
@@ -3734,17 +3805,19 @@ function renderMktOU() {
     const apiOu=STATE.an.apiOU[String(line)]||null;
     const oApi=apiOu?apiOu[0]:0;
     const uApi=apiOu?apiOu[1]:0;
+    const phO=line===2.5?'Ej: 2.10':'Ej: '+(line<2.5?'1.55':'2.60');
+    const phU=line===2.5?'Ej: 1.75':'Ej: '+(line<2.5?'2.40':'1.50');
     return `
       <div style="grid-column:span 3;font-weight:800;font-size:14px;margin-top:8px;color:var(--text-2)">Más/Menos ${line} goles</div>
-      ${mktCell('ou_O_'+line,`Más de ${line}`,oApi,pO)}
-      ${mktCell('ou_U_'+line,`Menos de ${line}`,uApi,pU)}
+      ${mktCell('ou_O_'+line,`Más de ${line}`,oApi,pO,phO)}
+      ${mktCell('ou_U_'+line,`Menos de ${line}`,uApi,pU,phU)}
       <div></div>
     `;
   });
   return anSec('Total de Goles (O/U)',`
     <div style="font-size:12px;color:var(--text-3);font-family:var(--f-mono);margin-bottom:8px">λ Total esperado: ${avgL.toFixed(2)} goles · Probabilidades via Poisson</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${cells.join('')}</div>
-  `);
+  `,'Ingresa la odd exacta que aparece en Ecuabet para este mercado');
 }
 
 function renderMktBTTS() {
@@ -3755,10 +3828,10 @@ function renderMktBTTS() {
   return anSec('Ambos Equipos Marcan (BTTS)',`
     <div style="font-size:12px;color:var(--text-3);font-family:var(--f-mono);margin-bottom:8px">Probabilidades via Poisson · λL=${lL} · λV=${lV}</div>
     <div class="mkt-grid-2">
-      ${mktCell('btts_si','Sí marcan ambos',0,pBTTS)}
-      ${mktCell('btts_no','No marcan ambos',0,pNoBTTS)}
+      ${mktCell('btts_si','Sí marcan ambos',0,pBTTS,'Ej: 1.85')}
+      ${mktCell('btts_no','No marcan ambos',0,pNoBTTS,'Ej: 1.90')}
     </div>
-  `);
+  `,'Ingresa la odd exacta que aparece en Ecuabet para este mercado');
 }
 
 function renderMktAH() {
@@ -3786,7 +3859,7 @@ function renderMktAH() {
   });
   return anSec('Hándicap Asiático',`
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${rows.join('')}</div>
-  `);
+  `,'Ingresa la odd exacta que aparece en Ecuabet para este mercado');
 }
 
 function renderMktHF() {
@@ -3811,7 +3884,7 @@ function renderMktHF() {
   const cells=hfCombos.map(([k,lbl,p])=>mktCell('hf_'+k,lbl,0,p/total));
   return anSec('Mitad / Final',`
     <div class="mkt-grid-3">${cells.join('')}</div>
-  `);
+  `,'Ingresa la odd exacta que aparece en Ecuabet para este mercado');
 }
 
 function renderMktFG() {
@@ -3828,7 +3901,7 @@ function renderMktFG() {
       ${mktCell('fg_N','Sin goles (0-0)',0,pNoGoal)}
       ${mktCell('fg_V',`1er gol ${partido.visitante}`,0,pFV)}
     </div>
-  `);
+  `,'Ingresa la odd exacta que aparece en Ecuabet para este mercado');
 }
 
 function renderMktExact() {
@@ -3844,7 +3917,7 @@ function renderMktExact() {
   return anSec('Marcador Exacto (Poisson)',`
     <div style="font-size:12px;color:var(--text-3);font-family:var(--f-mono);margin-bottom:8px">λL=${lL} · λV=${lV} · Top 9 resultados más probables</div>
     <div class="mkt-grid-3">${cells.join('')}</div>
-  `);
+  `,'Ingresa la odd exacta que aparece en Ecuabet para este mercado');
 }
 
 function renderMktFH() {
@@ -3860,14 +3933,14 @@ function renderMktFH() {
       ${mktCell('fh_D','Empate 1T',0,pHD/tot)}
       ${mktCell('fh_A','Visitante gana 1T',0,pHA/tot)}
     </div>
-  `);
+  `,'Ingresa la odd exacta que aparece en Ecuabet para este mercado');
 }
 
 // ── BEST BETS ────────────────────────────────────────────────
 function calcAllEdges() {
   const picks=[];
   for(const [key,ecOdd] of Object.entries(STATE.an.ecuabet)) {
-    if (ecOdd<=1) continue;
+    if (validarOdd(String(ecOdd)).estado!=='ok') continue;
     // Get ref prob from mktCell rendering (re-compute from state)
     const refProb=getRefProb(key);
     if (refProb<=0) continue;
