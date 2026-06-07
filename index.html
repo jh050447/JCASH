@@ -4604,19 +4604,22 @@ async function analizarPartidoProfundo(game, capital) {
       const sc = calcularScoreMercado('h2h', pk, odd, contexto);
       const k = Math.max(0.01, parseFloat(sc.edge) / 100 * 0.25);
       const s = capital * k;
-      apuestas.push({ mercado: 'Resultado Final 1X2', pick: nm, partido: `${L} vs ${V}`, odd, ...sc, apostar: s, ganancia: s * (odd - 1), kelly: (k * 100).toFixed(1) });
+      const pickLbl = traducirPick(nm, 'h2h', L, V);
+      apuestas.push({ mercado: 'Resultado Final 1X2', pick: pickLbl, partido: `${L} vs ${V}`, odd, ...sc, apostar: s, ganancia: s * (odd - 1), kelly: (k * 100).toFixed(1) });
     });
   }
   if (todosMercados.totals) {
     [1.5, 2.5, 3.5].forEach(line => {
-      ['Over', 'Under'].forEach(pk => {
-        const odd = obtenerOddTotals(todosMercados.totals, pk, line);
-        if (!odd) return;
-        const sc = calcularScoreMercado('totals', pk.toLowerCase(), odd, contexto);
-        const k = Math.max(0.01, parseFloat(sc.edge) / 100 * 0.25);
-        const s = capital * k;
-        const lbl = `${pk === 'Over' ? 'Más' : 'Menos'} de ${line} goles`;
-        apuestas.push({ mercado: 'Total de goles', pick: lbl, partido: `${L} vs ${V}`, odd, ...sc, apostar: s, ganancia: s * (odd - 1), kelly: (k * 100).toFixed(1) });
+        const ovLbl = traducirPick('Over ' + line, 'totals', L, V);
+        const unLbl = traducirPick('Under ' + line, 'totals', L, V);
+        ['Over', 'Under'].forEach(pk => {
+          const odd = obtenerOddTotals(todosMercados.totals, pk, line);
+          if (!odd) return;
+          const sc = calcularScoreMercado('totals', pk.toLowerCase(), odd, contexto);
+          const k = Math.max(0.01, parseFloat(sc.edge) / 100 * 0.25);
+          const s = capital * k;
+          const lbl = pk === 'Over' ? ovLbl : unLbl;
+          apuestas.push({ mercado: 'Total de goles', pick: lbl, partido: `${L} vs ${V}`, odd, ...sc, apostar: s, ganancia: s * (odd - 1), kelly: (k * 100).toFixed(1) });
       });
     });
   }
