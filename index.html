@@ -2977,6 +2977,7 @@ async function cargarDeportes() {
 
   valueBets.sort((a, b) => b.edge - a.edge);
   STATE.valueBets = valueBets;
+  console.log('MENTOR DEBUG - odds loaded:', STATE.valueBets?.length, Object.keys(STATE));
 
   // ── Card 1: Value Bets ────────────────────────────────────
   if (!games.length) {
@@ -4344,10 +4345,27 @@ function mentorGananciaPersonalizada(val) {
   if (!isNaN(v)&&v>0) { STATE.mentor.gananciaMin=0; STATE.mentor.gananciaMax=v; }
 }
 
-function mentorMostrarSugerencias() {
+async function mentorMostrarSugerencias() {
   const m=STATE.mentor;
   if (!m.capital||m.capital<=0) { alert('Ingresa cuánto quieres apostar.'); return; }
   if (m.gananciaMin==null||m.gananciaMax==null) { alert('Selecciona o ingresa cuánto quieres ganar.'); return; }
+
+  // Ensure data is loaded before generating suggestions
+  const faltaData = !STATE.valueBets.length || !Object.keys(STATE.senalesCripto).length;
+  if (faltaData) {
+    setHTML('mentor-body', '<div class="loading" style="padding:40px"><span class="spin">⌛</span> Cargando datos de mercado…</div>');
+    if (!STATE.valueBets.length) {
+      await cargarDeportes();
+      if (!STATE.valueBets.length) {
+        setTimeout(() => { mentorMostrarSugerencias(); }, 3000);
+        return;
+      }
+    }
+    if (!Object.keys(STATE.senalesCripto).length) {
+      await Promise.all(['BTC','ETH','SOL','XRP'].map(s => generarSenalCrypto(s)));
+    }
+  }
+
   m.sugerencias=generarSugerencias(m.capital, m.gananciaMin, m.gananciaMax, m.tipo);
   m.paso=2;
   renderMentor();
@@ -4355,6 +4373,7 @@ function mentorMostrarSugerencias() {
 }
 
 function generarSugerencias(capital, gananciaMin, gananciaMax, tipo) {
+  console.log('MENTOR DEBUG - generating:', STATE.valueBets?.length, Object.keys(STATE.senalesCripto)?.length);
   const sugerencias=[];
 
   // 1. Value bets de deportes
