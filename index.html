@@ -18,6 +18,11 @@
   --surface:     #081425;
   --surface-2:   #0d1f35;
   --surface-3:   #112645;
+  --surface-mid: #0d1f35;
+  --surface-high:#1a3050;
+  --outline:     #4e6a88;
+  --on-surface:  #e2eefc;
+  --font-mono:   'JetBrains Mono', monospace;
   --border:      rgba(255,255,255,0.07);
   --tertiary:    #4edea3;
   --tert-dim:    rgba(78,222,163,0.12);
@@ -4546,9 +4551,66 @@ async function analizarPartidoProfundo(game, capital) {
   return { game, contexto, contextoCargado: !!contexto, apuestas, mercadosCargados: Object.keys(todosMercados).length, mercadosTotal: mercados.length };
 }
 
+// ════════════════════════════════════════════════════════════
+// MENTOR — HELPERS DE RENDER
+// ════════════════════════════════════════════════════════════
+
+function formatearFechaEcuador(fechaTs) {
+  const d = new Date(fechaTs);
+  const ahora = new Date();
+  const diffMin = Math.round((d - ahora) / 60000);
+  if (diffMin < 60 && diffMin > 0) return `⚡ EMPIEZA EN ${diffMin} MIN`;
+  const esHoy = d.toDateString() === ahora.toDateString();
+  const hora = d.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Guayaquil' });
+  if (esHoy) return `HOY · ${hora}`;
+  const fecha = d.toLocaleDateString('es-EC', { weekday: 'short', day: '2-digit', month: 'short', timeZone: 'America/Guayaquil' });
+  return `${fecha} · ${hora}`;
+}
+
+function getBadgeSemaforo(edge, prob) {
+  const e = parseFloat(edge) || 0;
+  const p = parseFloat(prob) || 0;
+  if (e > 5 && p > 45) return '<span class="badge badge-green" style="font-size:16px;padding:6px 14px">🟢 APOSTAR</span>';
+  if ((e >= 2 && e <= 5) || (p >= 35 && p <= 45)) return '<span class="badge badge-warn" style="font-size:16px;padding:6px 14px">🟡 REVISAR</span>';
+  return null;
+}
+
+function traducirPickClaro(pick, mercado, local, visitante) {
+  const p = (pick || '').toLowerCase();
+  const esOver = p.includes('más de') || p.startsWith('over');
+  const esUnder = p.includes('menos de') || p.startsWith('under');
+  if (p.match(/más de|over/)) {
+    const line = p.match(/[\d.]+/)?.[0];
+    if (line) return `${pick} (el partido termina con ${line.replace('.', ',')} o más goles)`;
+  }
+  if (p.match(/menos de|under/)) {
+    const line = p.match(/[\d.]+/)?.[0];
+    if (line) return `${pick} (el partido termina con 0, 1 o ${line.replace('.', ',').replace(/,5$/, '')} goles)`;
+  }
+  if (local && (p === local.toLowerCase() || p === 'home')) return `${local} gana el partido`;
+  if (visitante && (p === visitante.toLowerCase() || p === 'away')) return `${visitante} gana el partido`;
+  if (p === 'empate' || p === 'draw') return 'Empate';
+  if (p.includes('sí marcan') || p === 'yes') return 'Ambos equipos marcan al menos un gol';
+  if (p.includes('no marcan') || p === 'no') return 'Al menos un equipo no logra marcar';
+  if (p.includes('sin empate')) return `${pick} (si hay empate, te devuelven lo apostado)`;
+  return pick;
+}
+
+function getRutaEcuabet(partido, mercado, pick, liga) {
+  const dep = 'Fútbol';
+  return `Ecuabet → ${dep} → ${liga || 'Liga'} → ${partido} → ${mercado || 'Mercado'} → ${pick}`;
+}
+
+function getExplicacionEdge(edge, odd) {
+  const e = parseFloat(edge) || 0;
+  const porCien = (e).toFixed(2);
+  return `Por cada $100 apostados en apuestas así, ganarías $${porCien} a largo plazo`;
+}
+
 function renderAnalisisProfundo() {
   const m = STATE.mentor, a = m.analisisProfundo;
   if (!a) return `<div class="loading" style="padding:40px">Error al cargar análisis</div>`;
+  const esPrin = STATE.modo === 'principiante';
 
   const g = a.game, ctx = a.contexto;
   const bets = a.apuestas.filter(b => parseFloat(b.edge) > 0);
@@ -4586,45 +4648,65 @@ function renderAnalisisProfundo() {
 
   const emojis = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
   bets.slice(0, 10).forEach((b, i) => {
+    const badge = getBadgeSemaforo(b.edge, b.probReal);
+    if (!badge) return;
     const emoji = emojis[i] || `#${i + 1}`;
+    const parts = (b.partido || `${g.home_team} vs ${g.away_team}`).split(' vs ');
+    const local = parts[0] || g.home_team, visit = parts[1] || g.away_team;
+    const pickClaro = traducirPickClaro(b.pick, b.mercado, local, visit);
+    const ruta = getRutaEcuabet(b.partido || `${g.home_team} vs ${g.away_team}`, b.mercado, b.pick, g.sport_title);
+    const explicacionEdge = getExplicacionEdge(b.edge, b.odd);
+    const perdida = b.apostar || 0;
+    const colorEdge = parseFloat(b.edge) >= 5 ? 'var(--tertiary)' : 'var(--warning)';
     let razon = `Edge +${b.edge}% matemático ${b.scoreMat >= 30 ? '(favorable)' : '(moderado)'}.`;
     if (a.contextoCargado) razon += ` Contexto deportivo: ${b.scoreCtx}/40.`;
     if (b.mercado === 'Total de goles' && ctx?.golesPromedio) razon += ` Promedio H2H de ${ctx.golesPromedio.toFixed(1)} goles.`;
 
     html += `
       <div class="mentor-card">
-        <div style="display:flex;align-items:center;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
           <span style="font-size:22px">${emoji}</span>
-          <div>
-            <div class="mentor-card-desc" style="margin:0">${b.pick}</div>
-            <div style="font-size:13px;color:var(--text-3)">${b.mercado}</div>
+          ${badge}
+        </div>
+        <div style="font-size:18px;font-weight:800;line-height:1.3">${g.home_team} vs ${g.away_team}</div>
+        <div style="font-size:13px;color:var(--text-3);margin:2px 0 8px">${b.mercado}</div>
+        <div style="font-size:13px;color:var(--text-3);margin-bottom:4px">QUÉ APOSTAR</div>
+        <div style="font-size:22px;font-weight:800;color:var(--tertiary);line-height:1.2;margin-bottom:12px">${pickClaro}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+          <div><div style="font-size:12px;color:var(--text-3)">APOSTAR</div><div style="font-size:20px;font-weight:800;font-family:var(--f-mono)">$${b.apostar.toFixed(2)}</div></div>
+          <div><div style="font-size:12px;color:var(--text-3)">SI GANA</div><div style="font-size:22px;font-weight:800;font-family:var(--f-mono);color:var(--tertiary)">+$${b.ganancia.toFixed(2)} ✅</div></div>
+          <div><div style="font-size:12px;color:var(--text-3)">SI PIERDE</div><div style="font-size:18px;font-weight:800;font-family:var(--f-mono);color:var(--error)">-$${perdida.toFixed(2)}</div></div>
+        </div>
+        <div style="background:var(--tert-dim);border-radius:var(--radius);padding:12px;margin-bottom:12px">
+          <div style="font-size:13px;color:var(--text-2);margin-bottom:2px">TU VENTAJA SOBRE LA CASA</div>
+          <div style="font-size:22px;font-weight:800;font-family:var(--f-mono);color:${colorEdge}">+${parseFloat(b.edge).toFixed(1)}%</div>
+          <div class="progress-track" style="margin:6px 0 4px"><div class="progress-fill" style="width:${Math.min(100, parseFloat(b.edge) * 5)}%;background:${colorEdge}"></div></div>
+          <div style="font-size:13px;color:var(--text-3);line-height:1.4">${explicacionEdge}</div>
+        </div>
+        ${esPrin ? `<div style="background:var(--surface-3);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px">
+          <div style="font-size:12px;color:var(--text-3);margin-bottom:4px">📌 DÓNDE APOSTAR</div>
+          <div style="font-size:13px;color:var(--text-2);line-height:1.5">${ruta}</div>
+        </div>` : ''}
+        <div style="display:flex;gap:8px;font-family:var(--f-mono);font-size:13px;color:var(--text-3);margin-bottom:10px;flex-wrap:wrap">
+          <span>ODD ${b.odd?.toFixed(2) || '--'}</span>
+          <span>·</span>
+          <span style="color:${colorEdge}">EDGE +${parseFloat(b.edge).toFixed(1)}%</span>
+          <span>·</span>
+          <span>PROB ${b.probReal || '--'}%</span>
+          <span>·</span>
+          <span>KELLY ${b.kelly || '--'}%</span>
+        </div>
+        ${!esPrin ? '' : `<div style="background:var(--surface-3);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px">
+          <div style="font-size:12px;color:var(--text-3);margin-bottom:4px">📊 SCORE</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div><div style="font-size:11px;color:var(--text-3)">MATEMÁTICO ${b.scoreMat}/60</div><div class="progress-track"><div class="progress-fill" style="width:${b.scoreMat / 60 * 100}%;background:var(--tertiary)"></div></div></div>
+            <div><div style="font-size:11px;color:var(--text-3)">CONTEXTUAL ${b.scoreCtx}/40</div><div class="progress-track"><div class="progress-fill" style="width:${b.scoreCtx / 40 * 100}%;background:var(--warning)"></div></div></div>
           </div>
-          <div style="margin-left:auto;font-family:var(--f-mono);font-size:20px;font-weight:800;color:var(--tertiary)">${b.score}/100</div>
-        </div>
-        <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div>
-            <div style="font-size:11px;color:var(--text-3);margin-bottom:4px">MATEMÁTICO ${b.scoreMat}/60</div>
-            <div class="progress-track"><div class="progress-fill" style="width:${b.scoreMat / 60 * 100}%;background:var(--tertiary)"></div></div>
-          </div>
-          <div>
-            <div style="font-size:11px;color:var(--text-3);margin-bottom:4px">CONTEXTUAL ${b.scoreCtx}/40</div>
-            <div class="progress-track"><div class="progress-fill" style="width:${b.scoreCtx / 40 * 100}%;background:var(--warning)"></div></div>
-          </div>
-        </div>
-        <div class="mentor-card-stats" style="margin-top:8px">
-          <div><span class="mentor-card-num-lbl">ODD</span><br><span class="mentor-card-num-val">${b.odd.toFixed(2)}</span></div>
-          <div><span class="mentor-card-num-lbl">EDGE</span><br><span class="mentor-card-num-val" style="color:var(--tertiary)">+${b.edge}%</span></div>
-          <div><span class="mentor-card-num-lbl">PROB REAL</span><br><span class="mentor-card-num-val">${b.probReal}%</span></div>
-          <div><span class="mentor-card-num-lbl">KELLY</span><br><span class="mentor-card-num-val">${b.kelly}%</span></div>
-        </div>
-        <div class="mentor-card-nums">
-          <div><span class="mentor-card-num-lbl">APOSTAR</span><br><span class="mentor-card-num-val">$${b.apostar.toFixed(2)}</span></div>
-          <div><span class="mentor-card-num-lbl">SI GANA</span><br><span class="mentor-card-num-val" style="color:var(--tertiary)">+$${b.ganancia.toFixed(2)} ✅</span></div>
-        </div>
-        <div class="mentor-card-why"><strong>¿Por qué esta sugerencia?</strong><br>${razon}</div>
+        </div>` : ''}
+        ${!esPrin ? '' : `<div class="mentor-card-why" style="font-size:13px"><strong>¿Qué significa?</strong><br>${razon}</div>`}
         <div class="mentor-card-actions">
-          <button class="btn btn-primary" onclick="mentorAddCuponProfundo(${i})">+ Añadir al cupón</button>
-          <button class="btn btn-ghost" onclick="mentorIgnorarProfundo(${i})">Ignorar</button>
+          <button class="btn btn-primary" onclick="mentorAddCuponProfundo(${i})">✅ Añadir al cupón</button>
+          <button class="btn btn-ghost" onclick="mentorIgnorarProfundo(${i})">⬜ Ignorar</button>
         </div>
       </div>`;
   });
@@ -4794,7 +4876,9 @@ function generarSugerencias(capital, gananciaMin, gananciaMax, tipo) {
     sugerencias.push({
       tipo:'APUESTA',
       descripcion:`${vb.partido} — ${vb.mercado}: ${vb.pick}`,
-      apostar:capital, ganancia, odd:vb.odd, edge:vb.edge,
+      partido:vb.partido, mercado:vb.mercado, pick:vb.pick,
+      liga:vb.liga||'', bk:vb.bk||'', fecha:vb.fecha,
+      apostar:capital, ganancia, odd:vb.odd, edge:parseFloat(vb.edge),
       prob:vb.probReal, kelly:vb.kelly,
       nota:enRango?null:'Ajusta tu capital para este bet',
       razon:`Edge +${vb.edge.toFixed(1)}% sobre la casa. Probabilidad real ${vb.probReal.toFixed(0)}% vs ${(100/vb.odd).toFixed(0)}% implícita.`,
@@ -4867,31 +4951,106 @@ function renderMentorPaso2() {
   if (m.analisisProfundo) return renderAnalisisProfundo();
   const lista=m.sugerencias;
   const cardsHtml=lista.length?lista.map((s,i)=>{
-    const tagClass=s.tipo==='APUESTA'?'apuesta':s.tipo==='CRYPTO'?'crypto':s.tipo==='MÚLTIPLE'?'multiple':'sistema';
-    const tagTxt=s.tipo==='APUESTA'?'⚽ APUESTA':s.tipo==='CRYPTO'?'₿ CRYPTO':s.tipo==='MÚLTIPLE'?'🎟️ MÚLTIPLE':'🎯 SISTEMA';
-    const oddTxt=s.odd!=null?`<div><span class="mentor-card-num-lbl">ODD</span><br><span class="mentor-card-num-val">${s.odd.toFixed(2)}</span></div>`:'';
-    const edgeTxt=s.tipo==='CRYPTO'
-      ?`<div><span class="mentor-card-num-lbl">SCORE</span><br><span class="mentor-card-num-val" style="color:var(--tertiary)">${s.edge.toFixed(0)}/100</span></div>`
-      :`<div><span class="mentor-card-num-lbl">EDGE</span><br><span class="mentor-card-num-val" style="color:var(--tertiary)">+${s.edge.toFixed(1)}%</span></div>`;
-    const probTxt=s.prob!=null?`<div><span class="mentor-card-num-lbl">PROB</span><br><span class="mentor-card-num-val">${s.prob.toFixed(0)}%</span></div>`:'';
-    const kellyTxt=s.kelly!=null?`<div><span class="mentor-card-num-lbl">KELLY</span><br><span class="mentor-card-num-val">${s.kelly.toFixed(1)}%</span></div>`:'';
+    if (s.tipo!=='APUESTA') {
+      const tagTxt=s.tipo==='CRYPTO'?'₿ CRYPTO':s.tipo==='MÚLTIPLE'?'🎟️ MÚLTIPLE':'🎯 SISTEMA';
+      return `
+      <div style="background:var(--surface-mid);border:1px solid rgba(78,222,163,0.2);border-radius:12px;padding:20px;margin-bottom:16px">
+        <div style="font-size:18px;font-weight:700;margin-bottom:12px"><span style="padding:2px 8px;border-radius:4px;background:var(--surface-high);font-size:13px">${tagTxt}</span></div>
+        <div style="font-size:15px;margin-bottom:12px">${s.descripcion}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+          <div><div style="font-size:12px;color:var(--outline);letter-spacing:0.05em">APOSTAR</div><div style="font-size:24px;font-family:var(--font-mono);font-weight:600">$${s.apostar.toFixed(2)}</div></div>
+          <div><div style="font-size:12px;color:var(--outline);letter-spacing:0.05em">SI ACIERTA</div><div style="font-size:24px;font-family:var(--font-mono);font-weight:600;color:#4edea3">+$${s.ganancia.toFixed(2)}</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button class="btn btn-primary" onclick="mentorAddCupon(${i})" style="font-size:16px;padding:12px">✅ Añadir al cupón</button>
+          <button class="btn btn-ghost" onclick="mentorIgnorar(${i})" style="font-size:16px;padding:12px">Ignorar</button>
+        </div>
+      </div>`;
+    }
+    const parts=(s.partido||'').split(' vs ');
+    const local=parts[0]||'', visit=parts[1]||'';
+    const edgeVal=parseFloat(s.edge)||0;
+    const isGood=edgeVal>5;
+    const pick=(s.pick||'').trim();
+    const mercado=(s.mercado||'').trim();
+    let descripcion_simple='';
+    if (/h2h|1X2|ganador/i.test(mercado)) {
+      if (/home/i.test(pick)||pick===local) descripcion_simple=local+' gana';
+      else if (/away/i.test(pick)||pick===visit) descripcion_simple=visit+' gana';
+      else if (/draw|empate/i.test(pick)) descripcion_simple='Empate';
+      else descripcion_simple=pick;
+    } else if (/total|over|under/i.test(mercado)) {
+      const num=pick.replace(/Over|Under|>/i,'').trim();
+      if (/over|>/i.test(pick)) descripcion_simple='Más de '+num+' goles';
+      else descripcion_simple='Menos de '+num+' goles';
+    } else if (/btts|ambos/i.test(mercado)) {
+      descripcion_simple=/yes|sí/i.test(pick)?'Ambos equipos marcan':'Al menos un equipo no marca';
+    } else if (/draw.?no.?bet|dnb/i.test(mercado)) {
+      if (/home/i.test(pick)||pick===local) descripcion_simple=local+' gana (sin empate)';
+      else if (/away/i.test(pick)||pick===visit) descripcion_simple=visit+' gana (sin empate)';
+      else descripcion_simple=pick;
+    } else if (/spread|hándicap|handicap/i.test(mercado)) {
+      descripcion_simple=pick;
+    } else { descripcion_simple=pick; }
+    let fecha_hora_partido='';
+    if (s.fecha) {
+      try {
+        const d=new Date(s.fecha), now=new Date();
+        const hora=d.toLocaleTimeString('es-EC',{timeZone:'America/Guayaquil',hour:'2-digit',minute:'2-digit',hour12:true});
+        const dia=d.toLocaleDateString('es-EC',{timeZone:'America/Guayaquil',weekday:'short',day:'numeric',month:'short'});
+        const esHoy=d.toDateString()===now.toDateString();
+        fecha_hora_partido=esHoy?'HOY · '+hora:dia.charAt(0).toUpperCase()+dia.slice(1)+' · '+hora;
+      } catch(e) { fecha_hora_partido=''; }
+    }
+    let mercado_ecuabet='';
+    if (/h2h|1X2|ganador/i.test(mercado)) mercado_ecuabet='1X2 / Ganador del partido';
+    else if (/total|over|under/i.test(mercado)) mercado_ecuabet='Total de goles (Over/Under)';
+    else if (/btts|ambos/i.test(mercado)) mercado_ecuabet='Ambos equipos marcan (BTTS)';
+    else if (/draw.?no.?bet|dnb/i.test(mercado)) mercado_ecuabet='Draw No Bet (DNB)';
+    else if (/spread|hándicap|handicap/i.test(mercado)) mercado_ecuabet='Hándicap Asiático';
+    else mercado_ecuabet=mercado;
     return `
-      <div class="mentor-card">
-        <span class="mentor-card-tag ${tagClass}">${tagTxt}</span>
-        <div class="mentor-card-desc">${s.descripcion}</div>
-        ${s.nota?`<div class="wiz-info-box" style="font-size:13px;padding:8px 12px;margin:0">💡 ${s.nota}</div>`:''}
-        <div class="mentor-card-nums">
-          <div><span class="mentor-card-num-lbl">APOSTAR</span><br><span class="mentor-card-num-val">$${s.apostar.toFixed(2)}</span></div>
-          <div><span class="mentor-card-num-lbl">SI GANA</span><br><span class="mentor-card-num-val" style="color:var(--tertiary)">+$${s.ganancia.toFixed(2)} ✅</span></div>
+      <div style="background:var(--surface-mid);border:1px solid rgba(78,222,163,0.2);border-radius:12px;padding:20px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <div style="width:14px;height:14px;border-radius:50%;background:${isGood?'#4edea3':'#FF9500'}"></div>
+          <span style="font-size:14px;font-weight:700;letter-spacing:0.05em;color:${isGood?'#4edea3':'#FF9500'}">${isGood?'APOSTAR':'REVISAR'}</span>
+          <span style="margin-left:auto;font-size:13px;color:var(--outline)">${fecha_hora_partido}</span>
         </div>
-        <div class="mentor-card-stats">${oddTxt}${edgeTxt}${probTxt}${kellyTxt}</div>
-        <div class="mentor-card-why"><strong>¿Por qué esta sugerencia?</strong><br>${s.razon}</div>
-        <div class="mentor-card-actions">
-          <button class="btn btn-primary" onclick="mentorAddCupon(${i})">+ Añadir al cupón</button>
-          <button class="btn btn-ghost" onclick="mentorIgnorar(${i})">Ignorar</button>
+        <div style="font-size:18px;font-weight:700;margin-bottom:4px">${s.partido}</div>
+        <div style="font-size:22px;font-weight:700;color:#4edea3;margin-bottom:16px">${descripcion_simple}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+          <div><div style="font-size:12px;color:var(--outline);letter-spacing:0.05em">APOSTAR</div><div style="font-size:24px;font-family:var(--font-mono);font-weight:600">$${s.apostar.toFixed(2)}</div></div>
+          <div><div style="font-size:12px;color:var(--outline);letter-spacing:0.05em">SI ACIERTA</div><div style="font-size:24px;font-family:var(--font-mono);font-weight:600;color:#4edea3">+$${s.ganancia.toFixed(2)}</div></div>
         </div>
-      </div>
-    `;
+        <div style="margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span style="font-size:13px;color:var(--outline)">Tu ventaja sobre la casa</span>
+            <span style="font-size:13px;font-weight:700;color:#4edea3">+${edgeVal.toFixed(1)}%</span>
+          </div>
+          <div style="height:6px;background:var(--surface-high);border-radius:3px">
+            <div style="width:${Math.min(edgeVal*5,100)}%;height:100%;background:#4edea3;border-radius:3px"></div>
+          </div>
+          <div style="font-size:13px;color:var(--outline);margin-top:4px">Por cada $100 apostados así, ganarías $${edgeVal.toFixed(2)} a largo plazo</div>
+        </div>
+        <div style="background:var(--surface);border-radius:8px;padding:12px;margin-bottom:16px;border-left:3px solid #4edea3">
+          <div style="font-size:12px;font-weight:700;letter-spacing:0.05em;color:var(--outline);margin-bottom:6px">DÓNDE APOSTAR</div>
+          <div style="font-size:14px;color:var(--on-surface);line-height:1.6">
+            Ecuabet → Fútbol → ${s.liga||'--'}<br>
+            → ${s.partido}<br>
+            → ${mercado_ecuabet}<br>
+            → Selecciona: <strong>${descripcion_simple}</strong>
+          </div>
+        </div>
+        <div style="display:flex;gap:16px;font-size:13px;color:var(--outline);margin-bottom:16px">
+          <span>ODD <strong style="color:var(--on-surface)">${s.odd?.toFixed(2)||'--'}</strong></span>
+          <span>PROB <strong style="color:var(--on-surface)">${s.prob?.toFixed(0)||'--'}%</strong></span>
+          <span>KELLY <strong style="color:var(--on-surface)">${s.kelly?.toFixed(1)||'--'}%</strong></span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button class="btn btn-primary" onclick="mentorAddCupon(${i})" style="font-size:16px;padding:12px">✅ Añadir al cupón</button>
+          <button class="btn btn-ghost" onclick="mentorIgnorar(${i})" style="font-size:16px;padding:12px">Ignorar</button>
+        </div>
+      </div>`;
   }).join(''):`
     <div class="card" style="text-align:center;padding:24px;color:var(--text-3);font-size:15px">
       No hay sugerencias que cumplan tus objetivos en este momento.<br>Prueba ajustando el capital o el rango de ganancia.
