@@ -2984,6 +2984,7 @@ async function cargarDeportes() {
         const probReal = item.ip / totalIP;
         const edge     = (probReal - item.ip) * 100;
         if (edge <= 0) continue;
+        if (/lay/i.test(mktKey)) continue;
 
         const b      = item.odd - 1;
         const q      = 1 - probReal;
