@@ -3018,41 +3018,48 @@ async function cargarDeportes() {
   const valueBetGameIds = new Set();
 
   for (const game of games) {
-    console.log('STEP 5: processing game:', game.home_team, 'bookmakers:', game.bookmakers?.length);
-    game.bookmakers?.forEach(bm => {
-      bm.markets?.forEach(market => {
-        if (/lay/i.test(market.key)) return;
-        const outcomes = market.outcomes || [];
-        console.log('STEP 6 DEBUG:', market.key, outcomes.map(o => o.name + ':' + o.price), 'margin:', outcomes.reduce((s, o) => s + 1 / o.price, 0) - 1);
-        outcomes.forEach(outcome => {
-          const allOdds = outcomes.map(o => 1 / o.price);
-          const margin  = allOdds.reduce((a, b) => a + b, 0) - 1;
-          if (margin < 0) return;
-          const probImport = 1 / outcome.price;
-          const probReal   = probImport / (1 + margin);
-          const edge       = (probReal - probImport) * 100;
-          console.log('STEP 6 EDGE:', outcome.name, 'edge:', edge.toFixed(2));
+    const pinnacle = game.bookmakers?.find(bm => bm.title?.toLowerCase() === 'pinnacle');
+    if (!pinnacle) continue;
+
+    pinnacle.markets?.forEach(market => {
+      if (/lay/i.test(market.key)) return;
+      const outcomes = market.outcomes || [];
+      if (outcomes.length < 2) return;
+      const pinMargin = outcomes.reduce((s, o) => s + 1 / o.price, 0) - 1;
+      const trueProbs = {};
+      outcomes.forEach(o => { trueProbs[o.name] = (1 / o.price) / (1 + pinMargin); });
+
+      game.bookmakers.forEach(bm => {
+        if (bm.title?.toLowerCase() === 'pinnacle') return;
+        const bmMarket = bm.markets?.find(m => m.key === market.key);
+        if (!bmMarket) return;
+
+        bmMarket.outcomes?.forEach(outcome => {
+          const trueProb = trueProbs[outcome.name];
+          if (!trueProb) return;
+          const impliedProb = 1 / outcome.price;
+          const edge = (trueProb - impliedProb) * 100;
           if (edge <= 0) return;
+
           const b      = outcome.price - 1;
-          const q      = 1 - probReal;
-          const kelly  = b > 0 ? Math.max(0, (probReal * b - q) / b * 0.25) : 0;
-          const mktLbl = traducirMercado(market.key);
-          const pick   = traducirPick(outcome.name, market.key, game.home_team, game.away_team);
+          const kellyF = b > 0 ? Math.max(0, (trueProb * b - (1 - trueProb)) / b * 0.25) : 0;
+          const stake  = STATE.bankroll * kellyF;
+
           STATE.valueBets.push({
-            gameId:  game.id,
-            partido: `${game.home_team} vs ${game.away_team}`,
-            liga:    game.sport_title || '',
-            fecha:   game.commence_time,
-            mercado: mktLbl,
-            pick,
-            odd:     outcome.price,
+            gameId:   game.id,
+            partido:  game.home_team + ' vs ' + game.away_team,
+            liga:     game.sport_title || '',
+            fecha:    game.commence_time,
+            mercado:  traducirMercado(market.key),
+            pick:     traducirPick(outcome.name, market.key, game.home_team, game.away_team),
+            odd:      outcome.price,
             edge,
-            probReal: probReal * 100,
-            probIp:   probImport * 100,
-            kelly:   kelly * 100,
-            stake:   STATE.bankroll * kelly,
-            ganancia: STATE.bankroll * kelly * b,
-            bk:      bm.title,
+            probReal: trueProb * 100,
+            probIp:   impliedProb * 100,
+            kelly:    kellyF * 100,
+            stake,
+            ganancia: stake * b,
+            bk:       bm.title,
           });
           valueBetGameIds.add(game.id);
         });
