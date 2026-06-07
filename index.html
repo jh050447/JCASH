@@ -4580,19 +4580,31 @@ function traducirPickClaro(pick, mercado, local, visitante) {
   const esOver = p.includes('más de') || p.startsWith('over');
   const esUnder = p.includes('menos de') || p.startsWith('under');
   if (p.match(/más de|over/)) {
-    const line = p.match(/[\d.]+/)?.[0];
-    if (line) return `${pick} (el partido termina con ${line.replace('.', ',')} o más goles)`;
+    const line = parseFloat(p.match(/[\d.]+/)?.[0]);
+    if (!isNaN(line)) {
+      const minGoles = Math.ceil(line);
+      const sub = minGoles + ' o m\u00e1s';
+      return pick + ' (' + sub + ')';
+    }
   }
   if (p.match(/menos de|under/)) {
-    const line = p.match(/[\d.]+/)?.[0];
-    if (line) return `${pick} (el partido termina con 0, 1 o ${line.replace('.', ',').replace(/,5$/, '')} goles)`;
+    const line = parseFloat(p.match(/[\d.]+/)?.[0]);
+    if (!isNaN(line)) {
+      const maxGoles = Math.floor(line);
+      const nums = [];
+      for (let g = 0; g <= maxGoles; g++) nums.push(g);
+      const sub = nums.length > 2
+        ? nums.slice(0, -1).join(', ') + ' o ' + nums[nums.length - 1]
+        : nums.join(' o ');
+      return pick + ' (' + (maxGoles === 1 ? '0 o 1 gol' : sub) + ')';
+    }
   }
-  if (local && (p === local.toLowerCase() || p === 'home')) return `${local} gana el partido`;
-  if (visitante && (p === visitante.toLowerCase() || p === 'away')) return `${visitante} gana el partido`;
+  if (local && (p === local.toLowerCase() || p === 'home')) return local + ' gana el partido';
+  if (visitante && (p === visitante.toLowerCase() || p === 'away')) return visitante + ' gana el partido';
   if (p === 'empate' || p === 'draw') return 'Empate';
-  if (p.includes('sí marcan') || p === 'yes') return 'Ambos equipos marcan al menos un gol';
+  if (p.includes('s\u00ed marcan') || p === 'yes') return 'Ambos equipos marcan al menos un gol';
   if (p.includes('no marcan') || p === 'no') return 'Al menos un equipo no logra marcar';
-  if (p.includes('sin empate')) return `${pick} (si hay empate, te devuelven lo apostado)`;
+  if (p.includes('sin empate')) return pick + ' (si hay empate, te devuelven lo apostado)';
   return pick;
 }
 
