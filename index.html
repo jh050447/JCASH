@@ -3652,6 +3652,7 @@ function renderAnStep2() {
 
         ${renderMkt1X2()}
         ${renderMktDC()}
+        ${renderMktDNB()}
         ${renderMktOU()}
         ${renderMktBTTS()}
         ${renderMktAH()}
@@ -3761,9 +3762,9 @@ function renderMkt1X2() {
   const [pH,pD,pA]=probs;
   return anSec('1X2 — Resultado Final',`
     <div class="mkt-grid-3">
-      ${mktCell('1x2_H',`1 · ${partido.local}`,hasApi?apiH2h[0]:0,pH,'Ej: 1.95')}
-      ${mktCell('1x2_D','X · Empate',hasApi?apiH2h[1]:0,pD,'Ej: 3.05')}
-      ${mktCell('1x2_A',`2 · ${partido.visitante}`,hasApi?apiH2h[2]:0,pA,'Ej: 4.30')}
+      ${mktCell('1x2_H',`${partido.local} gana`,hasApi?apiH2h[0]:0,pH,'Ej: 1.95')}
+      ${mktCell('1x2_D','Empate',hasApi?apiH2h[1]:0,pD,'Ej: 3.05')}
+      ${mktCell('1x2_A',`${partido.visitante} gana`,hasApi?apiH2h[2]:0,pA,'Ej: 4.30')}
     </div>
     <div id="an-1x2-grupo">${validarGrupo1X2()}</div>
   `,'Ingresa la odd exacta que aparece en Ecuabet para este mercado');
@@ -3782,9 +3783,25 @@ function renderMktDC() {
   ];
   return anSec('Doble Oportunidad',`
     <div class="mkt-grid-3">
-      ${mktCell('dc_1X',`1X · ${partido.local}/Empate`,apiDC[0]>1?apiDC[0]:0,p1X)}
-      ${mktCell('dc_X2',`X2 · Empate/${partido.visitante}`,apiDC[1]>1?apiDC[1]:0,pX2)}
-      ${mktCell('dc_12',`12 · ${partido.local}/${partido.visitante}`,apiDC[2]>1?apiDC[2]:0,p12)}
+      ${mktCell('dc_1X',`${partido.local} o Empate`,apiDC[0]>1?apiDC[0]:0,p1X)}
+      ${mktCell('dc_X2',`Empate o ${partido.visitante}`,apiDC[1]>1?apiDC[1]:0,pX2)}
+      ${mktCell('dc_12',`${partido.local} o ${partido.visitante}`,apiDC[2]>1?apiDC[2]:0,p12)}
+    </div>
+  `,'Ingresa la odd exacta que aparece en Ecuabet para este mercado');
+}
+
+function renderMktDNB() {
+  const {partido,apiH2h}=STATE.an;
+  const hasApi=apiH2h.length===3&&apiH2h[0]>0;
+  const probs=hasApi?calcNoVigProbs(apiH2h):[0,0,0];
+  const [pH,,pA]=probs;
+  const sum=pH+pA;
+  const pDnbH=sum>0?pH/sum:0, pDnbA=sum>0?pA/sum:0;
+  return anSec('Pronóstico Sin Empate (Draw No Bet)',`
+    <div style="font-size:12px;color:var(--text-3);font-family:var(--f-mono);margin-bottom:8px">Probabilidad condicional sin considerar el empate (no-vig 1X2)</div>
+    <div class="mkt-grid-2">
+      ${mktCell('dnb_H',`${partido.local} gana (sin empate)`,0,pDnbH)}
+      ${mktCell('dnb_A',`${partido.visitante} gana (sin empate)`,0,pDnbA)}
     </div>
   `,'Ingresa la odd exacta que aparece en Ecuabet para este mercado');
 }
@@ -3843,17 +3860,18 @@ function renderMktAH() {
   const rows=lines.map(h=>{
     const v=parseFloat(h);
     // Approximate AH probability from 1X2
-    let pH, pA2;
-    if(v===-1.5) { pH=pH*0.5; pA2=pA+(pD*0.5)+pH*0.5; }
-    else if(v===-0.5) { pH=pH; pA2=pA+pD; }
-    else if(v===0.5) { pH=pH+pD; pA2=pA; }
-    else { pH=pH+pD+(pA*0.5); pA2=pA*0.5; }
-    const sum2=pH+pA2||1;
-    pH/=sum2; pA2/=sum2;
+    let pHv, pAv;
+    if(v===-1.5) { pHv=pH*0.5; pAv=pA+(pD*0.5)+pH*0.5; }
+    else if(v===-0.5) { pHv=pH; pAv=pA+pD; }
+    else if(v===0.5) { pHv=pH+pD; pAv=pA; }
+    else { pHv=pH+pD+(pA*0.5); pAv=pA*0.5; }
+    const sum2=pHv+pAv||1;
+    pHv/=sum2; pAv/=sum2;
+    const aLine=(-v>=0?'+':'')+(-v).toFixed(1);
     return `
       <div style="grid-column:span 3;font-weight:800;font-size:14px;margin-top:8px;color:var(--text-2)">Hándicap Asiático ${h}</div>
-      ${mktCell('ah_H_'+h,`${partido.local} (${h})`,0,pH)}
-      ${mktCell('ah_A_'+h,`${partido.visitante} (+${(-v).toFixed(1)})`,0,pA2)}
+      ${mktCell('ah_H_'+h,`${partido.local} ${h} goles`,0,pHv)}
+      ${mktCell('ah_A_'+h,`${partido.visitante} ${aLine} goles`,0,pAv)}
       <div></div>
     `;
   });
@@ -3869,16 +3887,17 @@ function renderMktHF() {
   const [pH,pD,pA]=probs;
   // Mitad/Final: 9 combinaciones HH, HD, HA, DH, DD, DA, AH, AD, AA
   // Approx: half-time correlated with full-time
+  const {local:L, visitante:V}=partido;
   const hfCombos=[
-    ['HH',`Local/Local`,pH*pH*1.2],
-    ['HD',`Local/Empate`,pH*pD*0.9],
-    ['HA',`Local/Visitante`,pH*pA*0.3],
-    ['DH',`Empate/Local`,pD*pH*1.0],
+    ['HH',`${L}/${L}`,pH*pH*1.2],
+    ['HD',`${L}/Empate`,pH*pD*0.9],
+    ['HA',`${L}/${V}`,pH*pA*0.3],
+    ['DH',`Empate/${L}`,pD*pH*1.0],
     ['DD',`Empate/Empate`,pD*pD*1.3],
-    ['DA',`Empate/Visitante`,pD*pA*1.0],
-    ['AH',`Visitante/Local`,pA*pH*0.3],
-    ['AD',`Visitante/Empate`,pA*pD*0.9],
-    ['AA',`Visitante/Visitante`,pA*pA*1.2],
+    ['DA',`Empate/${V}`,pD*pA*1.0],
+    ['AH',`${V}/${L}`,pA*pH*0.3],
+    ['AD',`${V}/Empate`,pA*pD*0.9],
+    ['AA',`${V}/${V}`,pA*pA*1.2],
   ];
   const total=hfCombos.reduce((s,c)=>s+c[2],0)||1;
   const cells=hfCombos.map(([k,lbl,p])=>mktCell('hf_'+k,lbl,0,p/total));
@@ -3897,9 +3916,9 @@ function renderMktFG() {
   return anSec('Primer Gol',`
     <div style="font-size:12px;color:var(--text-3);font-family:var(--f-mono);margin-bottom:8px">Distribución via λ relativo · λL=${lL} · λV=${lV}</div>
     <div class="mkt-grid-3">
-      ${mktCell('fg_L',`1er gol ${partido.local}`,0,pFL)}
-      ${mktCell('fg_N','Sin goles (0-0)',0,pNoGoal)}
-      ${mktCell('fg_V',`1er gol ${partido.visitante}`,0,pFV)}
+      ${mktCell('fg_L',`${partido.local} marca primero`,0,pFL)}
+      ${mktCell('fg_N','Sin goles',0,pNoGoal)}
+      ${mktCell('fg_V',`${partido.visitante} marca primero`,0,pFV)}
     </div>
   `,'Ingresa la odd exacta que aparece en Ecuabet para este mercado');
 }
@@ -3963,6 +3982,8 @@ function getRefProb(key) {
   if (key==='dc_1X') return pH+pD;
   if (key==='dc_X2') return pD+pA;
   if (key==='dc_12') return pH+pA;
+  if (key==='dnb_H') { const s=pH+pA; return s>0?pH/s:0; }
+  if (key==='dnb_A') { const s=pH+pA; return s>0?pA/s:0; }
   if (key==='btts_si') { const pNoL=poissonP(lL,0),pNoV=poissonP(lV,0); return (1-pNoL)*(1-pNoV); }
   if (key==='btts_no') { const pNoL=poissonP(lL,0),pNoV=poissonP(lV,0); return 1-(1-pNoL)*(1-pNoV); }
   if (key.startsWith('ou_')) {
@@ -4012,18 +4033,29 @@ function getRefProb(key) {
 function getLabelForKey(key) {
   const {partido}=STATE.an;
   if (!partido) return key;
+  const {local:L, visitante:V}=partido;
   const map={
-    '1x2_H':`1 · ${partido.local}`,'1x2_D':'X · Empate','1x2_A':`2 · ${partido.visitante}`,
-    'dc_1X':`1X Local/Empate`,'dc_X2':'X2 Empate/Visit.','dc_12':'12 Local/Visit.',
-    'btts_si':'BTTS Sí','btts_no':'BTTS No',
-    'fg_L':`1er gol ${partido.local}`,'fg_N':'Sin goles','fg_V':`1er gol ${partido.visitante}`,
-    'fh_H':'Local gana 1T','fh_D':'Empate 1T','fh_A':'Visit. gana 1T',
+    '1x2_H':`${L} gana`,'1x2_D':'Empate','1x2_A':`${V} gana`,
+    'dc_1X':`${L} o Empate`,'dc_X2':`Empate o ${V}`,'dc_12':`${L} o ${V}`,
+    'btts_si':'Ambos marcan: Sí','btts_no':'Ambos marcan: No',
+    'fg_L':`${L} marca primero`,'fg_N':'Sin goles','fg_V':`${V} marca primero`,
+    'fh_H':`${L} gana 1T`,'fh_D':'Empate 1T','fh_A':`${V} gana 1T`,
+    'dnb_H':`${L} gana (sin empate)`,'dnb_A':`${V} gana (sin empate)`,
   };
   if (map[key]) return map[key];
   if (key.startsWith('ou_')) { const p=key.split('_'); return (p[1]==='O'?'Más de ':'Menos de ')+p[2]; }
   if (key.startsWith('ex_')) { const p=key.split('_'); return p[1]+' - '+p[2]; }
-  if (key.startsWith('ah_')) { const p=key.split('_'); return `AH ${partido[p[1]==='H'?'local':'visitante']} ${p.slice(2).join('_')}`; }
-  if (key.startsWith('hf_')) return 'Mitad/Final '+key.replace('hf_','');
+  if (key.startsWith('ah_')) {
+    const p=key.split('_'); const line=p.slice(2).join('_'); const v=parseFloat(line);
+    if (p[1]==='H') return `${L} ${line} goles`;
+    const aLine=(-v>=0?'+':'')+(-v).toFixed(1);
+    return `${V} ${aLine} goles`;
+  }
+  if (key.startsWith('hf_')) {
+    const code=key.replace('hf_','');
+    const lbl=c=>c==='H'?L:c==='D'?'Empate':V;
+    return `${lbl(code[0])}/${lbl(code[1])}`;
+  }
   return key;
 }
 
