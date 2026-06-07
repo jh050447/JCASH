@@ -2958,7 +2958,6 @@ async function cargarDeportes() {
   } catch (e) { console.log('cargarDeportes error:', e); }
   if (!Array.isArray(games)) games = [];
   console.log('cargarDeportes result:', games.length, 'games');
-  mentorActualizarEstado('ready');
 
   const valueBets       = [];
   const valueBetGameIds = new Set();
@@ -3023,6 +3022,7 @@ async function cargarDeportes() {
   STATE.oddsGames = games;
   valueBets.sort((a, b) => b.edge - a.edge);
   STATE.valueBets = valueBets;
+  mentorActualizarEstado('ready');
   console.log('MENTOR DEBUG - odds loaded:', STATE.valueBets?.length, Object.keys(STATE));
 
   // ── Card 1: Value Bets ────────────────────────────────────
@@ -4873,10 +4873,10 @@ async function mentorMostrarSugerencias() {
   if (!STATE.valueBets.length) {
     setHTML('mentor-body', `
       <div class="card" style="text-align:center;padding:24px;color:var(--text-3);font-size:15px">
-        No hay datos disponibles ahora. Intenta de nuevo.
+        Sin datos ahora. Ve a Deportes primero para cargar datos.
       </div>
       <div style="text-align:center;margin-top:8px">
-        <button class="btn btn-primary" onclick="mentorMostrarSugerencias()" style="font-size:16px;padding:12px 24px">🔄 Reintentar</button>
+        <button class="btn btn-primary" onclick="cerrarMentor();ir('sec-deportes')" style="font-size:16px;padding:12px 24px">⚽ Ir a Deportes</button>
       </div>`);
     return;
   }
