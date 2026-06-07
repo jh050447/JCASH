@@ -1435,7 +1435,7 @@ const CFG = {
   scraper:     'https://jcahs-scraper.jh050447.workers.dev/',
   binance:     'https://api.binance.com/api/v3',
   oddsKey:     '80e2cc925122c3aec2b46ba756ad0df1',
-  footballKey: 'b153b71ca08f4ae8bfe48f8f85f79014',
+  footballKey: '9718242f5c1a4e31e5a14622569d087c',
   fng:         'https://api.alternative.me/fng/?limit=1',
   refresh: {
     precios:  60_000,   // 1 min
@@ -1455,6 +1455,7 @@ const STATE = {
   top100Filtro:    'todas',
   top100Busqueda:  '',
   valueBets:       [],
+  oddsGames:       [],
   ohlc:            { BTC:[], ETH:[], SOL:[], XRP:[] },
   senalesCripto:   {},
   exchSelected:    { BTC:'binance', ETH:'binance', SOL:'binance', XRP:'binance' },
@@ -1476,6 +1477,7 @@ const STATE = {
     abierto:false, paso:1,
     capital:null, gananciaMin:null, gananciaMax:null,
     tipo:'individual', sugerencias:[], cuponCount:0,
+    modo:'general', partidoIdx:null, analisisProfundo:null,
   },
   modo:      localStorage.getItem('jcahs_modo')     || 'principiante',
   bankroll:  parseFloat(localStorage.getItem('jcahs_bankroll')) || 200,
@@ -3002,6 +3004,7 @@ async function cargarDeportes() {
     }
   }
 
+  STATE.oddsGames = games;
   valueBets.sort((a, b) => b.edge - a.edge);
   STATE.valueBets = valueBets;
   console.log('MENTOR DEBUG - odds loaded:', STATE.valueBets?.length, Object.keys(STATE));
@@ -3545,6 +3548,9 @@ async function init() {
   // Señales en segundo plano
   Promise.all(['BTC','ETH','SOL','XRP'].map(s => generarSenalCrypto(s)))
     .then(() => renderPanel());
+
+  // Cargar odds para mentor (en bg, falla silenciosamente)
+  cargarDeportes().catch(() => {});
 
   // Refresh periódico
   setInterval(async () => {
@@ -4309,6 +4315,340 @@ function registrarAnalisis() {
 }
 
 // ════════════════════════════════════════════════════════════
+// MENTOR — FUNCIONES AUXILIARES
+// ════════════════════════════════════════════════════════════
+
+function obtenerOdd(data, pick) {
+  if (!data || !Array.isArray(data) || !data.length) return null;
+  for (const game of data) {
+    for (const bk of game.bookmakers || []) {
+      for (const mkt of bk.markets || []) {
+        for (const oc of mkt.outcomes || []) {
+          if (oc.name.toLowerCase() === pick.toLowerCase()) return oc.price;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function obtenerOddTotals(data, pick, line) {
+  if (!data || !Array.isArray(data) || !data.length) return null;
+  for (const game of data) {
+    for (const bk of game.bookmakers || []) {
+      for (const mkt of bk.markets || []) {
+        for (const oc of mkt.outcomes || []) {
+          if (oc.name.toLowerCase() === `${pick} ${line}`) return oc.price;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function calcularMargen(mercado) {
+  const m = { h2h: 0.06, totals: 0.05, btts: 0.07, draw_no_bet: 0.05, spreads: 0.06 };
+  return m[mercado] || 0.06;
+}
+
+// ════════════════════════════════════════════════════════════
+// MENTOR — API-SPORTS CONTEXTO DEPORTIVO
+// ════════════════════════════════════════════════════════════
+
+async function buscarEquipo(nombre) {
+  try {
+    const path = `https://v3.football.api-sports.io/teams?name=${encodeURIComponent(nombre)}`;
+    const r = await fetchSeguro(CFG.proxy + encodeURIComponent(path), 6000);
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d.response?.[0]?.team?.id || null;
+  } catch { return null; }
+}
+
+async function obtenerForma(teamId) {
+  try {
+    const path = `https://v3.football.api-sports.io/fixtures?team=${teamId}&last=5`;
+    const r = await fetchSeguro(CFG.proxy + encodeURIComponent(path), 6000);
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d.response || [];
+  } catch { return null; }
+}
+
+async function obtenerH2H(team1Id, team2Id) {
+  try {
+    const path = `https://v3.football.api-sports.io/fixtures?h2h=${team1Id}-${team2Id}&last=10`;
+    const r = await fetchSeguro(CFG.proxy + encodeURIComponent(path), 6000);
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d.response || [];
+  } catch { return null; }
+}
+
+// ════════════════════════════════════════════════════════════
+// MENTOR — CÁLCULO DE SCORE
+// ════════════════════════════════════════════════════════════
+
+function calcularForma(partidos) {
+  if (!partidos || !partidos.length) return 20;
+  let pts = 0;
+  partidos.slice(0, 5).forEach(p => {
+    if (p.teams?.home?.winner) pts += 3;
+    else if (!p.teams?.away?.winner && p.goals?.home === p.goals?.away) pts += 1;
+  });
+  return Math.min(30, pts * 2);
+}
+
+function calcularH2H(partidos, equipoId) {
+  if (!partidos || !partidos.length) return 10;
+  let victorias = 0;
+  partidos.forEach(p => {
+    const gid = p.teams?.home?.winner ? p.teams.home.id : p.teams?.away?.winner ? p.teams.away.id : null;
+    if (gid && gid === equipoId) victorias++;
+  });
+  return Math.round((victorias / partidos.length) * 10);
+}
+
+function calcularScoreMercado(mercado, pick, odd, contexto) {
+  const probImplicita = 1 / odd;
+  const probReal = probImplicita / (1 + calcularMargen(mercado));
+  const edge = (probReal - probImplicita) * 100;
+  const scoreMat = edge > 0 ? Math.min(60, edge * 3) : 0;
+
+  let scoreCtx = 20;
+  if (contexto && contexto.formaLocal && contexto.h2h) {
+    const fl = calcularForma(contexto.formaLocal);
+    const fv = calcularForma(contexto.formaVisitante);
+    const hs = calcularH2H(contexto.h2h, contexto.localId);
+
+    if (mercado === 'h2h') {
+      if (pick === 'home') scoreCtx = Math.round(fl * 0.6 + hs * 0.4);
+      else if (pick === 'away') scoreCtx = Math.round(fv * 0.6 + (10 - hs) * 0.4);
+      else scoreCtx = 15;
+    } else if (mercado === 'totals') {
+      const gp = contexto.golesPromedio || 2.5;
+      if ((pick === 'over' && gp > 2.5) || (pick === 'under' && gp < 2.5)) scoreCtx += 10;
+      scoreCtx = Math.min(40, scoreCtx);
+    } else if (mercado === 'btts') {
+      const gp = contexto.golesPromedio || 2.5;
+      if ((pick === 'yes' && gp > 2.0) || (pick === 'no' && gp < 2.0)) scoreCtx += 8;
+      scoreCtx = Math.min(40, scoreCtx);
+    } else {
+      scoreCtx = Math.round((fl + fv) / 2 * 0.5 + hs * 0.5);
+      scoreCtx = Math.min(40, scoreCtx);
+    }
+  }
+
+  return {
+    score: Math.round(scoreMat + scoreCtx),
+    edge: edge.toFixed(1),
+    probReal: (probReal * 100).toFixed(0),
+    scoreMat: Math.round(scoreMat),
+    scoreCtx: Math.round(scoreCtx),
+  };
+}
+
+// ════════════════════════════════════════════════════════════
+// MENTOR — ANÁLISIS PROFUNDO DE PARTIDO
+// ════════════════════════════════════════════════════════════
+
+async function cargarTodosMercados(game) {
+  const mercados = ['h2h', 'totals', 'btts', 'draw_no_bet', 'spreads'];
+  const urls = mercados.map(m =>
+    CFG.proxy + encodeURIComponent(
+      `https://api.the-odds-api.com/v4/sports/soccer/odds` +
+      `?apiKey=${CFG.oddsKey}&regions=eu&markets=${m}` +
+      `&oddsFormat=decimal&eventIds=${game.id}`
+    )
+  );
+  const res = await Promise.allSettled(urls.map(u => fetchSeguro(u, 8000)));
+  const out = {};
+  mercados.forEach((m, i) => {
+    if (res[i].status === 'fulfilled') {
+      try { const d = JSON.parse(res[i].value?.body || res[i].value); if (Array.isArray(d)) out[m] = d; } catch {}
+    }
+  });
+  return out;
+}
+
+async function cargarContextoDeportivo(local, visitante) {
+  const localId = await buscarEquipo(local);
+  const visitId = await buscarEquipo(visitante);
+  if (!localId || !visitId) return null;
+  const [fl, fv, hh] = await Promise.all([obtenerForma(localId), obtenerForma(visitId), obtenerH2H(localId, visitId)]);
+  let gp = 2.5;
+  if (hh && hh.length) {
+    const tg = hh.reduce((s, f) => s + (f.goals?.home || 0) + (f.goals?.away || 0), 0);
+    gp = tg / hh.length;
+  }
+  return { localId, visitId, formaLocal: fl || [], formaVisitante: fv || [], h2h: hh || [], golesPromedio: gp };
+}
+
+async function analizarPartidoProfundo(game, capital) {
+  const mercados = ['h2h', 'totals', 'btts', 'draw_no_bet', 'spreads'];
+
+  setHTML('mentor-body', `<div class="loading" style="padding:40px"><span class="spin">⌛</span> Cargando ${mercados.length} mercados…</div>`);
+  const todosMercados = await cargarTodosMercados(game);
+  if (!Object.keys(todosMercados).length) return null;
+
+  setHTML('mentor-body', `<div class="loading" style="padding:40px"><span class="spin">⌛</span> Cargando contexto del partido…</div>`);
+  const contexto = await cargarContextoDeportivo(game.home_team, game.away_team);
+
+  setHTML('mentor-body', `<div class="loading" style="padding:40px"><span class="spin">⌛</span> Calculando scores…</div>`);
+  const apuestas = [];
+  const L = game.home_team, V = game.away_team;
+
+  if (todosMercados.h2h) {
+    [['home', L], ['draw', 'Draw'], ['away', V]].forEach(([pk, nm]) => {
+      const odd = obtenerOdd(todosMercados.h2h, nm);
+      if (!odd) return;
+      const sc = calcularScoreMercado('h2h', pk, odd, contexto);
+      const k = Math.max(0.01, parseFloat(sc.edge) / 100 * 0.25);
+      const s = capital * k;
+      apuestas.push({ mercado: 'Resultado Final 1X2', pick: nm, partido: `${L} vs ${V}`, odd, ...sc, apostar: s, ganancia: s * (odd - 1), kelly: (k * 100).toFixed(1) });
+    });
+  }
+  if (todosMercados.totals) {
+    [1.5, 2.5, 3.5].forEach(line => {
+      ['Over', 'Under'].forEach(pk => {
+        const odd = obtenerOddTotals(todosMercados.totals, pk, line);
+        if (!odd) return;
+        const sc = calcularScoreMercado('totals', pk.toLowerCase(), odd, contexto);
+        const k = Math.max(0.01, parseFloat(sc.edge) / 100 * 0.25);
+        const s = capital * k;
+        const lbl = `${pk === 'Over' ? 'Más' : 'Menos'} de ${line} goles`;
+        apuestas.push({ mercado: 'Total de goles', pick: lbl, partido: `${L} vs ${V}`, odd, ...sc, apostar: s, ganancia: s * (odd - 1), kelly: (k * 100).toFixed(1) });
+      });
+    });
+  }
+  if (todosMercados.btts) {
+    [['Yes', 'Sí marcan'], ['No', 'No marcan']].forEach(([pk, nm]) => {
+      const odd = obtenerOdd(todosMercados.btts, pk);
+      if (!odd) return;
+      const sc = calcularScoreMercado('btts', pk.toLowerCase(), odd, contexto);
+      const k = Math.max(0.01, parseFloat(sc.edge) / 100 * 0.25);
+      const s = capital * k;
+      apuestas.push({ mercado: 'Ambos equipos marcan', pick: nm, partido: `${L} vs ${V}`, odd, ...sc, apostar: s, ganancia: s * (odd - 1), kelly: (k * 100).toFixed(1) });
+    });
+  }
+  if (todosMercados.draw_no_bet) {
+    [[L, 'home'], [V, 'away']].forEach(([nm, pk]) => {
+      const odd = obtenerOdd(todosMercados.draw_no_bet, nm);
+      if (!odd) return;
+      const sc = calcularScoreMercado('draw_no_bet', pk, odd, contexto);
+      const k = Math.max(0.01, parseFloat(sc.edge) / 100 * 0.25);
+      const s = capital * k;
+      apuestas.push({ mercado: 'Pronóstico sin empate', pick: `${nm} (sin empate)`, partido: `${L} vs ${V}`, odd, ...sc, apostar: s, ganancia: s * (odd - 1), kelly: (k * 100).toFixed(1) });
+    });
+  }
+
+  apuestas.sort((a, b) => b.score - a.score);
+  return { game, contexto, contextoCargado: !!contexto, apuestas, mercadosCargados: Object.keys(todosMercados).length, mercadosTotal: mercados.length };
+}
+
+function renderAnalisisProfundo() {
+  const m = STATE.mentor, a = m.analisisProfundo;
+  if (!a) return `<div class="loading" style="padding:40px">Error al cargar análisis</div>`;
+
+  const g = a.game, ctx = a.contexto;
+  const bets = a.apuestas.filter(b => parseFloat(b.edge) > 0);
+
+  let html = `
+    <button class="btn btn-ghost" onclick="STATE.mentor.paso=1;STATE.mentor.analisisProfundo=null;renderMentor()">← Volver</button>
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-size:22px;font-weight:800">${g.home_team} vs ${g.away_team}</div>
+      <div style="font-size:14px;color:var(--text-3);margin-top:4px">${bets.length} apuestas con valor · ${a.mercadosCargados}/${a.mercadosTotal} mercados</div>
+    </div>`;
+
+  if (a.contextoCargado && ctx) {
+    const fl = ctx.formaLocal?.slice(0, 5).map(f => f.teams?.home?.winner ? 'W' : !f.teams?.away?.winner && f.goals?.home === f.goals?.away ? 'D' : 'L').join('') || 'N/D';
+    const fv = ctx.formaVisitante?.slice(0, 5).map(f => f.teams?.away?.winner ? 'W' : !f.teams?.home?.winner && f.goals?.home === f.goals?.away ? 'D' : 'L').join('') || 'N/D';
+    const hw = ctx.h2h?.filter(f => f.teams?.home?.winner && f.teams.home.id === ctx.localId).length || 0;
+    const aw = ctx.h2h?.filter(f => f.teams?.away?.winner && f.teams.away.id === ctx.visitId).length || 0;
+    html += `
+      <div class="card card-sm" style="margin-bottom:12px">
+        <div style="display:flex;flex-direction:column;gap:6px;font-size:14px">
+          <span>📊 Forma ${g.home_team}: <strong>${fl}</strong></span>
+          <span>📊 Forma ${g.away_team}: <strong>${fv}</strong></span>
+          <span>⚔️ H2H: ${g.home_team} ${hw} - ${aw} ${g.away_team} (${ctx.h2h?.length || 0} partidos)</span>
+          <span>⚽ Goles promedio: ${ctx.golesPromedio?.toFixed(1) || 'N/D'}</span>
+        </div>
+      </div>`;
+  } else {
+    html += `<div class="wiz-info-box" style="margin-bottom:12px;font-size:13px;padding:8px 12px">⚠️ Solo análisis matemático — datos contextuales no disponibles</div>`;
+  }
+
+  if (!bets.length) {
+    html += `<div class="card" style="text-align:center;padding:24px;color:var(--text-3)">
+      Este partido no tiene apuestas con ventaja matemática. La casa tiene margen alto en todos los mercados. Considera otro partido.</div>`;
+    return html;
+  }
+
+  const emojis = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+  bets.slice(0, 10).forEach((b, i) => {
+    const emoji = emojis[i] || `#${i + 1}`;
+    let razon = `Edge +${b.edge}% matemático ${b.scoreMat >= 30 ? '(favorable)' : '(moderado)'}.`;
+    if (a.contextoCargado) razon += ` Contexto deportivo: ${b.scoreCtx}/40.`;
+    if (b.mercado === 'Total de goles' && ctx?.golesPromedio) razon += ` Promedio H2H de ${ctx.golesPromedio.toFixed(1)} goles.`;
+
+    html += `
+      <div class="mentor-card">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:22px">${emoji}</span>
+          <div>
+            <div class="mentor-card-desc" style="margin:0">${b.pick}</div>
+            <div style="font-size:13px;color:var(--text-3)">${b.mercado}</div>
+          </div>
+          <div style="margin-left:auto;font-family:var(--f-mono);font-size:20px;font-weight:800;color:var(--tertiary)">${b.score}/100</div>
+        </div>
+        <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <div style="font-size:11px;color:var(--text-3);margin-bottom:4px">MATEMÁTICO ${b.scoreMat}/60</div>
+            <div class="progress-track"><div class="progress-fill" style="width:${b.scoreMat / 60 * 100}%;background:var(--tertiary)"></div></div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-3);margin-bottom:4px">CONTEXTUAL ${b.scoreCtx}/40</div>
+            <div class="progress-track"><div class="progress-fill" style="width:${b.scoreCtx / 40 * 100}%;background:var(--warning)"></div></div>
+          </div>
+        </div>
+        <div class="mentor-card-stats" style="margin-top:8px">
+          <div><span class="mentor-card-num-lbl">ODD</span><br><span class="mentor-card-num-val">${b.odd.toFixed(2)}</span></div>
+          <div><span class="mentor-card-num-lbl">EDGE</span><br><span class="mentor-card-num-val" style="color:var(--tertiary)">+${b.edge}%</span></div>
+          <div><span class="mentor-card-num-lbl">PROB REAL</span><br><span class="mentor-card-num-val">${b.probReal}%</span></div>
+          <div><span class="mentor-card-num-lbl">KELLY</span><br><span class="mentor-card-num-val">${b.kelly}%</span></div>
+        </div>
+        <div class="mentor-card-nums">
+          <div><span class="mentor-card-num-lbl">APOSTAR</span><br><span class="mentor-card-num-val">$${b.apostar.toFixed(2)}</span></div>
+          <div><span class="mentor-card-num-lbl">SI GANA</span><br><span class="mentor-card-num-val" style="color:var(--tertiary)">+$${b.ganancia.toFixed(2)} ✅</span></div>
+        </div>
+        <div class="mentor-card-why"><strong>¿Por qué esta sugerencia?</strong><br>${razon}</div>
+        <div class="mentor-card-actions">
+          <button class="btn btn-primary" onclick="mentorAddCuponProfundo(${i})">+ Añadir al cupón</button>
+          <button class="btn btn-ghost" onclick="mentorIgnorarProfundo(${i})">Ignorar</button>
+        </div>
+      </div>`;
+  });
+
+  return html;
+}
+
+function mentorAddCuponProfundo(idx) {
+  const a = STATE.mentor.analisisProfundo;
+  if (!a) return;
+  const b = a.apuestas[idx];
+  if (!b || !b.odd || b.odd <= 1) return;
+  addCupon('profundo_' + Date.now(), `${b.pick} — ${b.mercado}`, b.odd, parseFloat(b.edge), parseFloat(b.probReal) / 100);
+  actualizarBadgeMentor();
+}
+
+function mentorIgnorarProfundo(idx) {
+  const a = STATE.mentor.analisisProfundo;
+  if (!a) return;
+  a.apuestas.splice(idx, 1);
+  renderMentor();
+}
+
+// ════════════════════════════════════════════════════════════
 // MENTOR DE PRONÓSTICOS
 // ════════════════════════════════════════════════════════════
 
@@ -4336,6 +4676,7 @@ function renderMentorPaso1() {
   const m=STATE.mentor;
   const recomendado=(STATE.bankroll*0.02).toFixed(2);
   const rangos=[[5,20],[20,50],[50,200],[200,1000]];
+  const games = STATE.oddsGames?.filter(g => g.bookmakers?.length) || [];
   return `
     <div>
       <div class="mentor-q">¿Cuánto quieres apostar?</div>
@@ -4359,7 +4700,27 @@ function renderMentorPaso1() {
         <button class="mentor-opt${m.tipo==='sistema'?' sel':''}" onclick="STATE.mentor.tipo='sistema';renderMentor()">SISTEMA</button>
       </div>
     </div>
-    <button class="btn btn-primary" style="font-size:16px;padding:14px" onclick="mentorMostrarSugerencias()">MOSTRAR SUGERENCIAS →</button>
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+      <div class="mentor-q">¿Quieres analizar un partido específico?</div>
+      <div class="mentor-opts">
+        <button class="mentor-opt${m.modo==='general'?' sel':''}" onclick="STATE.mentor.modo='general';STATE.mentor.partidoIdx=null;renderMentor()">📊 ANÁLISIS GENERAL</button>
+        <button class="mentor-opt${m.modo==='partido'?' sel':''}" onclick="STATE.mentor.modo='partido';renderMentor()">⚽ PARTIDO ESPECÍFICO</button>
+      </div>
+      ${m.modo==='partido' ? `
+        <div style="margin-top:10px;max-height:200px;overflow-y:auto">
+          ${games.length ? games.map((g, i) => `
+            <div class="pick-sel-row${m.partidoIdx===i?' selected':''}" onclick="STATE.mentor.partidoIdx=${i};renderMentor()">
+              <div class="pick-sel-check">${m.partidoIdx===i?'✓':''}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.home_team} vs ${g.away_team}</div>
+                <div style="font-size:12px;color:var(--text-3)">${g.sport_title||'Fútbol'}</div>
+              </div>
+            </div>
+          `).join('') : `<div style="font-size:14px;color:var(--text-3);padding:12px;text-align:center">No hay partidos disponibles. <button class="btn btn-ghost" style="font-size:13px;padding:4px 12px;margin-top:6px" onclick="(async()=>{await cargarDeportes();renderMentor()})()">Cargar partidos</button></div>`}
+        </div>
+      ` : ''}
+    </div>
+    <button class="btn btn-primary" style="font-size:16px;padding:14px;margin-top:16px" onclick="mentorMostrarSugerencias()">MOSTRAR SUGERENCIAS →</button>
   `;
 }
 
@@ -4377,7 +4738,28 @@ async function mentorMostrarSugerencias() {
   if (!m.capital||m.capital<=0) { alert('Ingresa cuánto quieres apostar.'); return; }
   if (m.gananciaMin==null||m.gananciaMax==null) { alert('Selecciona o ingresa cuánto quieres ganar.'); return; }
 
-  // Ensure data is loaded before generating suggestions
+  // Deep analysis for a specific game (5 markets + contexto)
+  if (m.modo === 'partido' && m.partidoIdx != null) {
+    const games = STATE.oddsGames || [];
+    const game = games[m.partidoIdx];
+    if (!game) { alert('Selecciona un partido primero.'); return; }
+
+    const analisis = await analizarPartidoProfundo(game, m.capital);
+    if (!analisis) {
+      setHTML('mentor-body', `<div class="card" style="text-align:center;padding:24px;color:var(--error)">
+        Error al cargar datos del partido. Intenta de nuevo.
+      </div>`);
+      return;
+    }
+
+    m.analisisProfundo = analisis;
+    m.paso = 2;
+    renderMentor();
+    actualizarBadgeMentor();
+    return;
+  }
+
+  // General mode — existing logic
   const faltaData = !STATE.valueBets.length || !Object.keys(STATE.senalesCripto).length;
   if (faltaData) {
     setHTML('mentor-body', '<div class="loading" style="padding:40px"><span class="spin">⌛</span> Cargando datos de mercado…</div>');
@@ -4482,6 +4864,7 @@ function generarSugerencias(capital, gananciaMin, gananciaMax, tipo) {
 
 function renderMentorPaso2() {
   const m=STATE.mentor;
+  if (m.analisisProfundo) return renderAnalisisProfundo();
   const lista=m.sugerencias;
   const cardsHtml=lista.length?lista.map((s,i)=>{
     const tagClass=s.tipo==='APUESTA'?'apuesta':s.tipo==='CRYPTO'?'crypto':s.tipo==='MÚLTIPLE'?'multiple':'sistema';
@@ -4515,7 +4898,7 @@ function renderMentorPaso2() {
     </div>
   `;
   return `
-    <button class="btn btn-ghost" onclick="STATE.mentor.paso=1;renderMentor()">← Ajustar objetivos</button>
+    <button class="btn btn-ghost" onclick="STATE.mentor.paso=1;STATE.mentor.analisisProfundo=null;renderMentor()">← Ajustar objetivos</button>
     <div style="font-size:13px;color:var(--text-3);font-family:var(--f-mono)">
       Capital: $${m.capital.toFixed(2)} · Objetivo: $${m.gananciaMin}–$${m.gananciaMax} · Tipo: ${m.tipo.toUpperCase()}
     </div>
