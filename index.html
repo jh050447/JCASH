@@ -1464,6 +1464,9 @@ const STATE = {
   top100Busqueda:  '',
   valueBets:       [],
   oddsGames:       [],
+  oddsLimitExceeded: false,
+  oddsResetDate:    null,
+  oddsRemaining:    null,
   ohlc:            { BTC:[], ETH:[], SOL:[], XRP:[] },
   senalesCripto:   {},
   exchSelected:    { BTC:'binance', ETH:'binance', SOL:'binance', XRP:'binance' },
@@ -2954,7 +2957,23 @@ async function cargarDeportes() {
       fetchSeguro(proxyUrl(oddsUrl), 14000),
       new Promise((_, reject) => setTimeout(() => reject('timeout'), 8000)),
     ]).catch(() => null);
-    if (r && r.ok) games = await r.json();
+    if (r) {
+      const text = await r.text();
+      let data;
+      try { data = JSON.parse(text); } catch { data = null; }
+      if (data?.message?.includes('exceeded')) {
+        console.warn('Odds API limit exceeded');
+        STATE.oddsLimitExceeded = true;
+        mentorActualizarEstado('ready');
+        setHTML('dep-value-bets', '<div class="wiz-info-box" style="background:var(--error);color:#fff">⚠️ Límite de API alcanzado</div>');
+        setHTML('dep-partidos', '');
+        return;
+      }
+      if (r.headers?.get('x-requests-remaining')) {
+        STATE.oddsRemaining = parseInt(r.headers.get('x-requests-remaining'));
+      }
+      if (r.ok && Array.isArray(data)) games = data;
+    }
   } catch (e) { console.log('cargarDeportes error:', e); }
   if (!Array.isArray(games)) games = [];
   console.log('cargarDeportes result:', games.length, 'games');
@@ -3151,6 +3170,26 @@ async function cargarDeportes() {
 
   setText('dep-sub', `${valueBets.length} value bets · ${games.length} partidos · The Odds API · ${ahora}`);
   mentorActualizarEstado();
+}
+
+async function checkOddsRemaining() {
+  try {
+    const url = `https://api.the-odds-api.com/v4/sports?apiKey=${CFG.oddsKey}`;
+    const r = await fetchSeguro(proxyUrl(url), 6000);
+    const remaining = r.headers?.get('x-requests-remaining');
+    if (remaining) {
+      STATE.oddsRemaining = parseInt(remaining);
+      console.log('Odds API remaining:', STATE.oddsRemaining);
+    }
+    const text = await r.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = null; }
+    if (data?.message?.includes('exceeded')) {
+      STATE.oddsLimitExceeded = true;
+      console.warn('Odds API limit exceeded');
+    }
+  } catch (e) { console.log('checkOddsRemaining error:', e); }
+  return STATE.oddsRemaining;
 }
 
 // ─── ACCIONES VALUE BET ──────────────────────────────────────
@@ -3619,7 +3658,19 @@ async function cargarPartidosAnalisis() {
   try {
     const url=`https://api.the-odds-api.com/v4/sports/soccer/odds?apiKey=${CFG.oddsKey}&regions=eu&markets=h2h,totals&oddsFormat=decimal`;
     const r=await fetchSeguro(proxyUrl(url), 14000);
-    if (!r.ok) throw new Error('HTTP '+r.status);
+    if (!r.ok) {
+      const text = await r.text();
+      let data;
+      try { data = JSON.parse(text); } catch { data = null; }
+      if (data?.message?.includes('exceeded')) {
+        console.warn('Odds API limit exceeded');
+        STATE.oddsLimitExceeded = true;
+        setHTML('an-content', '<div class="wiz-info-box" style="background:var(--error);color:#fff;text-align:center;padding:20px">⚠️ Límite de API de odds alcanzado. Usa entrada manual para agregar cuotas.</div>');
+        renderAnStep1();
+        return;
+      }
+      throw new Error('HTTP '+r.status);
+    }
     const data=await r.json();
     STATE.an.games=Array.isArray(data)?data:[];
     renderAnStep1();
@@ -4838,6 +4889,24 @@ async function mentorMostrarSugerencias() {
   const m=STATE.mentor;
   if (!m.capital||m.capital<=0) { alert('Ingresa cuánto quieres apostar.'); return; }
   if (m.gananciaMin==null||m.gananciaMax==null) { alert('Selecciona o ingresa cuánto quieres ganar.'); return; }
+
+  if (STATE.oddsLimitExceeded) {
+    setHTML('mentor-body', `
+      <div class="card" style="text-align:center;padding:24px">
+        <div style="font-size:18px;font-weight:700;color:var(--warning);margin-bottom:12px">⚠️ Límite de API alcanzado</div>
+        <div style="font-size:14px;color:var(--text-3);line-height:1.6">
+          El plan gratuito permite 500 consultas/mes. 
+          ${STATE.oddsResetDate ? 'Disponible nuevamente el <strong>' + STATE.oddsResetDate + '</strong>.' : 'Intenta de nuevo en los próximos días.'}
+        </div>
+        <div style="font-size:14px;color:var(--text-3);margin-top:8px;line-height:1.6">
+          Usa el <strong>Analizador Manual</strong> para ingresar cuotas manualmente mientras tanto.
+        </div>
+        <div style="margin-top:16px">
+          <button class="btn btn-primary" onclick="cerrarMentor();ir('sec-analizador')" style="font-size:16px;padding:12px 24px">🔧 Abrir Analizador Manual</button>
+        </div>
+      </div>`);
+    return;
+  }
 
   // Deep analysis for a specific game (5 markets + contexto)
   if (m.modo === 'partido' && m.partidoIdx != null) {
