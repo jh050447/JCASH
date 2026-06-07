@@ -1134,6 +1134,7 @@ body {
             </div>
           </div>
 
+        </div><!-- /grid-3 -->
         </div><!-- /calc-calculators -->
         <div id="calc-an" style="display:none">
           <div id="an-content"><div class="loading"><span class="spin">⌛</span> Cargando partidos...</div></div>
@@ -3453,7 +3454,11 @@ function setCalcTab(tab) {
   qs('calc-an').style.display          = tab==='an'   ? '' : 'none';
   qs('ctab-calc').classList.toggle('active', tab==='calc');
   qs('ctab-an').classList.toggle('active',   tab==='an');
-  if (tab==='an') { STATE.an.step=1; renderAnalizador(); }
+  if (tab==='an') {
+    STATE.an.step=1;
+    if (!STATE.an.games.length) cargarPartidosAnalisis();
+    else renderAnalizador();
+  }
 }
 
 // ── ODDS API ────────────────────────────────────────────────
