@@ -2942,14 +2942,16 @@ async function cargarDeportes() {
   setHTML('dep-partidos',   '<div class="loading"><span class="spin">⌛</span> Cargando partidos...</div>');
 
   const ahora   = ts();
-  const oddsUrl = `https://api.the-odds-api.com/v4/sports/soccer/odds?apiKey=${CFG.oddsKey}&regions=eu&markets=h2h,totals&oddsFormat=decimal`;
+  const oddsUrl = `https://api.the-odds-api.com/v4/sports/soccer/odds?apiKey=${CFG.oddsKey}&regions=eu&markets=h2h,totals,btts,draw_no_bet&oddsFormat=decimal`;
+  console.log('cargarDeportes started');
 
   let games = [];
   try {
     const r = await fetchSeguro(proxyUrl(oddsUrl), 14000);
     if (r.ok) games = await r.json();
-  } catch (_) {}
+  } catch (e) { console.log('cargarDeportes error:', e); }
   if (!Array.isArray(games)) games = [];
+  console.log('cargarDeportes result:', games.length, 'games');
 
   const valueBets       = [];
   const valueBetGameIds = new Set();
@@ -4845,18 +4847,24 @@ async function mentorMostrarSugerencias() {
   }
 
   // General mode — use cached data first, only fetch if empty
-  if (!STATE.valueBets.length) {
+  let intentos = 0;
+  while (!STATE.valueBets.length && intentos < 2) {
+    intentos++;
     setHTML('mentor-body', '<div class="loading" style="padding:40px"><span class="spin">⌛</span> Cargando datos de mercado…</div>');
     await Promise.race([
       cargarDeportes(),
       new Promise(r => setTimeout(() => r('timeout'), 10000)),
     ]);
-    if (!STATE.valueBets.length) {
-      setHTML('mentor-body', `<div class="card" style="text-align:center;padding:24px;color:var(--text-3);font-size:15px">
+  }
+  if (!STATE.valueBets.length) {
+    setHTML('mentor-body', `
+      <div class="card" style="text-align:center;padding:24px;color:var(--text-3);font-size:15px">
         No hay datos disponibles ahora. Intenta de nuevo.
+      </div>
+      <div style="text-align:center;margin-top:8px">
+        <button class="btn btn-primary" onclick="mentorMostrarSugerencias()" style="font-size:16px;padding:12px 24px">🔄 Reintentar</button>
       </div>`);
-      return;
-    }
+    return;
   }
   if (!Object.keys(STATE.senalesCripto).length) {
     await Promise.all(['BTC','ETH','SOL','XRP'].map(s => generarSenalCrypto(s)));
