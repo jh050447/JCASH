@@ -676,6 +676,62 @@ body {
 .pick-sel-row.selected .pick-sel-check { background:var(--tertiary); border-color:var(--tertiary); color:#000; }
 .estr-badge { background:var(--error); color:#fff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:10px; margin-left:6px; display:none; vertical-align:middle; }
 
+/* ── ANALIZADOR ECUABET ─────────────────────────────────── */
+.calc-tabs { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; border-bottom:1px solid var(--border); padding-bottom:14px; }
+.calc-tab { padding:9px 18px; border-radius:var(--radius); font-size:15px; font-weight:700; cursor:pointer; border:1px solid var(--border); background:transparent; color:var(--text-2); transition:background .12s,color .12s; }
+.calc-tab.active { background:var(--tert-dim); color:var(--tertiary); border-color:var(--tert-mid); }
+.an-layout { display:grid; grid-template-columns:1fr 300px; gap:16px; align-items:start; }
+@media (max-width:900px) { .an-layout { grid-template-columns:1fr; } }
+.an-section { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; margin-bottom:12px; }
+.an-section-hdr { display:flex; align-items:center; justify-content:space-between; padding:13px 18px; cursor:pointer; user-select:none; }
+.an-section-title { font-size:16px; font-weight:800; }
+.an-section-body { padding:0 18px 14px; }
+.mkt-grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:10px; }
+.mkt-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
+.mkt-cell { background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); padding:12px 10px; display:flex; flex-direction:column; gap:5px; transition:border-color .15s,background .15s; }
+.mkt-cell.v { border-color:var(--tert-mid); background:var(--tert-dim); }
+.mkt-cell.nv { border-color:rgba(255,180,171,0.25); }
+.mkt-label { font-size:13px; font-weight:700; color:var(--text-3); text-align:center; letter-spacing:.5px; text-transform:uppercase; }
+.mkt-ref { font-size:12px; color:var(--text-3); text-align:center; font-family:var(--f-mono); }
+.mkt-inp { background:var(--surface-3); border:1px solid var(--border); border-radius:var(--radius); padding:8px 4px; font-size:18px; font-weight:800; font-family:var(--f-mono); color:var(--text); text-align:center; width:100%; outline:none; }
+.mkt-inp:focus { border-color:var(--tert-mid); }
+.mkt-prob-txt { font-size:13px; color:var(--text-3); text-align:center; font-family:var(--f-mono); }
+.mkt-edge { font-family:var(--f-mono); font-size:15px; font-weight:800; text-align:center; }
+.mkt-kelly-txt { font-size:13px; color:var(--text-2); text-align:center; font-family:var(--f-mono); }
+.mkt-add { width:100%; padding:6px 4px; font-size:13px; border-radius:var(--radius); border:1px solid var(--tert-mid); background:var(--tert-dim); color:var(--tertiary); font-weight:700; cursor:pointer; margin-top:2px; }
+.mkt-table { width:100%; border-collapse:collapse; margin-top:10px; }
+.mkt-table th,.mkt-table td { padding:9px 10px; border-bottom:1px solid var(--border); font-size:15px; text-align:left; }
+.mkt-table th { font-size:12px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:var(--text-3); }
+.mkt-table tr.best td { background:rgba(78,222,163,0.07); }
+.mkt-inp-sm { background:var(--surface-3); border:1px solid var(--border); border-radius:var(--radius); padding:5px 4px; font-size:15px; font-weight:700; font-family:var(--f-mono); color:var(--text); width:78px; outline:none; text-align:center; }
+.mkt-inp-sm:focus { border-color:var(--tert-mid); }
+.bb-panel { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; margin-bottom:14px; }
+.bb-hdr { padding:13px 18px 11px; border-bottom:1px solid var(--border); font-size:16px; font-weight:800; }
+.bb-row { display:flex; align-items:flex-start; gap:10px; padding:11px 18px; border-bottom:1px solid var(--border); }
+.bb-row:last-child { border-bottom:none; }
+.bb-rank { font-size:20px; flex-shrink:0; }
+.bb-info { flex:1; min-width:0; }
+.bb-name { font-size:16px; font-weight:700; line-height:1.3; }
+.bb-sub { font-size:13px; color:var(--text-3); font-family:var(--f-mono); margin-top:2px; }
+.bb-edge { font-family:var(--f-mono); font-size:16px; font-weight:800; color:var(--tertiary); white-space:nowrap; flex-shrink:0; }
+.cupon-panel { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
+.cupon-hdr { padding:12px 18px 10px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.cupon-pick { display:flex; align-items:center; gap:8px; padding:9px 18px; border-bottom:1px solid var(--border); font-size:15px; }
+.cupon-lbl { flex:1; line-height:1.4; }
+.cupon-odd { font-family:var(--f-mono); font-size:16px; font-weight:700; color:var(--tertiary); flex-shrink:0; }
+.cupon-rm { background:transparent; border:none; color:var(--error); cursor:pointer; font-size:18px; padding:0 4px; flex-shrink:0; }
+.an-game-row { padding:12px 16px; border-bottom:1px solid var(--border); cursor:pointer; display:flex; justify-content:space-between; align-items:center; font-size:16px; transition:background .12s; }
+.an-game-row:hover,.an-game-row.sel { background:var(--tert-dim); }
+.an-game-row:last-child { border-bottom:none; }
+.es-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px; }
+.es-cell { background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); padding:10px 6px; text-align:center; transition:border-color .12s,background .12s; }
+.es-cell.v { border-color:var(--tert-mid); background:var(--tert-dim); }
+.es-score { font-size:16px; font-weight:800; margin-bottom:3px; }
+.es-pct { font-size:12px; color:var(--text-3); font-family:var(--f-mono); }
+.es-edge { font-size:13px; font-weight:800; font-family:var(--f-mono); }
+.hf-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px; }
+.hf-cell { background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); padding:8px 6px; display:flex; flex-direction:column; gap:4px; }
+
 /* ── PARTIDO ROW ─────────────────────────────────────────── */
 .partido-row { padding: 12px 0; border-bottom: 1px solid var(--border); }
 .partido-row:last-child { border-bottom: none; }
@@ -1002,9 +1058,14 @@ body {
         <div class="sec-header">
           <div>
             <div class="sec-title">Calculadoras</div>
-            <div class="sec-sub">Kelly · Value Bet · Apalancamiento</div>
+            <div class="sec-sub">Kelly · Value Bet · Apalancamiento · Analizador Ecuabet</div>
           </div>
         </div>
+        <div class="calc-tabs">
+          <button class="calc-tab active" id="ctab-calc" onclick="setCalcTab('calc')">📊 Calculadoras</button>
+          <button class="calc-tab" id="ctab-an" onclick="setCalcTab('an')">⚽ Analizador Ecuabet</button>
+        </div>
+        <div id="calc-calculators">
         <div class="grid-3">
 
           <!-- Kelly -->
@@ -1073,6 +1134,9 @@ body {
             </div>
           </div>
 
+        </div><!-- /calc-calculators -->
+        <div id="calc-an" style="display:none">
+          <div id="an-content"><div class="loading"><span class="spin">⌛</span> Cargando partidos...</div></div>
         </div>
       </section>
 
@@ -1310,6 +1374,14 @@ const STATE = {
     exchange:'binance', numCompras:3, frecuencia:'diario', numGrids:10,
     gridMin:null, gridMax:null, picks:[], registrado:false,
     handicapSel:'-0.5', tabFiltro:'crypto',
+  },
+  an: {
+    step:1, games:[], partido:null, apiH2h:[], apiOU:{},
+    ecuabet:{}, probs:{},
+    lambdaL:1.5, lambdaV:1.2,
+    cupon:[], capitalCupon:50,
+    expandMas:false, enVivo:false,
+    minuto:0, marcL:0, marcV:0, searchText:'',
   },
   modo:      localStorage.getItem('jcahs_modo')     || 'principiante',
   bankroll:  parseFloat(localStorage.getItem('jcahs_bankroll')) || 200,
@@ -3370,6 +3442,643 @@ async function init() {
   gsap.from('#sidebar', { x: -40, opacity: 0, duration: 0.6, ease: 'power3.out' });
   gsap.from('.topbar',  { y: -20, opacity: 0, duration: 0.5, ease: 'power3.out', delay: 0.2 });
   gsap.from('.seccion.active', { opacity: 0, y: 20, duration: 0.5, ease: 'power2.out', delay: 0.3 });
+}
+
+// ════════════════════════════════════════════════════════════
+// ANALIZADOR COMPLETO MERCADOS FÚTBOL ECUABET
+// ════════════════════════════════════════════════════════════
+
+function setCalcTab(tab) {
+  qs('calc-calculators').style.display = tab==='calc' ? '' : 'none';
+  qs('calc-an').style.display          = tab==='an'   ? '' : 'none';
+  qs('ctab-calc').classList.toggle('active', tab==='calc');
+  qs('ctab-an').classList.toggle('active',   tab==='an');
+  if (tab==='an') { STATE.an.step=1; renderAnalizador(); }
+}
+
+// ── ODDS API ────────────────────────────────────────────────
+async function cargarPartidosAnalisis() {
+  const KEY = STATE.oddsKey || '';
+  if (!KEY) { setHTML('an-content','<div class="card"><div style="color:var(--warning);font-size:16px;padding:12px">⚠️ Configura tu Odds API Key en Ajustes para cargar partidos automáticamente.</div></div>'); return; }
+  setHTML('an-content','<div class="loading"><span class="spin">⌛</span> Cargando partidos de fútbol...</div>');
+  try {
+    const url=`https://api.the-odds-api.com/v4/sports/soccer/odds/?apiKey=${KEY}&regions=eu&markets=h2h,totals&oddsFormat=decimal&bookmakers=betfair`;
+    const r=await fetch(url);
+    if (!r.ok) throw new Error(r.status);
+    const data=await r.json();
+    STATE.an.games=data||[];
+    renderAnStep1();
+  } catch(e) {
+    setHTML('an-content',`<div class="card"><div style="color:var(--error);font-size:16px;padding:12px">Error al cargar partidos: ${e.message}. Usa entrada manual.</div></div>`);
+    renderAnStep1();
+  }
+}
+
+// ── POISSON ─────────────────────────────────────────────────
+function poissonP(lambda, k) {
+  if (lambda<=0) return 0;
+  let p=Math.exp(-lambda), r=p;
+  for (let i=1;i<=k;i++) { p*=lambda/i; r=p; }
+  return r;
+}
+function pMarcador(a,b,lL,lV) { return poissonP(lL,a)*poissonP(lV,b); }
+
+// ── NO-VIG ──────────────────────────────────────────────────
+function calcNoVigProbs(oddsArr) {
+  const imp=oddsArr.map(o=>o>1?1/o:0);
+  const sum=imp.reduce((a,b)=>a+b,0);
+  return sum>0?imp.map(v=>v/sum):imp;
+}
+
+// ── RENDER STEP 1 — selección de partido ────────────────────
+function renderAnStep1() {
+  const {games,searchText}=STATE.an;
+  const q=(searchText||'').toLowerCase();
+  const filtered=games.filter(g=>{
+    const t=(g.home_team+' '+g.away_team).toLowerCase();
+    return !q||t.includes(q);
+  });
+  const gamesHtml=filtered.length?filtered.slice(0,30).map((g,i)=>{
+    const dt=g.commence_time?new Date(g.commence_time).toLocaleString('es-EC',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+    return `<div class="an-game-row" onclick="seleccionarPartido(${games.indexOf(g)})">
+      <div>
+        <div style="font-weight:700;font-size:16px">${g.home_team} vs ${g.away_team}</div>
+        <div style="font-size:13px;color:var(--text-3)">${g.sport_title||'Fútbol'} · ${dt}</div>
+      </div>
+      <span class="material-symbols-outlined" style="color:var(--text-3)">chevron_right</span>
+    </div>`;
+  }).join(''):
+  `<div style="padding:20px;text-align:center;color:var(--text-3);font-size:16px">
+    ${games.length?'Sin resultados para "'+searchText+'"':'No hay partidos cargados desde la API.'}
+  </div>`;
+
+  setHTML('an-content',`
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
+      <input class="input" style="flex:1;min-width:200px" placeholder="Buscar equipo..." value="${searchText||''}"
+        oninput="STATE.an.searchText=this.value;renderAnStep1()">
+      <button class="btn btn-primary" onclick="cargarPartidosAnalisis()">
+        <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px">refresh</span> Cargar API
+      </button>
+      <button class="btn btn-ghost" onclick="analizarManual()">✏️ Entrada Manual</button>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="padding:14px 16px;border-bottom:1px solid var(--border);font-size:14px;color:var(--text-3);font-weight:700">
+        ${filtered.length} PARTIDOS DISPONIBLES
+      </div>
+      ${gamesHtml}
+    </div>
+    <div style="margin-top:14px;font-size:13px;color:var(--text-3);font-family:var(--f-mono)">
+      Fuente: The Odds API · Solo fútbol · Actualizados en tiempo real
+    </div>
+  `);
+}
+
+function renderAnalizador() { renderAnStep1(); }
+
+// ── SELECCIONAR PARTIDO ──────────────────────────────────────
+function seleccionarPartido(idx) {
+  const g=STATE.an.games[idx];
+  if(!g) return;
+  STATE.an.partido={local:g.home_team, visitante:g.away_team, liga:g.sport_title||'Fútbol',
+    fecha:g.commence_time?new Date(g.commence_time).toLocaleString('es-EC'):'', idx};
+  STATE.an.apiH2h=[];
+  STATE.an.apiOU={};
+  STATE.an.ecuabet={};
+  STATE.an.cupon=[];
+  // Parse bookmaker odds
+  const bms=g.bookmakers||[];
+  for (const bm of bms) {
+    for (const mkt of (bm.markets||[])) {
+      if (mkt.key==='h2h' && !STATE.an.apiH2h.length) {
+        const o=mkt.outcomes||[];
+        const hOdd=o.find(x=>x.name===g.home_team)?.price||0;
+        const dOdd=o.find(x=>x.name==='Draw')?.price||0;
+        const aOdd=o.find(x=>x.name===g.away_team)?.price||0;
+        STATE.an.apiH2h=[hOdd,dOdd,aOdd];
+      }
+      if (mkt.key==='totals' && !STATE.an.apiOU['2.5']) {
+        const o=mkt.outcomes||[];
+        const ov=o.find(x=>x.name==='Over')?.price||0;
+        const un=o.find(x=>x.name==='Under')?.price||0;
+        const pt=o.find(x=>x.name==='Over')?.point||2.5;
+        STATE.an.apiOU[String(pt)]=[ov,un];
+      }
+    }
+  }
+  STATE.an.step=2;
+  renderAnStep2();
+}
+
+// ── ENTRADA MANUAL ───────────────────────────────────────────
+function analizarManual() {
+  const local=prompt('Nombre del equipo LOCAL:','');
+  if (!local) return;
+  const visit=prompt('Nombre del equipo VISITANTE:','');
+  if (!visit) return;
+  STATE.an.partido={local,visitante:visit,liga:'Manual',fecha:new Date().toLocaleString('es-EC')};
+  STATE.an.apiH2h=[];
+  STATE.an.apiOU={};
+  STATE.an.ecuabet={};
+  STATE.an.cupon=[];
+  STATE.an.step=2;
+  renderAnStep2();
+}
+
+// ── STEP 2 — análisis completo ───────────────────────────────
+function anOddChanged(key, val) {
+  const v=parseFloat(val);
+  if (!isNaN(v)&&v>1) STATE.an.ecuabet[key]=v;
+  else delete STATE.an.ecuabet[key];
+  renderBestBets();
+  renderCupon();
+}
+
+function renderAnStep2() {
+  const {partido,apiH2h}=STATE.an;
+  if (!partido) { renderAnStep1(); return; }
+  const hasApi=apiH2h.length===3&&apiH2h[0]>0;
+  const ts=new Date().toLocaleString('es-EC');
+
+  setHTML('an-content',`
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="STATE.an.step=1;renderAnStep1()">← Volver</button>
+      <div style="flex:1">
+        <div style="font-size:20px;font-weight:800">${partido.local} <span style="color:var(--text-3)">vs</span> ${partido.visitante}</div>
+        <div style="font-size:13px;color:var(--text-3);font-family:var(--f-mono)">${partido.liga} · ${partido.fecha} · Analizado: ${ts}</div>
+      </div>
+      <button class="btn btn-primary" onclick="registrarAnalisis()">💾 Guardar</button>
+    </div>
+
+    <div class="an-layout">
+      <div>
+        ${hasApi?`<div style="background:rgba(78,222,163,0.06);border:1px solid var(--tert-mid);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--tertiary);font-family:var(--f-mono)">
+          ✓ Odds de referencia cargadas desde API · Fuente: The Odds API · ${ts}
+        </div>`:`<div style="background:rgba(255,180,171,0.06);border:1px solid rgba(255,180,171,0.3);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--text-3)">
+          Sin odds de API. Ingresa odds de Ecuabet manualmente para calcular edge.
+        </div>`}
+
+        <div class="an-section" style="margin-bottom:14px">
+          <div style="font-size:14px;font-weight:800;color:var(--text-2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Parámetros Poisson</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label class="label">λ Local (goles esp.)</label>
+              <input class="input" style="width:120px" type="number" min="0.1" max="5" step="0.1"
+                value="${STATE.an.lambdaL}" oninput="STATE.an.lambdaL=parseFloat(this.value)||1.5;anOddChanged('_r','0')">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <label class="label">λ Visitante (goles esp.)</label>
+              <input class="input" style="width:120px" type="number" min="0.1" max="5" step="0.1"
+                value="${STATE.an.lambdaV}" oninput="STATE.an.lambdaV=parseFloat(this.value)||1.2;anOddChanged('_r','0')">
+            </div>
+          </div>
+        </div>
+
+        ${renderMkt1X2()}
+        ${renderMktDC()}
+        ${renderMktOU()}
+        ${renderMktBTTS()}
+        ${renderMktAH()}
+        ${renderMktHF()}
+        ${renderMktFG()}
+        ${renderMktExact()}
+        ${renderMktFH()}
+      </div>
+      <div>
+        <div id="bb-container">${renderBestBetsHtml()}</div>
+        <div id="cupon-container">${renderCuponHtml()}</div>
+      </div>
+    </div>
+  `);
+}
+
+// ── UTILIDAD SECCIÓN ─────────────────────────────────────────
+function anSec(titulo, body) {
+  return `<div class="an-section card" style="margin-bottom:12px;padding:14px 16px">
+    <div style="font-size:14px;font-weight:800;color:var(--text-2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">${titulo}</div>
+    ${body}
+  </div>`;
+}
+
+function mktCell(key, label, apiOdd, refProb) {
+  const ec=STATE.an.ecuabet[key]||'';
+  let edgeHtml='';
+  if (ec&&ec>1&&refProb>0) {
+    const edge=(refProb-1/ec)*100;
+    const isV=edge>0;
+    edgeHtml=`<div class="mkt-edge" style="color:${isV?'var(--tertiary)':'var(--error)'}">${edge>=0?'+':''}${edge.toFixed(1)}%</div>`;
+  }
+  const apiRef=apiOdd>1?`<div style="font-size:11px;color:var(--text-3);font-family:var(--f-mono);text-align:center">API: ${apiOdd.toFixed(2)}</div>`:'';
+  const isV=ec&&ec>1&&refProb>0&&(refProb-1/ec)*100>0;
+  return `<div class="mkt-cell${isV?' v':ec&&ec>1&&refProb>0?' nv':''}">
+    <div style="font-size:13px;font-weight:700;color:var(--text-2);text-align:center">${label}</div>
+    ${apiRef}
+    <div style="font-size:11px;color:var(--text-3);font-family:var(--f-mono);text-align:center">Prob: ${refProb>0?(refProb*100).toFixed(1)+'%':'—'}</div>
+    <input class="mkt-inp" placeholder="Odd Ecuabet" type="number" min="1.01" step="0.01"
+      value="${ec||''}" oninput="anOddChanged('${key}',this.value)">
+    ${edgeHtml}
+    ${isV?`<button class="mkt-add" onclick="addCupon('${key}','${label}',${ec},${((refProb-1/ec)*100).toFixed(2)},${refProb.toFixed(4)})">+ Cupón</button>`:''}
+  </div>`;
+}
+
+// ── MERCADOS ─────────────────────────────────────────────────
+function renderMkt1X2() {
+  const {partido,apiH2h}=STATE.an;
+  const hasApi=apiH2h.length===3&&apiH2h[0]>0;
+  const probs=hasApi?calcNoVigProbs(apiH2h):[0,0,0];
+  const [pH,pD,pA]=probs;
+  return anSec('1X2 — Resultado Final',`
+    <div class="mkt-grid-3">
+      ${mktCell('1x2_H',`1 · ${partido.local}`,hasApi?apiH2h[0]:0,pH)}
+      ${mktCell('1x2_D','X · Empate',hasApi?apiH2h[1]:0,pD)}
+      ${mktCell('1x2_A',`2 · ${partido.visitante}`,hasApi?apiH2h[2]:0,pA)}
+    </div>
+  `);
+}
+
+function renderMktDC() {
+  const {partido,apiH2h}=STATE.an;
+  const hasApi=apiH2h.length===3&&apiH2h[0]>0;
+  const probs=hasApi?calcNoVigProbs(apiH2h):[0,0,0];
+  const [pH,pD,pA]=probs;
+  const p1X=pH+pD, pX2=pD+pA, p12=pH+pA;
+  const apiDC=[
+    hasApi&&p1X>0?1/p1X:0,
+    hasApi&&pX2>0?1/pX2:0,
+    hasApi&&p12>0?1/p12:0
+  ];
+  return anSec('Doble Oportunidad',`
+    <div class="mkt-grid-3">
+      ${mktCell('dc_1X',`1X · ${partido.local}/Empate`,apiDC[0]>1?apiDC[0]:0,p1X)}
+      ${mktCell('dc_X2',`X2 · Empate/${partido.visitante}`,apiDC[1]>1?apiDC[1]:0,pX2)}
+      ${mktCell('dc_12',`12 · ${partido.local}/${partido.visitante}`,apiDC[2]>1?apiDC[2]:0,p12)}
+    </div>
+  `);
+}
+
+function renderMktOU() {
+  const lL=STATE.an.lambdaL||1.5, lV=STATE.an.lambdaV||1.2;
+  const avgL=lL+lV;
+  // Poisson P(total goles ≤ k)
+  function pTotalUnder(n) {
+    let acc=0;
+    for(let a=0;a<=n;a++) for(let b=0;b<=n-a;b++) acc+=poissonP(lL,a)*poissonP(lV,b);
+    return acc;
+  }
+  const lines=[1.5,2.5,3.5,4.5];
+  const cells=lines.map(line=>{
+    const pU=pTotalUnder(Math.floor(line));
+    const pO=1-pU;
+    const apiOu=STATE.an.apiOU[String(line)]||null;
+    const oApi=apiOu?apiOu[0]:0;
+    const uApi=apiOu?apiOu[1]:0;
+    return `
+      <div style="grid-column:span 3;font-weight:800;font-size:14px;margin-top:8px;color:var(--text-2)">Más/Menos ${line} goles</div>
+      ${mktCell('ou_O_'+line,`Más de ${line}`,oApi,pO)}
+      ${mktCell('ou_U_'+line,`Menos de ${line}`,uApi,pU)}
+      <div></div>
+    `;
+  });
+  return anSec('Total de Goles (O/U)',`
+    <div style="font-size:12px;color:var(--text-3);font-family:var(--f-mono);margin-bottom:8px">λ Total esperado: ${avgL.toFixed(2)} goles · Probabilidades via Poisson</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${cells.join('')}</div>
+  `);
+}
+
+function renderMktBTTS() {
+  const lL=STATE.an.lambdaL||1.5, lV=STATE.an.lambdaV||1.2;
+  const pNoL=poissonP(lL,0), pNoV=poissonP(lV,0);
+  const pBTTS=(1-pNoL)*(1-pNoV);
+  const pNoBTTS=1-pBTTS;
+  return anSec('Ambos Equipos Marcan (BTTS)',`
+    <div style="font-size:12px;color:var(--text-3);font-family:var(--f-mono);margin-bottom:8px">Probabilidades via Poisson · λL=${lL} · λV=${lV}</div>
+    <div class="mkt-grid-2">
+      ${mktCell('btts_si','Sí marcan ambos',0,pBTTS)}
+      ${mktCell('btts_no','No marcan ambos',0,pNoBTTS)}
+    </div>
+  `);
+}
+
+function renderMktAH() {
+  const {partido,apiH2h}=STATE.an;
+  const hasApi=apiH2h.length===3&&apiH2h[0]>0;
+  const probs=hasApi?calcNoVigProbs(apiH2h):[0,0,0];
+  const [pH,pD,pA]=probs;
+  const lines=['-1.5','-0.5','+0.5','+1.5'];
+  const rows=lines.map(h=>{
+    const v=parseFloat(h);
+    // Approximate AH probability from 1X2
+    let pH, pA2;
+    if(v===-1.5) { pH=pH*0.5; pA2=pA+(pD*0.5)+pH*0.5; }
+    else if(v===-0.5) { pH=pH; pA2=pA+pD; }
+    else if(v===0.5) { pH=pH+pD; pA2=pA; }
+    else { pH=pH+pD+(pA*0.5); pA2=pA*0.5; }
+    const sum2=pH+pA2||1;
+    pH/=sum2; pA2/=sum2;
+    return `
+      <div style="grid-column:span 3;font-weight:800;font-size:14px;margin-top:8px;color:var(--text-2)">Hándicap Asiático ${h}</div>
+      ${mktCell('ah_H_'+h,`${partido.local} (${h})`,0,pH)}
+      ${mktCell('ah_A_'+h,`${partido.visitante} (+${(-v).toFixed(1)})`,0,pA2)}
+      <div></div>
+    `;
+  });
+  return anSec('Hándicap Asiático',`
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${rows.join('')}</div>
+  `);
+}
+
+function renderMktHF() {
+  const {partido,apiH2h}=STATE.an;
+  const hasApi=apiH2h.length===3&&apiH2h[0]>0;
+  const probs=hasApi?calcNoVigProbs(apiH2h):[0,0,0];
+  const [pH,pD,pA]=probs;
+  // Mitad/Final: 9 combinaciones HH, HD, HA, DH, DD, DA, AH, AD, AA
+  // Approx: half-time correlated with full-time
+  const hfCombos=[
+    ['HH',`Local/Local`,pH*pH*1.2],
+    ['HD',`Local/Empate`,pH*pD*0.9],
+    ['HA',`Local/Visitante`,pH*pA*0.3],
+    ['DH',`Empate/Local`,pD*pH*1.0],
+    ['DD',`Empate/Empate`,pD*pD*1.3],
+    ['DA',`Empate/Visitante`,pD*pA*1.0],
+    ['AH',`Visitante/Local`,pA*pH*0.3],
+    ['AD',`Visitante/Empate`,pA*pD*0.9],
+    ['AA',`Visitante/Visitante`,pA*pA*1.2],
+  ];
+  const total=hfCombos.reduce((s,c)=>s+c[2],0)||1;
+  const cells=hfCombos.map(([k,lbl,p])=>mktCell('hf_'+k,lbl,0,p/total));
+  return anSec('Mitad / Final',`
+    <div class="mkt-grid-3">${cells.join('')}</div>
+  `);
+}
+
+function renderMktFG() {
+  const {partido,apiH2h}=STATE.an;
+  const lL=STATE.an.lambdaL||1.5, lV=STATE.an.lambdaV||1.2;
+  const pNoGoal=poissonP(lL,0)*poissonP(lV,0);
+  const pFirst=1-pNoGoal;
+  const pFL=lL/(lL+lV)*pFirst;
+  const pFV=lV/(lL+lV)*pFirst;
+  return anSec('Primer Gol',`
+    <div style="font-size:12px;color:var(--text-3);font-family:var(--f-mono);margin-bottom:8px">Distribución via λ relativo · λL=${lL} · λV=${lV}</div>
+    <div class="mkt-grid-3">
+      ${mktCell('fg_L',`1er gol ${partido.local}`,0,pFL)}
+      ${mktCell('fg_N','Sin goles (0-0)',0,pNoGoal)}
+      ${mktCell('fg_V',`1er gol ${partido.visitante}`,0,pFV)}
+    </div>
+  `);
+}
+
+function renderMktExact() {
+  const lL=STATE.an.lambdaL||1.5, lV=STATE.an.lambdaV||1.2;
+  const scores=[];
+  for(let a=0;a<=4;a++) for(let b=0;b<=4;b++) {
+    const p=pMarcador(a,b,lL,lV);
+    scores.push({a,b,p});
+  }
+  scores.sort((x,y)=>y.p-x.p);
+  const top9=scores.slice(0,9);
+  const cells=top9.map(s=>mktCell(`ex_${s.a}_${s.b}`,`${s.a} - ${s.b}`,0,s.p));
+  return anSec('Marcador Exacto (Poisson)',`
+    <div style="font-size:12px;color:var(--text-3);font-family:var(--f-mono);margin-bottom:8px">λL=${lL} · λV=${lV} · Top 9 resultados más probables</div>
+    <div class="mkt-grid-3">${cells.join('')}</div>
+  `);
+}
+
+function renderMktFH() {
+  const lLh=STATE.an.lambdaL*0.45, lVh=STATE.an.lambdaV*0.45;
+  const pHH=1-poissonP(lLh,0);
+  const pHD=poissonP(lLh,0)*poissonP(lVh,0);
+  const pHA=1-poissonP(lVh,0);
+  const tot=pHH+pHD+pHA||1;
+  return anSec('Resultado 1er Tiempo',`
+    <div style="font-size:12px;color:var(--text-3);font-family:var(--f-mono);margin-bottom:8px">λ 1T ≈ 45% del total · estimación Poisson</div>
+    <div class="mkt-grid-3">
+      ${mktCell('fh_H','Local gana 1T',0,pHH/tot)}
+      ${mktCell('fh_D','Empate 1T',0,pHD/tot)}
+      ${mktCell('fh_A','Visitante gana 1T',0,pHA/tot)}
+    </div>
+  `);
+}
+
+// ── BEST BETS ────────────────────────────────────────────────
+function calcAllEdges() {
+  const picks=[];
+  for(const [key,ecOdd] of Object.entries(STATE.an.ecuabet)) {
+    if (ecOdd<=1) continue;
+    // Get ref prob from mktCell rendering (re-compute from state)
+    const refProb=getRefProb(key);
+    if (refProb<=0) continue;
+    const edge=(refProb-1/ecOdd)*100;
+    if (edge>0) picks.push({key, label:getLabelForKey(key), odd:ecOdd, probReal:refProb, edge});
+  }
+  picks.sort((a,b)=>b.edge-a.edge);
+  return picks;
+}
+
+function getRefProb(key) {
+  const lL=STATE.an.lambdaL||1.5, lV=STATE.an.lambdaV||1.2;
+  const {apiH2h}=STATE.an;
+  const hasApi=apiH2h.length===3&&apiH2h[0]>0;
+  const probs=hasApi?calcNoVigProbs(apiH2h):[0,0,0];
+  const [pH,pD,pA]=probs;
+  if (key==='1x2_H') return pH;
+  if (key==='1x2_D') return pD;
+  if (key==='1x2_A') return pA;
+  if (key==='dc_1X') return pH+pD;
+  if (key==='dc_X2') return pD+pA;
+  if (key==='dc_12') return pH+pA;
+  if (key==='btts_si') { const pNoL=poissonP(lL,0),pNoV=poissonP(lV,0); return (1-pNoL)*(1-pNoV); }
+  if (key==='btts_no') { const pNoL=poissonP(lL,0),pNoV=poissonP(lV,0); return 1-(1-pNoL)*(1-pNoV); }
+  if (key.startsWith('ou_')) {
+    const parts=key.split('_'); const dir=parts[1]; const line=parseFloat(parts[2]);
+    let pU=0; for(let a=0;a<=Math.floor(line);a++) for(let b=0;b<=Math.floor(line)-a;b++) pU+=poissonP(lL,a)*poissonP(lV,b);
+    return dir==='U'?pU:1-pU;
+  }
+  if (key.startsWith('ex_')) {
+    const parts=key.split('_'); return pMarcador(parseInt(parts[1]),parseInt(parts[2]),lL,lV);
+  }
+  if (key.startsWith('fg_')) {
+    const pNoGoal=poissonP(lL,0)*poissonP(lV,0);
+    if (key==='fg_N') return pNoGoal;
+    const pFirst=1-pNoGoal;
+    if (key==='fg_L') return lL/(lL+lV)*pFirst;
+    if (key==='fg_V') return lV/(lL+lV)*pFirst;
+  }
+  if (key.startsWith('fh_')) {
+    const lLh=lL*0.45,lVh=lV*0.45;
+    const pHH=1-poissonP(lLh,0),pHD=poissonP(lLh,0)*poissonP(lVh,0),pHA=1-poissonP(lVh,0);
+    const tot=pHH+pHD+pHA||1;
+    if (key==='fh_H') return pHH/tot;
+    if (key==='fh_D') return pHD/tot;
+    if (key==='fh_A') return pHA/tot;
+  }
+  if (key.startsWith('hf_')) {
+    const [pH2,pD2,pA2]=probs;
+    const combos={HH:pH2*pH2*1.2,HD:pH2*pD2*0.9,HA:pH2*pA2*0.3,DH:pD2*pH2*1.0,DD:pD2*pD2*1.3,DA:pD2*pA2*1.0,AH:pA2*pH2*0.3,AD:pA2*pD2*0.9,AA:pA2*pA2*1.2};
+    const t=Object.values(combos).reduce((a,b)=>a+b,0)||1;
+    const code=key.replace('hf_','');
+    return (combos[code]||0)/t;
+  }
+  if (key.startsWith('ah_')) {
+    const parts=key.split('_'); const side=parts[1]; const line=parts.slice(2).join('_');
+    const v=parseFloat(line);
+    let pHv, pAv;
+    if(v===-1.5) { pHv=pH*0.5; pAv=pA+(pD*0.5)+pH*0.5; }
+    else if(v===-0.5) { pHv=pH; pAv=pA+pD; }
+    else if(v===0.5) { pHv=pH+pD; pAv=pA; }
+    else { pHv=pH+pD+(pA*0.5); pAv=pA*0.5; }
+    const sum2=pHv+pAv||1; pHv/=sum2; pAv/=sum2;
+    return side==='H'?pHv:pAv;
+  }
+  return 0;
+}
+
+function getLabelForKey(key) {
+  const {partido}=STATE.an;
+  if (!partido) return key;
+  const map={
+    '1x2_H':`1 · ${partido.local}`,'1x2_D':'X · Empate','1x2_A':`2 · ${partido.visitante}`,
+    'dc_1X':`1X Local/Empate`,'dc_X2':'X2 Empate/Visit.','dc_12':'12 Local/Visit.',
+    'btts_si':'BTTS Sí','btts_no':'BTTS No',
+    'fg_L':`1er gol ${partido.local}`,'fg_N':'Sin goles','fg_V':`1er gol ${partido.visitante}`,
+    'fh_H':'Local gana 1T','fh_D':'Empate 1T','fh_A':'Visit. gana 1T',
+  };
+  if (map[key]) return map[key];
+  if (key.startsWith('ou_')) { const p=key.split('_'); return (p[1]==='O'?'Más de ':'Menos de ')+p[2]; }
+  if (key.startsWith('ex_')) { const p=key.split('_'); return p[1]+' - '+p[2]; }
+  if (key.startsWith('ah_')) { const p=key.split('_'); return `AH ${partido[p[1]==='H'?'local':'visitante']} ${p.slice(2).join('_')}`; }
+  if (key.startsWith('hf_')) return 'Mitad/Final '+key.replace('hf_','');
+  return key;
+}
+
+function renderBestBetsHtml() {
+  const picks=calcAllEdges().slice(0,5);
+  if (!picks.length) return `<div class="bb-panel">
+    <div class="bb-hdr" style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:14px;font-weight:800;color:var(--text-2)">MEJORES APUESTAS</div>
+    <div style="padding:16px;font-size:15px;color:var(--text-3)">Ingresa odds de Ecuabet para calcular edge positivo.</div>
+  </div>`;
+  const rows=picks.map((p,i)=>`
+    <div class="bb-row" style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div class="bb-name">${i+1}. ${p.label}</div>
+        <div style="font-size:13px;color:var(--text-3);font-family:var(--f-mono)">Odd: ${p.odd.toFixed(2)} · Prob: ${(p.probReal*100).toFixed(1)}%</div>
+      </div>
+      <div style="text-align:right">
+        <div class="bb-edge">+${p.edge.toFixed(1)}%</div>
+        <button class="mkt-add" style="margin-top:4px" onclick="addCupon('${p.key}','${p.label.replace(/'/g,"\\'")}',${p.odd},${p.edge.toFixed(2)},${p.probReal.toFixed(4)})">+ Cupón</button>
+      </div>
+    </div>
+  `).join('');
+  return `<div class="bb-panel">
+    <div class="bb-hdr" style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:14px;font-weight:800;color:var(--text-2)">MEJORES APUESTAS <span style="color:var(--tertiary)">(${picks.length})</span></div>
+    ${rows}
+  </div>`;
+}
+
+function renderBestBets() {
+  const el=qs('bb-container');
+  if (el) el.innerHTML=renderBestBetsHtml();
+  renderCupon();
+}
+
+// ── CUPÓN ────────────────────────────────────────────────────
+function addCupon(key, label, odd, edge, probReal) {
+  const exists=STATE.an.cupon.findIndex(c=>c.key===key);
+  if (exists>=0) { STATE.an.cupon.splice(exists,1); }
+  STATE.an.cupon.push({key,label,odd,edge,probReal});
+  renderCupon();
+  renderBestBets();
+}
+
+function removeCupon(idx) {
+  STATE.an.cupon.splice(idx,1);
+  renderCupon();
+  renderBestBets();
+}
+
+function renderCuponHtml() {
+  const {cupon,capitalCupon}=STATE.an;
+  if (!cupon.length) return `<div class="cupon-panel">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:14px;font-weight:800;color:var(--text-2)">CUPÓN INTELIGENTE</div>
+    <div style="padding:16px;font-size:15px;color:var(--text-3)">Agrega apuestas con value para construir tu cupón.</div>
+  </div>`;
+
+  const combinada=cupon.reduce((a,c)=>a*c.odd,1);
+  const probComb=cupon.reduce((a,c)=>a*c.probReal,1);
+  const edgeComb=(probComb-1/combinada)*100;
+  const kellyFrac=Math.max(0,calcKelly(probComb,combinada,0.25));
+  const apuesta=Math.min(kellyFrac*capitalCupon, capitalCupon*0.4);
+  const ganancia=apuesta*(combinada-1);
+
+  const picks=cupon.map((c,i)=>`
+    <div class="cupon-pick" style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-size:15px;font-weight:700">${c.label}</div>
+        <div style="font-size:12px;color:var(--text-3);font-family:var(--f-mono)">Odd: ${parseFloat(c.odd).toFixed(2)} · Edge: +${parseFloat(c.edge).toFixed(1)}%</div>
+      </div>
+      <button onclick="removeCupon(${i})" style="background:none;border:none;cursor:pointer;color:var(--error);font-size:18px">✕</button>
+    </div>
+  `).join('');
+
+  return `<div class="cupon-panel">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:14px;font-weight:800;color:var(--text-2)">
+      CUPÓN INTELIGENTE <span style="color:var(--tertiary)">(${cupon.length} picks)</span>
+    </div>
+    ${picks}
+    <div style="padding:12px 16px;border-top:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <label class="label" style="margin:0;white-space:nowrap">Capital ($):</label>
+        <input class="input" style="width:100px" type="number" min="1" value="${capitalCupon}"
+          oninput="STATE.an.capitalCupon=parseFloat(this.value)||50;renderCupon()">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;font-family:var(--f-mono);font-size:14px">
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text-3)">Odd combinada:</span><span style="font-weight:800">${combinada.toFixed(2)}x</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text-3)">Prob. combinada:</span><span style="font-weight:800">${(probComb*100).toFixed(1)}%</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text-3)">Edge múltiple:</span><span style="font-weight:800;color:${edgeComb>0?'var(--tertiary)':'var(--error)'}">${edgeComb>=0?'+':''}${edgeComb.toFixed(1)}%</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text-3)">Apuesta Kelly:</span><span style="font-weight:800;color:var(--tertiary)">$${apuesta.toFixed(2)}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text-3)">Ganancia pot.:</span><span style="font-weight:800;color:var(--tertiary)">$${ganancia.toFixed(2)}</span></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-primary" style="flex:1" onclick="registrarAnalisis()">💾 Registrar</button>
+        <button class="btn btn-ghost" onclick="STATE.an.cupon=[];renderCupon();renderBestBets()">Limpiar</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderCupon() {
+  const el=qs('cupon-container');
+  if (el) el.innerHTML=renderCuponHtml();
+}
+
+// ── REGISTRAR ────────────────────────────────────────────────
+function registrarAnalisis() {
+  const {partido,cupon,capitalCupon}=STATE.an;
+  if (!partido) return;
+  const ts=new Date().toISOString();
+  const combinada=cupon.reduce((a,c)=>a*c.odd,1);
+  const probComb=cupon.reduce((a,c)=>a*c.probReal,1);
+  const kellyFrac=Math.max(0,calcKelly(probComb,combinada,0.25));
+  const apuesta=cupon.length?Math.min(kellyFrac*capitalCupon,capitalCupon*0.4):0;
+  const entrada={
+    ts, tipo:'analisis_futbol',
+    partido:`${partido.local} vs ${partido.visitante}`,
+    liga:partido.liga, picks:cupon,
+    capitalCupon, apuesta, combinada,
+    probComb, lambdaL:STATE.an.lambdaL, lambdaV:STATE.an.lambdaV,
+  };
+  // Push to STATE.ops for historial
+  STATE.ops.push({
+    id: Date.now(), ts, tipo:'Análisis Fútbol',
+    desc:`${partido.local} vs ${partido.visitante} · ${cupon.length} pick(s)`,
+    capital:apuesta, estado:'pendiente', pnl:0,
+  });
+  localStorage.setItem('jcahs_ops', JSON.stringify(STATE.ops));
+  // Save analysis
+  const hist=JSON.parse(localStorage.getItem('jcahs_an_hist')||'[]');
+  hist.unshift(entrada);
+  localStorage.setItem('jcahs_an_hist', JSON.stringify(hist.slice(0,50)));
+  alert(`✅ Análisis guardado.\n${partido.local} vs ${partido.visitante}\n${cupon.length} pick(s) registrados.`);
 }
 
 document.addEventListener('DOMContentLoaded', init);
