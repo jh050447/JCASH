@@ -4847,15 +4847,21 @@ async function mentorMostrarSugerencias() {
   const faltaData = !STATE.valueBets.length || !Object.keys(STATE.senalesCripto).length;
   if (faltaData) {
     setHTML('mentor-body', '<div class="loading" style="padding:40px"><span class="spin">⌛</span> Cargando datos de mercado…</div>');
-    if (!STATE.valueBets.length) {
-      await cargarDeportes();
-      if (!STATE.valueBets.length) {
-        setTimeout(() => { mentorMostrarSugerencias(); }, 3000);
+    const promesas = [];
+    if (!STATE.valueBets.length) promesas.push(cargarDeportes());
+    if (!Object.keys(STATE.senalesCripto).length) promesas.push(Promise.all(['BTC','ETH','SOL','XRP'].map(s => generarSenalCrypto(s))));
+    const ganador = await Promise.race([
+      Promise.all(promesas),
+      new Promise(r => setTimeout(() => r('timeout'), 10000)),
+    ]);
+    if (ganador === 'timeout') {
+      const hayAlgo = STATE.valueBets.length || Object.keys(STATE.senalesCripto).length;
+      if (!hayAlgo) {
+        setHTML('mentor-body', `<div class="card" style="text-align:center;padding:24px;color:var(--text-3);font-size:15px">
+          No hay datos disponibles ahora. Intenta de nuevo.
+        </div>`);
         return;
       }
-    }
-    if (!Object.keys(STATE.senalesCripto).length) {
-      await Promise.all(['BTC','ETH','SOL','XRP'].map(s => generarSenalCrypto(s)));
     }
   }
 
