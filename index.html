@@ -796,6 +796,72 @@ body {
 .top100-sym { font-size: 13px; color: var(--text-3); font-family: var(--f-mono); text-transform: uppercase; }
 .top100-price { font-family: var(--f-mono); font-size: 16px; font-weight: 600; text-align: right; white-space: nowrap; }
 .top100-chg { font-family: var(--f-mono); font-size: 16px; font-weight: 600; text-align: right; min-width: 72px; }
+
+/* ── MENTOR DE PRONÓSTICOS ──────────────────────────────── */
+.mentor-fab {
+  position: fixed; bottom: 24px; right: 24px; z-index: 999;
+  background: var(--tertiary); color: #003824; border: none; border-radius: 999px;
+  padding: 14px 24px; font-size: 16px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 4px 20px rgba(78,222,163,0.4);
+  display: flex; align-items: center; gap: 8px;
+  transition: transform .15s, box-shadow .15s;
+}
+.mentor-fab:hover { transform: translateY(-2px); box-shadow: 0 6px 26px rgba(78,222,163,0.55); }
+.mentor-fab.pulse { animation: mentorPulse 2s ease-in-out infinite; }
+@keyframes mentorPulse {
+  0%, 100% { box-shadow: 0 4px 20px rgba(78,222,163,0.4); }
+  50%      { box-shadow: 0 4px 30px rgba(78,222,163,0.8); }
+}
+.mentor-overlay {
+  position: fixed; inset: 0; background: rgba(4,10,20,0.55); z-index: 998;
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.mentor-overlay.open { opacity: 1; pointer-events: auto; }
+.mentor-panel {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 360px; max-width: 100%;
+  background: var(--surface); border-left: 1px solid rgba(78,222,163,0.3);
+  z-index: 1000; transform: translateX(100%); transition: transform .25s ease;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.mentor-panel.open { transform: translateX(0); }
+@media (max-width: 480px) { .mentor-panel { width: 100%; } }
+.mentor-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.mentor-hdr-title { font-size: 18px; font-weight: 800; }
+.mentor-close { background: transparent; border: none; color: var(--text-3); font-size: 22px; cursor: pointer; line-height: 1; padding: 4px; }
+.mentor-close:hover { color: var(--text); }
+.mentor-body { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.mentor-q { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+.mentor-hint { font-size: 13px; color: var(--text-3); font-family: var(--f-mono); margin-top: 6px; }
+.mentor-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+.mentor-opt {
+  padding: 12px 10px; border-radius: var(--radius); border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text-2); font-size: 14px; font-weight: 700;
+  cursor: pointer; text-align: center; transition: border-color .12s, background .12s, color .12s;
+}
+.mentor-opt.sel { background: var(--tert-dim); color: var(--tertiary); border-color: var(--tert-mid); }
+.mentor-opts-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 6px; }
+.mentor-card {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 16px; display: flex; flex-direction: column; gap: 10px;
+}
+.mentor-card-tag {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800;
+  padding: 4px 10px; border-radius: 999px; width: fit-content;
+}
+.mentor-card-tag.apuesta { background: var(--tert-dim); color: var(--tertiary); }
+.mentor-card-tag.crypto  { background: rgba(255,217,102,0.12); color: var(--warning); }
+.mentor-card-tag.multiple, .mentor-card-tag.sistema { background: rgba(125,167,255,0.14); color: #7da7ff; }
+.mentor-card-desc { font-size: 15px; font-weight: 600; color: var(--text); line-height: 1.4; }
+.mentor-card-nums { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-family: var(--f-mono); }
+.mentor-card-num-lbl { font-size: 12px; color: var(--text-3); }
+.mentor-card-num-val { font-size: 16px; font-weight: 800; }
+.mentor-card-stats { display: flex; flex-wrap: wrap; gap: 10px; font-family: var(--f-mono); font-size: 13px; color: var(--text-2); }
+.mentor-card-why { font-size: 14px; color: var(--text-3); line-height: 1.5; background: var(--surface-3); border-radius: var(--radius); padding: 10px 12px; }
+.mentor-card-actions { display: flex; gap: 8px; }
+.mentor-card-actions .btn { flex: 1; font-size: 14px; padding: 10px 12px; }
 </style>
 </head>
 <body>
@@ -1346,6 +1412,19 @@ body {
   </div>
 </div>
 
+<!-- ═══════════════════ MENTOR DE PRONÓSTICOS ═════════════ -->
+<div class="mentor-overlay" id="mentor-overlay" onclick="cerrarMentor()"></div>
+<button class="mentor-fab" id="mentor-fab" onclick="toggleMentor()">
+  <span id="mentor-fab-txt">🎯 Mentor</span>
+</button>
+<div class="mentor-panel" id="mentor-panel">
+  <div class="mentor-hdr">
+    <div class="mentor-hdr-title">🎯 Mentor de Pronósticos</div>
+    <button class="mentor-close" onclick="cerrarMentor()">✕</button>
+  </div>
+  <div class="mentor-body" id="mentor-body"></div>
+</div>
+
 <!-- ═══════════════════ JAVASCRIPT ════════════════════════ -->
 <script>
 'use strict';
@@ -1392,6 +1471,11 @@ const STATE = {
     cupon:[], capitalCupon:50,
     expandMas:false, enVivo:false,
     minuto:0, marcL:0, marcV:0, searchText:'',
+  },
+  mentor: {
+    abierto:false, paso:1,
+    capital:null, gananciaMin:null, gananciaMax:null,
+    tipo:'individual', sugerencias:[], cuponCount:0,
   },
   modo:      localStorage.getItem('jcahs_modo')     || 'principiante',
   bankroll:  parseFloat(localStorage.getItem('jcahs_bankroll')) || 200,
@@ -3424,6 +3508,7 @@ async function init() {
   actualizarTicker();
   await cargarFearGreed();
   renderPanel();
+  actualizarBadgeMentor();
 
   // Señales en segundo plano
   Promise.all(['BTC','ETH','SOL','XRP'].map(s => generarSenalCrypto(s)))
@@ -4096,12 +4181,14 @@ function addCupon(key, label, odd, edge, probReal) {
   STATE.an.cupon.push({key,label,odd,edge,probReal});
   renderCupon();
   renderBestBets();
+  actualizarBadgeMentor();
 }
 
 function removeCupon(idx) {
   STATE.an.cupon.splice(idx,1);
   renderCupon();
   renderBestBets();
+  actualizarBadgeMentor();
 }
 
 function renderCuponHtml() {
@@ -4187,6 +4274,223 @@ function registrarAnalisis() {
   hist.unshift(entrada);
   localStorage.setItem('jcahs_an_hist', JSON.stringify(hist.slice(0,50)));
   alert(`✅ Análisis guardado.\n${partido.local} vs ${partido.visitante}\n${cupon.length} pick(s) registrados.`);
+}
+
+// ════════════════════════════════════════════════════════════
+// MENTOR DE PRONÓSTICOS
+// ════════════════════════════════════════════════════════════
+
+function toggleMentor() { STATE.mentor.abierto ? cerrarMentor() : abrirMentor(); }
+
+function abrirMentor() {
+  STATE.mentor.abierto=true;
+  if (!STATE.mentor.capital) STATE.mentor.capital=+(STATE.bankroll*0.02).toFixed(2);
+  qs('mentor-panel').classList.add('open');
+  qs('mentor-overlay').classList.add('open');
+  renderMentor();
+}
+
+function cerrarMentor() {
+  STATE.mentor.abierto=false;
+  qs('mentor-panel').classList.remove('open');
+  qs('mentor-overlay').classList.remove('open');
+}
+
+function renderMentor() {
+  setHTML('mentor-body', STATE.mentor.paso===1 ? renderMentorPaso1() : renderMentorPaso2());
+}
+
+function renderMentorPaso1() {
+  const m=STATE.mentor;
+  const recomendado=(STATE.bankroll*0.02).toFixed(2);
+  const rangos=[[5,20],[20,50],[50,200],[200,1000]];
+  return `
+    <div>
+      <div class="mentor-q">¿Cuánto quieres apostar?</div>
+      <input class="input" type="number" min="1" step="0.01" value="${m.capital??''}" placeholder="Ej: ${recomendado}"
+        oninput="STATE.mentor.capital=parseFloat(this.value)||null">
+      <div class="mentor-hint">Recomendado: $${recomendado} (2% de tu capital)</div>
+    </div>
+    <div>
+      <div class="mentor-q">¿Cuánto quieres ganar?</div>
+      <div class="mentor-opts">
+        ${rangos.map(([a,b])=>`<button class="mentor-opt${m.gananciaMin===a&&m.gananciaMax===b?' sel':''}" onclick="seleccionarGananciaMentor(${a},${b})">$${a} – $${b}</button>`).join('')}
+      </div>
+      <input class="input" style="margin-top:10px" type="number" min="1" step="0.01" placeholder="Personalizado: $_____"
+        oninput="mentorGananciaPersonalizada(this.value)">
+    </div>
+    <div>
+      <div class="mentor-q">¿Qué tipo de apuesta?</div>
+      <div class="mentor-opts-3">
+        <button class="mentor-opt${m.tipo==='individual'?' sel':''}" onclick="STATE.mentor.tipo='individual';renderMentor()">INDIVIDUAL</button>
+        <button class="mentor-opt${m.tipo==='multiple'?' sel':''}" onclick="STATE.mentor.tipo='multiple';renderMentor()">MÚLTIPLE</button>
+        <button class="mentor-opt${m.tipo==='sistema'?' sel':''}" onclick="STATE.mentor.tipo='sistema';renderMentor()">SISTEMA</button>
+      </div>
+    </div>
+    <button class="btn btn-primary" style="font-size:16px;padding:14px" onclick="mentorMostrarSugerencias()">MOSTRAR SUGERENCIAS →</button>
+  `;
+}
+
+function seleccionarGananciaMentor(a,b) {
+  STATE.mentor.gananciaMin=a; STATE.mentor.gananciaMax=b;
+  renderMentor();
+}
+function mentorGananciaPersonalizada(val) {
+  const v=parseFloat(val);
+  if (!isNaN(v)&&v>0) { STATE.mentor.gananciaMin=0; STATE.mentor.gananciaMax=v; }
+}
+
+function mentorMostrarSugerencias() {
+  const m=STATE.mentor;
+  if (!m.capital||m.capital<=0) { alert('Ingresa cuánto quieres apostar.'); return; }
+  if (m.gananciaMin==null||m.gananciaMax==null) { alert('Selecciona o ingresa cuánto quieres ganar.'); return; }
+  m.sugerencias=generarSugerencias(m.capital, m.gananciaMin, m.gananciaMax, m.tipo);
+  m.paso=2;
+  renderMentor();
+  actualizarBadgeMentor();
+}
+
+function generarSugerencias(capital, gananciaMin, gananciaMax, tipo) {
+  const sugerencias=[];
+
+  // 1. Value bets de deportes
+  const valueBets=STATE.valueBets||[];
+  valueBets.forEach(vb=>{
+    const ganancia=capital*(vb.odd-1);
+    if (ganancia>=gananciaMin && ganancia<=gananciaMax && vb.edge>0) {
+      sugerencias.push({
+        tipo:'APUESTA',
+        descripcion:`${vb.partido} — ${vb.mercado}: ${vb.pick}`,
+        apostar:capital, ganancia, odd:vb.odd, edge:vb.edge,
+        prob:vb.probReal, kelly:vb.kelly,
+        razon:`Edge +${vb.edge.toFixed(1)}% sobre la casa. Probabilidad real ${vb.probReal.toFixed(0)}% vs ${(100/vb.odd).toFixed(0)}% implícita.`,
+      });
+    }
+  });
+
+  // 2. Señales crypto
+  Object.keys(STATE.senalesCripto||{}).forEach(sym=>{
+    const sig=STATE.senalesCripto[sym];
+    if (!sig||(sig.señal!=='COMPRAR'&&sig.señal!=='VENDER')) return;
+    const op=calcOperacion(sym,sig);
+    if (!op) return;
+    const gananciaEst=op.gaO1;
+    if (gananciaEst>=gananciaMin && gananciaEst<=gananciaMax) {
+      const prob=Math.min(0.95,Math.max(0.05,sig.score/100*0.7+0.15))*100;
+      sugerencias.push({
+        tipo:'CRYPTO',
+        descripcion:`${sym} — ${sig.señal} · Objetivo 1 (+4%)`,
+        apostar:op.capital, ganancia:gananciaEst, odd:null,
+        edge:sig.score, prob, kelly:op.kellyPct,
+        razon:`RSI ${sig.rsi?.toFixed(1)??'N/D'} + Fear&Greed ${STATE.fng?.valor??'N/D'}. Score de confianza: ${sig.score}/100.`,
+      });
+    }
+  });
+
+  // Ordenar por edge descendente
+  sugerencias.sort((a,b)=>b.edge-a.edge);
+
+  // MÚLTIPLE → combinar 2-3 value bets
+  if (tipo==='multiple' && sugerencias.length>=2) {
+    const picks=sugerencias.filter(s=>s.tipo==='APUESTA').slice(0,3);
+    if (picks.length>=2) {
+      const oddComb=picks.reduce((acc,p)=>acc*p.odd,1);
+      const gananciaComb=capital*(oddComb-1);
+      sugerencias.unshift({
+        tipo:'MÚLTIPLE',
+        descripcion:picks.map(p=>p.descripcion).join(' + '),
+        apostar:capital, ganancia:gananciaComb, odd:oddComb,
+        edge:picks.reduce((acc,p)=>acc+p.edge,0)/picks.length,
+        prob:picks.reduce((acc,p)=>acc*p.prob/100,1)*100,
+        kelly:null,
+        razon:`Acumulador de ${picks.length} value bets con edge positivo individual.`,
+      });
+    }
+  }
+
+  // SISTEMA → sistema 2/3 con los mejores picks
+  if (tipo==='sistema' && sugerencias.length>=3) {
+    const picks=sugerencias.filter(s=>s.tipo==='APUESTA').slice(0,3);
+    if (picks.length>=3) {
+      const combos=[[0,1],[0,2],[1,2]];
+      const oddProm=combos.reduce((acc,[i,j])=>acc+picks[i].odd*picks[j].odd,0)/combos.length;
+      const gananciaSist=(capital/3)*(oddProm-1);
+      sugerencias.unshift({
+        tipo:'SISTEMA',
+        descripcion:`Sistema 2/3 — ${picks.map(p=>p.descripcion).join(' · ')}`,
+        apostar:capital, ganancia:gananciaSist, odd:oddProm,
+        edge:picks.reduce((acc,p)=>acc+p.edge,0)/picks.length,
+        prob:null, kelly:null,
+        razon:`Sistema 2 de 3: ganas si aciertas al menos 2 de los ${picks.length} picks seleccionados. Reduce el riesgo frente a una múltiple completa.`,
+      });
+    }
+  }
+
+  return sugerencias.slice(0,5);
+}
+
+function renderMentorPaso2() {
+  const m=STATE.mentor;
+  const lista=m.sugerencias;
+  const cardsHtml=lista.length?lista.map((s,i)=>{
+    const tagClass=s.tipo==='APUESTA'?'apuesta':s.tipo==='CRYPTO'?'crypto':s.tipo==='MÚLTIPLE'?'multiple':'sistema';
+    const tagTxt=s.tipo==='APUESTA'?'⚽ APUESTA':s.tipo==='CRYPTO'?'₿ CRYPTO':s.tipo==='MÚLTIPLE'?'🎟️ MÚLTIPLE':'🎯 SISTEMA';
+    const oddTxt=s.odd!=null?`<div><span class="mentor-card-num-lbl">ODD</span><br><span class="mentor-card-num-val">${s.odd.toFixed(2)}</span></div>`:'';
+    const edgeTxt=s.tipo==='CRYPTO'
+      ?`<div><span class="mentor-card-num-lbl">SCORE</span><br><span class="mentor-card-num-val" style="color:var(--tertiary)">${s.edge.toFixed(0)}/100</span></div>`
+      :`<div><span class="mentor-card-num-lbl">EDGE</span><br><span class="mentor-card-num-val" style="color:var(--tertiary)">+${s.edge.toFixed(1)}%</span></div>`;
+    const probTxt=s.prob!=null?`<div><span class="mentor-card-num-lbl">PROB</span><br><span class="mentor-card-num-val">${s.prob.toFixed(0)}%</span></div>`:'';
+    const kellyTxt=s.kelly!=null?`<div><span class="mentor-card-num-lbl">KELLY</span><br><span class="mentor-card-num-val">${s.kelly.toFixed(1)}%</span></div>`:'';
+    return `
+      <div class="mentor-card">
+        <span class="mentor-card-tag ${tagClass}">${tagTxt}</span>
+        <div class="mentor-card-desc">${s.descripcion}</div>
+        <div class="mentor-card-nums">
+          <div><span class="mentor-card-num-lbl">APOSTAR</span><br><span class="mentor-card-num-val">$${s.apostar.toFixed(2)}</span></div>
+          <div><span class="mentor-card-num-lbl">SI GANA</span><br><span class="mentor-card-num-val" style="color:var(--tertiary)">+$${s.ganancia.toFixed(2)} ✅</span></div>
+        </div>
+        <div class="mentor-card-stats">${oddTxt}${edgeTxt}${probTxt}${kellyTxt}</div>
+        <div class="mentor-card-why"><strong>¿Por qué esta sugerencia?</strong><br>${s.razon}</div>
+        <div class="mentor-card-actions">
+          <button class="btn btn-primary" onclick="mentorAddCupon(${i})">+ Añadir al cupón</button>
+          <button class="btn btn-ghost" onclick="mentorIgnorar(${i})">Ignorar</button>
+        </div>
+      </div>
+    `;
+  }).join(''):`
+    <div class="card" style="text-align:center;padding:24px;color:var(--text-3);font-size:15px">
+      No hay sugerencias que cumplan tus objetivos en este momento.<br>Prueba ajustando el capital o el rango de ganancia.
+    </div>
+  `;
+  return `
+    <button class="btn btn-ghost" onclick="STATE.mentor.paso=1;renderMentor()">← Ajustar objetivos</button>
+    <div style="font-size:13px;color:var(--text-3);font-family:var(--f-mono)">
+      Capital: $${m.capital.toFixed(2)} · Objetivo: $${m.gananciaMin}–$${m.gananciaMax} · Tipo: ${m.tipo.toUpperCase()}
+    </div>
+    ${cardsHtml}
+  `;
+}
+
+function mentorAddCupon(idx) {
+  const s=STATE.mentor.sugerencias[idx];
+  if (!s) return;
+  if (s.odd && s.odd>1 && s.prob!=null) {
+    addCupon('mentor_'+Date.now(), s.descripcion, s.odd, s.edge, s.prob/100);
+  }
+  actualizarBadgeMentor();
+}
+
+function mentorIgnorar(idx) {
+  STATE.mentor.sugerencias.splice(idx,1);
+  renderMentor();
+}
+
+function actualizarBadgeMentor() {
+  const n=STATE.an.cupon?.length||0;
+  const txt=qs('mentor-fab-txt');
+  if (txt) txt.textContent = n>0 ? `🎯 Mentor (${n})` : '🎯 Mentor';
+  const fab=qs('mentor-fab');
+  if (fab) fab.classList.toggle('pulse', (STATE.mentor.sugerencias?.length||0) > 0);
 }
 
 document.addEventListener('DOMContentLoaded', init);
