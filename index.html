@@ -3176,7 +3176,7 @@ async function cargarDeportes() {
     setHTML('dep-partidos', rows + `<div class="dep-src">Fuente: The Odds API · ${ahora}</div>`);
   }
 
-  setText('dep-sub', `${valueBets.length} value bets · ${games.length} partidos · The Odds API · ${ahora}`);
+  setText('dep-sub', `${STATE.valueBets.length} value bets · ${games.length} partidos · The Odds API · ${ahora}`);
   mentorActualizarEstado();
 }
 
