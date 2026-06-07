@@ -501,6 +501,17 @@ body {
 .ia-clear-btn:hover { color: var(--error); }
 @media (max-width: 700px) { .ia-grid { grid-template-columns: 1fr; } }
 
+/* ── BANKROLL EDITABLE ──────────────────────────────────── */
+.bk-display { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.bk-display:hover .bk-edit-icon { opacity: 1; }
+.bk-edit-icon { font-size: 14px; opacity: 0.35; transition: opacity .12s; }
+.bk-input { width: 100px; padding: 2px 8px; font-size: inherit; font-weight: inherit; font-family: var(--f-mono); border: 1px solid var(--tertiary); border-radius: 6px; background: var(--surface-2); color: var(--text); outline: none; }
+.bk-input:focus { border-color: var(--tertiary); box-shadow: 0 0 0 2px rgba(78,222,163,0.2); }
+.sidebar-bk { padding: 8px 14px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border); margin-top: auto; cursor: pointer; font-size: 13px; color: var(--text-2); }
+.sidebar-bk:hover { background: var(--surface-2); }
+.sidebar-bk .bk-val { font-family: var(--f-mono); color: var(--tertiary); font-weight: 600; }
+.sidebar-bk .bk-edit-icon { font-size: 12px; }
+
 .emergencia-banner {
   background: var(--err-dim);
   border: 1px solid rgba(255,180,171,0.3);
@@ -939,6 +950,10 @@ body {
     </a>
 
     <div class="sidebar-footer">
+      <div class="sidebar-bk" id="sidebar-bk" onclick="editarBankroll()">
+        <span>💰 <span class="bk-val" id="sidebar-bk-val">$200.00</span></span>
+        <span class="bk-edit-icon">📝</span>
+      </div>
       <div class="modo-toggle">
         <button class="modo-btn active" id="btn-modo-prin" onclick="setModo('principiante')">Principiante</button>
         <button class="modo-btn" id="btn-modo-exp" onclick="setModo('experto')">Experto</button>
@@ -995,9 +1010,9 @@ body {
         <!-- KPIs -->
         <div class="grid-4" style="margin-bottom:20px">
           <div class="card card-sm">
-            <div class="card-title">Bankroll Total</div>
-            <div class="card-value pos" id="kpi-bankroll">$--</div>
-            <div class="card-sub" id="kpi-bankroll-sub">Capital actual</div>
+            <div class="card-title">Bankroll Total <span class="bk-edit-icon" style="font-size:12px;opacity:0.4">📝</span></div>
+            <div class="card-value pos" id="kpi-bankroll" onclick="editarBankroll()" style="cursor:pointer">$--</div>
+            <div class="card-sub">Click para editar</div>
           </div>
           <div class="card card-sm">
             <div class="card-title">Fear &amp; Greed</div>
@@ -1738,6 +1753,7 @@ async function generarSenalCrypto(sym) {
 function renderPanel() {
   // KPIs
   setText('kpi-bankroll', fmtUSD(STATE.bankroll));
+  setText('sidebar-bk-val', fmtUSD(STATE.bankroll));
   if (STATE.fng) {
     setText('kpi-fng', String(STATE.fng.valor));
     setText('kpi-fng-label', STATE.fng.label || '--');
@@ -1817,6 +1833,41 @@ function renderPanel() {
 
   // Operaciones recientes
   renderOpsRecientes();
+}
+
+function editarBankroll() {
+  var el = qs('kpi-bankroll');
+  if (!el) return;
+  el.onclick = null;
+  var current = STATE.bankroll || 0;
+  el.innerHTML = '<input class="bk-input" id="bk-input-el" type="number" step="0.01" min="0" value="' + current.toFixed(2) + '" autofocus> <button class="btn btn-primary" style="padding:4px 12px;font-size:13px;vertical-align:middle" onclick="guardarBankroll()">✓</button>';
+  var inp = qs('bk-input-el');
+  if (inp) {
+    inp.focus();
+    inp.select();
+    inp.onkeydown = function(e) {
+      if (e.key === 'Enter') guardarBankroll();
+      if (e.key === 'Escape') cancelarEditarBankroll();
+    };
+  }
+}
+
+function guardarBankroll() {
+  var inp = qs('bk-input-el');
+  if (!inp) return;
+  var val = parseFloat(inp.value);
+  if (isNaN(val) || val < 0) val = 0;
+  STATE.bankroll = val;
+  localStorage.setItem('jcahs_bankroll', String(val));
+  renderPanel();
+  var kpi = qs('kpi-bankroll');
+  if (kpi) kpi.onclick = editarBankroll;
+}
+
+function cancelarEditarBankroll() {
+  renderPanel();
+  var kpi = qs('kpi-bankroll');
+  if (kpi) kpi.onclick = editarBankroll;
 }
 
 function renderOpsRecientes() {
