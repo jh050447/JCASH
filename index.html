@@ -2959,7 +2959,9 @@ async function cargarDeportes() {
   });
 
   const results = await Promise.allSettled(calls);
-  const games   = [];
+
+  let h2hData    = null;
+  let totalsData = null;
 
   for (const [idx, res] of results.entries()) {
     if (res.status !== 'fulfilled' || !res.value) continue;
@@ -2980,28 +2982,34 @@ async function cargarDeportes() {
         STATE.oddsRemaining = parseInt(r.headers.get('x-requests-remaining'));
       }
       if (r.ok && Array.isArray(data)) {
-        const marketLabel = markets[idx];
         console.log('STEP ' + (idx === 0 ? '2: h2h' : '3: totals') + ' data received:', data.length, 'games');
-        // Merge: add bookmakers from this response into the corresponding game
-        for (const game of data) {
-          let existing = games.find(g => g.id === game.id);
-          if (!existing) {
-            existing = { ...game, bookmakers: [] };
-            games.push(existing);
-          }
-          if (game.bookmakers?.length) {
-            for (const bk of game.bookmakers) {
-              const existingBk = existing.bookmakers.find(b => b.title === bk.title);
-              if (existingBk) {
-                if (bk.markets?.length) existingBk.markets.push(...bk.markets);
-              } else {
-                existing.bookmakers.push(bk);
-              }
-            }
-          }
-        }
+        if (idx === 0) h2hData = data;
+        else totalsData = data;
       }
     } catch (e) { console.log('cargarDeportes market error:', e); }
+  }
+
+  // Use h2h data directly — it has all bookmakers with h2h odds
+  const games = h2hData || [];
+
+  // Merge totals markets into existing games by team name
+  if (totalsData) {
+    totalsData.forEach(totalsGame => {
+      const existing = games.find(g =>
+        g.home_team === totalsGame.home_team &&
+        g.away_team === totalsGame.away_team
+      );
+      if (existing && totalsGame.bookmakers?.length) {
+        totalsGame.bookmakers.forEach(bm => {
+          const existingBm = existing.bookmakers?.find(b => b.title === bm.title);
+          if (existingBm) {
+            existingBm.markets = [...(existingBm.markets || []), ...(bm.markets || [])];
+          } else {
+            existing.bookmakers = [...(existing.bookmakers || []), bm];
+          }
+        });
+      }
+    });
   }
 
   console.log('STEP 4: merged games:', games.length);
