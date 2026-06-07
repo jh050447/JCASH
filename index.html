@@ -3014,15 +3014,17 @@ async function cargarDeportes() {
     game.bookmakers?.forEach(bm => {
       bm.markets?.forEach(market => {
         if (/lay/i.test(market.key)) return;
-        const allOdds = market.outcomes.map(o => 1 / o.price);
-        const margin  = allOdds.reduce((a, b) => a + b, 0) - 1;
-        if (margin < 0) return;
-        market.outcomes?.forEach(outcome => {
-          const probImport   = 1 / outcome.price;
-          const probReal     = probImport / (1 + margin);
-          const edge         = (probReal - probImport) * 100;
+        const outcomes = market.outcomes || [];
+        console.log('STEP 6 DEBUG:', market.key, outcomes.map(o => o.name + ':' + o.price), 'margin:', outcomes.reduce((s, o) => s + 1 / o.price, 0) - 1);
+        outcomes.forEach(outcome => {
+          const allOdds = outcomes.map(o => 1 / o.price);
+          const margin  = allOdds.reduce((a, b) => a + b, 0) - 1;
+          if (margin < 0) return;
+          const probImport = 1 / outcome.price;
+          const probReal   = probImport / (1 + margin);
+          const edge       = (probReal - probImport) * 100;
+          console.log('STEP 6 EDGE:', outcome.name, 'edge:', edge.toFixed(2));
           if (edge <= 0) return;
-          console.log('STEP 6: edge calculated:', edge.toFixed(2), 'for', outcome.name, 'odd:', outcome.price);
           const b      = outcome.price - 1;
           const q      = 1 - probReal;
           const kelly  = b > 0 ? Math.max(0, (probReal * b - q) / b * 0.25) : 0;
