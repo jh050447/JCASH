@@ -3463,15 +3463,13 @@ function setCalcTab(tab) {
 
 // ── ODDS API ────────────────────────────────────────────────
 async function cargarPartidosAnalisis() {
-  const KEY = STATE.oddsKey || '';
-  if (!KEY) { setHTML('an-content','<div class="card"><div style="color:var(--warning);font-size:16px;padding:12px">⚠️ Configura tu Odds API Key en Ajustes para cargar partidos automáticamente.</div></div>'); return; }
   setHTML('an-content','<div class="loading"><span class="spin">⌛</span> Cargando partidos de fútbol...</div>');
   try {
-    const url=`https://api.the-odds-api.com/v4/sports/soccer/odds/?apiKey=${KEY}&regions=eu&markets=h2h,totals&oddsFormat=decimal&bookmakers=betfair`;
-    const r=await fetch(url);
-    if (!r.ok) throw new Error(r.status);
+    const url=`https://api.the-odds-api.com/v4/sports/soccer/odds?apiKey=${CFG.oddsKey}&regions=eu&markets=h2h,totals&oddsFormat=decimal`;
+    const r=await fetchSeguro(proxyUrl(url), 14000);
+    if (!r.ok) throw new Error('HTTP '+r.status);
     const data=await r.json();
-    STATE.an.games=data||[];
+    STATE.an.games=Array.isArray(data)?data:[];
     renderAnStep1();
   } catch(e) {
     setHTML('an-content',`<div class="card"><div style="color:var(--error);font-size:16px;padding:12px">Error al cargar partidos: ${e.message}. Usa entrada manual.</div></div>`);
