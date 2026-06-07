@@ -614,6 +614,68 @@ body {
 .vbet-footer-src { font-size: 12px; color: var(--text-3); font-family: var(--f-mono); line-height: 1.5; }
 .vbet-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
+/* ── WIZARD ESTRATEGIAS ──────────────────────────────────── */
+.strat-detected { display:flex; flex-direction:column; gap:14px; }
+.strat-card { background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-lg); padding:18px 20px; display:flex; flex-direction:column; gap:10px; }
+.strat-card-header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.strat-nombre { font-size:20px; font-weight:800; line-height:1.3; margin-top:4px; }
+.strat-porque { font-size:16px; color:var(--text-2); line-height:1.65; }
+.strat-meta { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+.strat-tabs { display:flex; gap:8px; margin-bottom:16px; }
+.strat-tab { padding:8px 20px; border-radius:var(--radius); font-size:15px; font-weight:700; cursor:pointer; border:1px solid var(--border); background:transparent; color:var(--text-2); transition:background .12s,color .12s; }
+.strat-tab.active { background:var(--tert-dim); color:var(--tertiary); border-color:var(--tert-mid); }
+/* Wizard */
+.wiz-wrap { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
+.wiz-header { padding:20px 24px 0; border-bottom:1px solid var(--border); }
+.wiz-title { font-size:20px; font-weight:800; }
+.wiz-progress { display:flex; align-items:flex-start; padding:18px 0 20px; }
+.wiz-step { display:flex; flex-direction:column; align-items:center; gap:6px; flex:1; position:relative; }
+.wiz-step:not(:last-child)::after { content:''; position:absolute; top:13px; left:calc(50% + 14px); right:calc(-50% + 14px); height:2px; background:var(--border); z-index:0; }
+.wiz-step.done::after,.wiz-step.active::after { background:var(--tertiary); }
+.wiz-circle { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; background:var(--surface-3); color:var(--text-3); border:2px solid var(--border); z-index:1; flex-shrink:0; }
+.wiz-step.active .wiz-circle { background:var(--tertiary); color:#000; border-color:var(--tertiary); }
+.wiz-step.done .wiz-circle { background:var(--tert-dim); color:var(--tertiary); border-color:var(--tert-mid); }
+.wiz-step-lbl { font-size:12px; color:var(--text-3); font-weight:600; text-align:center; line-height:1.3; }
+.wiz-step.active .wiz-step-lbl { color:var(--tertiary); }
+.wiz-body { padding:22px 24px; }
+.wiz-section-title { font-size:13px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:var(--text-3); margin-bottom:12px; }
+.wiz-snapshot { background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); padding:16px; display:grid; grid-template-columns:auto 1fr; gap:8px 16px; align-items:baseline; }
+.wiz-snap-l { font-size:15px; color:var(--text-3); white-space:nowrap; }
+.wiz-snap-v { font-family:var(--f-mono); font-size:17px; font-weight:700; }
+.wiz-output { background:rgba(78,222,163,0.06); border:1px solid var(--tert-mid); border-radius:var(--radius); padding:16px; margin-top:18px; }
+.wiz-output-title { font-size:12px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:var(--tertiary); margin-bottom:12px; }
+.wiz-output-grid { display:grid; grid-template-columns:auto 1fr; gap:7px 14px; align-items:baseline; }
+.wiz-out-l { font-size:15px; color:var(--text-3); white-space:nowrap; }
+.wiz-out-v { font-family:var(--f-mono); font-size:17px; font-weight:700; }
+.wiz-warn-box { background:var(--err-dim); border:1px solid rgba(255,180,171,0.3); border-radius:var(--radius); padding:14px 16px; font-size:16px; color:var(--error); line-height:1.65; }
+.wiz-info-box { background:var(--warn-dim); border:1px solid rgba(255,217,102,0.2); border-radius:var(--radius); padding:14px 16px; font-size:16px; color:var(--text-2); line-height:1.65; }
+.wiz-lev-btns { display:flex; gap:8px; flex-wrap:wrap; }
+.wiz-lev-btn { padding:8px 14px; border-radius:var(--radius); font-size:15px; font-weight:800; cursor:pointer; border:1px solid var(--border); background:var(--surface-2); color:var(--text-2); font-family:var(--f-mono); transition:background .12s,color .12s; }
+.wiz-lev-btn.active { background:var(--tert-dim); color:var(--tertiary); border-color:var(--tert-mid); }
+.wiz-lev-btn.danger { border-color:rgba(255,180,171,0.35); color:var(--error); }
+.wiz-lev-btn.active.danger { background:var(--err-dim); border-color:rgba(255,180,171,0.5); }
+.wiz-form-row { display:flex; flex-direction:column; gap:4px; margin-bottom:18px; }
+.wiz-form-label { font-size:16px; color:var(--text-2); font-weight:600; }
+.wiz-form-hint { font-size:13px; color:var(--text-3); margin-top:4px; }
+.wiz-dir-btns { display:flex; gap:8px; }
+.wiz-dir-btn { flex:1; padding:11px; border-radius:var(--radius); font-size:16px; font-weight:800; cursor:pointer; border:1px solid var(--border); background:var(--surface-2); color:var(--text-2); text-align:center; transition:background .12s; }
+.wiz-dir-btn.long.active  { background:var(--tert-dim); color:var(--tertiary); border-color:var(--tert-mid); }
+.wiz-dir-btn.short.active { background:var(--err-dim);  color:var(--error);    border-color:rgba(255,180,171,0.4); }
+.wiz-instruc { font-size:16px; color:var(--text-2); line-height:1.9; }
+.wiz-instruc-step { margin:4px 0; }
+.wiz-nav { display:flex; align-items:center; justify-content:space-between; margin-top:24px; padding-top:18px; border-top:1px solid var(--border); }
+.wiz-confirm-row { display:grid; grid-template-columns:auto 1fr; gap:8px 18px; align-items:baseline; }
+.wiz-conf-l { font-size:15px; color:var(--text-3); }
+.wiz-conf-v { font-family:var(--f-mono); font-size:17px; font-weight:700; }
+.dca-tabla { width:100%; border-collapse:collapse; }
+.dca-tabla th,.dca-tabla td { padding:10px 12px; border-bottom:1px solid var(--border); font-size:15px; text-align:left; }
+.dca-tabla th { font-size:12px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:var(--text-3); }
+.pick-sel-row { display:flex; align-items:center; gap:12px; padding:12px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:8px; cursor:pointer; transition:border-color .12s,background .12s; }
+.pick-sel-row.selected { border-color:var(--tert-mid); background:var(--tert-dim); }
+.pick-sel-check { width:20px; height:20px; border-radius:4px; border:2px solid var(--border); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; }
+.pick-sel-row.selected .pick-sel-check { background:var(--tertiary); border-color:var(--tertiary); color:#000; }
+.estr-badge { background:var(--error); color:#fff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:10px; margin-left:6px; display:none; vertical-align:middle; }
+
 /* ── PARTIDO ROW ─────────────────────────────────────────── */
 .partido-row { padding: 12px 0; border-bottom: 1px solid var(--border); }
 .partido-row:last-child { border-bottom: none; }
@@ -697,6 +759,9 @@ body {
     </a>
     <a class="nav-link" id="nl-sec-deportes" onclick="ir('sec-deportes')">
       <span class="material-symbols-outlined">sports_soccer</span>Deportes
+    </a>
+    <a class="nav-link" id="nl-sec-estrategias" onclick="ir('sec-estrategias')">
+      <span class="material-symbols-outlined">auto_graph</span>Estrategias<span class="estr-badge" id="estr-nav-badge">0</span>
     </a>
 
     <div class="nav-section-label">Herramientas</div>
@@ -915,6 +980,24 @@ body {
       <!-- ══════════════════════════════════════════════════ -->
       <!-- SEC-CALCULADORA — Calculadoras                    -->
       <!-- ══════════════════════════════════════════════════ -->
+      <!-- ══════════════════════════════════════════════════ -->
+      <!-- SEC-ESTRATEGIAS — Wizard de estrategias          -->
+      <!-- ══════════════════════════════════════════════════ -->
+      <section class="seccion" id="sec-estrategias">
+        <div class="sec-header">
+          <div>
+            <div class="sec-title">Centro de Estrategias</div>
+            <div class="sec-sub">Detección automática + configuración guiada paso a paso</div>
+          </div>
+          <button class="btn btn-ghost" onclick="cargarEstrategias()">
+            <span class="material-symbols-outlined" style="font-size:18px">refresh</span> Actualizar
+          </button>
+        </div>
+        <div id="estr-content">
+          <div class="loading"><span class="spin">⌛</span> Cargando estrategias...</div>
+        </div>
+      </section>
+
       <section class="seccion" id="sec-calculadora">
         <div class="sec-header">
           <div>
@@ -1222,6 +1305,12 @@ const STATE = {
   ohlc:            { BTC:[], ETH:[], SOL:[], XRP:[] },
   senalesCripto:   {},
   exchSelected:    { BTC:'binance', ETH:'binance', SOL:'binance', XRP:'binance' },
+  wizard: {
+    tipo:null, paso:1, sym:'BTC', dir:'long', capital:100, apalancamiento:5,
+    exchange:'binance', numCompras:3, frecuencia:'diario', numGrids:10,
+    gridMin:null, gridMax:null, picks:[], registrado:false,
+    handicapSel:'-0.5', tabFiltro:'crypto',
+  },
   modo:      localStorage.getItem('jcahs_modo')     || 'principiante',
   bankroll:  parseFloat(localStorage.getItem('jcahs_bankroll')) || 200,
   secActiva: localStorage.getItem('jcahs_sec')      || 'sec-panel',
@@ -1262,8 +1351,9 @@ async function fetchSeguro(url, timeout = 8000) {
 const TITULOS = {
   'sec-panel':       'Panel',
   'sec-cripto':      'Análisis Cripto',
-  'sec-deportes':    'Deportes',
-  'sec-calculadora': 'Calculadoras',
+  'sec-deportes':     'Deportes',
+  'sec-estrategias':  'Estrategias',
+  'sec-calculadora':  'Calculadoras',
   'sec-historial':   'Historial',
   'sec-ia':          'IA Asesores',
   'sec-noticias':    'Noticias',
@@ -1293,6 +1383,7 @@ function ir(secId) {
   // Cargar datos al entrar a la sección
   if (secId === 'sec-cripto')      cargarCripto();
   if (secId === 'sec-deportes')    cargarDeportes();
+  if (secId === 'sec-estrategias') cargarEstrategias();
   if (secId === 'sec-historial')   renderHistorial();
   if (secId === 'sec-noticias')    cargarNoticias();
   if (secId === 'sec-emergencia')  renderEmergencia();
@@ -2057,6 +2148,586 @@ async function cargarCripto() {
 
   const fng = STATE.fng;
   setText('cripto-source', `Fuente: Binance OHLC + alternative.me · Fear & Greed: ${fng ? fng.valor + ' — ' + fng.label : 'N/D'} · ${ts()}`);
+}
+
+// ─── WIZARD ESTRATEGIAS ─────────────────────────────────────
+
+function detectarEstrategias() {
+  const ops = [], bkr = STATE.bankroll;
+  for (const sym of ['BTC','ETH','SOL','XRP']) {
+    const sig = STATE.senalesCripto[sym], ohlc = STATE.ohlc[sym]||[], d = STATE.precios[sym];
+    if (!d) continue;
+    if (sig?.rsi != null && sig.rsi < 30)
+      ops.push({ tipo:'crypto', estrategia:'futuros', sym, dir:'long',
+        nombre:`Futuros LONG · ${sym}`,
+        porQue:`RSI en ${sig.rsi.toFixed(1)} (Sobrevendido). Posible rebote próximo.${sig.fng!=null&&sig.fng<30?' Fear & Greed: '+sig.fng+' (Miedo Extremo) refuerza la señal.':''}`,
+        potencial:bkr*0.05*0.04*5, riesgo:'alto' });
+    if (sig?.rsi != null && sig.rsi > 70)
+      ops.push({ tipo:'crypto', estrategia:'futuros', sym, dir:'short',
+        nombre:`Futuros SHORT · ${sym}`,
+        porQue:`RSI en ${sig.rsi.toFixed(1)} (Sobrecomprado). Posible corrección próxima.`,
+        potencial:bkr*0.05*0.04*5, riesgo:'alto' });
+    if (sig && (sig.chg < -5 || (sig.fng!=null && sig.fng<30)))
+      ops.push({ tipo:'crypto', estrategia:'dca', sym,
+        nombre:`DCA Acumulación · ${sym}`,
+        porQue:`Cambio 24h: ${fmtPct(sig.chg)}. Zona de corrección — ideal para compras escalonadas.`,
+        potencial:null, riesgo:'bajo' });
+    if (ohlc.length >= 3) {
+      const l3=ohlc.slice(-3).map(k=>k.c), mn=Math.min(...l3), mx=Math.max(...l3);
+      const rng=mn>0?(mx-mn)/mn*100:0;
+      if (sig?.rsi!=null && sig.rsi>=40 && sig.rsi<=60 && rng<5)
+        ops.push({ tipo:'crypto', estrategia:'grid', sym,
+          nombre:`Grid Trading · ${sym}`,
+          porQue:`Mercado lateral: rango de ${rng.toFixed(1)}% en 3 días. RSI: ${sig.rsi.toFixed(1)}.`,
+          potencial:null, riesgo:'medio' });
+    }
+  }
+  const vbets = STATE.valueBets||[];
+  if (vbets.length >= 3) {
+    const ep=vbets.slice(0,3).reduce((s,v)=>s+v.edge,0)/3;
+    const oc=vbets.slice(0,3).reduce((p,v)=>p*v.odd,1);
+    ops.push({ tipo:'apuesta', estrategia:'acumulador',
+      nombre:'Acumulador de Value Bets',
+      porQue:`${vbets.length} value bets disponibles. Edge promedio: +${ep.toFixed(1)}%. Odd combinada: ${oc.toFixed(2)}.`,
+      potencial:(bkr*0.02)*(oc-1), riesgo:'alto' });
+  }
+  if (vbets.some(v=>v.odd<1.6))
+    ops.push({ tipo:'apuesta', estrategia:'handicap',
+      nombre:'Handicap Asiático',
+      porQue:'Favorito claro detectado. El Handicap Asiático elimina el empate y puede dar mejor valor.',
+      potencial:null, riesgo:'medio' });
+  ops.push({ tipo:'apuesta', estrategia:'live',
+    nombre:'Live Betting (En Vivo)',
+    porQue:'Estrategia disponible durante partidos en curso. Requiere datos in-play (plan premium The Odds API).',
+    potencial:null, riesgo:'medio', noData:true });
+  return ops;
+}
+
+async function cargarEstrategias() {
+  setHTML('estr-content','<div class="loading"><span class="spin">⌛</span> Analizando mercado...</div>');
+  if (!Object.keys(STATE.senalesCripto).length) {
+    if (!Object.keys(STATE.precios).length) await cargarPrecios();
+    if (!STATE.fng) await cargarFearGreed();
+    const syms=['BTC','ETH','SOL','XRP'];
+    const res=await Promise.allSettled(syms.map(s=>cargarOHLC(s,'1d',50)));
+    res.forEach((r,i)=>{ if(r.status==='fulfilled'&&r.value) STATE.ohlc[syms[i]]=r.value; });
+    for (const sym of syms) { const s=calcScore(sym); if(s) STATE.senalesCripto[sym]=s; }
+  }
+  renderEstrategias();
+}
+
+function renderEstrategias() {
+  if (STATE.wizard.tipo) { renderWizardActivo(); return; }
+  const todas=detectarEstrategias(), filtro=STATE.wizard.tabFiltro;
+  const lista=todas.filter(o=>o.tipo===filtro);
+  actualizarBadgeEstrategias(todas.filter(o=>!o.noData).length);
+  const rStr=r=>r==='bajo'?'<span style="color:var(--tertiary)">🟢 Bajo</span>':r==='alto'?'<span style="color:var(--error)">🔴 Alto</span>':'<span style="color:var(--warning)">🟡 Medio</span>';
+  const cardsHtml=lista.length?lista.map(o=>`
+    <div class="strat-card">
+      <div class="strat-card-header">
+        <div style="flex:1;min-width:0">
+          <div style="margin-bottom:6px">
+            <span class="badge ${o.tipo==='crypto'?'badge-green':'badge-warn'}" style="font-size:12px">${o.tipo==='crypto'?'CRYPTO':'APUESTA'}</span>
+            ${o.noData?' <span class="badge" style="font-size:12px;background:var(--surface-3);color:var(--text-3)">INFORMATIVA</span>':''}
+          </div>
+          <div class="strat-nombre">${o.nombre}</div>
+        </div>
+        ${!o.noData?`<button class="btn btn-primary" style="font-size:15px;padding:10px 18px;white-space:nowrap;flex-shrink:0" onclick="abrirWizard('${o.estrategia}','${o.sym||''}')">Configurar →</button>`:''}
+      </div>
+      <div class="strat-porque">${o.porQue}</div>
+      <div class="strat-meta">
+        <span style="font-size:16px">Riesgo: ${rStr(o.riesgo)}</span>
+        ${o.potencial!=null?`<span style="font-size:16px;color:var(--text-3)">Potencial: <span style="color:var(--tertiary);font-family:var(--f-mono);font-weight:700">+${fmtUSD(Math.max(0,o.potencial))}</span></span>`:''}
+        ${o.noData?`<span style="font-size:16px;color:var(--text-3)">Requiere plan premium The Odds API</span>`:''}
+      </div>
+    </div>`).join(''):
+    `<div style="text-align:center;padding:30px;color:var(--text-3);font-size:16px">Sin oportunidades detectadas. Carga Cripto y Deportes primero.</div>`;
+  setHTML('estr-content',`
+    <div class="strat-tabs">
+      <button class="strat-tab${filtro==='crypto'?' active':''}" onclick="wizSetTab('crypto')">CRYPTO</button>
+      <button class="strat-tab${filtro==='apuesta'?' active':''}" onclick="wizSetTab('apuesta')">APUESTAS</button>
+    </div>
+    <div class="strat-detected">${cardsHtml}</div>
+    <div class="card-source" style="margin-top:14px">Análisis basado en: Binance OHLC · The Odds API · alternative.me · ${ts()}</div>`);
+}
+
+function wizSetTab(t) { STATE.wizard.tabFiltro=t; renderEstrategias(); }
+function actualizarBadgeEstrategias(n) {
+  const el=qs('estr-nav-badge'); if(!el) return;
+  el.textContent=n; el.style.display=n>0?'inline-block':'none';
+}
+
+function abrirWizard(tipo,sym) {
+  STATE.wizard.tipo=tipo; STATE.wizard.paso=1;
+  STATE.wizard.sym=sym||'BTC'; STATE.wizard.registrado=false;
+  if (tipo==='dca') { STATE.wizard.numCompras=3; STATE.wizard.frecuencia='diario'; }
+  if (tipo==='grid') {
+    const ohlc=STATE.ohlc[STATE.wizard.sym]||[];
+    if (ohlc.length>=3) {
+      STATE.wizard.gridMin=Math.min(...ohlc.slice(-3).map(k=>k.l));
+      STATE.wizard.gridMax=Math.max(...ohlc.slice(-3).map(k=>k.h));
+    }
+    STATE.wizard.numGrids=10;
+  }
+  if (tipo==='acumulador') STATE.wizard.picks=[];
+  renderWizardActivo();
+}
+function cerrarWizard() { STATE.wizard.tipo=null; renderEstrategias(); }
+function wizardBack()   { if(STATE.wizard.paso>1){STATE.wizard.paso--;renderWizardActivo();} }
+function wizardNext() {
+  const capEl=qs('wiz-cap-input'); if(capEl) STATE.wizard.capital=Math.max(1,parseFloat(capEl.value)||STATE.wizard.capital);
+  const mnEl=qs('wiz-grid-min');   if(mnEl) STATE.wizard.gridMin=parseFloat(mnEl.value)||STATE.wizard.gridMin;
+  const mxEl=qs('wiz-grid-max');   if(mxEl) STATE.wizard.gridMax=parseFloat(mxEl.value)||STATE.wizard.gridMax;
+  const ngEl=qs('wiz-num-grids');  if(ngEl) STATE.wizard.numGrids=parseInt(ngEl.value)||10;
+  const ncEl=qs('wiz-num-compras');if(ncEl) STATE.wizard.numCompras=parseInt(ncEl.value)||3;
+  STATE.wizard.paso++; renderWizardActivo();
+}
+function wizSetDir(d)      { STATE.wizard.dir=d; renderWizardActivo(); }
+function wizSetLev(n)      { STATE.wizard.apalancamiento=n; renderWizardActivo(); }
+function wizSetExch(e)     { STATE.wizard.exchange=e; renderWizardActivo(); }
+function wizSetSym(s)      { STATE.wizard.sym=s; renderWizardActivo(); }
+function wizSetFreq(f)     { STATE.wizard.frecuencia=f; renderWizardActivo(); }
+function wizSetNumCompras(n){ STATE.wizard.numCompras=n; renderWizardActivo(); }
+function wizSetNumGrids(n)  { STATE.wizard.numGrids=n; renderWizardActivo(); }
+function wizSetHandicap(h)  { STATE.wizard.handicapSel=h; renderWizardActivo(); }
+function wizTogglePick(i) {
+  const a=STATE.wizard.picks,p=a.indexOf(i);
+  if(p>=0) a.splice(p,1); else if(a.length<4) a.push(i);
+  renderWizardActivo();
+}
+function actualizarSalidaFuturos() { const el=qs('wiz-out-display'); if(el) el.innerHTML=htmlSalidaFuturos(); }
+function actualizarSalidaDCA() {
+  const capEl=qs('wiz-cap-input'); if(!capEl) return;
+  STATE.wizard.capital=Math.max(10,parseFloat(capEl.value)||STATE.wizard.capital);
+  renderWizardActivo();
+}
+function wizRegistrarOp() {
+  const w=STATE.wizard, d=STATE.precios[w.sym]; if(!d) return;
+  const desc=`${w.sym} ${w.dir.toUpperCase()} x${w.apalancamiento} · ${EXCHANGES[w.exchange].nombre}`;
+  const el1=qs('op-desc');    if(el1) el1.value=desc;
+  const el2=qs('op-capital'); if(el2) el2.value=w.capital.toFixed(2);
+  const el3=qs('op-odd');     if(el3) el3.value=d.precio.toFixed(2);
+  const el4=qs('op-tipo');    if(el4) el4.value='cripto';
+  STATE.wizard.registrado=true; STATE.wizard.paso=4; renderWizardActivo();
+}
+
+function renderWizardProgreso(paso,labels) {
+  return `<div class="wiz-progress">${labels.map((lbl,i)=>{
+    const n=i+1,cls=n<paso?'done':n===paso?'active':'';
+    return `<div class="wiz-step ${cls}"><div class="wiz-circle">${n<paso?'✓':n}</div><div class="wiz-step-lbl">${lbl}</div></div>`;
+  }).join('')}</div>`;
+}
+function wizNav(paso,total,backFn,nextHtml) {
+  const atr=(paso>1&&paso<total)?`<button class="btn btn-ghost" onclick="${backFn}">← Atrás</button>`:'<div></div>';
+  return `<div class="wiz-nav">${atr}${nextHtml}</div>`;
+}
+function wizWrap(titulo,paso,labels,body) {
+  return `<div class="wiz-header">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div class="wiz-title">${titulo}</div>
+      <button class="btn btn-ghost" style="font-size:14px" onclick="cerrarWizard()">✕ Cerrar</button>
+    </div>
+    ${renderWizardProgreso(paso,labels)}
+  </div>
+  <div class="wiz-body">${body}</div>`;
+}
+function renderWizardActivo() {
+  const fns={futuros:renderWizardFuturos,dca:renderWizardDCA,grid:renderWizardGrid,
+             handicap:renderWizardHandicap,acumulador:renderWizardAcumulador,live:renderWizardLive};
+  const fn=fns[STATE.wizard.tipo];
+  setHTML('estr-content',`<div class="wiz-wrap">${fn?fn():''}</div>`);
+}
+
+// ── FUTUROS ────────────────────────────────────────────────
+function calcSalidaFuturos(sym,dir,capital,lev,exch) {
+  const precio=STATE.precios[sym]?.precio??0, isL=dir==='long';
+  const com=EXCHANGES[exch]?.futuros??0.0004, pos=capital*lev;
+  const sl=isL?precio*0.965:precio*1.035, o1=isL?precio*1.04:precio*0.96, o2=isL?precio*1.09:precio*0.91;
+  const riesgo=Math.abs(precio-sl), ratio=riesgo>0?Math.abs(o2-precio)/riesgo:0;
+  const comAmt=pos*com*2, liq=isL?precio*(1-0.9/lev):precio*(1+0.9/lev);
+  return {precio,pos,sl,o1,o2,ratio,comAmt,gaO1:pos*0.04-comAmt,slLoss:pos*0.035+comAmt,liq,isL};
+}
+function htmlSalidaFuturos() {
+  const w=STATE.wizard, capEl=qs('wiz-cap-input');
+  const capital=capEl?(parseFloat(capEl.value)||w.capital):w.capital;
+  const c=calcSalidaFuturos(w.sym,w.dir,capital,w.apalancamiento,w.exchange);
+  const levWarn=w.apalancamiento>10?`<div class="wiz-warn-box" style="margin-top:10px">⚠️ Apalancamiento ${w.apalancamiento}x — Extremo. Alta probabilidad de liquidación.</div>`:'';
+  const ratioWarn=c.ratio<2?`<div class="wiz-warn-box" style="margin-top:10px">⚠️ Ratio R/B 1:${c.ratio.toFixed(1)} — Menor a 1:2. No recomendado continuar.</div>`:'';
+  return `<div class="wiz-output"><div class="wiz-output-title">Resumen de la operación (tiempo real)</div>
+    <div class="wiz-output-grid">
+      <span class="wiz-out-l">Posición total:</span><span class="wiz-out-v">${fmtUSD(c.pos)}</span>
+      <span class="wiz-out-l">Precio liquidación:</span><span class="wiz-out-v neg">${fmtUSD(c.liq)}</span>
+      <span class="wiz-out-l">Stop Loss (${c.isL?'-3.5%':'+3.5%'}):</span><span class="wiz-out-v neg">${fmtUSD(c.sl)}</span>
+      <span class="wiz-out-l">Objetivo 1 (${c.isL?'+4%':'-4%'}):</span><span class="wiz-out-v pos">${fmtUSD(c.o1)}</span>
+      <span class="wiz-out-l">Objetivo 2 (${c.isL?'+9%':'-9%'}):</span><span class="wiz-out-v pos">${fmtUSD(c.o2)}</span>
+      <div style="grid-column:1/-1;height:1px;background:var(--border);margin:4px 0"></div>
+      <span class="wiz-out-l">Ratio R/B:</span><span class="wiz-out-v" style="color:${c.ratio>=2?'var(--tertiary)':'var(--error)'}">1:${c.ratio.toFixed(1)}</span>
+      <span class="wiz-out-l">Comisión est.:</span><span class="wiz-out-v neg">-${fmtUSD(c.comAmt)}</span>
+      <span class="wiz-out-l">Ganancia neta O1:</span><span class="wiz-out-v pos">+${fmtUSD(Math.max(0,c.gaO1))}</span>
+    </div></div>${levWarn}${ratioWarn}`;
+}
+function renderWizardFuturos() {
+  const w=STATE.wizard, paso=w.paso, labels=['Resumen','Configurar','Instrucciones','Confirmar'];
+  const sig=STATE.senalesCripto[w.sym], d=STATE.precios[w.sym]; const fng=STATE.fng;
+  let body='';
+  if (paso===1) {
+    body=`<div style="font-size:16px;color:var(--text-2);margin-bottom:16px">El sistema detectó señal <strong style="color:${w.dir==='long'?'var(--tertiary)':'var(--error)'}">${w.dir.toUpperCase()}</strong> en <strong>${w.sym}</strong>.</div>
+      <div class="wiz-snapshot">
+        <span class="wiz-snap-l">Precio actual:</span><span class="wiz-snap-v">${d?fmtUSD(d.precio):'Sin datos'}</span>
+        <span class="wiz-snap-l">RSI (14):</span><span class="wiz-snap-v" style="color:${sig?.rsi!=null?(sig.rsi<30?'var(--tertiary)':sig.rsi>70?'var(--error)':'var(--text)'):'var(--text-3)'}">${sig?.rsi!=null?sig.rsi.toFixed(1)+' '+(sig.rsi<30?'(Sobrevendido)':sig.rsi>70?'(Sobrecomprado)':'(Neutral)'):'N/D'}</span>
+        <span class="wiz-snap-l">Fear & Greed:</span><span class="wiz-snap-v" style="color:${fng?(fng.valor<25?'var(--error)':fng.valor>75?'var(--tertiary)':'var(--text)'):'var(--text-3)'}">${fng?fng.valor+' — '+fng.label:'N/D'}</span>
+        <span class="wiz-snap-l">Variación 24h:</span><span class="wiz-snap-v ${(d?.cambio24h??0)>=0?'pos':'neg'}">${d?fmtPct(d.cambio24h):'--'}</span>
+        <span class="wiz-snap-l">Señal:</span><span class="wiz-snap-v" style="color:${w.dir==='long'?'var(--tertiary)':'var(--error)'}">${w.dir==='long'?'COMPRAR CON APALANCAMIENTO':'VENDER CON APALANCAMIENTO'}</span>
+      </div>
+      <div class="wiz-warn-box" style="margin-top:14px">⚠️ Los futuros con apalancamiento son instrumentos de alto riesgo. Solo opera con capital que puedas perder totalmente. Stop Loss obligatorio siempre.</div>
+      <div class="card-source" style="margin-top:10px">Fuente: Binance · alternative.me · ${ts()}</div>
+      ${wizNav(paso,4,'wizardBack()','<button class="btn btn-primary" onclick="wizardNext()">CONTINUAR →</button>')}`;
+  } else if (paso===2) {
+    const recCap=(STATE.bankroll*0.05).toFixed(2);
+    body=`
+      <div class="wiz-form-row"><span class="wiz-form-label">Moneda:</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${['BTC','ETH','SOL','XRP'].map(s=>`<button class="wiz-lev-btn${w.sym===s?' active':''}" onclick="wizSetSym('${s}')">${s}</button>`).join('')}</div></div>
+      <div class="wiz-form-row"><span class="wiz-form-label">Dirección:</span>
+        <div class="wiz-dir-btns" style="margin-top:6px">
+          <button class="wiz-dir-btn long${w.dir==='long'?' active':''}" onclick="wizSetDir('long')">📈 LONG</button>
+          <button class="wiz-dir-btn short${w.dir==='short'?' active':''}" onclick="wizSetDir('short')">📉 SHORT</button>
+        </div></div>
+      <div class="wiz-form-row"><span class="wiz-form-label">Capital a usar ($):</span>
+        <input id="wiz-cap-input" type="number" class="input" style="max-width:220px;margin-top:6px" value="${w.capital.toFixed(2)}" min="1" step="0.01" oninput="actualizarSalidaFuturos()">
+        <span class="wiz-form-hint">Recomendado: $${recCap} (5% bankroll)</span></div>
+      <div class="wiz-form-row"><span class="wiz-form-label">Apalancamiento:</span>
+        <div class="wiz-lev-btns" style="margin-top:6px">${[2,3,5,10,20].map(n=>`<button class="wiz-lev-btn${w.apalancamiento===n?' active':''}${n>10?' danger':''}" onclick="wizSetLev(${n})">${n}x</button>`).join('')}</div>
+        ${w.apalancamiento>10?`<span class="wiz-form-hint" style="color:var(--error);margin-top:6px">⚠️ Mayor a 10x — Riesgo extremo de liquidación</span>`:''}</div>
+      <div class="wiz-form-row"><span class="wiz-form-label">Exchange:</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${Object.entries(EXCHANGES).map(([k,ex])=>`<button class="wiz-lev-btn${w.exchange===k?' active':''}" onclick="wizSetExch('${k}')">${ex.nombre}</button>`).join('')}</div></div>
+      <div id="wiz-out-display">${htmlSalidaFuturos()}</div>
+      ${(()=>{const c=calcSalidaFuturos(w.sym,w.dir,w.capital,w.apalancamiento,w.exchange);return wizNav(paso,4,'wizardBack()',c.ratio<2?`<button class="btn" style="background:var(--surface-3);color:var(--text-3);cursor:not-allowed" disabled>Ratio insuficiente (1:${c.ratio.toFixed(1)})</button>`:'<button class="btn btn-primary" onclick="wizardNext()">CONTINUAR →</button>');})()}`;
+  } else if (paso===3) {
+    const c=calcSalidaFuturos(w.sym,w.dir,w.capital,w.apalancamiento,w.exchange);
+    const sym=w.sym,exch=w.exchange,isL=c.isL;
+    const pairs={binance:`${sym}USDT`,bybit:`${sym}USDT`,kucoin:sym==='BTC'?'XBTUSDTM':`${sym}USDTM`,kraken:sym==='BTC'?'PF_XBTUSD':`PF_${sym}USD`};
+    const pair=pairs[exch]||`${sym}USDT`;
+    const instr={
+      binance:[`Ve a <strong>binance.com → Futuros USD-M → ${pair}</strong>`,`Selecciona <strong>${isL?'LONG / Comprar':'SHORT / Vender'}</strong> · Tipo: Límite`,`Precio de entrada: <strong style="color:var(--tertiary);font-family:var(--f-mono)">${fmtUSD(c.precio)}</strong>`,`Cantidad: <strong style="font-family:var(--f-mono)">${fmtUSD(w.capital)}</strong> · Apalancamiento: <strong>${w.apalancamiento}x</strong>`,`Activa Stop Loss en: <strong style="color:var(--error);font-family:var(--f-mono)">${fmtUSD(c.sl)}</strong>`,`Activa Take Profit en: <strong style="color:var(--tertiary);font-family:var(--f-mono)">${fmtUSD(c.o1)}</strong>`,`Confirma la orden y verifica que el SL esté activo`],
+      bybit:[`Ve a <strong>bybit.com → Derivados → USDT Perpetual → ${pair}</strong>`,`Selecciona <strong>Limit → ${isL?'Buy/Long':'Sell/Short'}</strong>`,`Precio: <strong style="color:var(--tertiary);font-family:var(--f-mono)">${fmtUSD(c.precio)}</strong> · Capital: <strong style="font-family:var(--f-mono)">${fmtUSD(w.capital)}</strong>`,`Activa TP/SL automático al crear la orden`,`SL: <strong style="color:var(--error);font-family:var(--f-mono)">${fmtUSD(c.sl)}</strong> · TP: <strong style="color:var(--tertiary);font-family:var(--f-mono)">${fmtUSD(c.o1)}</strong>`,`Confirma que el apalancamiento es ${w.apalancamiento}x`],
+      kucoin:[`Ve a <strong>kucoin.com → Futuros → ${pair}</strong>`,`Selecciona <strong>Limit Order → ${isL?'Buy/Long':'Sell/Short'}</strong>`,`Precio: <strong style="color:var(--tertiary);font-family:var(--f-mono)">${fmtUSD(c.precio)}</strong> · Apalancamiento: ${w.apalancamiento}x`,`Coloca Stop Order separada en: <strong style="color:var(--error);font-family:var(--f-mono)">${fmtUSD(c.sl)}</strong>`,`Coloca Take Profit en: <strong style="color:var(--tertiary);font-family:var(--f-mono)">${fmtUSD(c.o1)}</strong>`],
+      kraken:[`Ve a <strong>kraken.com → Futuros → ${pair}</strong>`,`Selecciona <strong>Limit → ${isL?'Buy':'Sell'}</strong>`,`Precio: <strong style="color:var(--tertiary);font-family:var(--f-mono)">${fmtUSD(c.precio)}</strong> · Capital: ${fmtUSD(w.capital)}`,`Agrega "Conditional Close" → Stop: <strong style="color:var(--error);font-family:var(--f-mono)">${fmtUSD(c.sl)}</strong>`,`Take Profit: <strong style="color:var(--tertiary);font-family:var(--f-mono)">${fmtUSD(c.o1)}</strong>`]
+    };
+    const steps=instr[exch]||instr.binance;
+    body=`<div class="wiz-section-title">${EXCHANGES[exch].nombre} — Instrucciones exactas</div>
+      <div class="wiz-instruc">${steps.map((s,i)=>`<div class="wiz-instruc-step">${i+1}. ${s}</div>`).join('')}</div>
+      <div class="wiz-warn-box" style="margin-top:18px">⚠️ NUNCA muevas el Stop Loss en tu contra. El Stop Loss en ${fmtUSD(c.sl)} limita la pérdida máxima a ${fmtUSD(c.slLoss)}.</div>
+      ${wizNav(paso,4,'wizardBack()',`<button class="btn btn-primary" style="background:var(--tertiary);color:#000" onclick="wizRegistrarOp()">REGISTRAR Y FINALIZAR ✅</button>`)}`;
+  } else {
+    const c=calcSalidaFuturos(w.sym,w.dir,w.capital,w.apalancamiento,w.exchange);
+    body=`<div style="text-align:center;margin-bottom:22px"><div style="font-size:38px;margin-bottom:8px">✅</div>
+        <div style="font-size:22px;font-weight:800;color:var(--tertiary)">${w.registrado?'Operación registrada correctamente':'Resumen de la estrategia'}</div></div>
+      <div class="wiz-confirm-row">
+        <span class="wiz-conf-l">Moneda:</span><span class="wiz-conf-v">${w.sym} · ${NOMBRES[w.sym]}</span>
+        <span class="wiz-conf-l">Dirección:</span><span class="wiz-conf-v" style="color:${w.dir==='long'?'var(--tertiary)':'var(--error)'}">${w.dir==='long'?'📈 LONG':'📉 SHORT'}</span>
+        <span class="wiz-conf-l">Capital:</span><span class="wiz-conf-v">${fmtUSD(w.capital)}</span>
+        <span class="wiz-conf-l">Apalancamiento:</span><span class="wiz-conf-v">${w.apalancamiento}x</span>
+        <span class="wiz-conf-l">Posición total:</span><span class="wiz-conf-v">${fmtUSD(c.pos)}</span>
+        <span class="wiz-conf-l">Entrada:</span><span class="wiz-conf-v">${fmtUSD(c.precio)}</span>
+        <span class="wiz-conf-l">Stop Loss:</span><span class="wiz-conf-v neg">${fmtUSD(c.sl)}</span>
+        <span class="wiz-conf-l">Objetivo 1:</span><span class="wiz-conf-v pos">${fmtUSD(c.o1)}</span>
+        <span class="wiz-conf-l">Objetivo 2:</span><span class="wiz-conf-v pos">${fmtUSD(c.o2)}</span>
+        <span class="wiz-conf-l">Exchange:</span><span class="wiz-conf-v">${EXCHANGES[w.exchange].nombre}</span>
+        <span class="wiz-conf-l">Comisión est.:</span><span class="wiz-conf-v neg">-${fmtUSD(c.comAmt)}</span>
+        <span class="wiz-conf-l">Ganancia neta O1:</span><span class="wiz-conf-v pos">+${fmtUSD(Math.max(0,c.gaO1))}</span>
+      </div>
+      <div class="wiz-nav"><div></div><div style="display:flex;gap:10px"><button class="btn btn-ghost" onclick="ir('sec-historial')">Ver Historial</button><button class="btn btn-primary" onclick="cerrarWizard()">Nueva Estrategia</button></div></div>`;
+  }
+  return wizWrap(`Wizard — Futuros ${w.dir==='long'?'LONG':'SHORT'} · ${w.sym}`,paso,labels,body);
+}
+
+// ── DCA ────────────────────────────────────────────────────
+function renderWizardDCA() {
+  const w=STATE.wizard, paso=w.paso, labels=['Resumen','Configurar','Instrucciones','Seguimiento'];
+  const d=STATE.precios[w.sym], precio=d?.precio??0;
+  let body='';
+  if (paso===1) {
+    body=`<div style="font-size:16px;color:var(--text-2);margin-bottom:14px">El mercado está en corrección. El DCA es la estrategia más segura en tendencias bajistas.</div>
+      <div class="wiz-info-box">📊 <strong>¿Qué es DCA?</strong><br><br>DCA (Dollar-Cost Averaging) significa comprar la misma cantidad en intervalos regulares. Cuando el precio baja, tu promedio de compra también baja, reduciendo el riesgo de una mala entrada. Es la estrategia más usada por inversores a largo plazo.</div>
+      <div class="wiz-snapshot" style="margin-top:16px">
+        <span class="wiz-snap-l">Moneda:</span><span class="wiz-snap-v">${w.sym} · ${NOMBRES[w.sym]}</span>
+        <span class="wiz-snap-l">Precio actual:</span><span class="wiz-snap-v">${d?fmtUSD(precio):'Sin datos'}</span>
+        <span class="wiz-snap-l">Fuente:</span><span class="wiz-snap-v" style="font-size:14px;color:var(--text-3)">Binance · ${ts()}</span>
+      </div>
+      ${wizNav(paso,4,'wizardBack()','<button class="btn btn-primary" onclick="wizardNext()">CONFIGURAR DCA →</button>')}`;
+  } else if (paso===2) {
+    const nC=w.numCompras, capPor=w.capital/nC;
+    const niveles=Array.from({length:nC},(_,i)=>({n:i+1,pct:-i*5,p:precio*(1-i*0.05),amt:capPor}));
+    const totMon=niveles.reduce((s,n)=>s+capPor/(n.p||1),0);
+    const prom=totMon>0?w.capital/totMon:0;
+    const recCap=(STATE.bankroll*0.15).toFixed(2);
+    body=`
+      <div class="wiz-form-row"><span class="wiz-form-label">Moneda:</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${['BTC','ETH','SOL','XRP'].map(s=>`<button class="wiz-lev-btn${w.sym===s?' active':''}" onclick="wizSetSym('${s}')">${s}</button>`).join('')}</div></div>
+      <div class="wiz-form-row"><span class="wiz-form-label">Capital total ($):</span>
+        <input id="wiz-cap-input" type="number" class="input" style="max-width:220px;margin-top:6px" value="${w.capital.toFixed(2)}" min="10" step="1">
+        <span class="wiz-form-hint">Recomendado: $${recCap} (15% bankroll)</span></div>
+      <div class="wiz-form-row"><span class="wiz-form-label">Número de compras:</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${[3,5,7,10].map(n=>`<button class="wiz-lev-btn${w.numCompras===n?' active':''}" onclick="wizSetNumCompras(${n})">${n}</button>`).join('')}</div></div>
+      <div class="wiz-form-row"><span class="wiz-form-label">Frecuencia:</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${[['diario','Diario'],['2dias','Cada 2 días'],['semanal','Semanal']].map(([k,l])=>`<button class="wiz-lev-btn${w.frecuencia===k?' active':''}" onclick="wizSetFreq('${k}')">${l}</button>`).join('')}</div></div>
+      <div class="wiz-form-row"><span class="wiz-form-label">Exchange:</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${Object.entries(EXCHANGES).map(([k,ex])=>`<button class="wiz-lev-btn${w.exchange===k?' active':''}" onclick="wizSetExch('${k}')">${ex.nombre}</button>`).join('')}</div></div>
+      <div class="wiz-output"><div class="wiz-output-title">Plan de compras calculado</div>
+        <table class="dca-tabla"><thead><tr><th>Compra</th><th>Nivel</th><th>Precio objetivo</th><th>Capital</th></tr></thead>
+        <tbody>${niveles.map(n=>`<tr><td style="font-weight:700">#${n.n}</td><td style="color:${n.pct===0?'var(--text)':'var(--warning)'}">${n.pct===0?'Ahora':'Baja '+Math.abs(n.pct)+'%'}</td><td style="font-family:var(--f-mono);color:${n.pct===0?'var(--text)':'var(--warning)'}">${fmtUSD(n.p)}</td><td style="font-family:var(--f-mono)">${fmtUSD(n.amt)}</td></tr>`).join('')}</tbody></table>
+        <div class="wiz-output-grid" style="margin-top:12px">
+          <span class="wiz-out-l">Capital por compra:</span><span class="wiz-out-v">${fmtUSD(capPor)}</span>
+          <span class="wiz-out-l">Precio promedio est.:</span><span class="wiz-out-v" style="color:var(--tertiary)">${fmtUSD(prom)}</span>
+          <span class="wiz-out-l">Break even en:</span><span class="wiz-out-v">${fmtUSD(prom*1.005)}</span>
+        </div>
+      </div>
+      ${wizNav(paso,4,'wizardBack()','<button class="btn btn-primary" onclick="wizardNext()">CONTINUAR →</button>')}`;
+  } else if (paso===3) {
+    const nC=w.numCompras, capPor=w.capital/nC;
+    const niveles=Array.from({length:nC},(_,i)=>({n:i+1,p:precio*(1-i*0.05),amt:capPor}));
+    const freqStr={diario:'Diario','2dias':'Cada 2 días',semanal:'Semanal'}[w.frecuencia]||'Diario';
+    body=`<div class="wiz-section-title">${EXCHANGES[w.exchange].nombre} — Instrucciones</div>
+      <div class="wiz-instruc">
+        <div class="wiz-instruc-step">1. Abre <strong>${EXCHANGES[w.exchange].nombre}</strong> → Mercado Spot → ${w.sym}/USDT</div>
+        <div class="wiz-instruc-step">2. Configura las siguientes órdenes Límite:</div>
+      </div>
+      <div style="margin:14px 0">${niveles.map(n=>`<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:16px"><span><strong>Orden ${n.n}:</strong> ${n.n===1?'Precio actual':'Baja '+((n.n-1)*5)+'%'}</span><span style="font-family:var(--f-mono);color:${n.n===1?'var(--tertiary)':'var(--warning)'}"><strong>${fmtUSD(n.p)}</strong> · ${fmtUSD(n.amt)}</span></div>`).join('')}</div>
+      <div class="wiz-instruc">
+        <div class="wiz-instruc-step">3. Activa alertas de precio en cada nivel</div>
+        <div class="wiz-instruc-step">4. Frecuencia de revisión: <strong>${freqStr}</strong></div>
+        <div class="wiz-instruc-step">5. No canceles las órdenes si el precio baja — ese es el objetivo del DCA</div>
+      </div>
+      ${wizNav(paso,4,'wizardBack()','<button class="btn btn-primary" style="background:var(--tertiary);color:#000" onclick="wizardNext()">CREAR SEGUIMIENTO ✅</button>')}`;
+  } else {
+    const nC=w.numCompras, capPor=w.capital/nC;
+    const niveles=Array.from({length:nC},(_,i)=>({n:i+1,p:precio*(1-i*0.05),amt:capPor}));
+    body=`<div style="text-align:center;margin-bottom:22px"><div style="font-size:38px;margin-bottom:8px">✅</div>
+        <div style="font-size:22px;font-weight:800;color:var(--tertiary)">Plan DCA configurado</div></div>
+      <div class="wiz-section-title">Tabla de seguimiento</div>
+      <table class="dca-tabla"><thead><tr><th>Compra</th><th>Precio objetivo</th><th>Capital</th><th>Estado</th></tr></thead>
+      <tbody>${niveles.map(n=>`<tr><td style="font-weight:700">#${n.n}</td><td style="font-family:var(--f-mono)">${fmtUSD(n.p)}</td><td style="font-family:var(--f-mono)">${fmtUSD(n.amt)}</td><td><span class="badge badge-warn" style="font-size:13px">PENDIENTE</span></td></tr>`).join('')}</tbody></table>
+      <div class="card-source" style="margin-top:12px">Precios de referencia: Binance · ${ts()}</div>
+      <div class="wiz-nav"><div></div><button class="btn btn-primary" onclick="cerrarWizard()">Nueva Estrategia</button></div>`;
+  }
+  return wizWrap(`Wizard — DCA · ${w.sym}`,paso,labels,body);
+}
+
+// ── GRID ────────────────────────────────────────────────────
+function renderWizardGrid() {
+  const w=STATE.wizard, paso=w.paso, labels=['Resumen','Configurar','Instrucciones'];
+  const d=STATE.precios[w.sym], precio=d?.precio??0;
+  const gridMin=w.gridMin??precio*0.95, gridMax=w.gridMax??precio*1.05;
+  let body='';
+  if (paso===1) {
+    const ohlc=STATE.ohlc[w.sym]||[];
+    const rng=ohlc.length>=3?(()=>{const l3=ohlc.slice(-3).map(k=>k.c);const mn=Math.min(...l3),mx=Math.max(...l3);return mn>0?(mx-mn)/mn*100:0;})():0;
+    body=`<div style="font-size:16px;color:var(--text-2);margin-bottom:14px">Mercado lateral detectado en <strong>${w.sym}</strong>. Rango últimos 3 días: <strong style="color:var(--warning)">${rng.toFixed(1)}%</strong></div>
+      <div class="wiz-info-box">📊 <strong>¿Qué es Grid Trading?</strong><br><br>El Grid Trading coloca órdenes de compra y venta en niveles de precio predefinidos. Ganas cada vez que el precio sube y baja dentro del rango. Es ideal cuando el mercado no tiene dirección clara y oscila lateralmente.</div>
+      <div class="wiz-snapshot" style="margin-top:16px">
+        <span class="wiz-snap-l">Precio actual:</span><span class="wiz-snap-v">${fmtUSD(precio)}</span>
+        <span class="wiz-snap-l">Mínimo 3 días (Low):</span><span class="wiz-snap-v">${fmtUSD(gridMin)}</span>
+        <span class="wiz-snap-l">Máximo 3 días (High):</span><span class="wiz-snap-v">${fmtUSD(gridMax)}</span>
+        <span class="wiz-snap-l">RSI actual:</span><span class="wiz-snap-v">${STATE.senalesCripto[w.sym]?.rsi?.toFixed(1)??'N/D'}</span>
+        <span class="wiz-snap-l">Fuente:</span><span class="wiz-snap-v" style="font-size:14px;color:var(--text-3)">Binance OHLC · ${ts()}</span>
+      </div>
+      ${wizNav(paso,3,'wizardBack()','<button class="btn btn-primary" onclick="wizardNext()">CONFIGURAR GRID →</button>')}`;
+  } else if (paso===2) {
+    const tam=(gridMax>gridMin)?(gridMax-gridMin)/w.numGrids:0;
+    const capPor=w.capital/w.numGrids, ganPorGrid=tam>0&&gridMin>0?capPor*(tam/gridMin):0;
+    const ohlc=STATE.ohlc[w.sym]||[];
+    let vD=0.02;
+    if (ohlc.length>=7) { const c=ohlc.slice(-7).map((k,i,a)=>i===0?0:Math.abs(k.c-a[i-1].c)/(a[i-1].c||1)); vD=c.slice(1).reduce((s,v)=>s+v,0)/(c.length-1||1); }
+    const ejDia=tam>0?Math.max(1,Math.round(vD*precio/tam)):0;
+    const ganDia=ganPorGrid*ejDia, roi30=w.capital>0?(ganDia*30/w.capital)*100:0;
+    body=`
+      <div class="wiz-form-row"><span class="wiz-form-label">Moneda:</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${['BTC','ETH','SOL','XRP'].map(s=>`<button class="wiz-lev-btn${w.sym===s?' active':''}" onclick="wizSetSym('${s}')">${s}</button>`).join('')}</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="wiz-form-row"><span class="wiz-form-label">Precio mínimo ($):</span><input id="wiz-grid-min" type="number" class="input" style="margin-top:6px" value="${gridMin.toFixed(2)}" step="1"></div>
+        <div class="wiz-form-row"><span class="wiz-form-label">Precio máximo ($):</span><input id="wiz-grid-max" type="number" class="input" style="margin-top:6px" value="${gridMax.toFixed(2)}" step="1"></div>
+      </div>
+      <div class="wiz-form-row"><span class="wiz-form-label">Número de grids: <span id="wiz-grids-label" style="color:var(--tertiary);font-family:var(--f-mono)">${w.numGrids}</span></span>
+        <input type="range" min="5" max="20" value="${w.numGrids}" style="margin-top:6px;accent-color:var(--tertiary)" oninput="wizSetNumGrids(parseInt(this.value));qs('wiz-grids-label').textContent=this.value"></div>
+      <div class="wiz-form-row"><span class="wiz-form-label">Capital total ($):</span>
+        <input id="wiz-cap-input" type="number" class="input" style="max-width:220px;margin-top:6px" value="${w.capital.toFixed(2)}" min="10" step="1"></div>
+      <div class="wiz-form-row"><span class="wiz-form-label">Exchange:</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${Object.entries(EXCHANGES).map(([k,ex])=>`<button class="wiz-lev-btn${w.exchange===k?' active':''}" onclick="wizSetExch('${k}')">${ex.nombre}</button>`).join('')}</div></div>
+      <div class="wiz-output" style="margin-top:16px"><div class="wiz-output-title">Proyección calculada</div>
+        <div class="wiz-output-grid">
+          <span class="wiz-out-l">Tamaño por grid:</span><span class="wiz-out-v">${fmtUSD(tam)}</span>
+          <span class="wiz-out-l">Capital por orden:</span><span class="wiz-out-v">${fmtUSD(capPor)}</span>
+          <span class="wiz-out-l">Ganancia por grid:</span><span class="wiz-out-v pos">+${fmtUSD(ganPorGrid)}</span>
+          <span class="wiz-out-l">Ganancia est. diaria:</span><span class="wiz-out-v pos">+${fmtUSD(ganDia)}</span>
+          <span class="wiz-out-l">ROI estimado 30 días:</span><span class="wiz-out-v pos">+${roi30.toFixed(1)}%</span>
+        </div>
+        <div style="font-size:13px;color:var(--text-3);margin-top:8px">* Proyección basada en volatilidad histórica de ${(vD*100).toFixed(1)}% diaria. No garantizado.</div>
+      </div>
+      ${wizNav(paso,3,'wizardBack()','<button class="btn btn-primary" onclick="wizardNext()">CONTINUAR →</button>')}`;
+  } else {
+    const botInstr={binance:'binance.com → Futuros/Spot → Trading Bots → Spot Grid',bybit:'bybit.com → Trading Bot → Grid Bot',kucoin:'kucoin.com → Trading Bot → Spot Grid',kraken:'kraken.com → Spot → Grid manual'};
+    body=`<div class="wiz-section-title">${EXCHANGES[w.exchange].nombre} — Instrucciones Grid Bot</div>
+      <div class="wiz-instruc">
+        <div class="wiz-instruc-step">1. Ve a <strong>${botInstr[w.exchange]||botInstr.binance}</strong></div>
+        <div class="wiz-instruc-step">2. Selecciona el par: <strong>${w.sym}/USDT</strong></div>
+        <div class="wiz-instruc-step">3. Configura los parámetros:</div>
+      </div>
+      <div class="wiz-output" style="margin-top:12px"><div class="wiz-output-grid">
+        <span class="wiz-out-l">Precio mínimo:</span><span class="wiz-out-v">${fmtUSD(gridMin)}</span>
+        <span class="wiz-out-l">Precio máximo:</span><span class="wiz-out-v">${fmtUSD(gridMax)}</span>
+        <span class="wiz-out-l">Número de grids:</span><span class="wiz-out-v">${w.numGrids}</span>
+        <span class="wiz-out-l">Capital total:</span><span class="wiz-out-v">${fmtUSD(w.capital)}</span>
+      </div></div>
+      <div class="wiz-instruc" style="margin-top:14px">
+        <div class="wiz-instruc-step">4. Inicia el bot y monitorea que el precio permanezca dentro del rango</div>
+        <div class="wiz-instruc-step">5. Si el precio rompe el rango — detén el bot y evalúa la situación</div>
+      </div>
+      <div class="card-source" style="margin-top:10px">Datos de rango: Binance OHLC · ${ts()}</div>
+      ${wizNav(paso,3,'wizardBack()','<button class="btn btn-primary" onclick="cerrarWizard()">FINALIZAR ✅</button>')}`;
+  }
+  return wizWrap(`Wizard — Grid Trading · ${w.sym}`,paso,labels,body);
+}
+
+// ── HANDICAP ────────────────────────────────────────────────
+function renderWizardHandicap() {
+  const w=STATE.wizard, paso=w.paso, labels=['Resumen','Configurar','Instrucciones'];
+  const vbets=STATE.valueBets||[], fav=vbets.find(v=>v.odd<1.6);
+  let body='';
+  if (paso===1) {
+    body=`<div class="wiz-info-box">⚽ <strong>¿Qué es el Handicap Asiático?</strong><br><br>El Handicap Asiático elimina el empate dando ventaja o desventaja a los equipos. Permite apostar al favorito con mejor odd que el mercado 1X2 estándar. Con Handicap -0.5, si el favorito gana ganas. Con AH 0, si hay empate se devuelve la apuesta.</div>
+      ${fav?`<div class="wiz-snapshot" style="margin-top:16px">
+        <span class="wiz-snap-l">Partido:</span><span class="wiz-snap-v" style="font-size:16px">${fav.partido}</span>
+        <span class="wiz-snap-l">Pick detectado:</span><span class="wiz-snap-v">${fav.pick}</span>
+        <span class="wiz-snap-l">Odd actual:</span><span class="wiz-snap-v" style="color:var(--tertiary)">${fav.odd.toFixed(2)}</span>
+        <span class="wiz-snap-l">Edge calculado:</span><span class="wiz-snap-v pos">+${fav.edge.toFixed(1)}%</span>
+        <span class="wiz-snap-l">Fuente:</span><span class="wiz-snap-v" style="font-size:14px;color:var(--text-3)">The Odds API · ${ts()}</span>
+      </div>`:`<div class="wiz-warn-box" style="margin-top:14px">Sin favorito claro (odd < 1.60) en este momento. Carga la sección Deportes para actualizar.</div>`}
+      ${wizNav(paso,3,'wizardBack()',fav?'<button class="btn btn-primary" onclick="wizardNext()">CONFIGURAR →</button>':'<button class="btn btn-ghost" onclick="ir(\'sec-deportes\')">Ir a Deportes</button>')}`;
+  } else if (paso===2) {
+    if (!fav) { body=`<div class="wiz-warn-box">Sin datos. Regresa y carga la sección Deportes.</div>${wizNav(paso,3,'wizardBack()','<div></div>')}`; }
+    else {
+      const hcs=['-0.5','-1','-1.5','0 (AH)','+0.5','+1'], selHC=w.handicapSel;
+      const adjMult=selHC.startsWith('-')?-0.10:0.08;
+      const oddAdj=Math.max(1.01,fav.odd+adjMult);
+      const probReal=fav.probReal??0.5, ip=1/oddAdj;
+      const edge=(probReal-ip)*100;
+      const kelly=calcKelly(probReal,oddAdj,0.25);
+      const stake=Math.min(STATE.bankroll*kelly,STATE.bankroll*0.10);
+      const ganancia=stake*(oddAdj-1);
+      body=`
+        <div class="wiz-form-row"><span class="wiz-form-label">Partido:</span>
+          <div style="font-size:16px;font-weight:700;margin-top:4px">${fav.partido}</div></div>
+        <div class="wiz-form-row"><span class="wiz-form-label">Handicap a aplicar:</span>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${hcs.map(h=>`<button class="wiz-lev-btn${selHC===h?' active':''}" onclick="wizSetHandicap('${h}')">${h}</button>`).join('')}</div></div>
+        <div class="wiz-form-row"><span class="wiz-form-label">Capital ($):</span>
+          <input id="wiz-cap-input" type="number" class="input" style="max-width:220px;margin-top:6px" value="${w.capital.toFixed(2)}" min="1"></div>
+        <div class="wiz-output" style="margin-top:10px"><div class="wiz-output-title">Análisis en tiempo real</div>
+          <div class="wiz-output-grid">
+            <span class="wiz-out-l">Odd con handicap:</span><span class="wiz-out-v pos">${oddAdj.toFixed(2)}</span>
+            <span class="wiz-out-l">Probabilidad real est.:</span><span class="wiz-out-v">${(probReal*100).toFixed(0)}%</span>
+            <span class="wiz-out-l">Edge calculado:</span><span class="wiz-out-v ${edge>0?'pos':'neg'}">${edge>0?'+':''}${edge.toFixed(1)}%</span>
+            <span class="wiz-out-l">Kelly → Apostar:</span><span class="wiz-out-v">${(kelly*100).toFixed(1)}% → ${fmtUSD(stake)}</span>
+            <span class="wiz-out-l">Ganancia si gana:</span><span class="wiz-out-v pos">+${fmtUSD(ganancia)}</span>
+            ${selHC==='0 (AH)'?`<span class="wiz-out-l">Si empate:</span><span class="wiz-out-v" style="color:var(--warning)">Devuelto ${fmtUSD(w.capital)}</span>`:''}
+          </div>
+        </div>
+        ${edge<0?`<div class="wiz-warn-box" style="margin-top:10px">⚠️ Edge negativo con este handicap. Prueba un nivel diferente.</div>`:''}
+        ${wizNav(paso,3,'wizardBack()',edge>0?'<button class="btn btn-primary" onclick="wizardNext()">CONTINUAR →</button>':'<button class="btn btn-ghost" style="color:var(--text-3);cursor:not-allowed" disabled>Sin valor positivo</button>')}`;
+    }
+  } else {
+    body=`<div class="wiz-section-title">Instrucciones — Handicap Asiático</div>
+      <div class="wiz-instruc">
+        <div class="wiz-instruc-step">1. Abre tu casa de apuestas (Bet365, Codere, Betway, etc.) en otra pestaña</div>
+        <div class="wiz-instruc-step">2. Busca el partido: <strong>${fav?.partido||'Partido seleccionado'}</strong></div>
+        <div class="wiz-instruc-step">3. En el menú del partido, selecciona <strong>"Handicap Asiático"</strong></div>
+        <div class="wiz-instruc-step">4. Elige el nivel: <strong>${w.handicapSel}</strong> para el equipo favorito</div>
+        <div class="wiz-instruc-step">5. Verifica que la odd disponible sea ≥ <strong style="color:var(--tertiary);font-family:var(--f-mono)">${fav?(fav.odd+0.08).toFixed(2):'N/D'}</strong></div>
+        <div class="wiz-instruc-step">6. Si la odd es menor → <strong style="color:var(--error)">NO apostar</strong> (el valor desaparece)</div>
+        <div class="wiz-instruc-step">7. Apuesta: <strong style="color:var(--tertiary);font-family:var(--f-mono)">${fmtUSD(w.capital)}</strong></div>
+      </div>
+      <div class="card-source" style="margin-top:12px">Odds de referencia: The Odds API · ${ts()}</div>
+      ${wizNav(paso,3,'wizardBack()','<button class="btn btn-primary" onclick="cerrarWizard()">FINALIZAR ✅</button>')}`;
+  }
+  return wizWrap('Wizard — Handicap Asiático',paso,labels,body);
+}
+
+// ── ACUMULADOR ──────────────────────────────────────────────
+function renderWizardAcumulador() {
+  const w=STATE.wizard, paso=w.paso, labels=['Resumen','Picks','Instrucciones'];
+  const vbets=STATE.valueBets||[], sel=w.picks;
+  let body='';
+  if (paso===1) {
+    body=`<div class="wiz-info-box">🎯 <strong>¿Qué es un Acumulador?</strong><br><br>Un acumulador combina múltiples apuestas en una sola. La ganancia se multiplica, pero todas las selecciones deben ganar. Solo recomendado cuando hay múltiples value bets con edge positivo en el mismo día.</div>
+      <div class="wiz-snapshot" style="margin-top:16px">
+        <span class="wiz-snap-l">Value bets disponibles:</span><span class="wiz-snap-v">${vbets.length}</span>
+        <span class="wiz-snap-l">Edge promedio:</span><span class="wiz-snap-v pos">${vbets.length?'+'+( vbets.reduce((s,v)=>s+v.edge,0)/vbets.length).toFixed(1)+'%':'N/D'}</span>
+        <span class="wiz-snap-l">Fuente:</span><span class="wiz-snap-v" style="font-size:14px;color:var(--text-3)">The Odds API · ${ts()}</span>
+      </div>
+      ${vbets.length<2?`<div class="wiz-warn-box" style="margin-top:14px">Se necesitan al menos 2 value bets. Carga la sección Deportes primero.</div>`:''}
+      ${wizNav(paso,3,'wizardBack()',vbets.length>=2?'<button class="btn btn-primary" onclick="wizardNext()">SELECCIONAR PICKS →</button>':'<button class="btn btn-ghost" onclick="ir(\'sec-deportes\')">Ir a Deportes</button>')}`;
+  } else if (paso===2) {
+    const oddC=sel.reduce((p,i)=>p*(vbets[i]?.odd||1),1);
+    const probC=sel.reduce((p,i)=>p*(vbets[i]?.probReal||0.5),1);
+    const edgeC=sel.length?(probC*oddC-1)*100:0;
+    const recCap=(STATE.bankroll*0.02).toFixed(2);
+    body=`<div style="font-size:16px;color:var(--text-2);margin-bottom:14px">Selecciona entre 2 y 4 picks (máximo 4):</div>
+      ${vbets.slice(0,8).map((vb,i)=>`<div class="pick-sel-row${sel.includes(i)?' selected':''}" onclick="wizTogglePick(${i})">
+        <div class="pick-sel-check">${sel.includes(i)?'✓':''}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:16px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${vb.partido}</div>
+          <div style="font-size:14px;color:var(--text-3)">${vb.pick} · Odd: ${vb.odd.toFixed(2)} · Edge: +${vb.edge.toFixed(1)}%</div>
+        </div>
+      </div>`).join('')}
+      <div class="wiz-form-row" style="margin-top:16px"><span class="wiz-form-label">Capital ($):</span>
+        <input id="wiz-cap-input" type="number" class="input" style="max-width:220px;margin-top:6px" value="${w.capital.toFixed(2)}" min="1">
+        <span class="wiz-form-hint">Recomendado: $${recCap} (2% bankroll — acumulador es de alto riesgo)</span></div>
+      ${sel.length>=2?`<div class="wiz-output" style="margin-top:10px"><div class="wiz-output-title">Análisis del acumulador (${sel.length} picks)</div>
+        <div class="wiz-output-grid">
+          <span class="wiz-out-l">Odd combinada:</span><span class="wiz-out-v">${oddC.toFixed(2)}</span>
+          <span class="wiz-out-l">Probabilidad combinada:</span><span class="wiz-out-v">${(probC*100).toFixed(1)}%</span>
+          <span class="wiz-out-l">Edge combinado:</span><span class="wiz-out-v ${edgeC>0?'pos':'neg'}">${edgeC>0?'+':''}${edgeC.toFixed(1)}%</span>
+          <span class="wiz-out-l">Ganancia potencial:</span><span class="wiz-out-v pos">+${fmtUSD(w.capital*(oddC-1))}</span>
+        </div>
+        ${edgeC<0?`<div class="wiz-warn-box" style="margin-top:10px">⚠️ Edge combinado negativo — este acumulador no tiene valor matemático. Cambia los picks.</div>`:''}
+      </div>`:''}
+      ${wizNav(paso,3,'wizardBack()',sel.length>=2&&edgeC>0?'<button class="btn btn-primary" onclick="wizardNext()">CONTINUAR →</button>':'<button class="btn btn-ghost" style="color:var(--text-3);cursor:not-allowed" disabled>Selecciona 2+ picks con edge positivo</button>')}`;
+  } else {
+    const oddC=sel.reduce((p,i)=>p*(vbets[i]?.odd||1),1);
+    body=`<div class="wiz-section-title">Instrucciones — Acumulador</div>
+      <div class="wiz-instruc"><div class="wiz-instruc-step">1. Abre tu casa de apuestas en otra pestaña</div>
+        <div class="wiz-instruc-step">2. Añade las siguientes selecciones al boleto:</div></div>
+      <div style="margin:14px 0">${sel.map((i,n)=>{const vb=vbets[i];return vb?`<div style="padding:10px 0;border-bottom:1px solid var(--border)"><div style="font-size:16px;font-weight:700">${n+1}. ${vb.partido}</div><div style="font-size:15px;color:var(--text-3)">${vb.pick} · Odd: <strong style="color:var(--tertiary);font-family:var(--f-mono)">${vb.odd.toFixed(2)}</strong></div></div>`:''}).join('')}</div>
+      <div class="wiz-instruc">
+        <div class="wiz-instruc-step">3. Verifica la odd total en el boleto: <strong style="color:var(--tertiary);font-family:var(--f-mono)">${oddC.toFixed(2)}</strong></div>
+        <div class="wiz-instruc-step">4. Si la odd total es menor → las casas cambiaron — <strong style="color:var(--error)">NO apostar hasta recalcular</strong></div>
+        <div class="wiz-instruc-step">5. Apuesta: <strong style="color:var(--tertiary);font-family:var(--f-mono)">${fmtUSD(w.capital)}</strong></div>
+      </div>
+      <div class="card-source" style="margin-top:12px">Odds de referencia: The Odds API · ${ts()}</div>
+      ${wizNav(paso,3,'wizardBack()','<button class="btn btn-primary" onclick="cerrarWizard()">FINALIZAR ✅</button>')}`;
+  }
+  return wizWrap('Wizard — Acumulador',paso,labels,body);
+}
+
+// ── LIVE BETTING ────────────────────────────────────────────
+function renderWizardLive() {
+  const w=STATE.wizard, paso=w.paso, labels=['Resumen','Metodología'];
+  const body=paso===1?
+    `<div class="wiz-info-box">⚡ <strong>¿Qué es Live Betting?</strong><br><br>Las apuestas en vivo permiten apostar durante el partido. Las odds cambian constantemente según el marcador, minuto y momentum del juego. La clave es identificar cambios de momentum y actuar rápido antes que la odd cambie.</div>
+    <div class="wiz-warn-box" style="margin-top:14px">ℹ️ El motor en vivo requiere datos de partidos en curso en tiempo real. La integración con The Odds API In-Play necesita plan premium. Esta guía explica la metodología completa.</div>
+    ${wizNav(paso,2,'wizardBack()','<button class="btn btn-primary" onclick="wizardNext()">VER METODOLOGÍA →</button>')}`:
+    `<div class="wiz-section-title">Metodología Live Betting</div>
+    <div class="wiz-instruc">
+      <div class="wiz-instruc-step">1. <strong>Identifica el momentum</strong>: Equipo dominante en los últimos 15 minutos (posesión, tiros a puerta)</div>
+      <div class="wiz-instruc-step">2. <strong>Compara odd en vivo vs valor justo</strong>: Si odd_vivo > 1/prob_real, hay valor</div>
+      <div class="wiz-instruc-step">3. <strong>Actúa rápido</strong>: Las odds in-play cambian en segundos tras cada evento del partido</div>
+      <div class="wiz-instruc-step">4. <strong>Mercados recomendados</strong>: Próximo gol, Más/Menos goles, Resultado final</div>
+      <div class="wiz-instruc-step">5. <strong>Límite de capital</strong>: Máximo 2% bankroll por apuesta in-play</div>
+      <div class="wiz-instruc-step">6. <strong>Regla de salida</strong>: Si la odd cae antes de confirmar → NO apostar</div>
+      <div class="wiz-instruc-step">7. <strong>Cash Out</strong>: Si estás ganando a los 80 min, considera hacer Cash Out</div>
+    </div>
+    <div class="wiz-info-box" style="margin-top:14px">Para habilitar datos in-play automáticos, actualiza The Odds API a un plan que incluya in-play markets. La plataforma se actualizará automáticamente.</div>
+    ${wizNav(paso,2,'wizardBack()','<button class="btn btn-primary" onclick="cerrarWizard()">ENTENDIDO ✅</button>')}`;
+  return wizWrap('Wizard — Live Betting (En Vivo)',paso,labels,body);
 }
 
 // ─── SECCIÓN DEPORTES (The Odds API) ────────────────────────
