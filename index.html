@@ -1731,6 +1731,10 @@ async function generarSenalCrypto(sym) {
   confianza = Math.min(95, confianza);
 
   STATE.senales[sym] = { sym, señal, rsi, confianza, ts: ts(), fuente: 'Binance/RSI' };
+  STATE.senalesCripto[sym] = {
+    sym, score: Math.min(100, Math.round(confianza)), señal, rsi,
+    direction: señal==='COMPRAR'?'long':señal==='VENDER'?'short':'neutral', ts: ts()
+  };
   return STATE.senales[sym];
 }
 
@@ -4356,16 +4360,17 @@ function generarSugerencias(capital, gananciaMin, gananciaMax, tipo) {
   // 1. Value bets de deportes
   const valueBets=STATE.valueBets||[];
   valueBets.forEach(vb=>{
+    if (vb.edge<=0) return;
     const ganancia=capital*(vb.odd-1);
-    if (ganancia>=gananciaMin && ganancia<=gananciaMax && vb.edge>0) {
-      sugerencias.push({
-        tipo:'APUESTA',
-        descripcion:`${vb.partido} — ${vb.mercado}: ${vb.pick}`,
-        apostar:capital, ganancia, odd:vb.odd, edge:vb.edge,
-        prob:vb.probReal, kelly:vb.kelly,
-        razon:`Edge +${vb.edge.toFixed(1)}% sobre la casa. Probabilidad real ${vb.probReal.toFixed(0)}% vs ${(100/vb.odd).toFixed(0)}% implícita.`,
-      });
-    }
+    const enRango=ganancia>=gananciaMin && ganancia<=gananciaMax;
+    sugerencias.push({
+      tipo:'APUESTA',
+      descripcion:`${vb.partido} — ${vb.mercado}: ${vb.pick}`,
+      apostar:capital, ganancia, odd:vb.odd, edge:vb.edge,
+      prob:vb.probReal, kelly:vb.kelly,
+      nota:enRango?null:'Ajusta tu capital para este bet',
+      razon:`Edge +${vb.edge.toFixed(1)}% sobre la casa. Probabilidad real ${vb.probReal.toFixed(0)}% vs ${(100/vb.odd).toFixed(0)}% implícita.`,
+    });
   });
 
   // 2. Señales crypto
@@ -4445,6 +4450,7 @@ function renderMentorPaso2() {
       <div class="mentor-card">
         <span class="mentor-card-tag ${tagClass}">${tagTxt}</span>
         <div class="mentor-card-desc">${s.descripcion}</div>
+        ${s.nota?`<div class="wiz-info-box" style="font-size:13px;padding:8px 12px;margin:0">💡 ${s.nota}</div>`:''}
         <div class="mentor-card-nums">
           <div><span class="mentor-card-num-lbl">APOSTAR</span><br><span class="mentor-card-num-val">$${s.apostar.toFixed(2)}</span></div>
           <div><span class="mentor-card-num-lbl">SI GANA</span><br><span class="mentor-card-num-val" style="color:var(--tertiary)">+$${s.ganancia.toFixed(2)} ✅</span></div>
