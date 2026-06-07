@@ -812,6 +812,8 @@ body {
   transition: transform .15s, box-shadow .15s;
 }
 .mentor-fab:hover { transform: translateY(-2px); box-shadow: 0 6px 26px rgba(78,222,163,0.55); }
+.mentor-fab.loading { opacity: 0.5; cursor: not-allowed; }
+.mentor-fab.loading:hover { transform: none; box-shadow: 0 4px 20px rgba(78,222,163,0.4); }
 .mentor-fab.pulse { animation: mentorPulse 2s ease-in-out infinite; }
 @keyframes mentorPulse {
   0%, 100% { box-shadow: 0 4px 20px rgba(78,222,163,0.4); }
@@ -1421,6 +1423,7 @@ body {
 <div class="mentor-overlay" id="mentor-overlay" onclick="cerrarMentor()"></div>
 <button class="mentor-fab" id="mentor-fab" onclick="toggleMentor()">
   <span id="mentor-fab-txt">🎯 Mentor</span>
+  <span id="mentor-status" style="position:absolute;bottom:-18px;right:0;font-size:11px;color:var(--text-3);white-space:nowrap;font-family:var(--f-mono)"></span>
 </button>
 <div class="mentor-panel" id="mentor-panel">
   <div class="mentor-hdr">
@@ -3143,6 +3146,7 @@ async function cargarDeportes() {
   }
 
   setText('dep-sub', `${valueBets.length} value bets · ${games.length} partidos · The Odds API · ${ahora}`);
+  mentorActualizarEstado();
 }
 
 // ─── ACCIONES VALUE BET ──────────────────────────────────────
@@ -3539,6 +3543,9 @@ async function init() {
   // Iniciar reloj
   iniciarReloj();
 
+  // Mentor button: set loading initially
+  mentorActualizarEstado('loading');
+
   // Llenar bankroll en calculadoras
   ['k-bk','vb-bk'].forEach(id => {
     const el = qs(id);
@@ -3559,8 +3566,8 @@ async function init() {
     .then(() => renderPanel());
 
   // Cargar odds para mentor (en bg, falla silenciosamente)
-  cargarDeportes().catch(() => {});
-  setTimeout(() => cargarDeportes().catch(() => {}), 3000);
+  cargarDeportes().catch(() => mentorActualizarEstado());
+  setTimeout(() => cargarDeportes().catch(() => mentorActualizarEstado()), 3000);
 
   // Refresh periódico
   setInterval(async () => {
@@ -4739,7 +4746,11 @@ function mentorIgnorarProfundo(idx) {
 // MENTOR DE PRONÓSTICOS
 // ════════════════════════════════════════════════════════════
 
-function toggleMentor() { STATE.mentor.abierto ? cerrarMentor() : abrirMentor(); }
+function toggleMentor() {
+  const fab = qs('mentor-fab');
+  if (fab && fab.classList.contains('loading')) return;
+  STATE.mentor.abierto ? cerrarMentor() : abrirMentor();
+}
 
 function abrirMentor() {
   STATE.mentor.abierto=true;
@@ -5081,6 +5092,28 @@ function mentorAddCupon(idx) {
 function mentorIgnorar(idx) {
   STATE.mentor.sugerencias.splice(idx,1);
   renderMentor();
+}
+
+function mentorActualizarEstado(estado) {
+  const fab = qs('mentor-fab');
+  const txt = qs('mentor-fab-txt');
+  const st  = qs('mentor-status');
+  if (!fab || !txt) return;
+  if (estado === 'loading' || (!estado && !STATE.valueBets?.length)) {
+    fab.classList.add('loading');
+    txt.textContent = '⏳ Preparando...';
+    if (st) st.textContent = 'Preparando datos...';
+  } else {
+    fab.classList.remove('loading');
+    const n = STATE.an.cupon?.length || 0;
+    txt.textContent = n > 0 ? '🎯 Mentor (' + n + ')' : '🎯 Mentor';
+    if (st) st.textContent = '✅ Listo';
+    if (!STATE.valueBets?.length) {
+      fab.classList.remove('loading');
+      txt.textContent = '🎯 Mentor';
+      if (st) st.textContent = '';
+    }
+  }
 }
 
 function actualizarBadgeMentor() {
