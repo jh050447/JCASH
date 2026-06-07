@@ -470,20 +470,37 @@ body {
   margin-bottom: 12px;
   scrollbar-width: thin;
 }
-.chat-msg {
-  padding: 12px 16px;
-  border-radius: var(--radius);
-  max-width: 85%;
-  font-size: 15px;
-  line-height: 1.6;
-}
-.chat-msg.user { background: var(--tert-dim); color: var(--text); align-self: flex-end; border: 1px solid var(--tert-mid); }
-.chat-msg.ia { background: var(--surface-3); color: var(--text); align-self: flex-start; border: 1px solid var(--border); }
-.chat-msg-label { font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; margin-bottom: 4px; color: var(--text-3); }
-.chat-input-row { display: flex; gap: 10px; }
-.chat-input-row .input { flex: 1; }
 
-/* ── EMERGENCIA ─────────────────────────────────────────── */
+/* ── IA ASESORES v3 ────────────────────────────────────── */
+.ia-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 16px; }
+.ia-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; cursor: pointer; transition: all .15s ease; position: relative; overflow: hidden; }
+.ia-card:hover { border-color: var(--tertiary); transform: translateY(-2px); box-shadow: 0 4px 20px rgba(78,222,163,0.15); }
+.ia-card-icon { font-size: 36px; margin-bottom: 8px; }
+.ia-card-nombre { font-size: 18px; font-weight: 800; color: var(--text); }
+.ia-card-especialidad { font-size: 13px; font-weight: 600; color: var(--tertiary); margin: 2px 0 6px; }
+.ia-card-desc { font-size: 13px; color: var(--text-3); line-height: 1.5; }
+.ia-card-btn { margin-top: 12px; display: inline-block; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 700; border: none; cursor: pointer; color: #fff; transition: opacity .12s; }
+.ia-card-btn:hover { opacity: .85; }
+.ia-panel { display: none; flex-direction: column; height: 520px; border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; background: var(--surface); }
+.ia-panel.open { display: flex; }
+.ia-panel-hdr { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.ia-panel-hdr-icon { font-size: 28px; }
+.ia-panel-hdr-info { flex: 1; }
+.ia-panel-hdr-nombre { font-size: 16px; font-weight: 700; }
+.ia-panel-hdr-especialidad { font-size: 13px; color: var(--text-3); }
+.ia-panel-close { background: transparent; border: none; color: var(--text-3); font-size: 22px; cursor: pointer; padding: 4px; line-height: 1; }
+.ia-panel-close:hover { color: var(--text); }
+.ia-quick-btns { display: flex; gap: 8px; padding: 12px 20px; overflow-x: auto; flex-shrink: 0; border-bottom: 1px solid var(--border); }
+.ia-quick-btn { flex-shrink: 0; padding: 8px 14px; border-radius: 20px; background: var(--surface-3); border: 1px solid rgba(78,222,163,0.2); color: var(--text-2); font-size: 13px; cursor: pointer; transition: all .12s; white-space: nowrap; }
+.ia-quick-btn:hover { background: rgba(78,222,163,0.15); color: var(--tertiary); border-color: var(--tertiary); }
+.ia-chat-wrap { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; }
+.ia-ctx-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; background: var(--surface-3); font-size: 12px; color: var(--text-3); margin-bottom: 12px; flex-shrink: 0; }
+.ia-input-row { display: flex; gap: 10px; padding: 12px 20px; border-top: 1px solid var(--border); flex-shrink: 0; }
+.ia-input-row .input { flex: 1; }
+.ia-clear-btn { font-size: 12px; color: var(--text-3); background: transparent; border: none; cursor: pointer; padding: 4px 8px; text-decoration: underline; }
+.ia-clear-btn:hover { color: var(--error); }
+@media (max-width: 700px) { .ia-grid { grid-template-columns: 1fr; } }
+
 .emergencia-banner {
   background: var(--err-dim);
   border: 1px solid rgba(255,180,171,0.3);
@@ -1258,41 +1275,11 @@ body {
       <section class="seccion" id="sec-ia">
         <div class="sec-header">
           <div>
-            <div class="sec-title">IA Asesores</div>
-            <div class="sec-sub">Consulta análisis y estrategias con IA</div>
+            <div class="sec-title">IA Asesores Profesionales</div>
+            <div class="sec-sub">Asesores con contexto completo de tu bankroll, historial, mercado crypto y value bets</div>
           </div>
         </div>
-
-        <!-- Selección de asesor -->
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
-          <button class="btn btn-primary" onclick="selAsesor('MASTER','🧠','Estrategia general',this)">🧠 MASTER</button>
-          <button class="btn btn-ghost" onclick="selAsesor('CRIPTO','₿','Crypto y trading',this)">₿ CRIPTO</button>
-          <button class="btn btn-ghost" onclick="selAsesor('FÚTBOL','⚽','Apuestas fútbol',this)">⚽ FÚTBOL</button>
-          <button class="btn btn-ghost" onclick="selAsesor('TENIS','🎾','Apuestas tenis',this)">🎾 TENIS</button>
-        </div>
-
-        <div class="card">
-          <div id="ia-asesor-info" style="display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)">
-            <span style="font-size:28px" id="ia-av">🧠</span>
-            <div>
-              <div style="font-weight:700;font-size:16px" id="ia-nombre">JCAHS-MASTER</div>
-              <div style="font-size:13px;color:var(--text-3)" id="ia-sub">Estrategia general de cashflow</div>
-            </div>
-          </div>
-          <div class="chat-wrap" id="ia-chat">
-            <div class="chat-msg ia">
-              <div class="chat-msg-label">JCAHS-MASTER</div>
-              Hola. Soy tu asesor financiero JCAHS. Pregúntame sobre estrategias crypto, value bets, gestión de capital o análisis de operaciones.
-            </div>
-          </div>
-          <div class="chat-input-row">
-            <input class="input" id="ia-input" placeholder="Escribe tu consulta..." onkeydown="if(event.key==='Enter')enviarIA()">
-            <button class="btn btn-primary" id="ia-send" onclick="enviarIA()">Enviar</button>
-          </div>
-          <div style="font-size:11px;color:var(--text-3);margin-top:8px;font-family:var(--f-mono)">
-            Nota: Las respuestas son orientativas. Verifica siempre con datos reales antes de operar.
-          </div>
-        </div>
+        <div id="ia-content"></div>
       </section>
 
       <!-- ══════════════════════════════════════════════════ -->
@@ -1495,12 +1482,7 @@ const STATE = {
   secActiva: localStorage.getItem('jcahs_sec')      || 'sec-panel',
   ops:       JSON.parse(localStorage.getItem('jcahs_ops') || '[]'),
   iaAsesor:  'MASTER',
-  iaPrompts: {
-    MASTER:  'Eres JCAHS-MASTER, asesor financiero experto en crypto y apuestas deportivas para Ecuador. Das estrategias de cashflow concretas con números reales. Siempre en español. Sin datos inventados.',
-    CRIPTO:  'Eres JCAHS-CRIPTO, especialista en Bitcoin, Ethereum y altcoins. Analizas RSI, MACD, funding rates y scalping. Das fichas concretas con entrada, stop-loss y take profit. Siempre en español.',
-    FÚTBOL:  'Eres JCAHS-FÚTBOL, especialista en apuestas de fútbol. Analizas mercados, odds y value bets. Das picks con justificación matemática. Siempre en español.',
-    TENIS:   'Eres JCAHS-TENIS, especialista en apuestas de tenis. Analizas H2H, superficie y forma reciente. Das análisis técnicos de valor real. Siempre en español.',
-  },
+  iaChats:   JSON.parse(localStorage.getItem('jcahs_ia_chats') || '{}'),
 };
 
 // ─── HELPERS ────────────────────────────────────────────────
@@ -1566,6 +1548,7 @@ function ir(secId) {
   if (secId === 'sec-historial')   renderHistorial();
   if (secId === 'sec-noticias')    cargarNoticias();
   if (secId === 'sec-emergencia')  renderEmergencia();
+  if (secId === 'sec-ia')          renderIA();
 
   // Scroll al inicio
   const sc = qs('spa-content');
@@ -3471,86 +3454,336 @@ function guardarOp() {
 }
 
 // ─── IA ASESORES ─────────────────────────────────────────────
-function selAsesor(nombre, av, sub, btn) {
-  STATE.iaAsesor = nombre;
-  setText('ia-av',     av);
-  setText('ia-nombre', 'JCAHS-' + nombre);
-  setText('ia-sub',    sub);
-  document.querySelectorAll('#sec-ia .btn').forEach(b => {
-    b.className = b === btn ? 'btn btn-primary' : 'btn btn-ghost';
-  });
-  setHTML('ia-chat', `<div class="chat-msg ia"><div class="chat-msg-label">JCAHS-${nombre}</div>${av} Asesor ${nombre} activado. ${sub}. ¿Qué analizamos?</div>`);
+// ════════════════════════════════════════════════════════════
+// ASESORES IA v3 — CONTEXTO COMPLETO
+// ════════════════════════════════════════════════════════════
+
+const ASESORES = {
+  falcon: {
+    nombre: 'FALCON', emoji: '\u26BD', especialidad: 'Maestro de Apuestas Deportivas', color: '#4edea3',
+    descripcion: 'Especialista en value betting, Ecuabet, an\u00e1lisis de partidos y estrategias de apuestas deportivas.',
+    systemPrompt: function(ctx) {
+      return 'Eres FALCON, el asesor experto en apuestas deportivas de JCAHS. Eres directo, preciso y siempre basas tus recomendaciones en datos matem\u00e1ticos reales.\n\nESPECIALIDADES:\n- Value betting con edge positivo real\n- An\u00e1lisis de mercados Ecuabet\n- Gesti\u00f3n de acumuladores y sistemas\n- Live betting y timing\n- An\u00e1lisis hist\u00f3rico de apuestas del usuario\n\nCONTEXTO ACTUAL DEL SISTEMA:\n' + ctx + '\n\nINSTRUCCIONES:\n1. Siempre menciona el edge y Kelly cuando recomiendes una apuesta\n2. Usa los value bets disponibles como referencia\n3. Considera el historial del usuario para personalizar consejos\n4. Si el usuario pregunta por un partido, busca si hay value bet disponible para ese partido\n5. Nunca inventes odds o edges \u2014 usa solo los datos del contexto\n6. Responde en espa\u00f1ol, de forma clara y directa\n7. M\u00e1ximo 200 palabras por respuesta\n8. Si no hay suficientes datos, dilo claramente';
+    },
+    quickButtons: [
+      '\u00bfCu\u00e1l es el mejor value bet ahora mismo?',
+      '\u00bfDebo apostar en acumulador hoy?',
+      'Analiza mi historial de apuestas',
+      '\u00bfCu\u00e1nto debo apostar seg\u00fan mi bankroll?',
+      '\u00bfHay alg\u00fan partido interesante hoy?'
+    ]
+  },
+  satoshi: {
+    nombre: 'SATOSHI', emoji: '\u20BF', especialidad: 'Maestro de Crypto Trading', color: '#FF9500',
+    descripcion: 'Especialista en trading de criptomonedas, an\u00e1lisis t\u00e9cnico y estrategias de entrada y salida.',
+    systemPrompt: function(ctx) {
+      return 'Eres SATOSHI, el asesor experto en crypto trading de JCAHS. Eres anal\u00edtico, preciso y usas indicadores t\u00e9cnicos reales para tus recomendaciones.\n\nESPECIALIDADES:\n- An\u00e1lisis t\u00e9cnico: RSI, MACD, EMA, Bollinger\n- Estrategias: Spot, Futuros, DCA, Grid Trading\n- Gesti\u00f3n de riesgo en crypto\n- Timing de entrada y salida\n- An\u00e1lisis por exchange (Binance, Bybit, KuCoin, Kraken)\n\nCONTEXTO ACTUAL DEL SISTEMA:\n' + ctx + '\n\nINSTRUCCIONES:\n1. Siempre menciona RSI y tendencia al analizar\n2. Usa los precios y se\u00f1ales del contexto\n3. Incluye precio de entrada, stop loss y objetivo\n4. Considera el Fear & Greed para el contexto\n5. Nunca inventes precios o indicadores\n6. Responde en espa\u00f1ol, claro y directo\n7. M\u00e1ximo 200 palabras por respuesta\n8. Menciona el exchange m\u00e1s adecuado para cada estrategia con sus comisiones';
+    },
+    quickButtons: [
+      '\u00bfCu\u00e1l crypto tiene mejor se\u00f1al ahora?',
+      '\u00bfEs buen momento para comprar BTC?',
+      'Analiza ETH para swing trading',
+      '\u00bfDebo hacer DCA con la ca\u00edda actual?',
+      '\u00bfQu\u00e9 estrategia recomiendas hoy?'
+    ]
+  },
+  zeus: {
+    nombre: 'ZEUS', emoji: '\uD83D\uDEE1\uFE0F', especialidad: 'Maestro de Gesti\u00f3n de Capital', color: '#FF4444',
+    descripcion: 'Especialista en bankroll management, control de riesgo, disciplina operativa y anti-tilt.',
+    systemPrompt: function(ctx) {
+      return 'Eres ZEUS, el asesor experto en gesti\u00f3n de capital de JCAHS. Eres estricto, protector del capital y siempre priorizas la preservaci\u00f3n del bankroll sobre las ganancias a corto plazo.\n\nESPECIALIDADES:\n- Kelly Criterion y sizing de posiciones\n- Control de riesgo y stop loss diario\n- Detecci\u00f3n de tilt y racha negativa\n- Proyecciones de capital\n- Disciplina operativa\n\nCONTEXTO ACTUAL DEL SISTEMA:\n' + ctx + '\n\nINSTRUCCIONES:\n1. Siempre eval\u00faa el estado del bankroll primero\n2. Advierte si detectas se\u00f1ales de tilt\n3. Calcula el tama\u00f1o \u00f3ptimo de cada operaci\u00f3n\n4. Si el P&L del d\u00eda es negativo, s\u00e9 m\u00e1s conservador en tus recomendaciones\n5. Nunca recomiendes superar el Kelly calculado\n6. Responde en espa\u00f1ol, directo y protector\n7. M\u00e1ximo 200 palabras por respuesta\n8. Si la racha es negativa >= 3, recomienda parar';
+    },
+    quickButtons: [
+      '\u00bfDebo seguir operando hoy?',
+      '\u00bfCu\u00e1nto es lo m\u00e1ximo que debo arriesgar?',
+      'Eval\u00faa mi gesti\u00f3n de capital esta semana',
+      '\u00bfEstoy en zona de tilt?',
+      'Proyecta mi capital en 30 d\u00edas'
+    ]
+  }
+};
+
+function construirContextoCompleto() {
+  const ops = STATE.ops || [];
+  const hoy = new Date().toDateString();
+  const opsHoy = ops.filter(function(o) { return new Date(o.fecha).toDateString() === hoy; });
+  const pnlHoy = opsHoy.reduce(function(acc, o) { return acc + (o.pnl || 0); }, 0);
+  const pnlTotal = ops.reduce(function(acc, o) { return acc + (o.pnl || 0); }, 0);
+  const ganadas = ops.filter(function(o) { return o.resultado === 'gan\u00f3'; }).length;
+  const winRate = ops.length ? (ganadas / ops.length * 100).toFixed(1) : 0;
+  const ultimas5 = ops.slice(-5).map(function(o) {
+    return o.descripcion + ': ' + o.resultado + ' (' + (o.pnl >= 0 ? '+' : '') + '$' + (o.pnl || 0).toFixed(2) + ')';
+  }).join('\\n');
+  var racha = 0, tipoRacha = '';
+  for (var i = ops.length - 1; i >= 0; i--) {
+    if (i === ops.length - 1) { tipoRacha = ops[i].resultado; racha = 1; }
+    else if (ops[i].resultado === tipoRacha) { racha++; }
+    else break;
+  }
+  var wrApuestas = 'N/A', wrCrypto = 'N/A';
+  var apuestas = ops.filter(function(o) { return o.tipo === 'apuesta'; });
+  var cryptoOps = ops.filter(function(o) { return o.tipo === 'crypto'; });
+  if (apuestas.length) wrApuestas = (apuestas.filter(function(o) { return o.resultado === 'gan\u00f3'; }).length / apuestas.length * 100).toFixed(1);
+  if (cryptoOps.length) wrCrypto = (cryptoOps.filter(function(o) { return o.resultado === 'gan\u00f3'; }).length / cryptoOps.length * 100).toFixed(1);
+
+  var precios = STATE.precios || {};
+  var senales = STATE.senalesCripto || {};
+  var fg = STATE.fng?.valor || 'N/A';
+  var fgLabel = STATE.fng?.label || '';
+
+  var cryptoCtx = ['BTC','ETH','SOL','XRP'].map(function(s) {
+    var p = precios[s], sig = senales[s];
+    if (!p) return s + ': Sin datos';
+    return s + ': $' + (p.precio || 0).toLocaleString() + ' (' + (p.cambio24h >= 0 ? '+' : '') + (p.cambio24h || 0).toFixed(2) + '%)' + ' RSI:' + (sig?.rsi?.toFixed(1) || 'N/A') + ' Se\u00f1al:' + (sig?.se\u00f1al || 'N/A') + ' Confianza:' + (sig?.score || 'N/A') + '/100';
+  }).join('\\n');
+
+  var vb = STATE.valueBets || [];
+  var top3vb = vb.slice(0, 3).map(function(b) {
+    return b.partido + ' \u2014 ' + b.mercado + ': ' + b.pick + ' Odd:' + b.odd + ' Edge:+' + (b.edge || 0).toFixed(1) + '% Kelly:' + (b.kelly || 0).toFixed(1) + '% Apostar:$' + (b.stake || 0).toFixed(2);
+  }).join('\\n');
+
+  return '=== CONTEXTO COMPLETO JCAHS ===\\nFecha y hora: ' + new Date().toLocaleString('es-EC') + '\\n\\n--- PERFIL DEL USUARIO ---\\nBankroll actual: $' + STATE.bankroll + '\\nP&L hoy: ' + (pnlHoy >= 0 ? '+' : '') + '$' + pnlHoy.toFixed(2) + '\\nP&L total: ' + (pnlTotal >= 0 ? '+' : '') + '$' + pnlTotal.toFixed(2) + '\\nWin rate global: ' + winRate + '%\\nWin rate apuestas: ' + wrApuestas + '%\\nWin rate crypto: ' + wrCrypto + '%\\nTotal operaciones: ' + ops.length + '\\nRacha actual: ' + racha + ' ' + (tipoRacha || 'sin operaciones') + '\\n\u00daltimas 5 operaciones:\\n' + (ultimas5 || 'Sin operaciones registradas') + '\\n\\n--- MERCADO CRYPTO (tiempo real) ---\\n\u00cdndice Miedo/Codicia: ' + fg + ' (' + fgLabel + ')\\n' + cryptoCtx + '\\n\\n--- VALUE BETS DISPONIBLES AHORA ---\\nTotal detectados: ' + vb.length + '\\nTop 3 mejores:\\n' + (top3vb || 'Sin value bets disponibles') + '\\n\\n--- REGLAS DEL USUARIO ---\\n- Opera principalmente en Ecuabet Ecuador\\n- Solo f\u00fatbol para apuestas deportivas\\n- Exchanges crypto: Binance, Bybit, KuCoin, Kraken\\n- Objetivo diario: $20-50\\n- Kelly conservador: 25% del Kelly completo\\n- Stop loss diario: -20% del bankroll\\n- Pol\u00edtica sagrada: solo datos reales';
 }
 
-async function enviarIA() {
-  const input = qs('ia-input');
-  const msg   = input?.value?.trim();
-  if (!msg) return;
-  input.value = '';
-
-  const chat  = qs('ia-chat');
-  const send  = qs('ia-send');
-  if (chat) {
-    chat.innerHTML += `<div class="chat-msg user"><div class="chat-msg-label">TÚ</div>${msg}</div>`;
-    chat.scrollTop = chat.scrollHeight;
+function renderIA() {
+  var html = '<div class="ia-grid">';
+  for (var key in ASESORES) {
+    var a = ASESORES[key];
+    html += '<div class="ia-card" onclick="abrirAsesor(\'' + key + '\')">' +
+      '<div class="ia-card-icon">' + a.emoji + '</div>' +
+      '<div class="ia-card-nombre">' + a.nombre + '</div>' +
+      '<div class="ia-card-especialidad" style="color:' + a.color + '">' + a.especialidad + '</div>' +
+      '<div class="ia-card-desc">' + a.descripcion + '</div>' +
+      '<button class="ia-card-btn" style="background:' + a.color + '">CONSULTAR \u2192</button></div>';
   }
-  if (send) send.disabled = true;
+  html += '</div><div id="ia-panel-container"></div>';
+  setHTML('ia-content', html);
+}
 
-  // Contexto de mercado actual para la IA
-  const ctx = buildContexto();
+function abrirAsesor(id) {
+  STATE.iaAsesor = id;
+  var a = ASESORES[id];
+  if (!a) return;
+  if (!STATE.iaChats) STATE.iaChats = {};
+  if (!STATE.iaChats[id]) STATE.iaChats[id] = [];
 
-  try {
-    const body = {
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 800,
-      system: STATE.iaPrompts[STATE.iaAsesor] + '\n\nContexto actual de mercado:\n' + ctx,
-      messages: [{ role: 'user', content: msg }],
-    };
-    const r = await fetchSeguro('https://api.anthropic.com/v1/messages', 15000);
-    // La llamada directa a la API de Anthropic requiere clave — mostrar mensaje informativo
-    throw new Error('api_key');
-  } catch (e) {
-    // Sin API key configurada — respuesta orientativa local
-    const resp = generarRespuestaLocal(msg, STATE.iaAsesor);
-    if (chat) {
-      chat.innerHTML += `<div class="chat-msg ia"><div class="chat-msg-label">JCAHS-${STATE.iaAsesor}</div>${resp}</div>`;
-      chat.scrollTop = chat.scrollHeight;
+  var ctx = construirContextoCompleto();
+  var vbCount = (STATE.valueBets || []).length;
+  var bankStr = '$' + STATE.bankroll;
+  var fgStr = STATE.fng?.valor || 'N/A';
+  var ahora = new Date().toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });
+  var ctxBadge = '\uD83D\uDCCA Contexto: Bankroll ' + bankStr + ' \u00B7 ' + vbCount + ' value bets \u00B7 Fear&Greed ' + fgStr + ' \u00B7 Actualizado ' + ahora;
+
+  var quickHtml = a.quickButtons.map(function(q) {
+    return '<button class="ia-quick-btn" onclick="consultarAsesor(\'' + id + '\',\'' + q.replace(/'/g, "\\'") + '\')">' + q + '</button>';
+  }).join('');
+
+  var chatHtml = '';
+  var msgs = STATE.iaChats[id] || [];
+  for (var i = 0; i < msgs.length; i++) {
+    chatHtml += '<div style="display:flex;justify-content:' + (msgs[i].role === 'user' ? 'flex-end' : 'flex-start') + ';margin-bottom:10px">' +
+      '<div style="max-width:80%;padding:10px 14px;border-radius:' + (msgs[i].role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px') + ';background:' + (msgs[i].role === 'user' ? 'rgba(78,222,163,0.12)' : 'var(--surface-3)') + ';font-size:15px;line-height:1.6;color:var(--text);border:1px solid ' + (msgs[i].role === 'user' ? 'rgba(78,222,163,0.25)' : 'rgba(144,144,151,0.08)') + '">' + escHtml(msgs[i].content) + '</div></div>';
+  }
+
+  var showQuick = msgs.length === 0 ? 'style="display:flex"' : 'style="display:none"';
+
+  var panelHtml =
+    '<div class="ia-panel open">' +
+      '<div class="ia-panel-hdr">' +
+        '<span class="ia-panel-hdr-icon">' + a.emoji + '</span>' +
+        '<div class="ia-panel-hdr-info">' +
+          '<div class="ia-panel-hdr-nombre" style="color:' + a.color + '">' + a.nombre + ' \u2014 ' + a.especialidad + '</div>' +
+        '</div>' +
+        '<button class="ia-panel-close" onclick="cerrarAsesor()">\u2715</button>' +
+      '</div>' +
+      '<div class="ia-ctx-badge" style="margin:0 20px;padding:8px 14px;border-bottom:1px solid var(--border);border-radius:0">' + ctxBadge + '</div>' +
+      '<div class="ia-quick-btns" id="ia-quick-' + id + '" ' + showQuick + '>' + quickHtml + '</div>' +
+      '<div class="ia-chat-wrap" id="ia-chat-' + id + '">' + chatHtml + '</div>' +
+      '<div class="ia-input-row">' +
+        '<input class="input" id="ia-input-' + id + '" placeholder="Escribe tu pregunta a ' + a.nombre + '..." onkeydown="if(event.key===\'Enter\')consultarAsesor(\'' + id + '\')">' +
+        '<button class="btn btn-primary" onclick="consultarAsesor(\'' + id + '\')" style="flex-shrink:0">Enviar</button>' +
+        '<button class="ia-clear-btn" onclick="limpiarChat(\'' + id + '\')">Limpiar</button>' +
+      '</div>' +
+    '</div>';
+
+  setHTML('ia-panel-container', panelHtml);
+  var chatEl = document.getElementById('ia-chat-' + id);
+  if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+function cerrarAsesor() {
+  setHTML('ia-panel-container', '');
+}
+
+function escHtml(t) { var d = document.createElement('div'); d.appendChild(document.createTextNode(t)); return d.innerHTML; }
+
+function consultarAsesor(asesorId, pregunta) {
+  var input = document.getElementById('ia-input-' + asesorId);
+  if (!pregunta) {
+    if (!input) return;
+    pregunta = input.value.trim();
+    if (!pregunta) return;
+    input.value = '';
+  }
+  if (!STATE.iaChats) STATE.iaChats = {};
+  if (!STATE.iaChats[asesorId]) STATE.iaChats[asesorId] = [];
+
+  STATE.iaChats[asesorId].push({ role: 'user', content: pregunta });
+  agregarMensajeChat(asesorId, 'user', pregunta);
+  document.getElementById('ia-quick-' + asesorId)?.remove();
+
+  mostrarEscribiendo(asesorId);
+
+  var ctx = construirContextoCompleto();
+  var a = ASESORES[asesorId];
+  var systemPrompt = a.systemPrompt(ctx);
+
+  fetch(proxyUrl('https://api.anthropic.com/v1/messages'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 500,
+      system: systemPrompt,
+      messages: STATE.iaChats[asesorId]
+    })
+  }).then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }).then(function(data) {
+    var respuesta = data.content?.[0]?.text || 'Sin respuesta';
+    STATE.iaChats[asesorId].push({ role: 'assistant', content: respuesta });
+    if (STATE.iaChats[asesorId].length > 20) {
+      STATE.iaChats[asesorId] = STATE.iaChats[asesorId].slice(-20);
     }
-  }
-  if (send) send.disabled = false;
+    localStorage.setItem('jcahs_ia_chats', JSON.stringify(STATE.iaChats));
+    ocultarEscribiendo(asesorId);
+    agregarMensajeChat(asesorId, 'assistant', respuesta);
+  }).catch(function(e) {
+    ocultarEscribiendo(asesorId);
+    var fallback = generarRespuestaIA(asesorId, pregunta);
+    STATE.iaChats[asesorId].push({ role: 'assistant', content: fallback });
+    if (STATE.iaChats[asesorId].length > 20) {
+      STATE.iaChats[asesorId] = STATE.iaChats[asesorId].slice(-20);
+    }
+    localStorage.setItem('jcahs_ia_chats', JSON.stringify(STATE.iaChats));
+    agregarMensajeChat(asesorId, 'assistant', fallback);
+  });
 }
 
-function buildContexto() {
-  const lines = [];
-  for (const [sym, d] of Object.entries(STATE.precios)) {
-    lines.push(`${sym}: ${fmtUSD(d.precio)} (${fmtPct(d.cambio24h)} 24h)`);
-  }
-  if (STATE.fng) lines.push(`Fear & Greed: ${STATE.fng.valor} — ${STATE.fng.label}`);
-  for (const [sym, s] of Object.entries(STATE.senales)) {
-    lines.push(`RSI ${sym}: ${s.rsi ?? 'N/D'} → Señal: ${s.señal} (${s.confianza}%)`);
-  }
-  lines.push(`Bankroll: ${fmtUSD(STATE.bankroll)}`);
-  lines.push(`Modo: ${STATE.modo}`);
-  return lines.join('\n');
+function agregarMensajeChat(asesorId, role, texto) {
+  var chat = document.getElementById('ia-chat-' + asesorId);
+  if (!chat) return;
+  var msg = document.createElement('div');
+  msg.style.cssText = 'display:flex;justify-content:' + (role === 'user' ? 'flex-end' : 'flex-start') + ';margin-bottom:10px';
+  var bubble = document.createElement('div');
+  bubble.style.cssText = 'max-width:80%;padding:10px 14px;border-radius:' + (role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px') + ';background:' + (role === 'user' ? 'rgba(78,222,163,0.12)' : role === 'error' ? 'rgba(255,68,68,0.12)' : 'var(--surface-3)') + ';font-size:15px;line-height:1.6;color:var(--text);border:1px solid ' + (role === 'user' ? 'rgba(78,222,163,0.25)' : role === 'error' ? 'rgba(255,68,68,0.3)' : 'rgba(144,144,151,0.08)');
+  bubble.textContent = texto;
+  msg.appendChild(bubble);
+  chat.appendChild(msg);
+  chat.scrollTop = chat.scrollHeight;
 }
 
-function generarRespuestaLocal(msg, asesor) {
-  const msgL = msg.toLowerCase();
-  if (msgL.includes('rsi') || msgL.includes('bitcoin') || msgL.includes('btc')) {
-    const s = STATE.senales.BTC;
-    if (s) return `Según el análisis técnico actual, BTC tiene RSI ${s.rsi ?? 'N/D'} en temporalidad diaria. La señal es <strong>${s.señal}</strong> con ${s.confianza}% de confianza. ${s.rsi < 35 ? 'Zona de sobreventa — posible oportunidad de compra si confirma reversión.' : s.rsi > 65 ? 'Zona de sobrecompra — prudencia para nuevas entradas.' : 'RSI en zona neutral — esperar confirmación.'} Siempre usa stop-loss y gestión de riesgo con quarter-Kelly.`;
-    return 'No hay datos de BTC disponibles. Recarga la sección Cripto para obtener análisis actualizado.';
+function mostrarEscribiendo(asesorId) {
+  var chat = document.getElementById('ia-chat-' + asesorId);
+  if (!chat) return;
+  var div = document.createElement('div');
+  div.id = 'typing-' + asesorId;
+  div.style.cssText = 'display:flex;gap:4px;padding:12px;align-items:center';
+  div.innerHTML = '<div style="width:8px;height:8px;border-radius:50%;background:#4edea3;animation:pulse 0.6s infinite"></div><div style="width:8px;height:8px;border-radius:50%;background:#4edea3;animation:pulse 0.6s 0.2s infinite"></div><div style="width:8px;height:8px;border-radius:50%;background:#4edea3;animation:pulse 0.6s 0.4s infinite"></div><span style="font-size:13px;color:var(--text-3);margin-left:8px">Analizando...</span>';
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function ocultarEscribiendo(asesorId) {
+  var el = document.getElementById('typing-' + asesorId);
+  if (el) el.remove();
+}
+
+function limpiarChat(asesorId) {
+  if (!STATE.iaChats) STATE.iaChats = {};
+  STATE.iaChats[asesorId] = [];
+  localStorage.setItem('jcahs_ia_chats', JSON.stringify(STATE.iaChats));
+  abrirAsesor(asesorId);
+}
+
+function generarRespuestaIA(asesorId, pregunta) {
+  var ctx = construirContextoCompleto();
+  var ops = STATE.ops || [];
+  var pL = pregunta.toLowerCase();
+  if (asesorId === 'falcon') {
+    var vbs = STATE.valueBets || [];
+    if (pL.includes('value') || pL.includes('bet') || pL.includes('edge') || pL.includes('mejor')) {
+      if (vbs.length > 0) {
+        var top = vbs[0];
+        return 'Basado en los datos actuales: El mejor value bet es *' + top.partido + '* en ' + top.mercado + ' con edge de +' + (top.edge || 0).toFixed(1) + '%. Valor: cuota ' + top.odd + ', Kelly recomendado: ' + (top.kelly || 0).toFixed(1) + '% del bankroll ($' + (top.stake || 0).toFixed(2) + '). ' + top.pick;
+      }
+      return 'No hay value bets disponibles con edge positivo ahora mismo. Vuelve a intentar cuando el an\u00e1lisis deportivo est\u00e9 completo.';
+    }
+    if (pL.includes('bankroll') || pL.includes('kelly') || pL.includes('cuanto')) {
+      var bk = STATE.bankroll || 0;
+      return 'Con bankroll de $' + bk.toFixed(2) + ', usando quarter-Kelly: monto m\u00e1ximo por apuesta = 1-2% del bankroll ($' + (bk * 0.01).toFixed(2) + ' - $' + (bk * 0.02).toFixed(2) + '). En value bets con edge > 3%, usa 25% del Kelly completo para optimizar crecimiento a largo plazo.';
+    }
+    var totalOps = ops.length;
+    var winOps = ops.filter(function(o) { return o.resultado === 'gan\u00f3'; }).length;
+    var wr = totalOps > 0 ? (winOps / totalOps * 100).toFixed(1) : 0;
+    return 'FALCON reporta: Llevas ' + totalOps + ' operaciones con ' + wr + '% de acierto. Bankroll: $' + (STATE.bankroll || 0).toFixed(2) + '. ' + (vbs.length > 0 ? 'Hay ' + vbs.length + ' value bets disponibles — revisa la secci\u00f3n Deportes para detalles.' : 'No hay value bets en este momento.');
   }
-  if (msgL.includes('kelly') || msgL.includes('cuánto')) {
-    return 'El Criterion de Kelly recomienda apostar: <strong>f* = (p·b - q) / b</strong>, donde p=probabilidad de ganar, b=ganancia neta por unidad, q=1-p. Usamos quarter-Kelly (f* × 0.25) para gestión conservadora. Nunca superes el 5% del bankroll por operación.';
+  if (asesorId === 'satoshi') {
+    var precios = STATE.precios || {};
+    var senales = STATE.senalesCripto || {};
+    if (pL.includes('btc') || pL.includes('bitcoin')) {
+      var btc = precios['BTC'];
+      var sig = senales['BTC'];
+      if (btc) {
+        var rsiStr = sig ? ', RSI: ' + (sig.rsi?.toFixed(1) || 'N/A') + ' (' + (sig.se\u00f1al || 'N/A') + ')' : '';
+        return 'BTC: $' + (btc.precio || 0).toLocaleString() + ' (' + (btc.cambio24h >= 0 ? '+' : '') + (btc.cambio24h || 0).toFixed(2) + '% 24h)' + rsiStr + '. Fear & Greed: ' + (STATE.fng?.valor || 'N/A') + '. ' + (sig?.score > 60 ? 'Se\u00f1al de compra con ' + (sig?.score || 0) + '% confianza.' : 'Mercado neutral — espera confirmaci\u00f3n para entrada.');
+      }
+      return 'No hay datos de BTC disponibles en este momento. Recarga la secci\u00f3n Cripto.';
+    }
+    if (pL.includes('eth') || pL.includes('ethereum')) {
+      var eth = precios['ETH'];
+      var sigE = senales['ETH'];
+      if (eth) return 'ETH: $' + (eth.precio || 0).toLocaleString() + ' (' + (eth.cambio24h >= 0 ? '+' : '') + (eth.cambio24h || 0).toFixed(2) + '% 24h)' + (sigE ? ', RSI: ' + (sigE.rsi?.toFixed(1) || 'N/A') : '') + '. Recomiendo operar en Binance o Bybit.';
+      return 'ETH sin datos disponibles.';
+    }
+    if (pL.includes('sol') || pL.includes('solana')) {
+      var sol = precios['SOL'];
+      if (sol) return 'SOL: $' + (sol.precio || 0).toLocaleString() + ' (' + (sol.cambio24h >= 0 ? '+' : '') + (sol.cambio24h || 0).toFixed(2) + '% 24h). Alta volatilidad — usa stop-loss siempre.';
+      return 'SOL sin datos.';
+    }
+    return 'SATOSHI operativo. BTC $' + ((precios['BTC']?.precio) || 0).toLocaleString() + ' | ETH $' + ((precios['ETH']?.precio) || 0).toLocaleString() + ' | F&G: ' + (STATE.fng?.valor || 'N/A') + '. Pregunta por cualquier crypto para an\u00e1lisis t\u00e9cnico.';
   }
-  if (msgL.includes('deportes') || msgL.includes('fútbol') || msgL.includes('apuesta')) {
-    return 'Para value bets en fútbol: compara odds entre casas de apuestas y busca diferencias con tu probabilidad estimada. Edge = tu_prob - prob_implícita. Si edge > 0 = value bet. Usa Kelly 25% para el tamaño de apuesta y solo entra con edge > 3% para minimizar varianza.';
+  if (asesorId === 'zeus') {
+    var totalPnL = ops.reduce(function(a, o) { return a + (o.pnl || 0); }, 0);
+    var hoy = new Date().toDateString();
+    var pnlHoy = ops.filter(function(o) { return new Date(o.fecha).toDateString() === hoy; }).reduce(function(a, o) { return a + (o.pnl || 0); }, 0);
+    var opsHoy = ops.filter(function(o) { return new Date(o.fecha).toDateString() === hoy; }).length;
+    var ultResult = ops.length > 0 ? ops[ops.length - 1].resultado : 'N/A';
+    var racha = 0;
+    for (var i = ops.length - 1; i >= 0; i--) {
+      if (i === ops.length - 1) racha = 1;
+      else if (ops[i].resultado === ops[ops.length - 1]?.resultado) racha++;
+      else break;
+    }
+    if (pL.includes('riesgo') || pL.includes('stop') || pL.includes('maximo') || pL.includes('limite')) {
+      var maxPer = (STATE.bankroll || 0) * 0.05;
+      return 'ZEUS: Tu l\u00edmite diario es -$' + (STATE.bankroll * 0.2 || 0).toFixed(2) + ' (20% bankroll). Recomiendo max $' + maxPer.toFixed(2) + ' por operaci\u00f3n (5% bankroll). Stop loss obligatorio. Hoy llevas ' + opsHoy + ' ops, P&L: ' + (pnlHoy >= 0 ? '+' : '') + '$' + pnlHoy.toFixed(2) + '.';
+    }
+    if (pL.includes('tilt') || pL.includes('racha') || pL.includes('perdiendo')) {
+      if (racha >= 3 && ops[ops.length - 1]?.resultado === 'perdi\u00f3') {
+        return '⚠️ ZEUS ALERTA: ' + racha + ' p\u00e9rdidas consecutivas detectadas. Protocolo anti-tilt activado:\n1. PAUSA total 1 hora\n2. Sin operaciones en caliente\n3. Reduce tama\u00f1o a 50% al reanudar\n4. Solo value bets con edge > 5%.\n Bankroll: $' + (STATE.bankroll || 0).toFixed(2) + '. P&L hoy: ' + (pnlHoy >= 0 ? '+' : '') + '$' + pnlHoy.toFixed(2);
+      }
+      return 'Racha actual: ' + racha + ' ' + (ops.length > 0 ? ops[ops.length - 1]?.resultado : 'sin ops') + ' | P&L total: ' + (totalPnL >= 0 ? '+' : '') + '$' + totalPnL.toFixed(2) + '. Sin se\u00f1ales de tilt. Contin\u00faa con disciplina.';
+    }
+    if (pL.includes('proyect') || pL.includes('30') || pL.includes('mes')) {
+      var daily = ops.length > 0 ? totalPnL / ops.length : 0;
+      var proy = daily * 30;
+      return 'Proyecci\u00f3n ZEUS: Basado en promedio de $' + daily.toFixed(2) + ' por operaci\u00f3n, en 30 d\u00edas con ' + Math.max(1, Math.round(ops.length / 30)) + ' ops/d\u00eda estimas $' + proy.toFixed(2) + '. Ajusta seg\u00fan racha actual. Bankroll: $' + (STATE.bankroll || 0).toFixed(2) + '.';
+    }
+    return 'ZEUS monitoreando. Bankroll: $' + (STATE.bankroll || 0).toFixed(2) + ' | P&L hoy: ' + (pnlHoy >= 0 ? '+' : '') + '$' + pnlHoy.toFixed(2) + ' | Operaciones hoy: ' + opsHoy + ' | Win rate global: ' + (ops.length > 0 ? (ops.filter(function(o) { return o.resultado === 'gan\u00f3'; }).length / ops.length * 100).toFixed(1) + '%' : 'N/A');
   }
-  if (msgL.includes('emergencia') || msgL.includes('pérdida') || msgL.includes('drawdown')) {
-    return `⚠️ Protocolo de emergencia: Si has perdido más del 20% del bankroll, pausa 24-48h. Solo opera BTC/ETH con apalancamiento máximo 3x. Stop-loss obligatorio en toda posición. Bankroll actual: ${fmtUSD(STATE.bankroll)}. Evalúa cerrar posiciones perdedoras.`;
-  }
-  return `Como asesor ${asesor}, te recomiendo revisar los datos actuales del mercado (sección Cripto) y calcular el tamaño de posición con la calculadora Kelly antes de operar. Bankroll actual: ${fmtUSD(STATE.bankroll)}. ¿Hay algo específico que quieras analizar?`;
+  return 'Asesor ' + asesorId + ' activo. Bankroll: $' + (STATE.bankroll || 0).toFixed(2) + '. Pregunta lo que necesites para recibir an\u00e1lisis detallado.';
 }
 
 // ─── NOTICIAS ────────────────────────────────────────────────
