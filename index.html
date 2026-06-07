@@ -3051,7 +3051,7 @@ async function cargarDeportes() {
             liga:     game.sport_title || '',
             fecha:    game.commence_time,
             mercado:  traducirMercado(market.key),
-            pick:     traducirPick(outcome.name, market.key, game.home_team, game.away_team),
+            pick:     traducirPick(outcome.point != null ? outcome.name + ' ' + outcome.point : outcome.name, market.key, game.home_team, game.away_team),
             odd:      outcome.price,
             edge,
             probReal: trueProb * 100,
