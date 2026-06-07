@@ -3558,6 +3558,7 @@ async function init() {
 
   // Cargar odds para mentor (en bg, falla silenciosamente)
   cargarDeportes().catch(() => {});
+  setTimeout(() => cargarDeportes().catch(() => {}), 3000);
 
   // Refresh periódico
   setInterval(async () => {
@@ -4843,26 +4844,22 @@ async function mentorMostrarSugerencias() {
     return;
   }
 
-  // General mode — existing logic
-  const faltaData = !STATE.valueBets.length || !Object.keys(STATE.senalesCripto).length;
-  if (faltaData) {
+  // General mode — use cached data first, only fetch if empty
+  if (!STATE.valueBets.length) {
     setHTML('mentor-body', '<div class="loading" style="padding:40px"><span class="spin">⌛</span> Cargando datos de mercado…</div>');
-    const promesas = [];
-    if (!STATE.valueBets.length) promesas.push(cargarDeportes());
-    if (!Object.keys(STATE.senalesCripto).length) promesas.push(Promise.all(['BTC','ETH','SOL','XRP'].map(s => generarSenalCrypto(s))));
-    const ganador = await Promise.race([
-      Promise.all(promesas),
+    await Promise.race([
+      cargarDeportes(),
       new Promise(r => setTimeout(() => r('timeout'), 10000)),
     ]);
-    if (ganador === 'timeout') {
-      const hayAlgo = STATE.valueBets.length || Object.keys(STATE.senalesCripto).length;
-      if (!hayAlgo) {
-        setHTML('mentor-body', `<div class="card" style="text-align:center;padding:24px;color:var(--text-3);font-size:15px">
-          No hay datos disponibles ahora. Intenta de nuevo.
-        </div>`);
-        return;
-      }
+    if (!STATE.valueBets.length) {
+      setHTML('mentor-body', `<div class="card" style="text-align:center;padding:24px;color:var(--text-3);font-size:15px">
+        No hay datos disponibles ahora. Intenta de nuevo.
+      </div>`);
+      return;
     }
+  }
+  if (!Object.keys(STATE.senalesCripto).length) {
+    await Promise.all(['BTC','ETH','SOL','XRP'].map(s => generarSenalCrypto(s)));
   }
 
   m.sugerencias=generarSugerencias(m.capital, m.gananciaMin, m.gananciaMax, m.tipo);
