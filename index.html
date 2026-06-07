@@ -544,6 +544,54 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 8px; }
 
+/* ── CRIPTO ANALYSIS CARDS ──────────────────────────────── */
+.cs-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.cs-header { display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--border); }
+.cs-coin-icon { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 900; flex-shrink: 0; }
+.cs-coin-info { flex: 1; }
+.cs-sym { font-family: var(--f-mono); font-size: 18px; font-weight: 800; }
+.cs-name { font-size: 14px; color: var(--text-3); }
+.cs-price-wrap { text-align: right; }
+.cs-price { font-family: var(--f-mono); font-size: 18px; font-weight: 700; }
+.cs-chg { font-family: var(--f-mono); font-size: 14px; }
+.cs-signal { padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.cs-signal-badge { display: inline-flex; align-items: center; padding: 6px 18px; border-radius: 20px; font-size: 16px; font-weight: 800; letter-spacing: .5px; margin-bottom: 10px; }
+.cs-conf-label { font-size: 14px; color: var(--text-3); margin-bottom: 6px; }
+.cs-conf-bar { background: var(--surface-3); border-radius: 8px; height: 8px; overflow: hidden; margin-bottom: 4px; }
+.cs-conf-fill { height: 100%; border-radius: 8px; transition: width .4s; }
+.cs-conf-pct { font-family: var(--f-mono); font-size: 13px; color: var(--text-2); }
+.cs-indicators { padding: 12px 18px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+.cs-ind-row { display: flex; align-items: center; gap: 10px; }
+.cs-ind-label { font-size: 14px; color: var(--text-3); min-width: 102px; white-space: nowrap; }
+.cs-ind-val { font-family: var(--f-mono); font-size: 16px; font-weight: 700; min-width: 50px; }
+.cs-rsi-track { flex: 1; background: var(--surface-3); border-radius: 8px; height: 8px; overflow: hidden; }
+.cs-rsi-fill { height: 100%; border-radius: 8px; }
+.cs-op-box { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: var(--radius); margin: 14px 18px; padding: 14px 16px; }
+.cs-op-title { font-size: 18px; font-weight: 800; margin-bottom: 14px; line-height: 1.3; }
+.cs-op-grid { display: grid; grid-template-columns: auto 1fr; gap: 7px 12px; margin-bottom: 8px; align-items: baseline; }
+.cs-op-l { font-size: 14px; color: var(--text-3); white-space: nowrap; }
+.cs-op-v { font-family: var(--f-mono); font-size: 16px; font-weight: 700; }
+.cs-op-divider { grid-column: 1/-1; height: 1px; background: var(--border); margin: 4px 0; }
+.cs-pq { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.cs-pq-label { font-size: 12px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--text-3); margin-bottom: 6px; }
+.cs-pq-text { font-size: 16px; color: var(--text-2); line-height: 1.65; }
+.cs-exch-row { padding: 10px 18px; border-top: 1px solid var(--border); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.cs-exch-label { font-size: 13px; color: var(--text-3); }
+.cs-exch-tab { padding: 5px 10px; border-radius: var(--radius); font-size: 13px; font-weight: 700; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text-2); font-family: var(--f-mono); transition: background .12s, color .12s; }
+.cs-exch-tab.active { background: var(--tert-dim); color: var(--tertiary); border-color: var(--tert-mid); }
+.cs-footer { padding: 10px 18px 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.cs-footer-src { font-size: 12px; color: var(--text-3); font-family: var(--f-mono); }
+.cs-actions { display: flex; gap: 8px; }
+
+/* ── TOP OPORTUNIDADES ──────────────────────────────────── */
+.top-opp-row { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.top-opp-row:last-child { border-bottom: none; }
+.top-opp-rank { font-size: 22px; min-width: 28px; flex-shrink: 0; }
+.top-opp-info { flex: 1; min-width: 0; }
+.top-opp-nombre { font-size: 18px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top-opp-sub { font-size: 14px; color: var(--text-3); margin-top: 2px; }
+.top-opp-score { font-family: var(--f-mono); font-size: 20px; font-weight: 800; margin-top: 3px; }
+
 /* ── VALUE BET CARD — REDISEÑO ──────────────────────────── */
 .vbet-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 16px; }
 .vbet-card:last-child { margin-bottom: 0; }
@@ -773,19 +821,29 @@ body {
       </section>
 
       <!-- ══════════════════════════════════════════════════ -->
-      <!-- SEC-CRIPTO — Análisis cripto                      -->
+      <!-- SEC-CRIPTO — Motor de análisis cripto             -->
       <!-- ══════════════════════════════════════════════════ -->
       <section class="seccion" id="sec-cripto">
         <div class="sec-header">
           <div>
             <div class="sec-title">Análisis Cripto</div>
-            <div class="sec-sub">RSI · Fear &amp; Greed · Señales — Fuente: Binance</div>
+            <div class="sec-sub" id="cripto-sub">RSI · Tendencia · Fear &amp; Greed · Señales — Fuente: Binance</div>
           </div>
           <button class="btn btn-ghost" onclick="cargarCripto()">
             <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px">refresh</span>
             Refrescar
           </button>
         </div>
+
+        <!-- Card: Top 3 oportunidades -->
+        <div class="card" style="margin-bottom:20px">
+          <div class="card-title" style="margin-bottom:14px">Mejores Oportunidades Ahora</div>
+          <div id="top-opps-content">
+            <div class="loading"><span class="spin">⌛</span> Calculando oportunidades...</div>
+          </div>
+        </div>
+
+        <!-- Grid 2x2 señales por moneda -->
         <div class="grid-2" id="cripto-cards">
           <div class="loading" style="grid-column:1/-1"><span class="spin">⌛</span> Cargando análisis...</div>
         </div>
@@ -1161,6 +1219,9 @@ const STATE = {
   top100Filtro:    'todas',
   top100Busqueda:  '',
   valueBets:       [],
+  ohlc:            { BTC:[], ETH:[], SOL:[], XRP:[] },
+  senalesCripto:   {},
+  exchSelected:    { BTC:'binance', ETH:'binance', SOL:'binance', XRP:'binance' },
   modo:      localStorage.getItem('jcahs_modo')     || 'principiante',
   bankroll:  parseFloat(localStorage.getItem('jcahs_bankroll')) || 200,
   secActiva: localStorage.getItem('jcahs_sec')      || 'sec-panel',
@@ -1268,6 +1329,14 @@ function iniciarReloj() {
 const BIN_SYMS = ['BTCUSDT','ETHUSDT','BNBUSDT','SOLUSDT','XRPUSDT'];
 const SYM_MAP  = { BTCUSDT:'BTC', ETHUSDT:'ETH', BNBUSDT:'BNB', SOLUSDT:'SOL', XRPUSDT:'XRP' };
 const NOMBRES  = { BTC:'Bitcoin', ETH:'Ethereum', BNB:'BNB Chain', SOL:'Solana', XRP:'XRP' };
+const COIN_COLOR = { BTC:'#F7931A', ETH:'#627EEA', BNB:'#F3BA2F', SOL:'#9945FF', XRP:'#00AAE4' };
+const COIN_EMOJI = { BTC:'₿', ETH:'Ξ', BNB:'B', SOL:'◎', XRP:'✕' };
+const EXCHANGES  = {
+  binance: { nombre:'Binance', spot:0.001,  futuros:0.0004 },
+  bybit:   { nombre:'Bybit',   spot:0.001,  futuros:0.0006 },
+  kucoin:  { nombre:'KuCoin',  spot:0.001,  futuros:0.0006 },
+  kraken:  { nombre:'Kraken',  spot:0.0016, futuros:0.0005 },
+};
 
 async function cargarPrecios() {
   const url = `${CFG.binance}/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(BIN_SYMS))}`;
@@ -1376,7 +1445,7 @@ async function cargarOHLC(sym, interval = '1d', limit = 30) {
     } catch (_) {}
   }
   if (!data) return null;
-  return data.map(k => ({ o:parseFloat(k[1]), h:parseFloat(k[2]), l:parseFloat(k[3]), c:parseFloat(k[4]) }));
+  return data.map(k => ({ o:parseFloat(k[1]), h:parseFloat(k[2]), l:parseFloat(k[3]), c:parseFloat(k[4]), v:parseFloat(k[5]) }));
 }
 
 // ─── SEÑAL CRYPTO ────────────────────────────────────────────
@@ -1649,50 +1718,345 @@ async function refrescarPanel() {
   renderPanel();
 }
 
+// ─── MOTOR DE ANÁLISIS CRIPTO ────────────────────────────────
+function calcScore(sym) {
+  const d    = STATE.precios[sym];
+  const ohlc = STATE.ohlc?.[sym];
+  if (!d) return null;
+
+  let rsi = null;
+  if (ohlc?.length >= 15) rsi = calcRSI(ohlc.map(k => k.c));
+
+  const fng = STATE.fng?.valor ?? null;
+  const chg = d.cambio24h ?? 0;
+
+  let score = 50;
+  if (rsi !== null) {
+    if      (rsi < 30) score += 25;
+    else if (rsi < 40) score += 15;
+    else if (rsi > 70) score -= 25;
+    else if (rsi > 60) score -= 15;
+  }
+  if (fng !== null) {
+    if      (fng < 25) score += 20;
+    else if (fng > 75) score -= 20;
+  }
+  if      (chg < -5) score += 10;
+  else if (chg >  5) score -= 10;
+  score = Math.max(0, Math.min(100, score));
+
+  const señal = score >= 65 ? 'COMPRAR' : score <= 39 ? 'VENDER' : 'ESPERAR';
+  let opTipo, opHorizonte, direction;
+  if      (score >= 75) { opTipo = 'LONG FUERTE';    opHorizonte = 'Scalping · 1-3 días';       direction = 'long'; }
+  else if (score >= 65) { opTipo = 'LONG';            opHorizonte = 'Swing · 3-7 días';          direction = 'long'; }
+  else if (score >= 40) { opTipo = 'ESPERAR';         opHorizonte = 'Sin operación recomendada'; direction = 'neutral'; }
+  else if (score >= 25) { opTipo = 'SHORT cauteloso'; opHorizonte = 'Futuros · máx 2x';          direction = 'short'; }
+  else                  { opTipo = 'SHORT fuerte';    opHorizonte = 'Futuros · 3x-5x max';       direction = 'short'; }
+
+  return { sym, score, señal, rsi, fng, chg, opTipo, opHorizonte, direction, ts: ts() };
+}
+
+function calcOperacion(sym, sig) {
+  const d = STATE.precios[sym];
+  if (!d || !sig || sig.direction === 'neutral') return null;
+  const precio = d.precio;
+  const isLong = sig.direction === 'long';
+  const exch   = STATE.exchSelected?.[sym] || 'binance';
+  const comision = EXCHANGES[exch]?.futuros ?? 0.0004;
+
+  const sl = isLong ? precio * 0.965 : precio * 1.035;
+  const o1 = isLong ? precio * 1.04  : precio * 0.96;
+  const o2 = isLong ? precio * 1.09  : precio * 0.91;
+
+  const riesgo = Math.abs(precio - sl);
+  const ratio  = riesgo > 0 ? Math.abs(o2 - precio) / riesgo : 0;
+
+  const prob     = Math.min(0.95, Math.max(0.05, sig.score / 100 * 0.7 + 0.15));
+  const kelly    = calcKelly(prob, 1.5, 0.25);
+  const kellyPct = Math.min(kelly * 100, 5);
+  const capital  = STATE.bankroll * (kellyPct / 100);
+
+  return {
+    entrada: precio, sl, o1, o2,
+    slPct:  isLong ? -3.5 : 3.5,
+    o1Pct:  isLong ?  4.0 : -4.0,
+    o2Pct:  isLong ?  9.0 : -9.0,
+    ratio, kellyPct, capital,
+    gaO1:   capital * 0.04,
+    gaO2:   capital * 0.09,
+    slLoss: capital * 0.035,
+    comision, exch,
+  };
+}
+
+function renderCriptoCard(sym) {
+  const d    = STATE.precios[sym];
+  const sig  = STATE.senalesCripto[sym];
+  const ohlc = STATE.ohlc?.[sym];
+  const exch = STATE.exchSelected?.[sym] || 'binance';
+  const col  = COIN_COLOR[sym] || '#4edea3';
+  const ico  = COIN_EMOJI[sym] || sym[0];
+
+  if (!d) return `<div class="cs-card">
+    <div class="cs-header">
+      <div class="cs-coin-icon" style="background:${col}20;color:${col}">${ico}</div>
+      <div class="cs-coin-info"><div class="cs-sym">${sym}</div><div class="cs-name">${NOMBRES[sym]}</div></div>
+    </div>
+    <div class="loading" style="padding:24px">Sin datos de precio</div>
+  </div>`;
+
+  const chgClass  = (d.cambio24h ?? 0) >= 0 ? 'pos' : 'neg';
+  const score     = sig?.score     ?? 50;
+  const señal     = sig?.señal     ?? 'ESPERAR';
+  const rsi       = sig?.rsi       ?? null;
+  const direction = sig?.direction ?? 'neutral';
+
+  const SIG_BG = { COMPRAR:'var(--tert-dim)', VENDER:'var(--err-dim)',            ESPERAR:'var(--warn-dim)' };
+  const SIG_FG = { COMPRAR:'var(--tertiary)', VENDER:'var(--error)',              ESPERAR:'var(--warning)' };
+  const SIG_BD = { COMPRAR:'var(--tert-mid)', VENDER:'rgba(255,180,171,0.3)',     ESPERAR:'rgba(255,217,102,0.3)' };
+  const confColor = SIG_FG[señal];
+  const rsiVal    = rsi ?? 50;
+  const rsiColor  = rsiVal < 30 ? 'var(--tertiary)' : rsiVal > 70 ? 'var(--error)' : 'var(--warning)';
+
+  let volLabel = 'N/D', volColor = 'var(--text-3)';
+  if (ohlc?.length >= 5) {
+    const lastV = ohlc[ohlc.length - 1]?.v ?? 0;
+    const avg20 = ohlc.slice(-20).reduce((s, k) => s + (k.v ?? 0), 0) / Math.min(ohlc.length, 20);
+    if (avg20 > 0) {
+      const r = lastV / avg20;
+      if      (r > 1.5) { volLabel = 'ALTO';   volColor = 'var(--tertiary)'; }
+      else if (r > 0.7) { volLabel = 'NORMAL'; volColor = 'var(--text-2)'; }
+      else               { volLabel = 'BAJO';   volColor = 'var(--warning)'; }
+    }
+  }
+
+  let tendencia = 'N/D', tendColor = 'var(--text-3)';
+  if (ohlc?.length >= 7) {
+    const cls = ohlc.slice(-7).map(k => k.c);
+    const pct = (cls[cls.length - 1] - cls[0]) / cls[0] * 100;
+    if      (pct >  2) { tendencia = 'ALCISTA'; tendColor = 'var(--tertiary)'; }
+    else if (pct < -2) { tendencia = 'BAJISTA'; tendColor = 'var(--error)'; }
+    else                { tendencia = 'LATERAL'; tendColor = 'var(--text-2)'; }
+  }
+
+  const op     = sig ? calcOperacion(sym, sig) : null;
+  const esPrin = STATE.modo === 'principiante';
+
+  let porQue = '';
+  if (esPrin && sig) {
+    if (rsi !== null && rsi < 30)
+      porQue = `RSI en ${rsi.toFixed(1)}: el precio cayó muy rápido. Históricamente en estos niveles suele haber rebotes. ${sig.fng !== null && sig.fng < 30 ? 'Fear & Greed en ' + sig.fng + ' (Miedo Extremo) refuerza la señal.' : ''}`;
+    else if (rsi !== null && rsi > 70)
+      porQue = `RSI en ${rsi.toFixed(1)}: el precio subió demasiado rápido y puede estar sobrecomprado. Prudencia para entrar ahora.`;
+    else if (rsi !== null)
+      porQue = `RSI en ${rsi.toFixed(1)}, zona neutral. Esperar zonas extremas (<30 o >70) para señal más clara.`;
+    else if (sig.fng !== null)
+      porQue = sig.fng < 25 ? `Fear & Greed en ${sig.fng} — Miedo Extremo. Zona histórica de acumulación.`
+             : sig.fng > 75 ? `Fear & Greed en ${sig.fng} — Codicia Extrema. Puede estar sobreextendido.`
+             : `Score ${score}/100 basado en Fear & Greed y variación 24h.`;
+  }
+
+  const exchHtml = Object.entries(EXCHANGES).map(([key, ex]) =>
+    `<button class="cs-exch-tab${exch === key ? ' active' : ''}" onclick="selExchange('${sym}','${key}')">${ex.nombre}</button>`
+  ).join('');
+
+  let opBox = '';
+  if (op) {
+    const isL = direction === 'long';
+    opBox = `<div class="cs-op-box">
+      <div class="cs-op-title">${isL ? '📈' : '📉'} ${sig.opTipo} — ${sig.opHorizonte}</div>
+      <div class="cs-op-grid">
+        <span class="cs-op-l">Entrada:</span>   <span class="cs-op-v">${fmtUSD(op.entrada)}</span>
+        <span class="cs-op-l">Stop Loss:</span> <span class="cs-op-v neg">${fmtUSD(op.sl)} (${op.slPct > 0 ? '+' : ''}${op.slPct.toFixed(1)}%)</span>
+        <span class="cs-op-l">Objetivo 1:</span><span class="cs-op-v pos">${fmtUSD(op.o1)} (+${op.o1Pct.toFixed(1)}%)</span>
+        <span class="cs-op-l">Objetivo 2:</span><span class="cs-op-v pos">${fmtUSD(op.o2)} (+${op.o2Pct.toFixed(1)}%)</span>
+        <div class="cs-op-divider"></div>
+        <span class="cs-op-l">Capital:</span>   <span class="cs-op-v">${fmtUSD(op.capital)} <span style="font-size:13px;color:var(--text-3);font-family:var(--f-ui);font-weight:400">(${op.kellyPct.toFixed(1)}% bankroll)</span></span>
+        <span class="cs-op-l">Si llega O1:</span><span class="cs-op-v pos">+${fmtUSD(op.gaO1)}</span>
+        <span class="cs-op-l">Si activa SL:</span><span class="cs-op-v neg">-${fmtUSD(op.slLoss)}</span>
+        <span class="cs-op-l">Ratio R/B:</span> <span class="cs-op-v" style="color:var(--tertiary)">1:${op.ratio.toFixed(1)} ✅</span>
+        <span class="cs-op-l">Comisión:</span>  <span class="cs-op-v" style="font-size:14px;color:var(--text-3)">${EXCHANGES[op.exch].nombre} · ${(op.comision * 100).toFixed(2)}% fut.</span>
+      </div>
+      ${esPrin && porQue ? `<div class="cs-pq">
+        <div class="cs-pq-label">¿Por qué esta señal?</div>
+        <div class="cs-pq-text">${porQue}</div>
+        ${isL ? '<div class="cs-pq-text" style="margin-top:8px"><strong>Stop Loss</strong>: protege tu capital si el mercado va en contra. Nunca operar sin él.</div>' : ''}
+      </div>` : ''}
+    </div>`;
+  } else {
+    opBox = `<div class="cs-op-box" style="text-align:center;padding:20px">
+      <div style="font-size:18px;font-weight:700;color:var(--warning);margin-bottom:8px">⏸ ESPERAR</div>
+      <div style="font-size:16px;color:var(--text-2)">Sin operación recomendada en este momento</div>
+      ${esPrin && porQue ? `<div style="font-size:16px;color:var(--text-3);margin-top:10px">${porQue}</div>` : ''}
+    </div>`;
+  }
+
+  return `<div class="cs-card" id="cs-${sym}">
+    <div class="cs-header">
+      <div class="cs-coin-icon" style="background:${col}20;color:${col}">${ico}</div>
+      <div class="cs-coin-info">
+        <div class="cs-sym">${sym} <span style="font-size:13px;color:var(--text-3);font-family:var(--f-ui);font-weight:400">· ${NOMBRES[sym]}</span></div>
+      </div>
+      <div class="cs-price-wrap">
+        <div class="cs-price">${fmtUSD(d.precio)}</div>
+        <div class="cs-chg ${chgClass}">${fmtPct(d.cambio24h)} 24h</div>
+      </div>
+    </div>
+    <div class="cs-signal">
+      <div style="margin-bottom:8px">
+        <span class="cs-signal-badge" style="background:${SIG_BG[señal]};color:${SIG_FG[señal]};border:1px solid ${SIG_BD[señal]}">SEÑAL: ${señal}</span>
+      </div>
+      <div class="cs-conf-label">Confianza: ${score}/100</div>
+      <div class="cs-conf-bar"><div class="cs-conf-fill" style="width:${score}%;background:${confColor}"></div></div>
+      <div class="cs-conf-pct">${score}%</div>
+    </div>
+    <div class="cs-indicators">
+      <div class="cs-ind-row">
+        <span class="cs-ind-label">RSI (14):</span>
+        <span class="cs-ind-val" style="color:${rsiColor}">${rsi !== null ? rsi.toFixed(1) : 'N/D'}</span>
+        <div class="cs-rsi-track"><div class="cs-rsi-fill" style="width:${rsiVal}%;background:${rsiColor}"></div></div>
+      </div>
+      <div class="cs-ind-row">
+        <span class="cs-ind-label">Tendencia 7d:</span>
+        <span class="cs-ind-val" style="color:${tendColor};font-size:15px">${tendencia}</span>
+      </div>
+      <div class="cs-ind-row">
+        <span class="cs-ind-label">Cambio 24h:</span>
+        <span class="cs-ind-val ${chgClass}">${fmtPct(d.cambio24h)}</span>
+      </div>
+      <div class="cs-ind-row">
+        <span class="cs-ind-label">Volumen:</span>
+        <span class="cs-ind-val" style="color:${volColor};font-size:15px">${volLabel}</span>
+      </div>
+      ${sig?.fng != null ? `<div class="cs-ind-row">
+        <span class="cs-ind-label">Fear &amp; Greed:</span>
+        <span class="cs-ind-val" style="color:${sig.fng < 25 ? 'var(--error)' : sig.fng > 75 ? 'var(--tertiary)' : 'var(--warning)'}">${sig.fng}</span>
+      </div>` : ''}
+    </div>
+    ${opBox}
+    <div class="cs-exch-row">
+      <span class="cs-exch-label">Exchange:</span>
+      ${exchHtml}
+    </div>
+    <div class="cs-footer">
+      <div class="cs-footer-src">Fuente: Binance · ${sig?.ts || ts()}</div>
+      <div class="cs-actions">
+        ${op ? `<button class="btn btn-primary" style="font-size:14px;padding:9px 16px"
+          onclick="registrarOp('${sym}',${op.capital.toFixed(2)},${op.entrada.toFixed(2)})">✅ Registrar</button>` : ''}
+        <button class="btn btn-ghost" style="font-size:14px;padding:9px 16px"
+          onclick="ignorarCard('cs-${sym}')">Ignorar</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderCriptoCards() {
+  const html = ['BTC','ETH','SOL','XRP'].map(s => renderCriptoCard(s)).join('');
+  setHTML('cripto-cards', html);
+}
+
+function renderTopOportunidades() {
+  const opps = [];
+
+  for (const sym of ['BTC','ETH','SOL','XRP']) {
+    const sig = STATE.senalesCripto[sym];
+    if (!sig || sig.direction === 'neutral') continue;
+    const op = calcOperacion(sym, sig);
+    if (!op) continue;
+    opps.push({
+      tipo:'CRYPTO', nombre:`${NOMBRES[sym]} (${sym})`,
+      accion: sig.opTipo, score: sig.score,
+      capital: op.capital, ganancia: op.gaO1, irA:'sec-cripto',
+    });
+  }
+
+  for (const vb of (STATE.valueBets?.slice(0, 5) || [])) {
+    opps.push({
+      tipo:'APUESTA',
+      nombre:`${vb.partido.split(' vs ')[0]} | ${vb.pick}`,
+      accion:`Edge +${vb.edge.toFixed(1)}%`,
+      score: Math.round(Math.min(100, vb.edge * 4 + 50)),
+      capital: vb.stake, ganancia: vb.ganancia, irA:'sec-deportes',
+    });
+  }
+
+  opps.sort((a, b) => b.score - a.score);
+  const top3 = opps.slice(0, 3);
+
+  if (!top3.length) {
+    setHTML('top-opps-content', `<div style="text-align:center;padding:20px;color:var(--text-3);font-size:16px">
+      Sin oportunidades calculadas. Actualiza Cripto y Deportes.
+    </div>`);
+    return;
+  }
+
+  const medals   = ['🥇','🥈','🥉'];
+  const tipoBadge = t => t === 'CRYPTO'
+    ? '<span class="badge badge-green" style="font-size:13px">CRYPTO</span>'
+    : '<span class="badge badge-warn"  style="font-size:13px">APUESTA</span>';
+
+  const html = top3.map((o, i) => `
+    <div class="top-opp-row">
+      <div class="top-opp-rank">${medals[i]}</div>
+      <div class="top-opp-info">
+        <div class="top-opp-nombre">${o.nombre} — ${o.accion}</div>
+        <div class="top-opp-sub">Capital: ${fmtUSD(o.capital)} · Ganancia estimada O1: +${fmtUSD(o.ganancia)}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        ${tipoBadge(o.tipo)}
+        <div class="top-opp-score" style="color:${o.score >= 65 ? 'var(--tertiary)' : 'var(--warning)'}">${o.score}%</div>
+      </div>
+      <button class="btn btn-ghost" style="font-size:13px;padding:7px 12px;flex-shrink:0"
+        onclick="ir('${o.irA}')">Ver →</button>
+    </div>`).join('');
+
+  setHTML('top-opps-content', html);
+}
+
+function selExchange(sym, key) {
+  STATE.exchSelected[sym] = key;
+  renderCriptoCards();
+}
+
+function registrarOp(sym, capital, entrada) {
+  const sig  = STATE.senalesCripto[sym];
+  const desc = `${sym} ${sig?.direction === 'long' ? 'LONG' : 'SHORT'} · ${sig?.opTipo || ''}`;
+  const el1  = qs('op-desc');    if (el1) el1.value = desc;
+  const el2  = qs('op-capital'); if (el2) el2.value = capital.toFixed(2);
+  const el3  = qs('op-odd');     if (el3) el3.value = entrada.toFixed(2);
+  const el4  = qs('op-tipo');    if (el4) el4.value = 'cripto';
+  abrirModalOp();
+}
+
+function ignorarCard(id) {
+  const el = qs(id);
+  if (el) el.style.display = 'none';
+}
+
 // ─── SECCIÓN CRIPTO ─────────────────────────────────────────
 async function cargarCripto() {
   setHTML('cripto-cards', '<div class="loading" style="grid-column:1/-1"><span class="spin">⌛</span> Cargando análisis...</div>');
+  setHTML('top-opps-content', '<div class="loading"><span class="spin">⌛</span> Calculando oportunidades...</div>');
+
   if (!Object.keys(STATE.precios).length) await cargarPrecios();
   if (!STATE.fng) await cargarFearGreed();
 
-  const syms = ['BTC','ETH','SOL','XRP'];
-  const senales = await Promise.all(syms.map(s => generarSenalCrypto(s)));
+  const syms    = ['BTC','ETH','SOL','XRP'];
+  const results = await Promise.allSettled(syms.map(s => cargarOHLC(s, '1d', 50)));
+  results.forEach((res, i) => {
+    if (res.status === 'fulfilled' && res.value) STATE.ohlc[syms[i]] = res.value;
+  });
 
-  const html = senales.map(s => {
-    const d = STATE.precios[s.sym] || {};
-    const rsiColor = s.rsi == null ? 'var(--text-3)'
-      : s.rsi < 30 ? 'var(--tertiary)'
-      : s.rsi > 70 ? 'var(--error)'
-      : 'var(--warning)';
-    const sigCls = s.señal === 'COMPRAR' ? 'signal-comprar' : s.señal === 'VENDER' ? 'signal-vender' : 'signal-esperar';
-    const chgClass = (d.cambio24h ?? 0) >= 0 ? 'pos' : 'neg';
-    return `<div class="cripto-card">
-      <div class="cripto-header">
-        <div>
-          <div class="cripto-sym">${s.sym}</div>
-          <div class="cripto-name">${NOMBRES[s.sym]}</div>
-        </div>
-        <span class="badge ${sigCls}">${s.señal}</span>
-      </div>
-      <div class="cripto-price">${fmtUSD(d.precio)}</div>
-      <div class="cripto-chg ${chgClass}">${fmtPct(d.cambio24h)} (24h)</div>
-      <div class="cripto-rsi-row">
-        <div>
-          <div class="cripto-rsi-label">RSI 14 · 1D</div>
-          <div class="cripto-rsi-val" style="color:${rsiColor}">${s.rsi ?? 'N/D'}</div>
-        </div>
-        <div style="text-align:right">
-          <div class="cripto-rsi-label">Confianza</div>
-          <div class="cripto-rsi-val">${s.confianza}%</div>
-        </div>
-      </div>
-      <div class="card-source" style="margin-top:10px">Fuente: ${d.fuente || 'Binance'} · ${s.ts || ts()}</div>
-    </div>`;
-  }).join('');
+  for (const sym of syms) {
+    const s = calcScore(sym);
+    if (s) STATE.senalesCripto[sym] = s;
+  }
 
-  setHTML('cripto-cards', html);
+  renderCriptoCards();
+  renderTopOportunidades();
+
   const fng = STATE.fng;
-  setText('cripto-source', `Fear & Greed: ${fng ? fng.valor + ' — ' + fng.label : 'N/D'} · Fuente: Binance + alternative.me · ${ts()}`);
+  setText('cripto-source', `Fuente: Binance OHLC + alternative.me · Fear & Greed: ${fng ? fng.valor + ' — ' + fng.label : 'N/D'} · ${ts()}`);
 }
 
 // ─── SECCIÓN DEPORTES (The Odds API) ────────────────────────
