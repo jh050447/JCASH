@@ -2929,16 +2929,16 @@ function traducirMercado(mktKey) {
 function traducirPick(nombre, mktKey, local, visitante) {
   if (mktKey === 'totals') {
     const overMatch = nombre.match(/^Over\s+([\d.]+)$/i);
-    if (overMatch) return `Más de ${overMatch[1]} goles`;
+    if (overMatch) return 'M\u00e1s de ' + overMatch[1] + ' goles (+' + overMatch[1] + ')';
     const underMatch = nombre.match(/^Under\s+([\d.]+)$/i);
-    if (underMatch) return `Menos de ${underMatch[1]} goles`;
+    if (underMatch) return 'Menos de ' + underMatch[1] + ' goles (-' + underMatch[1] + ')';
   }
   const low = nombre.toLowerCase();
-  if (low === 'home') return local;
-  if (low === 'away') return visitante;
-  if (low === 'draw') return 'Empate';
-  if (low === 'yes')  return 'Sí';
-  if (low === 'no')   return 'No';
+  if (low === 'home') return local + ' gana el partido';
+  if (low === 'away') return visitante + ' gana el partido';
+  if (low === 'draw') return 'Empate en el partido';
+  if (low === 'yes')  return 'Ambos equipos marcan';
+  if (low === 'no')   return 'No marcan ambos';
   return nombre;
 }
 
@@ -4671,34 +4671,21 @@ function getBadgeSemaforo(edge, prob) {
 
 function traducirPickClaro(pick, mercado, local, visitante) {
   const p = (pick || '').toLowerCase();
-  const esOver = p.includes('más de') || p.startsWith('over');
-  const esUnder = p.includes('menos de') || p.startsWith('under');
-  if (p.match(/más de|over/)) {
-    const line = parseFloat(p.match(/[\d.]+/)?.[0]);
-    if (!isNaN(line)) {
-      const minGoles = Math.ceil(line);
-      const sub = minGoles + ' o m\u00e1s';
-      return pick + ' (' + sub + ')';
-    }
+  const overMatch = p.match(/más de ([\d.]+)/);
+  if (overMatch) {
+    const line = parseFloat(overMatch[1]);
+    if (!isNaN(line)) return 'Apuesta a que el partido termina con ' + Math.ceil(line) + ' o m\u00e1s goles en total';
   }
-  if (p.match(/menos de|under/)) {
-    const line = parseFloat(p.match(/[\d.]+/)?.[0]);
-    if (!isNaN(line)) {
-      const maxGoles = Math.floor(line);
-      const nums = [];
-      for (let g = 0; g <= maxGoles; g++) nums.push(g);
-      const sub = nums.length > 2
-        ? nums.slice(0, -1).join(', ') + ' o ' + nums[nums.length - 1]
-        : nums.join(' o ');
-      return pick + ' (' + (maxGoles === 1 ? '0 o 1 gol' : sub) + ')';
-    }
+  const underMatch = p.match(/menos de ([\d.]+)/);
+  if (underMatch) {
+    const line = parseFloat(underMatch[1]);
+    if (!isNaN(line)) return 'Apuesta a que el partido termina con ' + Math.floor(line) + ' goles o menos en total';
   }
-  if (local && (p === local.toLowerCase() || p === 'home')) return local + ' gana el partido';
-  if (visitante && (p === visitante.toLowerCase() || p === 'away')) return visitante + ' gana el partido';
-  if (p === 'empate' || p === 'draw') return 'Empate';
-  if (p.includes('s\u00ed marcan') || p === 'yes') return 'Ambos equipos marcan al menos un gol';
-  if (p.includes('no marcan') || p === 'no') return 'Al menos un equipo no logra marcar';
-  if (p.includes('sin empate')) return pick + ' (si hay empate, te devuelven lo apostado)';
+  if (local && p.startsWith(local.toLowerCase())) return 'Apuesta a que ' + local + ' gana. Si empata o pierde, pierdes la apuesta';
+  if (visitante && p.startsWith(visitante.toLowerCase())) return 'Apuesta a que ' + visitante + ' gana. Si empata o pierde, pierdes la apuesta';
+  if (p === 'empate en el partido' || p === 'empate') return 'Apuesta a que ambos equipos terminan con el mismo marcador';
+  if (p.includes('ambos equipos marcan') || p === 'sí') return 'Apuesta a que ambos equipos marcan al menos un gol en el partido';
+  if (p.includes('no marcan') || p === 'no') return 'Apuesta a que al menos un equipo no logra marcar';
   return pick;
 }
 
@@ -4777,7 +4764,8 @@ function renderAnalisisProfundo() {
       '<div style="font-size:18px;font-weight:800;line-height:1.3">' + g.home_team + ' vs ' + g.away_team + '</div>' +
       '<div style="font-size:13px;color:var(--text-3);margin:2px 0 8px">' + b.mercado + '</div>' +
       '<div style="font-size:13px;color:var(--text-3);margin-bottom:4px">QU\u00c9 APOSTAR</div>' +
-      '<div style="font-size:22px;font-weight:800;color:var(--tertiary);line-height:1.2;margin-bottom:12px">' + pickClaro + '</div>' +
+      '<div style="font-size:22px;font-weight:800;color:var(--tertiary);line-height:1.3;margin-bottom:4px">' + b.pick + '</div>' +
+      '<div style="font-size:15px;color:var(--text-3);margin-bottom:12px">' + pickClaro + '</div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">' +
         '<div><div style="font-size:12px;color:var(--text-3)">APOSTAR</div><div style="font-size:20px;font-weight:800;font-family:var(--f-mono)">$' + b.apostar.toFixed(2) + '</div></div>' +
         '<div><div style="font-size:12px;color:var(--text-3)">SI GANA</div><div style="font-size:22px;font-weight:800;font-family:var(--f-mono);color:var(--tertiary)">+$' + b.ganancia.toFixed(2) + ' \u2705</div></div>' +
@@ -5097,16 +5085,6 @@ function renderMentorPaso2() {
     const isGood=edgeVal>5;
     const pick=(s.pick||'').trim();
     const mercado=(s.mercado||'').trim();
-    var descripcion_simple=pick;
-    if (/h2h|1X2|ganador|draw.?no.?bet|dnb/i.test(mercado)) {
-      if (pick!=='Empate'&&pick!==local&&pick!==visit) descripcion_simple=pick;
-      else if (pick===local||pick===visit) descripcion_simple=pick+' gana';
-      else descripcion_simple='Empate';
-    } else if (/btts|ambos/i.test(mercado)) {
-      descripcion_simple=pick==='Sí'||pick==='Yes'?'Ambos equipos marcan':'Al menos un equipo no marca';
-    } else if (/spread|hándicap|handicap/i.test(mercado)) {
-      descripcion_simple=pick;
-    }
     let fecha_hora_partido='';
     if (s.fecha) {
       try {
@@ -5119,7 +5097,7 @@ function renderMentorPaso2() {
     }
     let mercado_ecuabet='';
     if (/h2h|1X2|ganador/i.test(mercado)) mercado_ecuabet='1X2 / Ganador del partido';
-    else if (/total|over|under/i.test(mercado)) mercado_ecuabet='Total de goles (Over/Under)';
+    else if (/total|over|under/i.test(mercado)) mercado_ecuabet='Total de goles';
     else if (/btts|ambos/i.test(mercado)) mercado_ecuabet='Ambos equipos marcan (BTTS)';
     else if (/draw.?no.?bet|dnb/i.test(mercado)) mercado_ecuabet='Draw No Bet (DNB)';
     else if (/spread|hándicap|handicap/i.test(mercado)) mercado_ecuabet='Hándicap Asiático';
@@ -5132,7 +5110,8 @@ function renderMentorPaso2() {
           <span style="margin-left:auto;font-size:13px;color:var(--outline)">${fecha_hora_partido}</span>
         </div>
         <div style="font-size:18px;font-weight:700;margin-bottom:4px">${s.partido}</div>
-        <div style="font-size:22px;font-weight:700;color:#4edea3;margin-bottom:16px">${traducirPickClaro(s.pick, s.mercado, local, visit)}</div>
+        <div style="font-size:22px;font-weight:700;color:#4edea3;line-height:1.3;margin-bottom:4px">${pick}</div>
+        <div style="font-size:15px;color:var(--text-3);margin-bottom:16px">${traducirPickClaro(s.pick, s.mercado, local, visit)}</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
           <div><div style="font-size:12px;color:var(--outline);letter-spacing:0.05em">APOSTAR</div><div style="font-size:24px;font-family:var(--font-mono);font-weight:600">$${s.apostar.toFixed(2)}</div></div>
           <div><div style="font-size:12px;color:var(--outline);letter-spacing:0.05em">SI ACIERTA</div><div style="font-size:24px;font-family:var(--font-mono);font-weight:600;color:#4edea3">+$${s.ganancia.toFixed(2)}</div></div>
@@ -5153,7 +5132,7 @@ function renderMentorPaso2() {
             Ecuabet → Fútbol → ${s.liga||'--'}<br>
             → ${s.partido}<br>
             → ${mercado_ecuabet}<br>
-            → Selecciona: <strong>${traducirPickClaro(s.pick, s.mercado, local, visit)}</strong>
+            → Selecciona: <strong>${pick}</strong>
           </div>
         </div>
         <div style="display:flex;gap:16px;font-size:13px;color:var(--outline);margin-bottom:16px">
