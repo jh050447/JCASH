@@ -2950,11 +2950,15 @@ async function cargarDeportes() {
 
   let games = [];
   try {
-    const r = await fetchSeguro(proxyUrl(oddsUrl), 14000);
-    if (r.ok) games = await r.json();
+    const r = await Promise.race([
+      fetchSeguro(proxyUrl(oddsUrl), 14000),
+      new Promise((_, reject) => setTimeout(() => reject('timeout'), 8000)),
+    ]).catch(() => null);
+    if (r && r.ok) games = await r.json();
   } catch (e) { console.log('cargarDeportes error:', e); }
   if (!Array.isArray(games)) games = [];
   console.log('cargarDeportes result:', games.length, 'games');
+  mentorActualizarEstado('ready');
 
   const valueBets       = [];
   const valueBetGameIds = new Set();
@@ -3543,9 +3547,6 @@ async function init() {
   // Iniciar reloj
   iniciarReloj();
 
-  // Mentor button: set loading initially
-  mentorActualizarEstado('loading');
-
   // Llenar bankroll en calculadoras
   ['k-bk','vb-bk'].forEach(id => {
     const el = qs(id);
@@ -3566,8 +3567,10 @@ async function init() {
     .then(() => renderPanel());
 
   // Cargar odds para mentor (en bg, falla silenciosamente)
-  cargarDeportes().catch(() => mentorActualizarEstado());
-  setTimeout(() => cargarDeportes().catch(() => mentorActualizarEstado()), 3000);
+  cargarDeportes().catch(() => {});
+  setTimeout(() => cargarDeportes().catch(() => {}), 3000);
+  // Enable mentor button after 5 seconds regardless
+  setTimeout(() => mentorActualizarEstado('ready'), 5000);
 
   // Refresh periódico
   setInterval(async () => {
@@ -5099,7 +5102,7 @@ function mentorActualizarEstado(estado) {
   const txt = qs('mentor-fab-txt');
   const st  = qs('mentor-status');
   if (!fab || !txt) return;
-  if (estado === 'loading' || (!estado && !STATE.valueBets?.length)) {
+  if (estado === 'loading') {
     fab.classList.add('loading');
     txt.textContent = '⏳ Preparando...';
     if (st) st.textContent = 'Preparando datos...';
@@ -5107,12 +5110,7 @@ function mentorActualizarEstado(estado) {
     fab.classList.remove('loading');
     const n = STATE.an.cupon?.length || 0;
     txt.textContent = n > 0 ? '🎯 Mentor (' + n + ')' : '🎯 Mentor';
-    if (st) st.textContent = '✅ Listo';
-    if (!STATE.valueBets?.length) {
-      fab.classList.remove('loading');
-      txt.textContent = '🎯 Mentor';
-      if (st) st.textContent = '';
-    }
+    if (st) st.textContent = STATE.valueBets?.length ? '✅ Listo' : '';
   }
 }
 
