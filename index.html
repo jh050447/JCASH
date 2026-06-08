@@ -5452,19 +5452,34 @@ const fetchApiSportsCached = async (endpoint) => {
 };
 
 async function buscarEquipoId(nombre) {
+  console.log('buscarEquipoId called with:', nombre);
+
   // Estrategia 1: nombre exacto
   let data = await fetchApiSportsCached(`/teams?name=${encodeURIComponent(nombre)}`);
+  console.log('Strategy 1 result:',
+    data?.response?.length,
+    data?.response?.[0]?.team?.id,
+    data?.errors);
   if (data?.response?.[0]?.team?.id) return data.response[0].team.id;
 
   // Estrategia 2: solo la primera palabra (ej. "Real Madrid" → "Real")
   const firstWord = nombre.split(' ')[0];
+  console.log('Trying strategy 2 with:', firstWord);
   data = await fetchApiSportsCached(`/teams?name=${encodeURIComponent(firstWord)}`);
+  console.log('Strategy 2 result:',
+    data?.response?.length,
+    data?.errors);
   if (data?.response?.[0]?.team?.id) return data.response[0].team.id;
 
   // Estrategia 3: búsqueda parcial por nombre
+  console.log('Trying strategy 3 search');
   data = await fetchApiSportsCached(`/teams?search=${encodeURIComponent(nombre)}`);
+  console.log('Strategy 3 result:',
+    data?.response?.length,
+    data?.errors);
   if (data?.response?.[0]?.team?.id) return data.response[0].team.id;
 
+  console.log('buscarEquipoId: no team found for:', nombre);
   return null;
 }
 
