@@ -1616,6 +1616,8 @@ const STATE = {
     expandMas:false, enVivo:false,
     minuto:0, marcL:0, marcV:0, searchText:'',
   },
+  analisisActual: null,
+  apiSportsCache: {},
   mentor: {
     abierto:false, paso:1,
     capital:null, gananciaMin:null, gananciaMax:null,
@@ -4235,7 +4237,12 @@ function construirContextoCompleto() {
     return b.partido + ' \u2014 ' + b.mercado + ': ' + b.pick + ' Odd:' + b.odd + ' Edge:+' + (b.edge || 0).toFixed(1) + '% Kelly:' + (b.kelly || 0).toFixed(1) + '% Apostar:$' + (b.stake || 0).toFixed(2);
   }).join('\\n');
 
-  return '=== CONTEXTO COMPLETO JCAHS ===\\nFecha y hora: ' + new Date().toLocaleString('es-EC') + '\\n\\n--- PERFIL DEL USUARIO ---\\nBankroll actual: $' + STATE.bankroll + '\\nP&L hoy: ' + (pnlHoy >= 0 ? '+' : '') + '$' + pnlHoy.toFixed(2) + '\\nP&L total: ' + (pnlTotal >= 0 ? '+' : '') + '$' + pnlTotal.toFixed(2) + '\\nWin rate global: ' + winRate + '%\\nWin rate apuestas: ' + wrApuestas + '%\\nWin rate crypto: ' + wrCrypto + '%\\nTotal operaciones: ' + ops.length + '\\nRacha actual: ' + racha + ' ' + (tipoRacha || 'sin operaciones') + '\\n\u00daltimas 5 operaciones:\\n' + (ultimas5 || 'Sin operaciones registradas') + '\\n\\n--- MERCADO CRYPTO (tiempo real) ---\\n\u00cdndice Miedo/Codicia: ' + fg + ' (' + fgLabel + ')\\n' + cryptoCtx + '\\n\\n--- VALUE BETS DISPONIBLES AHORA ---\\nTotal detectados: ' + vb.length + '\\nTop 3 mejores:\\n' + (top3vb || 'Sin value bets disponibles') + '\\n\\n--- REGLAS DEL USUARIO ---\\n- Opera principalmente en Ecuabet Ecuador\\n- Solo f\u00fatbol para apuestas deportivas\\n- Exchanges crypto: Binance, Bybit, KuCoin, Kraken\\n- Objetivo diario: $20-50\\n- Kelly conservador: 25% del Kelly completo\\n- Stop loss diario: -20% del bankroll\\n- Pol\u00edtica sagrada: solo datos reales';
+  var aa = STATE.analisisActual;
+  var analisisCtx = aa
+    ? '\\n\\n--- AN\u00c1LISIS ESTAD\u00cdSTICO \u00daLTIMO PARTIDO ---\\nPartido: ' + aa.local + ' vs ' + aa.visitante + '\\nGoles esperados: ' + aa.analisis.totalEsperado + '\\nOver 2.5: ' + aa.analisis.probabilidades.over25 + '%\\nBTTS: ' + aa.analisis.probabilidades.btts + '%\\nLocal gana: ' + aa.analisis.probabilidades.local + '%'
+    : '';
+
+  return '=== CONTEXTO COMPLETO JCAHS ===\\nFecha y hora: ' + new Date().toLocaleString('es-EC') + '\\n\\n--- PERFIL DEL USUARIO ---\\nBankroll actual: $' + STATE.bankroll + '\\nP&L hoy: ' + (pnlHoy >= 0 ? '+' : '') + '$' + pnlHoy.toFixed(2) + '\\nP&L total: ' + (pnlTotal >= 0 ? '+' : '') + '$' + pnlTotal.toFixed(2) + '\\nWin rate global: ' + winRate + '%\\nWin rate apuestas: ' + wrApuestas + '%\\nWin rate crypto: ' + wrCrypto + '%\\nTotal operaciones: ' + ops.length + '\\nRacha actual: ' + racha + ' ' + (tipoRacha || 'sin operaciones') + '\\n\u00daltimas 5 operaciones:\\n' + (ultimas5 || 'Sin operaciones registradas') + '\\n\\n--- MERCADO CRYPTO (tiempo real) ---\\n\u00cdndice Miedo/Codicia: ' + fg + ' (' + fgLabel + ')\\n' + cryptoCtx + '\\n\\n--- VALUE BETS DISPONIBLES AHORA ---\\nTotal detectados: ' + vb.length + '\\nTop 3 mejores:\\n' + (top3vb || 'Sin value bets disponibles') + analisisCtx + '\\n\\n--- REGLAS DEL USUARIO ---\\n- Opera principalmente en Ecuabet Ecuador\\n- Solo f\u00fatbol para apuestas deportivas\\n- Exchanges crypto: Binance, Bybit, KuCoin, Kraken\\n- Objetivo diario: $20-50\\n- Kelly conservador: 25% del Kelly completo\\n- Stop loss diario: -20% del bankroll\\n- Pol\u00edtica sagrada: solo datos reales';
 }
 
 function renderIA() {
@@ -4728,6 +4735,7 @@ function seleccionarPartido(idx) {
   }
   STATE.an.step=2;
   renderAnStep2();
+  analizarPartidoCompleto(g.home_team, g.away_team, g.home_team + ' stadium', null);
 }
 
 // ── ENTRADA MANUAL ───────────────────────────────────────────
@@ -4743,6 +4751,7 @@ function analizarManual() {
   STATE.an.cupon=[];
   STATE.an.step=2;
   renderAnStep2();
+  analizarPartidoCompleto(local, visit, local + ' stadium', null);
 }
 
 // ── STEP 2 — análisis completo ───────────────────────────────
@@ -4815,6 +4824,8 @@ function renderAnStep2() {
         <div id="cupon-container">${renderCuponHtml()}</div>
       </div>
     </div>
+
+    <div id="analisis-estadistico"></div>
   `);
 }
 
@@ -5413,6 +5424,514 @@ async function obtenerH2H(team1Id, team2Id) {
     const d = await r.json();
     return d.response || [];
   } catch { return null; }
+}
+
+// ════════════════════════════════════════════════════════════
+// ANÁLISIS ESTADÍSTICO COMPLETO — API-SPORTS + OPENWEATHERMAP + POISSON
+// POLÍTICA SAGRADA: cero datos inventados — si una API falla, "Sin datos"
+// ════════════════════════════════════════════════════════════
+
+const API_SPORTS_BASE = 'https://v3.football.api-sports.io';
+
+const fetchApiSports = async (endpoint) => {
+  try {
+    const url = `${API_SPORTS_BASE}${endpoint}`;
+    const proxyUrl = `https://jcahs-proxy.jh050447.workers.dev/?url=${encodeURIComponent(url)}&api=sportsapi`;
+    const r = await fetchSeguro(proxyUrl, 8000);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
+};
+
+const fetchApiSportsCached = async (endpoint) => {
+  const cached = STATE.apiSportsCache[endpoint];
+  if (cached && Date.now() - cached.ts < 3600000) return cached.data;
+  const data = await fetchApiSports(endpoint);
+  if (data) STATE.apiSportsCache[endpoint] = { data, ts: Date.now() };
+  return data;
+};
+
+async function buscarEquipoId(nombre) {
+  const data = await fetchApiSportsCached(`/teams?name=${encodeURIComponent(nombre)}`);
+  return data?.response?.[0]?.team?.id || null;
+}
+
+async function obtenerEstadisticasEquipo(teamId) {
+  if (!teamId) return null;
+  const temporada = new Date().getFullYear();
+  const data = await fetchApiSportsCached(`/teams/statistics?team=${teamId}&season=${temporada}`);
+  const s = data?.response;
+  if (!s) return null;
+  return {
+    golesLocal: s.goals?.for?.average?.home || 0,
+    golesVisit: s.goals?.for?.average?.away || 0,
+    golesTotal: s.goals?.for?.average?.total || 0,
+    recibidosLocal: s.goals?.against?.average?.home || 0,
+    recibidosVisit: s.goals?.against?.average?.away || 0,
+    jugados: s.fixtures?.played?.total || 0,
+    victorias: s.fixtures?.wins?.total || 0,
+    empates: s.fixtures?.draws?.total || 0,
+    derrotas: s.fixtures?.loses?.total || 0,
+    forma: s.form || '',
+    cleanSheets: s.clean_sheet?.total || 0,
+    ambosMarcan: s.both_teams_score?.yes || 0,
+    ambosNoMarcan: s.both_teams_score?.no || 0,
+  };
+}
+
+async function obtenerH2HCompleto(team1Id, team2Id) {
+  if (!team1Id || !team2Id) return null;
+  const data = await fetchApiSportsCached(`/fixtures/headtohead?h2h=${team1Id}-${team2Id}&last=10`);
+  const partidos = data?.response || [];
+  if (!partidos.length) return null;
+
+  const golesPromedio = partidos.reduce((acc, p) => acc + p.goals.home + p.goals.away, 0) / partidos.length;
+  const bttsCount = partidos.filter(p => p.goals.home > 0 && p.goals.away > 0).length;
+  const over25Count = partidos.filter(p => p.goals.home + p.goals.away > 2.5).length;
+  const victoriasTeam1 = partidos.filter(p =>
+    (p.teams.home.id === team1Id && p.teams.home.winner) ||
+    (p.teams.away.id === team1Id && p.teams.away.winner)
+  ).length;
+
+  return {
+    totalPartidos: partidos.length,
+    golesPromedio: golesPromedio.toFixed(1),
+    victoriasLocal: victoriasTeam1,
+    empates: partidos.filter(p => !p.teams.home.winner && !p.teams.away.winner).length,
+    btts: ((bttsCount / partidos.length) * 100).toFixed(0),
+    over25: ((over25Count / partidos.length) * 100).toFixed(0),
+    ultimosResultados: partidos.slice(0, 5).map(p => ({
+      local: p.teams.home.name,
+      visitante: p.teams.away.name,
+      golesLocal: p.goals.home,
+      golesVisit: p.goals.away,
+    })),
+  };
+}
+
+async function obtenerLesiones(teamId) {
+  if (!teamId) return null;
+  const temporada = new Date().getFullYear();
+  const data = await fetchApiSportsCached(`/injuries?team=${teamId}&season=${temporada}`);
+  const lesiones = data?.response || [];
+  const criticas = lesiones.filter(l =>
+    ['Goalkeeper','Centre-Back','Striker','Delantero','Portero','Defensa Central'].includes(l.player.position)
+  );
+  return {
+    total: lesiones.length,
+    criticas: criticas.length,
+    jugadores: lesiones.slice(0, 5).map(l => ({
+      nombre: l.player.name,
+      posicion: l.player.position,
+      tipo: l.player.reason || 'Lesión',
+    })),
+    impacto: criticas.length >= 2 ? 'ALTO' : criticas.length === 1 ? 'MEDIO' : 'BAJO',
+  };
+}
+
+async function obtenerArbitro(fixtureId) {
+  if (!fixtureId) return null;
+  const data = await fetchApiSportsCached(`/fixtures?id=${fixtureId}`);
+  const fixture = data?.response?.[0];
+  return fixture?.fixture?.referee ? { nombre: fixture.fixture.referee } : null;
+}
+
+async function obtenerClima(ciudad) {
+  if (!ciudad) return null;
+  const OWM_KEY = '880d2c93054ec418da363ec46397d3d3';
+  const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(ciudad)}&appid=${OWM_KEY}&units=metric&lang=es`;
+  const proxyUrl = `https://jcahs-proxy.jh050447.workers.dev/?url=${encodeURIComponent(url)}`;
+  try {
+    const r = await fetchSeguro(proxyUrl, 6000);
+    if (!r.ok) return null;
+    const data = await r.json();
+    const lluvia = data.rain?.['1h'] || 0;
+    const viento = data.wind?.speed || 0;
+    return {
+      descripcion: data.weather?.[0]?.description || 'Sin datos',
+      temperatura: data.main?.temp || 0,
+      viento,
+      lluvia,
+      impactoGoles: lluvia > 2 || viento > 10 ? 'REDUCE' : 'NEUTRAL',
+      emoji: lluvia > 2 ? '🌧️' : viento > 10 ? '💨' : '☀️',
+    };
+  } catch { return null; }
+}
+
+// ── MODELO POISSON AJUSTADO ──────────────────────────────────
+
+function calcularPoisson(lambda, k) {
+  let result = Math.exp(-lambda);
+  for (let i = 1; i <= k; i++) result *= lambda / i;
+  return result;
+}
+
+function calcularProbabilidadAjustada(datos) {
+  const { statsLocal, statsVisit, h2h, lesionesLocal, lesionesVisit, clima } = datos;
+
+  let lambdaLocal = statsLocal && statsVisit
+    ? parseFloat(statsLocal.golesLocal) * (parseFloat(statsVisit.recibidosVisit) / 1.2)
+    : 1.5;
+  let lambdaVisit = statsLocal && statsVisit
+    ? parseFloat(statsVisit.golesVisit) * (parseFloat(statsLocal.recibidosLocal) / 1.2)
+    : 1.2;
+
+  if (lesionesLocal?.impacto === 'ALTO') lambdaLocal *= 0.85;
+  if (lesionesVisit?.impacto === 'ALTO') lambdaVisit *= 0.85;
+  if (clima?.impactoGoles === 'REDUCE') { lambdaLocal *= 0.88; lambdaVisit *= 0.88; }
+
+  const totalGoles = lambdaLocal + lambdaVisit;
+
+  let probOver15 = 0, probOver25 = 0, probOver35 = 0;
+  for (let i = 0; i <= 10; i++) {
+    for (let j = 0; j <= 10; j++) {
+      const p = calcularPoisson(lambdaLocal, i) * calcularPoisson(lambdaVisit, j);
+      const total = i + j;
+      if (total > 1.5) probOver15 += p;
+      if (total > 2.5) probOver25 += p;
+      if (total > 3.5) probOver35 += p;
+    }
+  }
+
+  if (h2h?.over25) {
+    const h2hOver = parseInt(h2h.over25) / 100;
+    probOver25 = (probOver25 * 0.6) + (h2hOver * 0.4);
+  }
+
+  const probBTTS = h2h?.btts
+    ? parseInt(h2h.btts) / 100
+    : (1 - calcularPoisson(lambdaLocal, 0)) * (1 - calcularPoisson(lambdaVisit, 0));
+
+  let probLocal = 0, probEmpate = 0, probVisit = 0;
+  for (let i = 0; i <= 10; i++) {
+    for (let j = 0; j <= 10; j++) {
+      const p = calcularPoisson(lambdaLocal, i) * calcularPoisson(lambdaVisit, j);
+      if (i > j) probLocal += p;
+      else if (i === j) probEmpate += p;
+      else probVisit += p;
+    }
+  }
+
+  return {
+    lambdaLocal: lambdaLocal.toFixed(2),
+    lambdaVisit: lambdaVisit.toFixed(2),
+    totalEsperado: totalGoles.toFixed(2),
+    probabilidades: {
+      over15: (probOver15 * 100).toFixed(1),
+      under15: ((1 - probOver15) * 100).toFixed(1),
+      over25: (probOver25 * 100).toFixed(1),
+      under25: ((1 - probOver25) * 100).toFixed(1),
+      over35: (probOver35 * 100).toFixed(1),
+      under35: ((1 - probOver35) * 100).toFixed(1),
+      btts: (probBTTS * 100).toFixed(1),
+      noBtts: ((1 - probBTTS) * 100).toFixed(1),
+      local: (probLocal * 100).toFixed(1),
+      empate: (probEmpate * 100).toFixed(1),
+      visitante: (probVisit * 100).toFixed(1),
+    },
+    factores: {
+      lesionesLocal: lesionesLocal?.impacto || 'N/A',
+      lesionesVisit: lesionesVisit?.impacto || 'N/A',
+      jugadoresLocal: lesionesLocal?.jugadores || [],
+      jugadoresVisit: lesionesVisit?.jugadores || [],
+      clima: clima?.descripcion || 'Sin datos',
+      climaEmoji: clima?.emoji || '❓',
+      climaImpacto: clima?.impactoGoles || 'NEUTRAL',
+      h2hGoles: h2h?.golesPromedio || 'N/A',
+      h2hBTTS: h2h?.btts || 'N/A',
+      h2hOver25: h2h?.over25 || 'N/A',
+      h2hResultados: h2h?.ultimosResultados || [],
+    },
+  };
+}
+
+// ── FUNCIÓN PRINCIPAL DE ANÁLISIS ────────────────────────────
+
+async function analizarPartidoCompleto(homeTeam, awayTeam, ciudad, fixtureId) {
+  const panelId = 'analisis-estadistico';
+  if (!qs(panelId)) return null;
+  setHTML(panelId, `
+    <div style="text-align:center;padding:24px;color:var(--outline)">
+      <div class="loading"><span class="spin">⌛</span></div>
+      <div style="margin-top:8px;font-size:16px">Analizando partido con IA estadística...</div>
+      <div style="font-size:14px;margin-top:4px;color:var(--outline)">Cargando estadísticas, H2H, lesiones y clima</div>
+    </div>
+  `);
+
+  const [idLocal, idVisit] = await Promise.all([buscarEquipoId(homeTeam), buscarEquipoId(awayTeam)]);
+
+  const [statsLocal, statsVisit, h2h, lesionesLocal, lesionesVisit, arbitro, clima] = await Promise.allSettled([
+    obtenerEstadisticasEquipo(idLocal),
+    obtenerEstadisticasEquipo(idVisit),
+    obtenerH2HCompleto(idLocal, idVisit),
+    obtenerLesiones(idLocal),
+    obtenerLesiones(idVisit),
+    obtenerArbitro(fixtureId),
+    obtenerClima(ciudad),
+  ]);
+
+  const val = r => r.status === 'fulfilled' ? r.value : null;
+
+  const analisis = calcularProbabilidadAjustada({
+    statsLocal: val(statsLocal),
+    statsVisit: val(statsVisit),
+    h2h: val(h2h),
+    lesionesLocal: val(lesionesLocal),
+    lesionesVisit: val(lesionesVisit),
+    clima: val(clima),
+  });
+
+  renderAnalisisEstadistico(analisis, homeTeam, awayTeam, val(arbitro), val(clima));
+  return analisis;
+}
+
+// ── RENDER DEL ANÁLISIS ESTADÍSTICO ──────────────────────────
+
+function renderAnalisisEstadistico(analisis, local, visitante, arbitro, clima) {
+  const p = analisis.probabilidades;
+  const f = analisis.factores;
+
+  const colorImpacto = (imp) =>
+    imp === 'ALTO' ? 'var(--error)' :
+    imp === 'MEDIO' ? 'var(--warning)' :
+    'var(--tertiary)';
+
+  const tituloSec = (txt) => `<div style="font-size:14px;font-weight:800;color:var(--text-2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em">${txt}</div>`;
+
+  const html = `
+  <div class="card" style="margin-top:24px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <div class="card-title" style="margin-bottom:0">🧮 ANÁLISIS ESTADÍSTICO COMPLETO</div>
+      <span style="font-size:13px;color:var(--text-3);font-family:var(--f-mono)">Modelo Poisson + API-Sports + Clima</span>
+    </div>
+
+    <!-- Goles esperados -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+      <div style="text-align:center;padding:16px;background:var(--surface-high);border-radius:var(--radius)">
+        <div class="label">GOLES ESPERADOS</div>
+        <div class="label" style="margin-top:4px">${escHtml(local)}</div>
+        <div style="font-size:40px;font-weight:700;font-family:var(--font-mono);color:var(--tertiary)">${analisis.lambdaLocal}</div>
+      </div>
+      <div style="text-align:center;padding:16px;background:var(--surface-high);border-radius:var(--radius)">
+        <div class="label">TOTAL ESPERADO</div>
+        <div style="font-size:48px;font-weight:700;font-family:var(--font-mono);color:var(--on-surface)">${analisis.totalEsperado}</div>
+        <div style="font-size:14px;color:var(--outline)">goles en el partido</div>
+      </div>
+      <div style="text-align:center;padding:16px;background:var(--surface-high);border-radius:var(--radius)">
+        <div class="label">GOLES ESPERADOS</div>
+        <div class="label" style="margin-top:4px">${escHtml(visitante)}</div>
+        <div style="font-size:40px;font-weight:700;font-family:var(--font-mono);color:var(--error)">${analisis.lambdaVisit}</div>
+      </div>
+    </div>
+
+    <!-- Probabilidades por mercado -->
+    <div style="margin-bottom:16px">
+      ${tituloSec('PROBABILIDADES CALCULADAS')}
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+        ${[
+          ['Más de 1.5', p.over15, p.under15],
+          ['Más de 2.5', p.over25, p.under25],
+          ['Más de 3.5', p.over35, p.under35],
+        ].map(([label, over, under]) => `
+        <div style="background:var(--surface-high);border-radius:var(--radius);padding:12px">
+          <div style="font-size:13px;color:var(--outline);margin-bottom:8px">${label} goles</div>
+          <div style="display:flex;justify-content:space-between">
+            <div>
+              <div style="font-size:12px;color:var(--outline)">SÍ</div>
+              <div style="font-size:22px;font-weight:700;font-family:var(--font-mono);color:${parseFloat(over) > 55 ? 'var(--tertiary)' : 'var(--on-surface)'}">${over}%</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:12px;color:var(--outline)">NO</div>
+              <div style="font-size:22px;font-weight:700;font-family:var(--font-mono);color:${parseFloat(under) > 55 ? 'var(--tertiary)' : 'var(--on-surface)'}">${under}%</div>
+            </div>
+          </div>
+        </div>`).join('')}
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="background:var(--surface-high);border-radius:var(--radius);padding:12px">
+          <div style="font-size:13px;color:var(--outline);margin-bottom:8px">Resultado final (1X2)</div>
+          <div style="display:flex;justify-content:space-between">
+            <div style="text-align:center">
+              <div style="font-size:12px;color:var(--outline)">${escHtml(local)}</div>
+              <div style="font-size:22px;font-weight:700;font-family:var(--font-mono)">${p.local}%</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:12px;color:var(--outline)">Empate</div>
+              <div style="font-size:22px;font-weight:700;font-family:var(--font-mono)">${p.empate}%</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:12px;color:var(--outline)">${escHtml(visitante)}</div>
+              <div style="font-size:22px;font-weight:700;font-family:var(--font-mono)">${p.visitante}%</div>
+            </div>
+          </div>
+        </div>
+        <div style="background:var(--surface-high);border-radius:var(--radius);padding:12px">
+          <div style="font-size:13px;color:var(--outline);margin-bottom:8px">Ambos equipos marcan</div>
+          <div style="display:flex;justify-content:space-between">
+            <div style="text-align:center">
+              <div style="font-size:12px;color:var(--outline)">SÍ</div>
+              <div style="font-size:28px;font-weight:700;font-family:var(--font-mono);color:${parseFloat(p.btts) > 55 ? 'var(--tertiary)' : 'var(--on-surface)'}">${p.btts}%</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:12px;color:var(--outline)">NO</div>
+              <div style="font-size:28px;font-weight:700;font-family:var(--font-mono)">${p.noBtts}%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Factores de ajuste -->
+    <div style="margin-bottom:16px">
+      ${tituloSec('FACTORES DE AJUSTE')}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+
+        <div style="background:var(--surface-high);border-radius:var(--radius);padding:12px">
+          <div style="font-size:13px;color:var(--outline);margin-bottom:6px">🏥 Lesiones ${escHtml(local)}</div>
+          <div style="font-size:18px;font-weight:700;color:${colorImpacto(f.lesionesLocal)}">Impacto ${f.lesionesLocal}</div>
+          ${f.jugadoresLocal.length > 0
+            ? f.jugadoresLocal.map(j => `<div style="font-size:13px;color:var(--outline);margin-top:4px">• ${escHtml(j.nombre)} (${escHtml(j.posicion)})</div>`).join('')
+            : '<div style="font-size:13px;color:var(--tertiary)">Sin bajas confirmadas</div>'}
+        </div>
+
+        <div style="background:var(--surface-high);border-radius:var(--radius);padding:12px">
+          <div style="font-size:13px;color:var(--outline);margin-bottom:6px">🏥 Lesiones ${escHtml(visitante)}</div>
+          <div style="font-size:18px;font-weight:700;color:${colorImpacto(f.lesionesVisit)}">Impacto ${f.lesionesVisit}</div>
+          ${f.jugadoresVisit.length > 0
+            ? f.jugadoresVisit.map(j => `<div style="font-size:13px;color:var(--outline);margin-top:4px">• ${escHtml(j.nombre)} (${escHtml(j.posicion)})</div>`).join('')
+            : '<div style="font-size:13px;color:var(--tertiary)">Sin bajas confirmadas</div>'}
+        </div>
+
+        <div style="background:var(--surface-high);border-radius:var(--radius);padding:12px">
+          <div style="font-size:13px;color:var(--outline);margin-bottom:6px">⚔️ H2H Últimos 10 partidos</div>
+          <div style="display:flex;gap:16px">
+            <div>
+              <div style="font-size:12px;color:var(--outline)">Goles prom.</div>
+              <div style="font-size:24px;font-weight:700;font-family:var(--font-mono)">${f.h2hGoles}</div>
+            </div>
+            <div>
+              <div style="font-size:12px;color:var(--outline)">Over 2.5</div>
+              <div style="font-size:24px;font-weight:700;font-family:var(--font-mono);color:${parseInt(f.h2hOver25) > 55 ? 'var(--tertiary)' : 'var(--on-surface)'}">${f.h2hOver25}%</div>
+            </div>
+            <div>
+              <div style="font-size:12px;color:var(--outline)">BTTS</div>
+              <div style="font-size:24px;font-weight:700;font-family:var(--font-mono)">${f.h2hBTTS}%</div>
+            </div>
+          </div>
+          ${f.h2hResultados.length > 0
+            ? '<div style="margin-top:8px">' + f.h2hResultados.map(r =>
+                `<div style="font-size:13px;color:var(--outline)">${escHtml(r.local)} ${r.golesLocal}-${r.golesVisit} ${escHtml(r.visitante)}</div>`
+              ).join('') + '</div>'
+            : ''}
+        </div>
+
+        <div style="background:var(--surface-high);border-radius:var(--radius);padding:12px">
+          <div style="font-size:13px;color:var(--outline);margin-bottom:6px">${f.climaEmoji} Clima del partido</div>
+          <div style="font-size:18px;font-weight:700;color:${f.climaImpacto === 'REDUCE' ? 'var(--warning)' : 'var(--tertiary)'}">
+            ${f.climaImpacto === 'REDUCE' ? '⚠️ Reduce goles' : '✅ Sin impacto'}
+          </div>
+          <div style="font-size:14px;color:var(--outline);margin-top:4px">${escHtml(f.clima)}</div>
+          ${arbitro ? `<div style="font-size:13px;color:var(--outline);margin-top:8px">⚖️ Árbitro: ${escHtml(arbitro.nombre)}</div>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <!-- Comparador con Ecuabet -->
+    <div style="background:rgba(78,222,163,0.05);border:1px solid rgba(78,222,163,0.2);border-radius:var(--radius);padding:16px">
+      <div style="font-size:14px;font-weight:700;color:var(--tertiary);margin-bottom:12px">🎯 COMPARAR CON ODDS DE ECUABET</div>
+      <div style="font-size:15px;color:var(--outline);margin-bottom:12px">
+        Ingresa la odd que ofrece Ecuabet para calcular el edge real con probabilidades ajustadas estadísticamente:
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+        <div>
+          <div class="label">Mercado</div>
+          <select id="comp-mercado" class="input" style="width:180px" onchange="actualizarComparador()">
+            <option value="over25">Más de 2.5 goles</option>
+            <option value="under25">Menos de 2.5 goles</option>
+            <option value="over15">Más de 1.5 goles</option>
+            <option value="btts">Ambos marcan SÍ</option>
+            <option value="local">Local gana</option>
+            <option value="empate">Empate</option>
+            <option value="visitante">Visitante gana</option>
+          </select>
+        </div>
+        <div>
+          <div class="label">Odd Ecuabet</div>
+          <input type="number" id="comp-odd" class="input" step="0.01" min="1.01" placeholder="Ej: 1.85" style="width:120px" oninput="actualizarComparador()">
+        </div>
+        <div id="comp-resultado" style="flex:1;min-width:200px"></div>
+      </div>
+    </div>
+
+    <div style="font-size:13px;color:var(--text-3);margin-top:12px;text-align:right;font-family:var(--f-mono)">
+      Fuentes: API-Sports · OpenWeatherMap · Modelo Poisson · ${new Date().toLocaleTimeString('es-EC')}
+    </div>
+  </div>`;
+
+  setHTML('analisis-estadistico', html);
+  STATE.analisisActual = { analisis, local, visitante };
+}
+
+// ── COMPARADOR EN TIEMPO REAL ────────────────────────────────
+
+function actualizarComparador() {
+  const mercado = qs('comp-mercado')?.value;
+  const odd = parseFloat(qs('comp-odd')?.value);
+  const el = qs('comp-resultado');
+  if (!el || !mercado || !odd || odd < 1.01) return;
+
+  const analisis = STATE.analisisActual?.analisis;
+  if (!analisis) return;
+
+  const probMap = {
+    over25: analisis.probabilidades.over25,
+    under25: analisis.probabilidades.under25,
+    over15: analisis.probabilidades.over15,
+    btts: analisis.probabilidades.btts,
+    local: analisis.probabilidades.local,
+    empate: analisis.probabilidades.empate,
+    visitante: analisis.probabilidades.visitante,
+  };
+
+  const probReal = parseFloat(probMap[mercado]) / 100;
+  const probImplicita = 1 / odd;
+  const edge = (probReal - probImplicita) * 100;
+  const kelly = Math.max(0, (probReal * (odd - 1) - (1 - probReal)) / (odd - 1) * 0.25) * 100;
+  const apuesta = STATE.bankroll * kelly / 100;
+  const ganancia = apuesta * (odd - 1);
+
+  el.innerHTML = edge > 0 ? `
+    <div style="background:rgba(78,222,163,0.1);border:1px solid rgba(78,222,163,0.3);border-radius:var(--radius);padding:12px">
+      <div style="font-size:18px;font-weight:700;color:var(--tertiary)">✅ VALUE BET CONFIRMADO</div>
+      <div style="display:flex;gap:16px;margin-top:8px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:12px;color:var(--outline)">EDGE REAL</div>
+          <div style="font-size:22px;font-weight:700;color:var(--tertiary)">+${edge.toFixed(1)}%</div>
+        </div>
+        <div>
+          <div style="font-size:12px;color:var(--outline)">PROB REAL</div>
+          <div style="font-size:22px;font-weight:700">${(probReal * 100).toFixed(1)}%</div>
+        </div>
+        <div>
+          <div style="font-size:12px;color:var(--outline)">APOSTAR</div>
+          <div style="font-size:22px;font-weight:700;color:var(--tertiary)">$${apuesta.toFixed(2)}</div>
+        </div>
+        <div>
+          <div style="font-size:12px;color:var(--outline)">SI GANA</div>
+          <div style="font-size:22px;font-weight:700;color:var(--tertiary)">+$${ganancia.toFixed(2)}</div>
+        </div>
+      </div>
+      <div style="font-size:13px;color:var(--outline);margin-top:8px">Por cada $100 apostados así, ganarías $${edge.toFixed(1)} a largo plazo</div>
+    </div>` : `
+    <div style="background:rgba(255,180,171,0.1);border:1px solid rgba(255,180,171,0.2);border-radius:var(--radius);padding:12px">
+      <div style="font-size:18px;font-weight:700;color:var(--error)">❌ SIN VALOR</div>
+      <div style="font-size:15px;color:var(--outline);margin-top:4px">
+        Edge: ${edge.toFixed(1)}% — La casa tiene ventaja en esta apuesta.
+        Prob real ${(probReal * 100).toFixed(1)}% vs prob implícita ${(probImplicita * 100).toFixed(1)}%
+      </div>
+    </div>`;
 }
 
 // ════════════════════════════════════════════════════════════
