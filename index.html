@@ -4571,7 +4571,6 @@ async function init() {
 
   // Cargar odds para mentor (en bg, falla silenciosamente)
   cargarDeportes().catch(() => {});
-  setTimeout(() => cargarDeportes().catch(() => {}), 3000);
   // Enable mentor button after 5 seconds regardless
   setTimeout(() => mentorActualizarEstado('ready'), 5000);
 
