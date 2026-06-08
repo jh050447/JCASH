@@ -5452,8 +5452,20 @@ const fetchApiSportsCached = async (endpoint) => {
 };
 
 async function buscarEquipoId(nombre) {
-  const data = await fetchApiSportsCached(`/teams?name=${encodeURIComponent(nombre)}`);
-  return data?.response?.[0]?.team?.id || null;
+  // Estrategia 1: nombre exacto
+  let data = await fetchApiSportsCached(`/teams?name=${encodeURIComponent(nombre)}`);
+  if (data?.response?.[0]?.team?.id) return data.response[0].team.id;
+
+  // Estrategia 2: solo la primera palabra (ej. "Real Madrid" → "Real")
+  const firstWord = nombre.split(' ')[0];
+  data = await fetchApiSportsCached(`/teams?name=${encodeURIComponent(firstWord)}`);
+  if (data?.response?.[0]?.team?.id) return data.response[0].team.id;
+
+  // Estrategia 3: búsqueda parcial por nombre
+  data = await fetchApiSportsCached(`/teams?search=${encodeURIComponent(nombre)}`);
+  if (data?.response?.[0]?.team?.id) return data.response[0].team.id;
+
+  return null;
 }
 
 async function obtenerEstadisticasEquipo(teamId) {
