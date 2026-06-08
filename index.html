@@ -5672,6 +5672,19 @@ async function analizarPartidoCompleto(homeTeam, awayTeam, ciudad, fixtureId) {
 
   const [idLocal, idVisit] = await Promise.all([buscarEquipoId(homeTeam), buscarEquipoId(awayTeam)]);
 
+  // Resolver ciudad real para el clima (la ciudad aproximada "<equipo> stadium" no es válida para OpenWeatherMap)
+  let ciudadReal = ciudad;
+  if (fixtureId) {
+    const fixture = await fetchApiSportsCached(`/fixtures?id=${fixtureId}`);
+    const venue = fixture?.response?.[0]?.fixture?.venue?.city;
+    if (venue) ciudadReal = venue;
+  }
+  if (!ciudadReal || ciudadReal.includes('stadium')) {
+    const teamData = await fetchApiSportsCached(`/teams?search=${encodeURIComponent(homeTeam)}`);
+    const city = teamData?.response?.[0]?.venue?.city;
+    ciudadReal = city || null;
+  }
+
   const [statsLocal, statsVisit, h2h, lesionesLocal, lesionesVisit, arbitro, clima] = await Promise.allSettled([
     obtenerEstadisticasEquipo(idLocal),
     obtenerEstadisticasEquipo(idVisit),
@@ -5679,7 +5692,7 @@ async function analizarPartidoCompleto(homeTeam, awayTeam, ciudad, fixtureId) {
     obtenerLesiones(idLocal),
     obtenerLesiones(idVisit),
     obtenerArbitro(fixtureId),
-    obtenerClima(ciudad),
+    ciudadReal ? obtenerClima(ciudadReal) : Promise.resolve(null),
   ]);
 
   const val = r => r.status === 'fulfilled' ? r.value : null;
