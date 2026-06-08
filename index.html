@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es" class="dark">
 <head>
 <meta charset="UTF-8">
@@ -572,6 +572,77 @@ body {
 .stat-chip-label { font-size: 11px; color: var(--text-3); letter-spacing: .8px; text-transform: uppercase; }
 .stat-chip-value { font-family: var(--f-mono); font-size: 22px; font-weight: 700; }
 
+/* ── HISTORIAL — operaciones ─────────────────────────────── */
+.hist-stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 20px; }
+@media (max-width: 1100px) { .hist-stats-row { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px)  { .hist-stats-row { grid-template-columns: 1fr; } }
+.hist-stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  text-align: center;
+}
+.hist-stat-label { font-size: 12px; color: var(--text-3); letter-spacing: .8px; text-transform: uppercase; margin-bottom: 6px; }
+.hist-stat-value { font-family: var(--f-mono); font-size: 48px; font-weight: 800; line-height: 1.1; color: var(--text); }
+.hist-stat-sub { font-size: 13px; color: var(--text-3); margin-top: 4px; }
+
+.hist-filtros-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
+.hist-filtro-btn {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-family: var(--f-ui);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.hist-filtro-btn:hover { background: var(--surface-3); color: var(--text); }
+.hist-filtro-btn.active { background: var(--tertiary); color: #060f1a; border-color: var(--tertiary); }
+
+.hist-paginacion { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 16px; }
+.hist-paginacion span { font-family: var(--f-mono); font-size: 15px; color: var(--text-2); }
+
+.hist-toggle-row { display: flex; gap: 10px; margin-bottom: 14px; }
+.hist-toggle-btn {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-family: var(--f-ui);
+  font-size: 16px;
+  font-weight: 700;
+  padding: 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.hist-toggle-btn.active { background: var(--tertiary); color: #060f1a; border-color: var(--tertiary); }
+.hist-resultado-row { display: flex; gap: 10px; }
+.hist-resultado-btn {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-family: var(--f-ui);
+  font-size: 15px;
+  font-weight: 700;
+  padding: 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.hist-resultado-btn.active[data-r="ganó"]  { background: var(--tert-dim);  color: var(--tertiary); border-color: var(--tertiary); }
+.hist-resultado-btn.active[data-r="perdió"]{ background: var(--err-dim);   color: var(--error);    border-color: var(--error); }
+.hist-resultado-btn.active[data-r="pendiente"] { background: var(--warn-dim); color: var(--warning); border-color: var(--warning); }
+.hist-detalle-row { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 16px; }
+.hist-detalle-row:last-child { border-bottom: none; }
+.hist-detalle-l { color: var(--text-2); }
+.hist-detalle-v { font-family: var(--f-mono); font-weight: 700; color: var(--text); text-align: right; }
+
 /* ── SCROLLBAR ───────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -911,7 +982,7 @@ body {
       <div class="sidebar-logo-sub">Dashboard Financiero v3.0</div>
     </div>
 
-    <button class="btn-nueva-op" onclick="abrirModalOp()">
+    <button class="btn-nueva-op" onclick="abrirFormOpCon({tipo:'apuesta'})">
       <span class="material-symbols-outlined" style="font-size:18px">add_circle</span>
       Nueva Operación
     </button>
@@ -1261,26 +1332,83 @@ body {
       <section class="seccion" id="sec-historial">
         <div class="sec-header">
           <div>
-            <div class="sec-title">Historial</div>
-            <div class="sec-sub">Registro de todas tus operaciones</div>
+            <div class="sec-title">Historial de Operaciones</div>
+            <div class="sec-sub">Registro completo de tus apuestas y operaciones crypto — calculado en tiempo real desde tus datos</div>
           </div>
           <button class="btn btn-ghost" style="color:var(--error)" onclick="limpiarHistorial()">
             <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px">delete</span>
-            Limpiar
+            Limpiar todo
           </button>
         </div>
 
-        <!-- Stats -->
-        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px" id="hist-stats">
-          <div class="stat-chip"><span class="stat-chip-label">Total ops</span><span class="stat-chip-value" id="hs-total">0</span></div>
-          <div class="stat-chip"><span class="stat-chip-label">Ganadoras</span><span class="stat-chip-value pos" id="hs-win">0</span></div>
-          <div class="stat-chip"><span class="stat-chip-label">Perdedoras</span><span class="stat-chip-value neg" id="hs-loss">0</span></div>
-          <div class="stat-chip"><span class="stat-chip-label">Win Rate</span><span class="stat-chip-value" id="hs-wr">--%</span></div>
-          <div class="stat-chip"><span class="stat-chip-label">PnL Total</span><span class="stat-chip-value" id="hs-pnl">$--</span></div>
+        <!-- FILA 1 — 5 stats grandes -->
+        <div class="hist-stats-row" id="hist-stats-grandes">
+          <div class="hist-stat-card">
+            <div class="hist-stat-label">P&amp;L total</div>
+            <div class="hist-stat-value" id="hg-pnl">$--</div>
+          </div>
+          <div class="hist-stat-card">
+            <div class="hist-stat-label">Win rate</div>
+            <div class="hist-stat-value" id="hg-wr">--%</div>
+          </div>
+          <div class="hist-stat-card">
+            <div class="hist-stat-label">Ops totales</div>
+            <div class="hist-stat-value" id="hg-total">0</div>
+          </div>
+          <div class="hist-stat-card">
+            <div class="hist-stat-label">Mejor racha</div>
+            <div class="hist-stat-value" id="hg-mejor-racha">0</div>
+            <div class="hist-stat-sub" id="hg-mejor-racha-sub">victorias seguidas</div>
+          </div>
+          <div class="hist-stat-card">
+            <div class="hist-stat-label">Racha actual</div>
+            <div class="hist-stat-value" id="hg-racha">0</div>
+            <div class="hist-stat-sub" id="hg-racha-sub">sin operaciones</div>
+          </div>
         </div>
 
+        <!-- FILA 2 — Gráfica P&L -->
+        <div class="card" style="margin-bottom:20px">
+          <div class="card-title">Curva de capital (P&amp;L acumulado)</div>
+          <div id="hist-grafica-wrap" style="position:relative">
+            <canvas id="grafica-pnl" width="1000" height="240" style="width:100%;height:240px;display:block"></canvas>
+            <div id="hist-grafica-msg" class="loading" style="display:none">Registra al menos 2 operaciones cerradas para ver tu curva de capital</div>
+          </div>
+          <div class="card-source">Línea verde = capital acumulado · Línea punteada = bankroll inicial</div>
+        </div>
+
+        <!-- FILA 3 — Nueva operación + Stats detallados -->
+        <div class="grid-2" style="margin-bottom:20px;align-items:start">
+          <div class="card" id="hist-col-form">
+            <div class="card-title">Registrar operación</div>
+            <button class="btn btn-primary" id="hist-btn-nueva" style="width:100%;font-size:16px;padding:14px" onclick="toggleFormOp()">➕ Registrar operación</button>
+            <div id="hist-form-wrap" style="display:none;margin-top:16px"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Estadísticas detalladas</div>
+            <div id="hist-stats-detalle"><div class="loading">Sin datos suficientes</div></div>
+          </div>
+        </div>
+
+        <!-- FILA 4 — Tabla -->
         <div class="card">
+          <div class="card-title">Operaciones registradas</div>
+          <div class="hist-filtros-row" id="hist-filtros">
+            <button class="hist-filtro-btn active" data-f="todas" onclick="setFiltroHist('todas')">Todas</button>
+            <button class="hist-filtro-btn" data-f="apuesta" onclick="setFiltroHist('apuesta')">Apuestas</button>
+            <button class="hist-filtro-btn" data-f="crypto" onclick="setFiltroHist('crypto')">Crypto</button>
+            <button class="hist-filtro-btn" data-f="pendiente" onclick="setFiltroHist('pendiente')">Pendientes</button>
+            <button class="hist-filtro-btn" data-f="ganó" onclick="setFiltroHist('ganó')">Ganadas</button>
+            <button class="hist-filtro-btn" data-f="perdió" onclick="setFiltroHist('perdió')">Perdidas</button>
+            <input class="input" id="hist-busqueda" placeholder="Buscar operación..." style="margin-left:auto;max-width:240px" oninput="buscarHist(this.value)">
+            <button class="btn btn-ghost" onclick="exportarHistCSV()">
+              <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px">download</span>
+              Exportar CSV
+            </button>
+          </div>
           <div id="hist-tabla"><div class="loading">Sin operaciones registradas aún</div></div>
+          <div id="hist-paginacion" class="hist-paginacion"></div>
         </div>
       </section>
 
@@ -1365,7 +1493,7 @@ body {
           <button class="btn" style="background:var(--err-dim);color:var(--error);border:1px solid rgba(255,180,171,0.3);font-size:16px;padding:14px 28px" onclick="ir('sec-panel')">
             ← Volver al Panel
           </button>
-          <button class="btn btn-primary" style="font-size:16px;padding:14px 28px" onclick="abrirModalOp()">
+          <button class="btn btn-primary" style="font-size:16px;padding:14px 28px" onclick="abrirFormOpCon({tipo:'apuesta'})">
             Registrar Operación
           </button>
         </div>
@@ -1374,52 +1502,6 @@ body {
     </main><!-- /spa-content -->
   </div><!-- /main-area -->
 </div><!-- /app-shell -->
-
-<!-- ═══════════════ MODAL NUEVA OPERACIÓN ═══════════════ -->
-<div class="modal-overlay" id="modal-op" onclick="if(event.target===this)cerrarModal()">
-  <div class="modal-box">
-    <div class="modal-title">Registrar Operación</div>
-    <div style="display:flex;flex-direction:column;gap:14px">
-      <div>
-        <label class="label">Tipo</label>
-        <select class="input" id="op-tipo" style="font-family:var(--f-ui)">
-          <option value="cripto">Cripto</option>
-          <option value="deportes">Deportes</option>
-        </select>
-      </div>
-      <div>
-        <label class="label">Descripción</label>
-        <input class="input" id="op-desc" placeholder="Ej: BTC LONG 3x / Alcaraz gana Roland Garros">
-      </div>
-      <div class="grid-2">
-        <div>
-          <label class="label">Capital ($)</label>
-          <input class="input" id="op-capital" type="number" min="0" step="0.01" placeholder="50">
-        </div>
-        <div>
-          <label class="label">Odd / Precio entrada</label>
-          <input class="input" id="op-odd" type="number" min="0" step="0.01" placeholder="1.85">
-        </div>
-      </div>
-      <div>
-        <label class="label">Resultado</label>
-        <select class="input" id="op-resultado" style="font-family:var(--f-ui)">
-          <option value="abierta">Abierta (en curso)</option>
-          <option value="ganada">Ganada ✓</option>
-          <option value="perdida">Perdida ✗</option>
-        </select>
-      </div>
-      <div id="op-pnl-wrap" style="display:none">
-        <label class="label">PnL ($) — positivo si ganó, negativo si perdió</label>
-        <input class="input" id="op-pnl" type="number" step="0.01" placeholder="Ej: 35.50 o -20.00">
-      </div>
-    </div>
-    <div style="display:flex;gap:10px;margin-top:20px">
-      <button class="btn btn-primary" style="flex:1" onclick="guardarOp()">Guardar</button>
-      <button class="btn btn-ghost" onclick="cerrarModal()">Cancelar</button>
-    </div>
-  </div>
-</div>
 
 <!-- ═══════════════════ MENTOR DE PRONÓSTICOS ═════════════ -->
 <div class="mentor-overlay" id="mentor-overlay" onclick="cerrarMentor()"></div>
@@ -1454,6 +1536,54 @@ const CFG = {
     noticias: 600_000,  // 10 min
   },
 };
+
+// ─── MIGRACIÓN HISTORIAL (esquema antiguo → esquema v3) ─────
+function migrarOps(raw) {
+  const parseFechaVieja = s => {
+    if (!s) return null;
+    const m = String(s).match(/^(\d{2})\/(\d{2})\/(\d{2}),?\s*(\d{2}):(\d{2})/);
+    if (!m) return null;
+    const d = new Date(2000 + +m[3], +m[2] - 1, +m[1], +m[4], +m[5]);
+    return isNaN(d.getTime()) ? null : d.toISOString();
+  };
+  const mapResultado = r => r === 'ganada' || r === 'ganó' ? 'ganó'
+    : r === 'perdida' || r === 'perdió' ? 'perdió'
+    : 'pendiente';
+
+  return raw.map(op => {
+    // Ya está en el esquema nuevo
+    if (op.descripcion !== undefined && (op.tipo === 'apuesta' || op.tipo === 'crypto')) {
+      return Object.assign({ notas:'', exchange:null, liga:null, moneda:null, mercado:null, salida:null }, op, { resultado: mapResultado(op.resultado) });
+    }
+
+    const tipoNuevo = op.tipo === 'cripto' ? 'crypto'
+      : op.tipo === 'deportes' ? 'apuesta'
+      : op.tipo === 'crypto' ? 'crypto'
+      : 'apuesta';
+    const fecha = op.fecha ? (parseFechaVieja(op.fecha) || op.fecha) : (op.ts || new Date(op.id || Date.now()).toISOString());
+
+    const base = {
+      id: op.id || Date.now(),
+      tipo: tipoNuevo,
+      descripcion: op.desc || op.descripcion || '',
+      mercado: null,
+      stake: op.capital != null ? op.capital : (op.stake || 0),
+      odd: null,
+      entrada: null,
+      salida: null,
+      resultado: mapResultado(op.resultado || op.estado),
+      pnl: op.pnl != null ? op.pnl : null,
+      fecha,
+      notas: '',
+      exchange: null,
+      liga: null,
+      moneda: null,
+    };
+    if (tipoNuevo === 'crypto') base.entrada = op.odd != null ? op.odd : null;
+    else base.odd = op.odd != null ? op.odd : null;
+    return base;
+  });
+}
 
 // ─── ESTADO ─────────────────────────────────────────────────
 const STATE = {
@@ -1495,7 +1625,11 @@ const STATE = {
   modo:      localStorage.getItem('jcahs_modo')     || 'principiante',
   bankroll:  parseFloat(localStorage.getItem('jcahs_bankroll')) || 200,
   secActiva: localStorage.getItem('jcahs_sec')      || 'sec-panel',
-  ops:       JSON.parse(localStorage.getItem('jcahs_ops') || '[]'),
+  ops:       migrarOps(JSON.parse(localStorage.getItem('jcahs_ops') || '[]')),
+  histFiltro:   'todas',
+  histBusqueda: '',
+  histPagina:   1,
+  histForm:     { abierto:false, editId:null, tipo:'apuesta' },
   iaAsesor:  'MASTER',
   iaChats:   JSON.parse(localStorage.getItem('jcahs_ia_chats') || '{}'),
 };
@@ -1506,6 +1640,7 @@ const fmtUSD  = n => n == null ? '--' : (n >= 1
   ? '$' + n.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 })
   : '$' + n.toFixed(6));
 const fmtPct  = n => n == null ? '--' : (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
+const fmtPnL  = n => n == null ? '--' : (n > 0 ? '+' : n < 0 ? '-' : '') + '$' + Math.abs(n).toFixed(2);
 const fmtLg   = n => n >= 1e12 ? (n/1e12).toFixed(2)+'T' : n >= 1e9 ? (n/1e9).toFixed(1)+'B' : n >= 1e6 ? (n/1e6).toFixed(1)+'M' : String(Math.round(n));
 const qs      = id => document.getElementById(id);
 const setText = (id, v) => { const el = qs(id); if (el) el.textContent = v; };
@@ -1764,16 +1899,16 @@ function renderPanel() {
     }
   }
 
-  const opsActivas = STATE.ops.filter(o => o.resultado === 'abierta').length;
+  const opsActivas = STATE.ops.filter(o => o.resultado === 'pendiente').length;
   setText('kpi-ops-activas', String(opsActivas));
 
-  const hoy    = new Date().toISOString().split('T')[0];
+  const hoy    = new Date().toDateString();
   const pnlHoy = STATE.ops
-    .filter(o => o.fecha?.startsWith(hoy) && o.pnl != null)
+    .filter(o => o.fecha && new Date(o.fecha).toDateString() === hoy && o.pnl != null)
     .reduce((s, o) => s + o.pnl, 0);
   const pnlEl = qs('kpi-pnl');
   if (pnlEl) {
-    pnlEl.textContent = fmtUSD(pnlHoy);
+    pnlEl.textContent = fmtPnL(pnlHoy);
     pnlEl.className   = 'card-value ' + (pnlHoy >= 0 ? 'pos' : 'neg');
   }
 
@@ -1878,19 +2013,19 @@ function renderOpsRecientes() {
   }
   const html = `<table class="tabla">
     <thead><tr>
-      <th>Descripción</th><th>Tipo</th><th>Capital</th><th>Resultado</th><th>PnL</th>
+      <th>Descripción</th><th>Tipo</th><th>Stake</th><th>Resultado</th><th>PnL</th>
     </tr></thead>
     <tbody>${recientes.map(op => `
       <tr>
-        <td style="font-weight:600">${op.desc || '--'}</td>
-        <td><span class="badge badge-gray">${op.tipo}</span></td>
-        <td style="font-family:var(--f-mono)">${fmtUSD(op.capital)}</td>
-        <td>${op.resultado === 'ganada'
-          ? '<span class="badge badge-green">Ganada</span>'
-          : op.resultado === 'perdida'
-          ? '<span class="badge badge-red">Perdida</span>'
-          : '<span class="badge badge-warn">Abierta</span>'}</td>
-        <td style="font-family:var(--f-mono)" class="${op.pnl > 0 ? 'pos' : op.pnl < 0 ? 'neg' : ''}">${op.pnl != null ? fmtUSD(op.pnl) : '--'}</td>
+        <td style="font-weight:600">${escHtml(op.descripcion || '--')}</td>
+        <td><span class="badge ${op.tipo === 'crypto' ? 'badge-green' : 'badge-warn'}">${op.tipo === 'crypto' ? 'Crypto' : 'Apuesta'}</span></td>
+        <td style="font-family:var(--f-mono)">${fmtUSD(op.stake)}</td>
+        <td>${op.resultado === 'ganó'
+          ? '<span class="badge badge-green">Ganó</span>'
+          : op.resultado === 'perdió'
+          ? '<span class="badge badge-red">Perdió</span>'
+          : '<span class="badge badge-warn">Pendiente</span>'}</td>
+        <td style="font-family:var(--f-mono)" class="${op.pnl > 0 ? 'pos' : op.pnl < 0 ? 'neg' : ''}">${fmtPnL(op.pnl)}</td>
       </tr>`).join('')}
     </tbody>
   </table>`;
@@ -2327,13 +2462,19 @@ function selExchange(sym, key) {
 }
 
 function registrarOp(sym, capital, entrada) {
-  const sig  = STATE.senalesCripto[sym];
-  const desc = `${sym} ${sig?.direction === 'long' ? 'LONG' : 'SHORT'} · ${sig?.opTipo || ''}`;
-  const el1  = qs('op-desc');    if (el1) el1.value = desc;
-  const el2  = qs('op-capital'); if (el2) el2.value = capital.toFixed(2);
-  const el3  = qs('op-odd');     if (el3) el3.value = entrada.toFixed(2);
-  const el4  = qs('op-tipo');    if (el4) el4.value = 'cripto';
-  abrirModalOp();
+  const sig = STATE.senalesCripto[sym];
+  const posicion = sig?.direction === 'short' ? 'SHORT' : 'LONG';
+  const exchMap = { binance:'Binance', bybit:'Bybit', kucoin:'KuCoin', kraken:'Kraken' };
+  abrirFormOpCon({
+    tipo: 'crypto',
+    descripcion: `${sym} ${posicion}${sig?.opTipo ? ' · ' + sig.opTipo : ''}`,
+    moneda: MONEDAS_CRYPTO.includes(sym) ? sym : 'OTRA',
+    monedaOtra: MONEDAS_CRYPTO.includes(sym) ? '' : sym,
+    posicion,
+    entrada: Number(entrada.toFixed(2)),
+    stake: Number(capital.toFixed(2)),
+    exchange: exchMap[STATE.exchSelected?.[sym]] || 'Binance',
+  });
 }
 
 function ignorarCard(id) {
@@ -2520,11 +2661,17 @@ function actualizarSalidaDCA() {
 }
 function wizRegistrarOp() {
   const w=STATE.wizard, d=STATE.precios[w.sym]; if(!d) return;
-  const desc=`${w.sym} ${w.dir.toUpperCase()} x${w.apalancamiento} · ${EXCHANGES[w.exchange].nombre}`;
-  const el1=qs('op-desc');    if(el1) el1.value=desc;
-  const el2=qs('op-capital'); if(el2) el2.value=w.capital.toFixed(2);
-  const el3=qs('op-odd');     if(el3) el3.value=d.precio.toFixed(2);
-  const el4=qs('op-tipo');    if(el4) el4.value='cripto';
+  const posicion = w.dir.toUpperCase()==='LONG' ? 'LONG' : 'SHORT';
+  abrirFormOpCon({
+    tipo: 'crypto',
+    descripcion: `${w.sym} ${posicion} x${w.apalancamiento} · ${EXCHANGES[w.exchange].nombre}`,
+    moneda: MONEDAS_CRYPTO.includes(w.sym) ? w.sym : 'OTRA',
+    monedaOtra: MONEDAS_CRYPTO.includes(w.sym) ? '' : w.sym,
+    posicion,
+    entrada: Number(d.precio.toFixed(2)),
+    stake: Number(w.capital.toFixed(2)),
+    exchange: EXCHANGES[w.exchange].nombre,
+  });
   STATE.wizard.registrado=true; STATE.wizard.paso=4; renderWizardActivo();
 }
 
@@ -3265,15 +3412,15 @@ function ignorarVbet(id) {
 function registrarVbet(idx) {
   const vb = STATE.valueBets?.[idx];
   if (!vb) return;
-  const elDesc = qs('op-desc');
-  const elCap  = qs('op-capital');
-  const elOdd  = qs('op-odd');
-  const elTipo = qs('op-tipo');
-  if (elDesc) elDesc.value = `${vb.partido} | ${vb.pick}`;
-  if (elCap)  elCap.value  = vb.stake.toFixed(2);
-  if (elOdd)  elOdd.value  = vb.odd.toFixed(2);
-  if (elTipo) elTipo.value = 'deportes';
-  abrirModalOp();
+  abrirFormOpCon({
+    tipo: 'apuesta',
+    descripcion: `${vb.partido} — ${vb.pick}`,
+    liga: vb.liga || '',
+    mercado: MERCADOS_APUESTA.includes(vb.mercado) ? vb.mercado : MERCADOS_APUESTA[0],
+    stake: vb.stake != null ? Number(vb.stake.toFixed(2)) : '',
+    odd:   vb.odd   != null ? Number(vb.odd.toFixed(2))   : '',
+    exchange: 'Ecuabet',
+  });
 }
 
 // ─── CALCULADORA RÁPIDA APUESTA ──────────────────────────────
@@ -3384,125 +3531,620 @@ function calcLevUI() {
 }
 
 // ─── HISTORIAL ───────────────────────────────────────────────
+const MERCADOS_APUESTA  = ['1X2 (Ganador)', 'Total de goles (Over/Under)', 'Hándicap asiático', 'Ambos anotan (BTTS)', 'Doble oportunidad', 'Otro'];
+const EXCHANGES_APUESTA = ['Ecuabet', 'Otra'];
+const MONEDAS_CRYPTO    = ['BTC', 'ETH', 'SOL', 'XRP', 'OTRA'];
+const POSICIONES_CRYPTO = ['LONG', 'SHORT', 'SPOT'];
+const EXCHANGES_CRYPTO  = ['Binance', 'Bybit', 'KuCoin', 'Kraken'];
+const HIST_POR_PAGINA   = 10;
+
 function guardarOps() {
   localStorage.setItem('jcahs_ops', JSON.stringify(STATE.ops));
+}
+
+function calcularRachas(ops) {
+  const ordenadas = [...ops].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+  const cerradas  = ordenadas.filter(o => o.resultado !== 'pendiente');
+  let mejor = 0, racha = 0, tipoRacha = null;
+  cerradas.forEach(o => {
+    if (o.resultado === tipoRacha) racha++;
+    else { tipoRacha = o.resultado; racha = 1; }
+    if (tipoRacha === 'ganó') mejor = Math.max(mejor, racha);
+  });
+  let actual = 0, tipoActual = null;
+  for (let i = cerradas.length - 1; i >= 0; i--) {
+    if (i === cerradas.length - 1) { tipoActual = cerradas[i].resultado; actual = 1; }
+    else if (cerradas[i].resultado === tipoActual) actual++;
+    else break;
+  }
+  return { mejor, actual, tipoActual };
 }
 
 function renderHistorial() {
   const ops = STATE.ops;
 
-  // Stats
-  const total   = ops.length;
-  const win     = ops.filter(o => o.resultado === 'ganada').length;
-  const loss    = ops.filter(o => o.resultado === 'perdida').length;
-  const wr      = total > 0 ? (win / total * 100).toFixed(0) : '--';
-  const pnlTot  = ops.filter(o => o.pnl != null).reduce((s, o) => s + o.pnl, 0);
+  const cerradas  = ops.filter(o => o.resultado !== 'pendiente');
+  const ganadas   = ops.filter(o => o.resultado === 'ganó');
+  const pnlTotal  = ops.reduce((s, o) => s + (o.pnl || 0), 0);
+  const wr        = cerradas.length ? (ganadas.length / cerradas.length * 100) : null;
+  const { mejor, actual, tipoActual } = calcularRachas(ops);
 
-  setText('hs-total', String(total));
-  setText('hs-win',   String(win));
-  setText('hs-loss',  String(loss));
-  setText('hs-wr',    wr !== '--' ? wr + '%' : '--%');
-  const pnlEl = qs('hs-pnl');
+  const pnlEl = qs('hg-pnl');
   if (pnlEl) {
-    pnlEl.textContent = fmtUSD(pnlTot);
-    pnlEl.className   = 'stat-chip-value ' + (pnlTot >= 0 ? 'pos' : 'neg');
+    pnlEl.textContent = ops.length ? fmtPnL(pnlTotal) : '$--';
+    pnlEl.className   = 'hist-stat-value ' + (pnlTotal > 0 ? 'pos' : pnlTotal < 0 ? 'neg' : '');
+  }
+  setText('hg-wr',    wr != null ? wr.toFixed(0) + '%' : '--%');
+  setText('hg-total', String(ops.length));
+  setText('hg-mejor-racha', String(mejor));
+  setText('hg-mejor-racha-sub', mejor === 1 ? 'victoria seguida' : 'victorias seguidas');
+  setText('hg-racha', String(actual));
+  setText('hg-racha-sub', !cerradas.length ? 'sin operaciones'
+    : tipoActual === 'ganó'   ? (actual === 1 ? 'ganada seguida'  : 'ganadas seguidas')
+    : tipoActual === 'perdió' ? (actual === 1 ? 'perdida seguida' : 'perdidas seguidas')
+    : 'sin operaciones');
+  const rachaEl = qs('hg-racha');
+  if (rachaEl) rachaEl.className = 'hist-stat-value ' + (tipoActual === 'ganó' ? 'pos' : tipoActual === 'perdió' ? 'neg' : '');
+
+  renderGraficaPnL();
+  renderHistStatsDetalle();
+  renderTablaHistorial();
+}
+
+function renderGraficaPnL() {
+  const canvas = qs('grafica-pnl');
+  const msg    = qs('hist-grafica-msg');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  const ops = [...STATE.ops]
+    .filter(o => o.resultado !== 'pendiente')
+    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+  if (ops.length < 2) {
+    canvas.style.display = 'none';
+    if (msg) msg.style.display = '';
+    return;
+  }
+  canvas.style.display = 'block';
+  if (msg) msg.style.display = 'none';
+
+  const rect = canvas.getBoundingClientRect();
+  const w = Math.max(280, Math.floor(rect.width));
+  const h = 240;
+  canvas.width  = w;
+  canvas.height = h;
+
+  let capital = STATE.bankroll;
+  const puntos = [capital];
+  ops.forEach(op => { capital += (op.pnl || 0); puntos.push(capital); });
+
+  const min   = Math.min(...puntos);
+  const max   = Math.max(...puntos);
+  const rango = max - min || 1;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(144,144,151,0.1)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = h * i / 4;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.stroke();
   }
 
-  if (!ops.length) {
+  // Línea de capital
+  ctx.beginPath();
+  ctx.strokeStyle = '#4edea3';
+  ctx.lineWidth = 2;
+  puntos.forEach((p, i) => {
+    const x = w * i / (puntos.length - 1);
+    const y = h - h * (p - min) / rango;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Área bajo la línea
+  ctx.lineTo(w, h);
+  ctx.lineTo(0, h);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(78,222,163,0.05)';
+  ctx.fill();
+
+  // Línea de bankroll inicial
+  const yInicial = h - h * (STATE.bankroll - min) / rango;
+  ctx.beginPath();
+  ctx.strokeStyle = 'rgba(144,144,151,0.3)';
+  ctx.setLineDash([5, 5]);
+  ctx.moveTo(0, yInicial);
+  ctx.lineTo(w, yInicial);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function renderHistStatsDetalle() {
+  const el = qs('hist-stats-detalle');
+  if (!el) return;
+  const ops = STATE.ops;
+  if (!ops.length) { el.innerHTML = '<div class="loading">Registra operaciones para ver tus estadísticas</div>'; return; }
+
+  const wrTipo = lista => {
+    const cerr = lista.filter(o => o.resultado !== 'pendiente');
+    if (!cerr.length) return '--';
+    return (cerr.filter(o => o.resultado === 'ganó').length / cerr.length * 100).toFixed(0) + '%';
+  };
+  const apuestas = ops.filter(o => o.tipo === 'apuesta');
+  const cryptoOps = ops.filter(o => o.tipo === 'crypto');
+
+  const conPnl = ops.filter(o => o.pnl != null);
+  let mejorOp = null, peorOp = null;
+  conPnl.forEach(o => {
+    if (!mejorOp || o.pnl > mejorOp.pnl) mejorOp = o;
+    if (!peorOp  || o.pnl < peorOp.pnl)  peorOp  = o;
+  });
+  const ganadasConPnl  = ops.filter(o => o.resultado === 'ganó'   && o.pnl != null);
+  const perdidasConPnl = ops.filter(o => o.resultado === 'perdió' && o.pnl != null);
+  const promGanancia = ganadasConPnl.length  ? ganadasConPnl.reduce((s, o) => s + o.pnl, 0)  / ganadasConPnl.length  : null;
+  const promPerdida  = perdidasConPnl.length ? perdidasConPnl.reduce((s, o) => s + o.pnl, 0) / perdidasConPnl.length : null;
+
+  const fechas = ops.map(o => new Date(o.fecha)).filter(d => !isNaN(d.getTime()));
+  let diasOperando = '--';
+  if (fechas.length) {
+    const min = Math.min(...fechas), max = Math.max(...fechas);
+    diasOperando = String(Math.max(1, Math.round((max - min) / 86400000) + 1));
+  }
+
+  const fila = (l, v, cls) => '<div class="hist-detalle-row"><span class="hist-detalle-l">' + l + '</span><span class="hist-detalle-v ' + (cls || '') + '">' + v + '</span></div>';
+
+  el.innerHTML =
+    fila('Win rate apuestas', wrTipo(apuestas)) +
+    fila('Win rate crypto', wrTipo(cryptoOps)) +
+    fila('Mejor operación', mejorOp ? (escHtml(mejorOp.descripcion || '--') + ' <span class="pos">(' + fmtPnL(mejorOp.pnl) + ')</span>') : '--') +
+    fila('Peor operación', peorOp ? (escHtml(peorOp.descripcion || '--') + ' <span class="neg">(' + fmtPnL(peorOp.pnl) + ')</span>') : '--') +
+    fila('Promedio ganancia (op. ganada)', promGanancia != null ? fmtPnL(promGanancia) : '--', 'pos') +
+    fila('Promedio pérdida (op. perdida)', promPerdida  != null ? fmtPnL(promPerdida)  : '--', 'neg') +
+    fila('Días operando', diasOperando);
+}
+
+// ─── FILTROS / BÚSQUEDA / PAGINACIÓN / EXPORTAR ─────────────
+function filtrarOpsHistorial() {
+  const f = STATE.histFiltro;
+  const q = (STATE.histBusqueda || '').trim().toLowerCase();
+  return STATE.ops.filter(o => {
+    if (f === 'apuesta'   && o.tipo !== 'apuesta')        return false;
+    if (f === 'crypto'    && o.tipo !== 'crypto')         return false;
+    if (f === 'pendiente' && o.resultado !== 'pendiente') return false;
+    if (f === 'ganó'      && o.resultado !== 'ganó')      return false;
+    if (f === 'perdió'    && o.resultado !== 'perdió')    return false;
+    if (q) {
+      const texto = [o.descripcion, o.mercado, o.liga, o.moneda, o.exchange, o.notas].filter(Boolean).join(' ').toLowerCase();
+      if (!texto.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function setFiltroHist(f) {
+  STATE.histFiltro = f;
+  STATE.histPagina = 1;
+  document.querySelectorAll('.hist-filtro-btn').forEach(b => b.classList.toggle('active', b.dataset.f === f));
+  renderTablaHistorial();
+}
+
+function buscarHist(v) {
+  STATE.histBusqueda = v || '';
+  STATE.histPagina = 1;
+  renderTablaHistorial();
+}
+
+function cambiarPaginaHist(delta) {
+  STATE.histPagina = Math.max(1, STATE.histPagina + delta);
+  renderTablaHistorial();
+}
+
+function renderTablaHistorial() {
+  if (!STATE.ops.length) {
     setHTML('hist-tabla', '<div class="loading">Sin operaciones registradas aún</div>');
+    setHTML('hist-paginacion', '');
     return;
   }
 
-  const html = `<table class="tabla">
-    <thead><tr>
-      <th>Fecha</th><th>Descripción</th><th>Tipo</th><th>Capital</th><th>Odd</th><th>Resultado</th><th>PnL</th><th></th>
-    </tr></thead>
-    <tbody>${[...ops].reverse().map((op, i) => {
-      const realIdx = ops.length - 1 - i;
-      return `<tr>
-        <td style="font-family:var(--f-mono);font-size:13px;color:var(--text-3);white-space:nowrap">${op.fecha || '--'}</td>
-        <td style="font-weight:600">${op.desc || '--'}</td>
-        <td><span class="badge badge-gray">${op.tipo}</span></td>
-        <td style="font-family:var(--f-mono)">${fmtUSD(op.capital)}</td>
-        <td style="font-family:var(--f-mono)">${op.odd || '--'}</td>
-        <td>${op.resultado === 'ganada'
-          ? '<span class="badge badge-green">Ganada</span>'
-          : op.resultado === 'perdida'
-          ? '<span class="badge badge-red">Perdida</span>'
-          : '<span class="badge badge-warn">Abierta</span>'}</td>
-        <td style="font-family:var(--f-mono)" class="${op.pnl > 0 ? 'pos' : op.pnl < 0 ? 'neg' : ''}">${op.pnl != null ? fmtUSD(op.pnl) : '--'}</td>
-        <td><button class="btn btn-ghost" style="font-size:12px;padding:5px 10px;color:var(--error)" onclick="eliminarOp(${realIdx})">✕</button></td>
-      </tr>`;
-    }).join('')}
-    </tbody>
-  </table>`;
+  const filtradas = filtrarOpsHistorial();
+  const ordenadas = [...filtradas].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+  if (!ordenadas.length) {
+    setHTML('hist-tabla', '<div class="loading">Ninguna operación coincide con el filtro o la búsqueda</div>');
+    setHTML('hist-paginacion', '');
+    return;
+  }
+
+  const totalPag = Math.max(1, Math.ceil(ordenadas.length / HIST_POR_PAGINA));
+  if (STATE.histPagina > totalPag) STATE.histPagina = totalPag;
+  const inicio = (STATE.histPagina - 1) * HIST_POR_PAGINA;
+  const pagina = ordenadas.slice(inicio, inicio + HIST_POR_PAGINA);
+
+  const badgeResultado = r => r === 'ganó'   ? '<span class="badge badge-green">Ganó</span>'
+    : r === 'perdió' ? '<span class="badge badge-red">Perdió</span>'
+    : '<span class="badge badge-warn">Pendiente</span>';
+
+  const fmtFecha = iso => {
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? '--' : d.toLocaleDateString('es-EC', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' });
+  };
+
+  const filasHtml = pagina.map(op => {
+    const oddPrecio = op.tipo === 'apuesta'
+      ? (op.odd != null ? op.odd.toFixed(2) : '--')
+      : (op.entrada != null ? fmtUSD(op.entrada) + (op.salida != null ? ' → ' + fmtUSD(op.salida) : '') : '--');
+    return '<tr>'
+      + '<td style="font-family:var(--f-mono);font-size:14px;color:var(--text-3);white-space:nowrap">' + fmtFecha(op.fecha) + '</td>'
+      + '<td><span class="badge ' + (op.tipo === 'crypto' ? 'badge-green' : 'badge-warn') + '">' + (op.tipo === 'crypto' ? 'Crypto' : 'Apuesta') + '</span></td>'
+      + '<td style="font-weight:600">' + escHtml(op.descripcion || '--') + (op.mercado ? '<div style="font-size:13px;color:var(--text-3);font-weight:400">' + escHtml(op.mercado) + '</div>' : '') + '</td>'
+      + '<td style="font-family:var(--f-mono)">' + fmtUSD(op.stake) + '</td>'
+      + '<td style="font-family:var(--f-mono)">' + oddPrecio + '</td>'
+      + '<td>' + badgeResultado(op.resultado) + '</td>'
+      + '<td style="font-family:var(--f-mono)" class="' + (op.pnl > 0 ? 'pos' : op.pnl < 0 ? 'neg' : '') + '">' + fmtPnL(op.pnl) + '</td>'
+      + '<td style="font-size:14px;color:var(--text-3);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(op.notas || '') + '</td>'
+      + '<td style="white-space:nowrap">'
+      + '<button class="btn btn-ghost" style="font-size:12px;padding:5px 10px" onclick="editarOperacion(' + op.id + ')" title="Editar">✏️</button> '
+      + '<button class="btn btn-ghost" style="font-size:12px;padding:5px 10px;color:var(--error)" onclick="eliminarOperacion(' + op.id + ')" title="Eliminar">🗑️</button>'
+      + '</td>'
+      + '</tr>';
+  }).join('');
+
+  const html = '<table class="tabla">'
+    + '<thead><tr><th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Stake</th><th>Odd/Precio</th><th>Resultado</th><th>P&amp;L</th><th>Notas</th><th></th></tr></thead>'
+    + '<tbody>' + filasHtml + '</tbody></table>';
   setHTML('hist-tabla', html);
+
+  setHTML('hist-paginacion', totalPag > 1
+    ? '<button class="btn btn-ghost" ' + (STATE.histPagina <= 1 ? 'disabled' : '') + ' onclick="cambiarPaginaHist(-1)">← Anterior</button>'
+      + '<span>Página ' + STATE.histPagina + ' de ' + totalPag + ' · ' + ordenadas.length + ' operación(es)</span>'
+      + '<button class="btn btn-ghost" ' + (STATE.histPagina >= totalPag ? 'disabled' : '') + ' onclick="cambiarPaginaHist(1)">Siguiente →</button>'
+    : '');
 }
 
-function eliminarOp(idx) {
+function exportarHistCSV() {
+  const ops = filtrarOpsHistorial();
+  if (!ops.length) { alert('No hay operaciones para exportar con el filtro actual.'); return; }
+  const cols = ['fecha','tipo','descripcion','mercado','liga','moneda','stake','odd','entrada','salida','resultado','pnl','exchange','notas'];
+  const cab  = ['Fecha','Tipo','Descripción','Mercado','Liga','Moneda','Stake','Odd','Entrada','Salida','Resultado','PnL','Exchange','Notas'];
+  const esc  = v => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const filas = [...ops].sort((a, b) => new Date(a.fecha) - new Date(b.fecha)).map(op => cols.map(c => esc(op[c])).join(','));
+  const csv = [cab.join(','), ...filas].join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'jcahs_historial_' + new Date().toISOString().slice(0, 10) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function eliminarOperacion(id) {
+  if (!confirm('¿Eliminar esta operación del historial? Esta acción no se puede deshacer.')) return;
+  const idx = STATE.ops.findIndex(o => o.id === id);
+  if (idx < 0) return;
   STATE.ops.splice(idx, 1);
   guardarOps();
   renderHistorial();
-  renderOpsRecientes();
+  renderPanel();
 }
 
 function limpiarHistorial() {
-  if (!confirm('¿Eliminar todas las operaciones del historial?')) return;
+  if (!confirm('¿Eliminar todas las operaciones del historial? Esta acción no se puede deshacer.')) return;
   STATE.ops = [];
+  STATE.histPagina = 1;
   guardarOps();
   renderHistorial();
-  renderOpsRecientes();
-}
-
-// ─── MODAL NUEVA OPERACIÓN ───────────────────────────────────
-function abrirModalOp() {
-  const el = qs('modal-op');
-  if (el) el.classList.add('show');
-  qs('op-resultado')?.addEventListener('change', () => {
-    const res = qs('op-resultado')?.value;
-    const pw  = qs('op-pnl-wrap');
-    if (pw) pw.style.display = (res !== 'abierta') ? '' : 'none';
-  }, { once: true });
-}
-
-function cerrarModal() {
-  const el = qs('modal-op');
-  if (el) el.classList.remove('show');
-}
-
-function guardarOp() {
-  const desc      = qs('op-desc')?.value?.trim();
-  const tipo      = qs('op-tipo')?.value;
-  const capital   = parseFloat(qs('op-capital')?.value);
-  const odd       = parseFloat(qs('op-odd')?.value);
-  const resultado = qs('op-resultado')?.value;
-  const pnlRaw    = parseFloat(qs('op-pnl')?.value);
-  const pnl       = resultado !== 'abierta' && !isNaN(pnlRaw) ? pnlRaw : null;
-
-  if (!desc || !capital) { alert('Completa al menos descripción y capital'); return; }
-
-  const op = {
-    id:         Date.now(),
-    fecha:      new Date().toLocaleDateString('es-EC', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }),
-    desc, tipo, capital, odd: isNaN(odd) ? null : odd, resultado, pnl,
-  };
-
-  STATE.ops.push(op);
-  guardarOps();
-
-  // Actualizar bankroll si tiene PnL
-  if (pnl != null) {
-    STATE.bankroll = Math.max(0, STATE.bankroll + pnl);
-    localStorage.setItem('jcahs_bankroll', String(STATE.bankroll));
-  }
-
-  cerrarModal();
-
-  // Limpiar modal
-  ['op-desc','op-capital','op-odd','op-pnl'].forEach(id => { const el = qs(id); if (el) el.value = ''; });
-
   renderPanel();
 }
+
+// ─── FORMULARIO NUEVA OPERACIÓN (inline) ────────────────────
+function nuevoFormOpDefaults(tipo) {
+  const hoy = new Date().toISOString().slice(0, 10);
+  return {
+    abierto: true, editId: null, tipo,
+    descripcion: '', liga: '', mercado: MERCADOS_APUESTA[0], stake: '', odd: '',
+    moneda: 'BTC', monedaOtra: '', posicion: 'LONG', entrada: '', salida: '',
+    resultado: 'pendiente',
+    exchange: tipo === 'crypto' ? EXCHANGES_CRYPTO[0] : EXCHANGES_APUESTA[0],
+    notas: '', fechaInput: hoy,
+  };
+}
+
+function toggleFormOp() {
+  if (STATE.histForm.abierto) { cerrarFormOp(); return; }
+  STATE.histForm = nuevoFormOpDefaults(STATE.histForm.tipo || 'apuesta');
+  mostrarFormOp();
+}
+
+function abrirFormOpCon(prefill) {
+  const base = nuevoFormOpDefaults(prefill.tipo || 'apuesta');
+  STATE.histForm = Object.assign(base, prefill);
+  ir('sec-historial');
+  mostrarFormOp();
+  qs('hist-col-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function mostrarFormOp() {
+  const wrap = qs('hist-form-wrap');
+  const btn  = qs('hist-btn-nueva');
+  if (wrap) wrap.style.display = '';
+  if (btn)  btn.style.display  = 'none';
+  renderFormOp();
+}
+
+function cerrarFormOp() {
+  const tipoPrevio = STATE.histForm.tipo || 'apuesta';
+  STATE.histForm = { abierto: false, editId: null, tipo: tipoPrevio };
+  const wrap = qs('hist-form-wrap');
+  const btn  = qs('hist-btn-nueva');
+  if (wrap) { wrap.style.display = 'none'; wrap.innerHTML = ''; }
+  if (btn)  btn.style.display = '';
+}
+
+function guardarValoresFormEnState() {
+  const f = STATE.histForm;
+  const v = id => qs(id)?.value;
+  if (qs('ho-descripcion'))  f.descripcion = v('ho-descripcion');
+  if (qs('ho-liga'))         f.liga        = v('ho-liga');
+  if (qs('ho-mercado'))      f.mercado     = v('ho-mercado');
+  if (qs('ho-stake'))        f.stake       = v('ho-stake');
+  if (qs('ho-odd'))          f.odd         = v('ho-odd');
+  if (qs('ho-moneda'))       f.moneda      = v('ho-moneda');
+  if (qs('ho-moneda-otra'))  f.monedaOtra  = v('ho-moneda-otra');
+  if (qs('ho-posicion'))     f.posicion    = v('ho-posicion');
+  if (qs('ho-entrada'))      f.entrada     = v('ho-entrada');
+  if (qs('ho-salida'))       f.salida      = v('ho-salida');
+  if (qs('ho-resultado'))    f.resultado   = v('ho-resultado');
+  if (qs('ho-exchange'))     f.exchange    = v('ho-exchange');
+  if (qs('ho-notas'))        f.notas       = v('ho-notas');
+  if (qs('ho-fecha'))        f.fechaInput  = v('ho-fecha');
+}
+
+function cambiarTipoFormOp(tipo) {
+  guardarValoresFormEnState();
+  STATE.histForm.tipo = tipo;
+  if (tipo === 'crypto'  && !EXCHANGES_CRYPTO.includes(STATE.histForm.exchange))  STATE.histForm.exchange = EXCHANGES_CRYPTO[0];
+  if (tipo === 'apuesta' && !EXCHANGES_APUESTA.includes(STATE.histForm.exchange)) STATE.histForm.exchange = EXCHANGES_APUESTA[0];
+  renderFormOp();
+}
+
+function cambiarMonedaFormOp() {
+  const sel = qs('ho-moneda')?.value;
+  STATE.histForm.moneda = sel;
+  const wrap = qs('ho-moneda-otra-wrap');
+  if (wrap) wrap.style.display = (sel === 'OTRA') ? '' : 'none';
+}
+
+function usarPrecioActualFormOp() {
+  const monedaSel = qs('ho-moneda')?.value;
+  const moneda = (monedaSel === 'OTRA' ? (qs('ho-moneda-otra')?.value || '') : (monedaSel || '')).toUpperCase().trim();
+  const precio = STATE.precios?.[moneda]?.precio;
+  if (precio == null) { alert('No hay precio en tiempo real disponible para ' + (moneda || 'esta moneda') + '. Carga la sección Cripto primero.'); return; }
+  const el = qs('ho-entrada');
+  if (el) { el.value = precio; recalcularPnlPreview(); }
+}
+
+function recalcularPnlPreview() {
+  const f = STATE.histForm;
+  const resultado = qs('ho-resultado')?.value || f.resultado || 'pendiente';
+  const stake = parseFloat(qs('ho-stake')?.value);
+  let pnl = null;
+
+  if (resultado !== 'pendiente') {
+    if (f.tipo === 'apuesta') {
+      const odd = parseFloat(qs('ho-odd')?.value);
+      if (!isNaN(stake) && stake > 0 && !isNaN(odd) && odd > 1) {
+        pnl = resultado === 'ganó' ? stake * (odd - 1) : -stake;
+      }
+    } else {
+      const entrada = parseFloat(qs('ho-entrada')?.value);
+      const salida  = parseFloat(qs('ho-salida')?.value);
+      if (!isNaN(stake) && stake > 0 && !isNaN(entrada) && entrada > 0 && !isNaN(salida)) {
+        const variacion = (salida - entrada) / entrada;
+        const posicion  = qs('ho-posicion')?.value || 'LONG';
+        pnl = posicion === 'SHORT' ? -stake * variacion : stake * variacion;
+      }
+    }
+  }
+
+  const el = qs('ho-pnl-preview');
+  if (el) {
+    el.textContent = pnl != null ? fmtPnL(pnl) : 'Completa los datos para calcular';
+    el.className   = 'hist-detalle-v ' + (pnl > 0 ? 'pos' : pnl < 0 ? 'neg' : '');
+  }
+  return pnl;
+}
+
+function renderFormOp() {
+  const wrap = qs('hist-form-wrap');
+  if (!wrap) return;
+  const f = STATE.histForm;
+  const editando = f.editId != null;
+
+  const toggleHtml = '<div class="hist-toggle-row">'
+    + '<button class="hist-toggle-btn ' + (f.tipo === 'apuesta' ? 'active' : '') + '" onclick="cambiarTipoFormOp(\'apuesta\')" ' + (editando ? 'disabled' : '') + '>⚽ Apuesta</button>'
+    + '<button class="hist-toggle-btn ' + (f.tipo === 'crypto'  ? 'active' : '') + '" onclick="cambiarTipoFormOp(\'crypto\')" '  + (editando ? 'disabled' : '') + '>₿ Crypto</button>'
+    + '</div>';
+
+  const resultadoHtml = '<div>'
+    + '<label class="label">Resultado</label>'
+    + '<select class="input" id="ho-resultado" style="font-family:var(--f-ui)" onchange="recalcularPnlPreview()">'
+    + '<option value="pendiente" ' + (f.resultado === 'pendiente' ? 'selected' : '') + '>Pendiente</option>'
+    + '<option value="ganó" '      + (f.resultado === 'ganó'      ? 'selected' : '') + '>Ganó ✓</option>'
+    + '<option value="perdió" '    + (f.resultado === 'perdió'    ? 'selected' : '') + '>Perdió ✗</option>'
+    + '</select></div>';
+
+  const pnlPreviewHtml = '<div class="hist-detalle-row" style="border:none;padding:6px 0">'
+    + '<span class="hist-detalle-l">P&amp;L estimado</span>'
+    + '<span class="hist-detalle-v" id="ho-pnl-preview">--</span></div>';
+
+  let camposHtml;
+  if (f.tipo === 'apuesta') {
+    camposHtml = ''
+      + '<div><label class="label">Descripción</label>'
+      + '<input class="input" id="ho-descripcion" placeholder="Ej: América Mineiro Over 2.5" value="' + escAttr(f.descripcion) + '"></div>'
+      + '<div class="grid-2">'
+      + '<div><label class="label">Liga / Torneo</label>'
+      + '<input class="input" id="ho-liga" placeholder="Ej: Brazil Série B" value="' + escAttr(f.liga) + '"></div>'
+      + '<div><label class="label">Mercado</label>'
+      + '<select class="input" id="ho-mercado" style="font-family:var(--f-ui)">'
+      + MERCADOS_APUESTA.map(m => '<option ' + (f.mercado === m ? 'selected' : '') + '>' + m + '</option>').join('')
+      + '</select></div></div>'
+      + '<div class="grid-2">'
+      + '<div><label class="label">Stake ($)</label>'
+      + '<input class="input" id="ho-stake" type="number" min="0" step="0.01" placeholder="10.00" value="' + escAttr(f.stake) + '" oninput="recalcularPnlPreview()"></div>'
+      + '<div><label class="label">Odd</label>'
+      + '<input class="input" id="ho-odd" type="number" min="1.01" step="0.01" placeholder="2.45" value="' + escAttr(f.odd) + '" oninput="recalcularPnlPreview()"></div>'
+      + '</div>'
+      + resultadoHtml
+      + pnlPreviewHtml
+      + '<div><label class="label">Exchange / Casa de apuestas</label>'
+      + '<select class="input" id="ho-exchange" style="font-family:var(--f-ui)">'
+      + EXCHANGES_APUESTA.map(e => '<option ' + (f.exchange === e ? 'selected' : '') + '>' + e + '</option>').join('')
+      + '</select></div>';
+  } else {
+    camposHtml = ''
+      + '<div><label class="label">Descripción</label>'
+      + '<input class="input" id="ho-descripcion" placeholder="Ej: BTC LONG 3x — entrada por RSI sobrevendido" value="' + escAttr(f.descripcion) + '"></div>'
+      + '<div class="grid-2">'
+      + '<div><label class="label">Moneda</label>'
+      + '<select class="input" id="ho-moneda" style="font-family:var(--f-ui)" onchange="cambiarMonedaFormOp()">'
+      + MONEDAS_CRYPTO.map(m => '<option value="' + m + '" ' + (f.moneda === m ? 'selected' : '') + '>' + (m === 'OTRA' ? 'Otra' : m) + '</option>').join('')
+      + '</select></div>'
+      + '<div id="ho-moneda-otra-wrap" style="display:' + (f.moneda === 'OTRA' ? '' : 'none') + '">'
+      + '<label class="label">¿Cuál moneda?</label>'
+      + '<input class="input" id="ho-moneda-otra" placeholder="Ej: ADA" value="' + escAttr(f.monedaOtra) + '"></div>'
+      + '</div>'
+      + '<div><label class="label">Tipo de posición</label>'
+      + '<select class="input" id="ho-posicion" style="font-family:var(--f-ui)">'
+      + POSICIONES_CRYPTO.map(p => '<option ' + (f.posicion === p ? 'selected' : '') + '>' + p + '</option>').join('')
+      + '</select></div>'
+      + '<div class="grid-2">'
+      + '<div><label class="label">Precio entrada ($)</label>'
+      + '<div style="display:flex;gap:8px">'
+      + '<input class="input" id="ho-entrada" type="number" min="0" step="0.000001" placeholder="61000" value="' + escAttr(f.entrada) + '" oninput="recalcularPnlPreview()" style="flex:1">'
+      + '<button class="btn btn-ghost" style="white-space:nowrap" onclick="usarPrecioActualFormOp()">Usar precio actual</button>'
+      + '</div></div>'
+      + '<div><label class="label">Precio salida ($) — opcional</label>'
+      + '<input class="input" id="ho-salida" type="number" min="0" step="0.000001" placeholder="Vacío si está pendiente" value="' + escAttr(f.salida) + '" oninput="recalcularPnlPreview()"></div>'
+      + '</div>'
+      + '<div><label class="label">Capital usado ($)</label>'
+      + '<input class="input" id="ho-stake" type="number" min="0" step="0.01" placeholder="50.00" value="' + escAttr(f.stake) + '" oninput="recalcularPnlPreview()"></div>'
+      + resultadoHtml
+      + pnlPreviewHtml
+      + '<div><label class="label">Exchange</label>'
+      + '<select class="input" id="ho-exchange" style="font-family:var(--f-ui)">'
+      + EXCHANGES_CRYPTO.map(e => '<option ' + (f.exchange === e ? 'selected' : '') + '>' + e + '</option>').join('')
+      + '</select></div>';
+  }
+
+  wrap.innerHTML = '<div style="display:flex;flex-direction:column;gap:14px">'
+    + toggleHtml
+    + camposHtml
+    + '<div><label class="label">Notas</label>'
+    + '<input class="input" id="ho-notas" placeholder="Notas opcionales" value="' + escAttr(f.notas) + '"></div>'
+    + '<div><label class="label">Fecha</label>'
+    + '<input class="input" id="ho-fecha" type="date" value="' + escAttr(f.fechaInput) + '"></div>'
+    + '<div style="display:flex;gap:10px">'
+    + '<button class="btn btn-primary" style="flex:1" onclick="guardarFormOp()">' + (editando ? 'Guardar cambios' : 'Guardar') + '</button>'
+    + '<button class="btn btn-ghost" onclick="cerrarFormOp()">Cancelar</button>'
+    + '</div></div>';
+
+  recalcularPnlPreview();
+}
+
+function editarOperacion(id) {
+  const op = STATE.ops.find(o => o.id === id);
+  if (!op) return;
+  const fechaValida = op.fecha && !isNaN(new Date(op.fecha).getTime());
+  STATE.histForm = {
+    abierto: true, editId: id, tipo: op.tipo,
+    descripcion: op.descripcion || '',
+    liga: op.liga || '',
+    mercado: op.tipo === 'apuesta' ? (MERCADOS_APUESTA.includes(op.mercado) ? op.mercado : MERCADOS_APUESTA[0]) : MERCADOS_APUESTA[0],
+    stake: op.stake != null ? op.stake : '', odd: op.odd != null ? op.odd : '',
+    moneda: op.tipo === 'crypto' ? (MONEDAS_CRYPTO.includes(op.moneda) ? op.moneda : 'OTRA') : 'BTC',
+    monedaOtra: op.tipo === 'crypto' && !MONEDAS_CRYPTO.includes(op.moneda) ? (op.moneda || '') : '',
+    posicion: POSICIONES_CRYPTO.includes(op.mercado) ? op.mercado : 'LONG',
+    entrada: op.entrada != null ? op.entrada : '', salida: op.salida != null ? op.salida : '',
+    resultado: op.resultado || 'pendiente',
+    exchange: op.exchange || (op.tipo === 'crypto' ? EXCHANGES_CRYPTO[0] : EXCHANGES_APUESTA[0]),
+    notas: op.notas || '',
+    fechaInput: fechaValida ? new Date(op.fecha).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+  };
+  mostrarFormOp();
+  qs('hist-col-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function guardarFormOp() {
+  guardarValoresFormEnState();
+  const f = STATE.histForm;
+  const descripcion = (f.descripcion || '').trim();
+  const stake = parseFloat(f.stake);
+  if (!descripcion) { alert('Escribe una descripción para la operación.'); return; }
+  if (isNaN(stake) || stake <= 0) { alert('Ingresa un stake / capital válido (mayor a 0).'); return; }
+
+  const resultado  = f.resultado || 'pendiente';
+  const fechaBase  = f.fechaInput ? new Date(f.fechaInput + 'T12:00:00') : new Date();
+  const fecha      = isNaN(fechaBase.getTime()) ? new Date().toISOString() : fechaBase.toISOString();
+  const id         = f.editId != null ? f.editId : Date.now();
+
+  let op;
+  if (f.tipo === 'apuesta') {
+    const odd = parseFloat(f.odd);
+    if (isNaN(odd) || odd <= 1) { alert('Ingresa una odd válida (mayor a 1).'); return; }
+    let pnl = null;
+    if (resultado === 'ganó')   pnl = stake * (odd - 1);
+    if (resultado === 'perdió') pnl = -stake;
+    op = {
+      id: id, tipo: 'apuesta', descripcion: descripcion,
+      mercado: f.mercado || null, stake: stake, odd: odd,
+      entrada: null, salida: null,
+      resultado: resultado, pnl: pnl, fecha: fecha,
+      notas: (f.notas || '').trim(), exchange: f.exchange || null,
+      liga: (f.liga || '').trim() || null, moneda: null,
+    };
+  } else {
+    const moneda = f.moneda === 'OTRA' ? (f.monedaOtra || '').trim().toUpperCase() : f.moneda;
+    if (!moneda) { alert('Indica qué moneda operaste.'); return; }
+    const entrada = parseFloat(f.entrada);
+    const salida  = parseFloat(f.salida);
+    let pnl = null;
+    if (!isNaN(entrada) && entrada > 0 && !isNaN(salida)) {
+      const variacion = (salida - entrada) / entrada;
+      pnl = (f.posicion === 'SHORT' ? -stake * variacion : stake * variacion);
+    }
+    op = {
+      id: id, tipo: 'crypto', descripcion: descripcion,
+      mercado: f.posicion || null, stake: stake,
+      odd: null, entrada: isNaN(entrada) ? null : entrada, salida: isNaN(salida) ? null : salida,
+      resultado: resultado, pnl: pnl, fecha: fecha,
+      notas: (f.notas || '').trim(), exchange: f.exchange || null,
+      liga: null, moneda: moneda,
+    };
+  }
+
+  if (f.editId != null) {
+    const idx = STATE.ops.findIndex(o => o.id === f.editId);
+    if (idx >= 0) STATE.ops[idx] = op; else STATE.ops.push(op);
+  } else {
+    STATE.ops.push(op);
+  }
+  guardarOps();
+  cerrarFormOp();
+  renderHistorial();
+  renderPanel();
+}
+
 
 // ─── IA ASESORES ─────────────────────────────────────────────
 // ════════════════════════════════════════════════════════════
@@ -3667,6 +4309,7 @@ function cerrarAsesor() {
 }
 
 function escHtml(t) { var d = document.createElement('div'); d.appendChild(document.createTextNode(t)); return d.innerHTML; }
+function escAttr(t) { return String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function consultarAsesor(asesorId, pregunta) {
   var input = document.getElementById('ia-input-' + asesorId);
@@ -3873,7 +4516,7 @@ function renderEmergencia() {
   setText('em-bankroll', fmtUSD(STATE.bankroll));
   const ops    = STATE.ops;
   const total  = ops.length;
-  const perdidas = ops.filter(o => o.resultado === 'perdida').length;
+  const perdidas = ops.filter(o => o.resultado === 'perdió').length;
   const riskPct = total > 0 ? Math.round(perdidas / total * 100) : 0;
   const barEl   = qs('em-risk-bar');
   if (barEl) barEl.style.width = riskPct + '%';
@@ -4685,11 +5328,15 @@ function registrarAnalisis() {
   };
   // Push to STATE.ops for historial
   STATE.ops.push({
-    id: Date.now(), ts, tipo:'Análisis Fútbol',
-    desc:`${partido.local} vs ${partido.visitante} · ${cupon.length} pick(s)`,
-    capital:apuesta, estado:'pendiente', pnl:0,
+    id: Date.now(), tipo:'apuesta',
+    descripcion: `${partido.local} vs ${partido.visitante} · ${cupon.length} pick(s)`,
+    mercado: 'Acumulador (Mentor)', liga: partido.liga || null,
+    stake: apuesta, odd: combinada > 1 ? combinada : null,
+    entrada:null, salida:null,
+    resultado:'pendiente', pnl:null, fecha: ts,
+    notas:'', exchange:'Ecuabet', moneda:null,
   });
-  localStorage.setItem('jcahs_ops', JSON.stringify(STATE.ops));
+  guardarOps();
   // Save analysis
   const hist=JSON.parse(localStorage.getItem('jcahs_an_hist')||'[]');
   hist.unshift(entrada);
