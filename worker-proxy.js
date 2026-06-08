@@ -5,10 +5,16 @@
  * Usage:
  *   /?url=https://api.example.com/data       (generic proxy)
  *   /?url=https://query1.finance.yahoo.com/...&provider=yahoo  (Yahoo with browser headers)
+ *   /?url=https://v3.football.api-sports.io/...&api=sportsapi  (API-Sports with auth header)
  *
  * The provider=yahoo flag adds browser-like headers so Yahoo Finance
  * does not 500 the request.
+ *
+ * The api=sportsapi flag attaches the x-apisports-key header so
+ * API-Sports (api-sports.io) authenticates the request.
  */
+
+const API_SPORTS_KEY = '9718242f5c1a4e31e5a14622569d087c';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -35,6 +41,7 @@ export default {
     const url = new URL(request.url);
     const target = url.searchParams.get('url');
     const provider = url.searchParams.get('provider') || '';
+    const api = url.searchParams.get('api') || '';
 
     if (!target) {
       return new Response(JSON.stringify({ error: 'Missing ?url= parameter' }), {
@@ -64,6 +71,10 @@ export default {
       reqHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
       reqHeaders['Accept'] = 'application/json, text/plain, */*';
       reqHeaders['Accept-Language'] = 'en-US,en;q=0.9';
+    }
+
+    if (api === 'sportsapi') {
+      reqHeaders['x-apisports-key'] = API_SPORTS_KEY;
     }
 
     // Forward original Accept-Encoding if present (for passthrough)
