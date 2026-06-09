@@ -3136,10 +3136,11 @@ async function cargarDeportes() {
   const markets = ['h2h','totals'];
   console.log('cargarDeportes started');
 
-  // One call per sport × market — avoids comma encoding issues in proxy
+  // One call per sport × market — commas in regions break the proxy URL reconstruction
+  // so we use a single region string to avoid %2C encoding issues
   const sports = ['soccer', 'soccer_fifa_world_cup'];
   const calls = sports.flatMap(sport => markets.map(market => {
-    const url = `https://api.the-odds-api.com/v4/sports/${sport}/odds?regions=eu,us,uk,au&markets=${market}&oddsFormat=decimal`;
+    const url = `https://api.the-odds-api.com/v4/sports/${sport}/odds?regions=eu&markets=${market}&oddsFormat=decimal`;
     return fetchSeguro(proxyUrl(url) + '&api=odds', 8000).catch(() => null);
   }));
   // call order: [soccer-h2h, soccer-totals, wc-h2h, wc-totals]
@@ -3173,9 +3174,13 @@ async function cargarDeportes() {
         else if (idx === 1) totalsData = data;
         else if (idx === 2) wcH2hData = data;
         else if (idx === 3) wcTotalsData = data;
+      } else {
+        console.log('cargarDeportes', stepNames[idx], 'no array — status:', r.status, 'data:', JSON.stringify(data)?.slice(0, 120));
       }
     } catch (e) { console.log('cargarDeportes market error:', e); }
   }
+
+  console.log('Mundial data:', wcH2hData?.length);
 
   // Build merged games array — soccer first, then World Cup
   const games = h2hData || [];
