@@ -3137,7 +3137,7 @@ async function cargarDeportes() {
 
   // Make one API call per market to avoid comma encoding issues through proxy
   const calls = markets.map(market => {
-    const url = `https://api.the-odds-api.com/v4/sports/soccer/odds?apiKey=&regions=eu&markets=${market}&oddsFormat=decimal`;
+    const url = `https://api.the-odds-api.com/v4/sports/soccer/odds?regions=eu&markets=${market}&oddsFormat=decimal`;
     return fetchSeguro(proxyUrl(url) + '&api=odds', 8000).catch(() => null);
   });
 
@@ -3387,7 +3387,7 @@ async function cargarDeportes() {
 
 async function checkOddsRemaining() {
   try {
-    const url = `https://api.the-odds-api.com/v4/sports?apiKey=`;
+    const url = `https://api.the-odds-api.com/v4/sports`;
     const r = await fetchSeguro(proxyUrl(url) + '&api=odds', 6000);
     const remaining = r.headers?.get('x-requests-remaining');
     if (remaining) {
@@ -4617,8 +4617,8 @@ function setCalcTab(tab) {
 async function cargarPartidosAnalisis() {
   setHTML('an-content','<div class="loading"><span class="spin">⌛</span> Cargando partidos de fútbol...</div>');
   try {
-    const url=`https://api.the-odds-api.com/v4/sports/soccer/odds?apiKey=${CFG.oddsKey}&regions=eu&markets=h2h,totals&oddsFormat=decimal`;
-    const r=await fetchSeguro(proxyUrl(url), 14000);
+    const url=`https://api.the-odds-api.com/v4/sports/soccer/odds?regions=eu&markets=h2h,totals&oddsFormat=decimal`;
+    const r=await fetchSeguro(proxyUrl(url) + '&api=odds', 14000);
     if (!r.ok) {
       const text = await r.text();
       let data;
@@ -6012,9 +6012,9 @@ async function cargarTodosMercados(game) {
   const urls = mercados.map(m =>
     CFG.proxy + encodeURIComponent(
       `https://api.the-odds-api.com/v4/sports/soccer/odds` +
-      `?apiKey=${CFG.oddsKey}&regions=eu&markets=${m}` +
+      `?regions=eu&markets=${m}` +
       `&oddsFormat=decimal&eventIds=${game.id}`
-    )
+    ) + '&api=odds'
   );
   const res = await Promise.allSettled(urls.map(u => fetchSeguro(u, 8000)));
   const out = {};
