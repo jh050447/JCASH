@@ -3136,16 +3136,18 @@ async function cargarDeportes() {
   const markets = ['h2h','totals'];
   console.log('cargarDeportes started');
 
-  // Make one API call per market to avoid comma encoding issues through proxy
-  const calls = markets.map(market => {
-    const url = `https://api.the-odds-api.com/v4/sports/soccer/odds?regions=eu&markets=${market}&oddsFormat=decimal`;
+  // One call per sport × market — avoids comma encoding issues in proxy
+  const sports = ['soccer', 'soccer_fifa_world_cup'];
+  const calls = sports.flatMap(sport => markets.map(market => {
+    const url = `https://api.the-odds-api.com/v4/sports/${sport}/odds?regions=eu,us,uk,au&markets=${market}&oddsFormat=decimal`;
     return fetchSeguro(proxyUrl(url) + '&api=odds', 8000).catch(() => null);
-  });
+  }));
+  // call order: [soccer-h2h, soccer-totals, wc-h2h, wc-totals]
 
   const results = await Promise.allSettled(calls);
 
-  let h2hData    = null;
-  let totalsData = null;
+  let h2hData = null, totalsData = null, wcH2hData = null, wcTotalsData = null;
+  const stepNames = ['soccer h2h', 'soccer totals', 'mundial h2h', 'mundial totals'];
 
   for (const [idx, res] of results.entries()) {
     if (res.status !== 'fulfilled' || !res.value) continue;
@@ -3166,33 +3168,46 @@ async function cargarDeportes() {
         STATE.oddsRemaining = parseInt(r.headers.get('x-requests-remaining'));
       }
       if (r.ok && Array.isArray(data)) {
-        console.log('STEP ' + (idx === 0 ? '2: h2h' : '3: totals') + ' data received:', data.length, 'games');
+        console.log('cargarDeportes', stepNames[idx], data.length, 'games');
         if (idx === 0) h2hData = data;
-        else totalsData = data;
+        else if (idx === 1) totalsData = data;
+        else if (idx === 2) wcH2hData = data;
+        else if (idx === 3) wcTotalsData = data;
       }
     } catch (e) { console.log('cargarDeportes market error:', e); }
   }
 
-  // Use h2h data directly — it has all bookmakers with h2h odds
+  // Build merged games array — soccer first, then World Cup
   const games = h2hData || [];
 
-  // Merge totals markets into existing games by team name
-  if (totalsData) {
-    totalsData.forEach(totalsGame => {
-      const existing = games.find(g =>
-        g.home_team === totalsGame.home_team &&
-        g.away_team === totalsGame.away_team
-      );
-      if (existing && totalsGame.bookmakers?.length) {
-        totalsGame.bookmakers.forEach(bm => {
-          const existingBm = existing.bookmakers?.find(b => b.title === bm.title);
-          if (existingBm) {
-            existingBm.markets = [...(existingBm.markets || []), ...(bm.markets || [])];
-          } else {
-            existing.bookmakers = [...(existing.bookmakers || []), bm];
-          }
-        });
+  const mergeBookmakers = (existing, fromGame) => {
+    if (!fromGame.bookmakers?.length) return;
+    fromGame.bookmakers.forEach(bm => {
+      const existingBm = existing.bookmakers?.find(b => b.title === bm.title);
+      if (existingBm) {
+        existingBm.markets = [...(existingBm.markets || []), ...(bm.markets || [])];
+      } else {
+        existing.bookmakers = [...(existing.bookmakers || []), bm];
       }
+    });
+  };
+
+  if (totalsData) {
+    totalsData.forEach(tg => {
+      const existing = games.find(g => g.home_team === tg.home_team && g.away_team === tg.away_team);
+      if (existing) mergeBookmakers(existing, tg);
+    });
+  }
+
+  // Add World Cup games (marked with esMundial flag)
+  if (wcH2hData) {
+    wcH2hData.forEach(g => { g.esMundial = true; });
+    games.push(...wcH2hData);
+  }
+  if (wcTotalsData) {
+    wcTotalsData.forEach(tg => {
+      const existing = games.find(g => g.home_team === tg.home_team && g.away_team === tg.away_team);
+      if (existing) { existing.esMundial = true; mergeBookmakers(existing, tg); }
     });
   }
 
@@ -3230,10 +3245,11 @@ async function cargarDeportes() {
           const stake  = STATE.bankroll * kellyF;
 
           STATE.valueBets.push({
-            gameId:   game.id,
-            partido:  game.home_team + ' vs ' + game.away_team,
-            liga:     game.sport_title || '',
-            fecha:    game.commence_time,
+            gameId:    game.id,
+            partido:   game.home_team + ' vs ' + game.away_team,
+            liga:      game.sport_title || '',
+            fecha:     game.commence_time,
+            esMundial: game.esMundial || false,
             mercado:  traducirMercado(market.key),
             pick:     traducirPick(outcome.point != null ? outcome.name + ' ' + outcome.point : outcome.name, market.key, game.home_team, game.away_team),
             odd:      outcome.price,
@@ -3286,10 +3302,14 @@ async function cargarDeportes() {
       const porQue = `La casa ofrece odd ${vb.odd.toFixed(2)}, que implica ${vb.probIp.toFixed(1)}% de probabilidad de que ocurra este resultado. Nuestro modelo calcula ${vb.probReal.toFixed(1)}% de probabilidad real. Tienes una ventaja de +${vb.edge.toFixed(1)}% sobre la casa. A largo plazo, apostar con ventaja positiva es matemáticamente rentable.`;
       const cuanto  = `Kelly recomienda el ${vb.kelly.toFixed(1)}% de tu bankroll → ${fmtUSD(vb.stake)} en ${vb.bk}.`;
 
+      const vbMundial = vb.esMundial
+        ? `<span style="font-size:12px;padding:2px 8px;border-radius:999px;background:linear-gradient(135deg,#FFD700,#FFA500);color:#000;font-weight:700;display:inline-block;margin-bottom:4px">🏆 MUNDIAL</span> `
+        : '';
+
       return `<div class="vbet-card" id="${cardId}">
 
         <div class="vbet-header">
-          <div class="vbet-meta">${vb.liga} · ${fPartido}</div>
+          <div class="vbet-meta">${vbMundial}${vb.liga} · ${fPartido}</div>
           <div class="vbet-partido">${vb.partido}</div>
         </div>
 
@@ -3373,10 +3393,12 @@ async function cargarDeportes() {
         : '<span class="badge badge-gray">PRÓXIMO</span>';
       const valor  = valueBetGameIds.has(g.id)
         ? ' <span class="badge badge-green">VALUE ✓</span>' : '';
+      const mundial = g.esMundial
+        ? ' <span style="font-size:12px;padding:2px 8px;border-radius:999px;background:linear-gradient(135deg,#FFD700,#FFA500);color:#000;font-weight:700">🏆 MUNDIAL</span>' : '';
       return `<div class="partido-row">
         <div class="partido-equipos">${g.home_team} vs ${g.away_team}</div>
         <div class="partido-meta">${g.sport_title || ''} · ${fechaStr}</div>
-        <div class="partido-badges">${estado}${valor}</div>
+        <div class="partido-badges">${estado}${valor}${mundial}</div>
       </div>`;
     }).join('');
     setHTML('dep-partidos', rows + `<div class="dep-src">Fuente: The Odds API · ${ahora}</div>`);
@@ -4668,10 +4690,12 @@ function renderAnStep1() {
   });
   const gamesHtml=filtered.length?filtered.slice(0,30).map((g,i)=>{
     const dt=g.commence_time?new Date(g.commence_time).toLocaleString('es-EC',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+    const mundialBadge=g.esMundial?`<span style="font-size:12px;padding:2px 8px;border-radius:999px;background:linear-gradient(135deg,#FFD700,#FFA500);color:#000;font-weight:700;white-space:nowrap">🏆 MUNDIAL</span> `:'';
     const tieneStats=!!LIGA_MAP[g.sport_key];
-    const badge=tieneStats
+    const statsBadge=tieneStats
       ?`<span style="font-size:12px;padding:2px 7px;border-radius:20px;background:rgba(78,222,163,0.12);color:var(--tertiary);font-weight:600;white-space:nowrap">📊 Stats</span>`
       :`<span style="font-size:12px;padding:2px 7px;border-radius:20px;background:rgba(96,180,255,0.12);color:#60b4ff;font-weight:600;white-space:nowrap">📊 TheSportsDB</span>`;
+    const badge=mundialBadge+statsBadge;
     return `<div class="an-game-row" onclick="seleccionarPartido(${games.indexOf(g)})">
       <div>
         <div style="font-weight:700;font-size:16px">${g.home_team} vs ${g.away_team}</div>
@@ -6322,6 +6346,7 @@ function renderAnalisisProfundo() {
   bets.slice(0, 10).forEach((b, i) => {
     const badge = getBadgeSemaforo(b.edge, b.probReal);
     if (!badge) return '';
+    const mundialPill = g.esMundial ? '<span style="font-size:12px;padding:2px 8px;border-radius:999px;background:linear-gradient(135deg,#FFD700,#FFA500);color:#000;font-weight:700">🏆 MUNDIAL</span> ' : '';
     const emoji = emojis[i] || '#' + (i + 1);
     const p = (b.partido || g.home_team + ' vs ' + g.away_team).split(' vs ');
     const local = p[0] || g.home_team, visit = p[1] || g.away_team;
@@ -6339,7 +6364,7 @@ function renderAnalisisProfundo() {
     var whyHtml = esPrin ? '<div class="mentor-card-why" style="font-size:13px"><strong>\u00bfQu\u00e9 significa?</strong><br>' + razon + '</div>' : '';
 
     html += '<div class="mentor-card">' +
-      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="font-size:22px">' + emoji + '</span>' + badge + '</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">' + mundialPill + '<span style="font-size:22px">' + emoji + '</span>' + badge + '</div>' +
       '<div style="font-size:18px;font-weight:800;line-height:1.3">' + g.home_team + ' vs ' + g.away_team + '</div>' +
       '<div style="font-size:13px;color:var(--text-3);margin:2px 0 8px">' + b.mercado + '</div>' +
       '<div style="font-size:13px;color:var(--text-3);margin-bottom:4px">QU\u00c9 APOSTAR</div>' +
