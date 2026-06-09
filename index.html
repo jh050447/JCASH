@@ -4548,11 +4548,36 @@ async function buscarTavily(query) {
   }
 }
 
+var NOMBRES_EN = {
+  'méxico': 'Mexico', 'mexico': 'Mexico',
+  'sudáfrica': 'South Africa', 'sudafrica': 'South Africa',
+  'alemania': 'Germany',
+  'francia': 'France',
+  'brasil': 'Brazil',
+  'españa': 'Spain', 'espana': 'Spain',
+  'argentina': 'Argentina',
+  'ecuador': 'Ecuador',
+  'portugal': 'Portugal',
+  'inglaterra': 'England'
+};
+
+function nombreEnIngles(nombre) {
+  return NOMBRES_EN[nombre.toLowerCase()] || nombre;
+}
+
 function extraerEquipos(pregunta) {
   var match = pregunta.match(/([A-Za-záéíóúÁÉÍÓÚñÑ\s]+)\s+(?:vs|contra|VS)\s+([A-Za-záéíóúÁÉÍÓÚñÑ\s]+)/i);
-  if (match) return match[1].trim() + ' vs ' + match[2].trim();
+  if (match) {
+    var t1es = match[1].trim(), t2es = match[2].trim();
+    var t1en = nombreEnIngles(t1es), t2en = nombreEnIngles(t2es);
+    return { es: t1es + ' vs ' + t2es, en: t1en + ' vs ' + t2en, t1en: t1en, t2en: t2en };
+  }
   var vb = STATE.valueBets && STATE.valueBets[0];
-  if (vb && pregunta.toLowerCase().includes('partido')) return vb.partido;
+  if (vb && pregunta.toLowerCase().includes('partido')) {
+    var parts = vb.partido.split(/\s+vs\s+/i);
+    var t1en = nombreEnIngles(parts[0] || ''), t2en = nombreEnIngles(parts[1] || '');
+    return { es: vb.partido, en: t1en + ' vs ' + t2en, t1en: t1en, t2en: t2en };
+  }
   return null;
 }
 
@@ -4583,15 +4608,18 @@ async function consultarAsesor(asesorId, pregunta) {
   if (asesorId === 'falcon') {
     var equipos = extraerEquipos(pregunta);
     if (equipos) {
+      var saAlias = (equipos.t1en === 'South Africa' || equipos.t2en === 'South Africa');
       busquedas = [
-        'lesiones bajas ' + equipos + ' 2026',
-        'alineación probable ' + equipos + ' hoy',
-        'estadísticas corners tarjetas ' + equipos
+        equipos.t1en + ' vs ' + equipos.t2en + ' injuries 2026 World Cup',
+        equipos.t2en + ' squad lineup World Cup 2026',
+        'lesiones bajas ' + equipos.es + ' 2026',
+        'estadísticas corners tarjetas ' + equipos.es
       ];
+      if (saAlias) busquedas.unshift('Bafana Bafana World Cup 2026 squad injuries');
     } else {
       busquedas = [
-        'mejores partidos fútbol hoy ' + new Date().toLocaleDateString('es-EC') + ' 2026',
-        'value bets fútbol hoy probabilidades'
+        'World Cup 2026 best matches today value bets',
+        'mejores partidos fútbol hoy ' + new Date().toLocaleDateString('es-EC') + ' 2026'
       ];
     }
   } else if (asesorId === 'satoshi') {
