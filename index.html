@@ -4522,6 +4522,40 @@ function escAttr(t) { return String(t == null ? '' : t).replace(/&/g,'&amp;').re
 const GROQ_URL = 'https://jcahs-proxy.jh050447.workers.dev/?url=' +
   encodeURIComponent('https://api.groq.com/openai/v1/chat/completions') + '&api=groq';
 
+const TAVILY_URL = 'https://jcahs-proxy.jh050447.workers.dev/?url=' +
+  encodeURIComponent('https://api.tavily.com/search') + '&api=tavily';
+
+async function buscarTavily(query) {
+  try {
+    var response = await fetch(TAVILY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: query,
+        search_depth: 'basic',
+        max_results: 5,
+        include_answer: true
+      })
+    });
+    var data = await response.json();
+    if (data.answer) return data.answer;
+    return (data.results || []).slice(0, 3)
+      .map(function(r) { return r.title + ': ' + r.content; })
+      .join('\n\n') || 'Sin resultados';
+  } catch(e) {
+    console.error('Tavily error:', e);
+    return null;
+  }
+}
+
+function extraerEquipos(pregunta) {
+  var match = pregunta.match(/([A-Za-záéíóúÁÉÍÓÚñÑ\s]+)\s+(?:vs|contra|VS)\s+([A-Za-záéíóúÁÉÍÓÚñÑ\s]+)/i);
+  if (match) return match[1].trim() + ' vs ' + match[2].trim();
+  var vb = STATE.valueBets && STATE.valueBets[0];
+  if (vb && pregunta.toLowerCase().includes('partido')) return vb.partido;
+  return null;
+}
+
 async function consultarAsesor(asesorId, pregunta) {
   var input = document.getElementById('ia-input-' + asesorId);
   if (!pregunta) {
@@ -4544,9 +4578,42 @@ async function consultarAsesor(asesorId, pregunta) {
   document.getElementById('ia-quick-' + asesorId)?.remove();
   mostrarEscribiendo(asesorId);
 
+  // Buscar información relevante con Tavily
+  var busquedas = [];
+  if (asesorId === 'falcon') {
+    var equipos = extraerEquipos(pregunta);
+    if (equipos) {
+      busquedas = [
+        'lesiones bajas ' + equipos + ' 2026',
+        'alineación probable ' + equipos + ' hoy',
+        'estadísticas corners tarjetas ' + equipos
+      ];
+    } else {
+      busquedas = [
+        'mejores partidos fútbol hoy ' + new Date().toLocaleDateString('es-EC') + ' 2026',
+        'value bets fútbol hoy probabilidades'
+      ];
+    }
+  } else if (asesorId === 'satoshi') {
+    busquedas = [
+      'Bitcoin price news today ' + new Date().toLocaleDateString('en-US') + ' 2026',
+      'crypto market analysis today 2026'
+    ];
+  }
+
+  var infoWeb = '';
+  if (busquedas.length > 0) {
+    var resultados = await Promise.allSettled(busquedas.map(function(q) { return buscarTavily(q); }));
+    infoWeb = resultados
+      .map(function(r, i) { return (r.status === 'fulfilled' && r.value) ? ('🔍 ' + busquedas[i] + ':\n' + r.value) : null; })
+      .filter(Boolean)
+      .join('\n\n---\n\n');
+  }
+
   var ctx = construirContextoCompleto();
   var a = ASESORES[asesorId];
-  var systemPrompt = a.systemPrompt(ctx);
+  var systemPrompt = a.systemPrompt(ctx) +
+    (infoWeb ? '\n\n=== INFORMACIÓN ACTUALIZADA DE INTERNET ===\n' + infoWeb + '\n=== FIN DE INFORMACIÓN WEB ===\n\nUsa esta información para dar respuestas precisas y actualizadas.' : '');
 
   try {
     var messages = [{ role: 'system', content: systemPrompt }].concat(STATE.iaChats[asesorId]);
@@ -4572,7 +4639,9 @@ async function consultarAsesor(asesorId, pregunta) {
     if (STATE.iaChats[asesorId].length > 20) STATE.iaChats[asesorId] = STATE.iaChats[asesorId].slice(-20);
     localStorage.setItem('jcahs_ia_chats', JSON.stringify(STATE.iaChats));
     ocultarEscribiendo(asesorId);
-    agregarMensajeChat(asesorId, 'assistant', texto);
+
+    var badge = infoWeb ? '🔍 Verificado en internet — ' + new Date().toLocaleTimeString('es-EC') : null;
+    agregarMensajeChat(asesorId, 'assistant', texto, badge);
 
   } catch(e) {
     console.error('Groq error:', e);
