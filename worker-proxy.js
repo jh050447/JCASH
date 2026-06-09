@@ -9,6 +9,7 @@
  *   /?url=...&api=footballdata                      (Football-Data.org: injects X-Auth-Token header)
  *   /?url=...&api=owm                               (OpenWeatherMap: injects appid query param)
  *   /?url=...&api=odds                              (The Odds API: injects apiKey query param)
+ *   /?url=...&api=gemini                            (Gemini: injects key query param)
  *
  * All sensitive API keys live here as Cloudflare Worker env vars (secrets).
  * Fallback values are kept for local `wrangler dev` only — rotate these after
@@ -42,6 +43,7 @@ export default {
     const ODDS_KEY      = env.ODDS_KEY      || '80e2cc925122c3aec2b46ba756ad0df1';
     const APISPORTS_KEY = env.APISPORTS_KEY || '9718242f5c1a4e31e5a14622569d087c';
     const FD_KEY        = env.FD_KEY        || 'b153b71ca08f4ae8bfe48f8f85f79014';
+    const GEMINI_KEY    = env.GEMINI_KEY    || '';
 
     const url = new URL(request.url);
     const target   = url.searchParams.get('url');
@@ -74,6 +76,10 @@ export default {
     }
     if (api === 'odds') {
       targetUrlObj.searchParams.set('apiKey', ODDS_KEY);
+      targetUrl = targetUrlObj.toString();
+    }
+    if (api === 'gemini') {
+      targetUrlObj.searchParams.set('key', GEMINI_KEY);
       targetUrl = targetUrlObj.toString();
     }
 
