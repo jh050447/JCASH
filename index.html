@@ -1526,8 +1526,8 @@ const CFG = {
   proxy:       'https://jcahs-proxy.jh050447.workers.dev/?url=',
   scraper:     'https://jcahs-scraper.jh050447.workers.dev/',
   binance:     'https://api.binance.com/api/v3',
-  oddsKey:     '80e2cc925122c3aec2b46ba756ad0df1',
-  footballKey: '9718242f5c1a4e31e5a14622569d087c',
+  oddsKey:     '',
+  footballKey: '',
   fng:         'https://api.alternative.me/fng/?limit=1',
   refresh: {
     precios:  60_000,   // 1 min
@@ -1617,7 +1617,7 @@ const STATE = {
     minuto:0, marcL:0, marcV:0, searchText:'',
   },
   analisisActual: null,
-  apiSportsCache: {},
+  fdCache: {},
   mentor: {
     abierto:false, paso:1,
     capital:null, gananciaMin:null, gananciaMax:null,
@@ -3137,8 +3137,8 @@ async function cargarDeportes() {
 
   // Make one API call per market to avoid comma encoding issues through proxy
   const calls = markets.map(market => {
-    const url = `https://api.the-odds-api.com/v4/sports/soccer/odds?apiKey=${CFG.oddsKey}&regions=eu&markets=${market}&oddsFormat=decimal`;
-    return fetchSeguro(proxyUrl(url), 8000).catch(() => null);
+    const url = `https://api.the-odds-api.com/v4/sports/soccer/odds?apiKey=&regions=eu&markets=${market}&oddsFormat=decimal`;
+    return fetchSeguro(proxyUrl(url) + '&api=odds', 8000).catch(() => null);
   });
 
   const results = await Promise.allSettled(calls);
@@ -3387,8 +3387,8 @@ async function cargarDeportes() {
 
 async function checkOddsRemaining() {
   try {
-    const url = `https://api.the-odds-api.com/v4/sports?apiKey=${CFG.oddsKey}`;
-    const r = await fetchSeguro(proxyUrl(url), 6000);
+    const url = `https://api.the-odds-api.com/v4/sports?apiKey=`;
+    const r = await fetchSeguro(proxyUrl(url) + '&api=odds', 6000);
     const remaining = r.headers?.get('x-requests-remaining');
     if (remaining) {
       STATE.oddsRemaining = parseInt(remaining);
@@ -5430,143 +5430,92 @@ async function obtenerH2H(team1Id, team2Id) {
 // POLÍTICA SAGRADA: cero datos inventados — si una API falla, "Sin datos"
 // ════════════════════════════════════════════════════════════
 
-const API_SPORTS_BASE = 'https://v3.football.api-sports.io';
+const FD_KEY = '';
+const FD_BASE = 'https://api.football-data.org/v4';
 
-const fetchApiSports = async (endpoint) => {
+const fetchFootballData = async (endpoint) => {
   try {
-    const url = `${API_SPORTS_BASE}${endpoint}`;
-    const proxyUrl = `https://jcahs-proxy.jh050447.workers.dev/?url=${encodeURIComponent(url)}&api=sportsapi`;
+    const url = `${FD_BASE}${endpoint}`;
+    const proxyUrl = `https://jcahs-proxy.jh050447.workers.dev/?url=${encodeURIComponent(url)}&api=footballdata`;
     const r = await fetchSeguro(proxyUrl, 8000);
     if (!r.ok) return null;
     return await r.json();
   } catch { return null; }
 };
 
-const fetchApiSportsCached = async (endpoint) => {
-  const cached = STATE.apiSportsCache[endpoint];
+const fetchFootballDataCached = async (endpoint) => {
+  const cached = STATE.fdCache[endpoint];
   if (cached && Date.now() - cached.ts < 3600000) return cached.data;
-  const data = await fetchApiSports(endpoint);
-  if (data) STATE.apiSportsCache[endpoint] = { data, ts: Date.now() };
+  const data = await fetchFootballData(endpoint);
+  if (data) STATE.fdCache[endpoint] = { data, ts: Date.now() };
   return data;
 };
 
-async function buscarEquipoId(nombre) {
-  console.log('buscarEquipoId called with:', nombre);
+// Mapeo de ligas The Odds API (sport_key) → códigos de competición Football-Data.org
+const LIGA_MAP = {
+  'soccer_epl': 'PL',
+  'soccer_england_league1': 'PL',
+  'soccer_spain_la_liga': 'PD',
+  'soccer_germany_bundesliga': 'BL1',
+  'soccer_italy_serie_a': 'SA',
+  'soccer_france_ligue_one': 'FL1',
+  'soccer_uefa_champs_league': 'CL',
+};
 
-  // Estrategia 1: nombre exacto
-  let data = await fetchApiSportsCached(`/teams?name=${encodeURIComponent(nombre)}`);
-  console.log('Strategy 1 result:',
-    data?.response?.length,
-    data?.response?.[0]?.team?.id,
-    data?.errors);
-  if (data?.response?.[0]?.team?.id) return data.response[0].team.id;
-
-  // Estrategia 2: solo la primera palabra (ej. "Real Madrid" → "Real")
-  const firstWord = nombre.split(' ')[0];
-  console.log('Trying strategy 2 with:', firstWord);
-  data = await fetchApiSportsCached(`/teams?name=${encodeURIComponent(firstWord)}`);
-  console.log('Strategy 2 result:',
-    data?.response?.length,
-    data?.errors);
-  if (data?.response?.[0]?.team?.id) return data.response[0].team.id;
-
-  // Estrategia 3: búsqueda parcial por nombre
-  console.log('Trying strategy 3 search');
-  data = await fetchApiSportsCached(`/teams?search=${encodeURIComponent(nombre)}`);
-  console.log('Strategy 3 result:',
-    data?.response?.length,
-    data?.errors);
-  if (data?.response?.[0]?.team?.id) return data.response[0].team.id;
-
-  console.log('buscarEquipoId: no team found for:', nombre);
-  return null;
-}
-
-async function obtenerEstadisticasEquipo(teamId) {
-  if (!teamId) return null;
-  const temporada = new Date().getFullYear();
-  const data = await fetchApiSportsCached(`/teams/statistics?team=${teamId}&season=${temporada}`);
-  const s = data?.response;
-  if (!s) return null;
-  return {
-    golesLocal: s.goals?.for?.average?.home || 0,
-    golesVisit: s.goals?.for?.average?.away || 0,
-    golesTotal: s.goals?.for?.average?.total || 0,
-    recibidosLocal: s.goals?.against?.average?.home || 0,
-    recibidosVisit: s.goals?.against?.average?.away || 0,
-    jugados: s.fixtures?.played?.total || 0,
-    victorias: s.fixtures?.wins?.total || 0,
-    empates: s.fixtures?.draws?.total || 0,
-    derrotas: s.fixtures?.loses?.total || 0,
-    forma: s.form || '',
-    cleanSheets: s.clean_sheet?.total || 0,
-    ambosMarcan: s.both_teams_score?.yes || 0,
-    ambosNoMarcan: s.both_teams_score?.no || 0,
-  };
-}
-
-async function obtenerH2HCompleto(team1Id, team2Id) {
-  if (!team1Id || !team2Id) return null;
-  const data = await fetchApiSportsCached(`/fixtures/headtohead?h2h=${team1Id}-${team2Id}&last=10`);
-  const partidos = data?.response || [];
-  if (!partidos.length) return null;
-
-  const golesPromedio = partidos.reduce((acc, p) => acc + p.goals.home + p.goals.away, 0) / partidos.length;
-  const bttsCount = partidos.filter(p => p.goals.home > 0 && p.goals.away > 0).length;
-  const over25Count = partidos.filter(p => p.goals.home + p.goals.away > 2.5).length;
-  const victoriasTeam1 = partidos.filter(p =>
-    (p.teams.home.id === team1Id && p.teams.home.winner) ||
-    (p.teams.away.id === team1Id && p.teams.away.winner)
-  ).length;
-
-  return {
-    totalPartidos: partidos.length,
-    golesPromedio: golesPromedio.toFixed(1),
-    victoriasLocal: victoriasTeam1,
-    empates: partidos.filter(p => !p.teams.home.winner && !p.teams.away.winner).length,
-    btts: ((bttsCount / partidos.length) * 100).toFixed(0),
-    over25: ((over25Count / partidos.length) * 100).toFixed(0),
-    ultimosResultados: partidos.slice(0, 5).map(p => ({
-      local: p.teams.home.name,
-      visitante: p.teams.away.name,
-      golesLocal: p.goals.home,
-      golesVisit: p.goals.away,
-    })),
-  };
-}
-
-async function obtenerLesiones(teamId) {
-  if (!teamId) return null;
-  const temporada = new Date().getFullYear();
-  const data = await fetchApiSportsCached(`/injuries?team=${teamId}&season=${temporada}`);
-  const lesiones = data?.response || [];
-  const criticas = lesiones.filter(l =>
-    ['Goalkeeper','Centre-Back','Striker','Delantero','Portero','Defensa Central'].includes(l.player.position)
+async function buscarEquipoFD(nombre, ligaCode) {
+  if (!ligaCode) return null;
+  const data = await fetchFootballDataCached(`/competitions/${ligaCode}/teams`);
+  const equipos = data?.teams || [];
+  const clave = nombre.toLowerCase().split(' ')[0];
+  const equipo = equipos.find(t =>
+    t.name?.toLowerCase().includes(clave) ||
+    t.shortName?.toLowerCase().includes(clave)
   );
-  return {
-    total: lesiones.length,
-    criticas: criticas.length,
-    jugadores: lesiones.slice(0, 5).map(l => ({
-      nombre: l.player.name,
-      posicion: l.player.position,
-      tipo: l.player.reason || 'Lesión',
-    })),
-    impacto: criticas.length >= 2 ? 'ALTO' : criticas.length === 1 ? 'MEDIO' : 'BAJO',
-  };
+  return equipo?.id || null;
 }
 
-async function obtenerArbitro(fixtureId) {
-  if (!fixtureId) return null;
-  const data = await fetchApiSportsCached(`/fixtures?id=${fixtureId}`);
-  const fixture = data?.response?.[0];
-  return fixture?.fixture?.referee ? { nombre: fixture.fixture.referee } : null;
+async function obtenerFormaReciente(teamId) {
+  if (!teamId) return null;
+  const data = await fetchFootballDataCached(`/teams/${teamId}/matches?status=FINISHED&limit=5`);
+  const matches = data?.matches || [];
+  if (!matches.length) return null;
+
+  const golesMarcados = matches.reduce((acc, m) => {
+    const esLocal = m.homeTeam.id === teamId;
+    return acc + (esLocal ? m.score.fullTime.home : m.score.fullTime.away);
+  }, 0);
+
+  const golesRecibidos = matches.reduce((acc, m) => {
+    const esLocal = m.homeTeam.id === teamId;
+    return acc + (esLocal ? m.score.fullTime.away : m.score.fullTime.home);
+  }, 0);
+
+  const victorias = matches.filter(m => {
+    const esLocal = m.homeTeam.id === teamId;
+    const resultado = m.score.winner;
+    return (esLocal && resultado === 'HOME_TEAM') || (!esLocal && resultado === 'AWAY_TEAM');
+  }).length;
+
+  return {
+    jugados: matches.length,
+    victorias,
+    golesPromedio: (golesMarcados / matches.length).toFixed(2),
+    golesRecibidosPromedio: (golesRecibidos / matches.length).toFixed(2),
+    forma: matches.map(m => {
+      const esLocal = m.homeTeam.id === teamId;
+      const res = m.score.winner;
+      if (!res) return 'D';
+      if ((esLocal && res === 'HOME_TEAM') || (!esLocal && res === 'AWAY_TEAM')) return 'W';
+      if (res === 'DRAW') return 'D';
+      return 'L';
+    }).join(''),
+  };
 }
 
 async function obtenerClima(ciudad) {
   if (!ciudad) return null;
-  const OWM_KEY = '880d2c93054ec418da363ec46397d3d3';
-  const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(ciudad)}&appid=${OWM_KEY}&units=metric&lang=es`;
-  const proxyUrl = `https://jcahs-proxy.jh050447.workers.dev/?url=${encodeURIComponent(url)}`;
+  const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(ciudad)}&units=metric&lang=es`;
+  const proxyUrl = `https://jcahs-proxy.jh050447.workers.dev/?url=${encodeURIComponent(url)}&api=owm`;
   try {
     const r = await fetchSeguro(proxyUrl, 6000);
     if (!r.ok) return null;
@@ -5596,10 +5545,10 @@ function calcularProbabilidadAjustada(datos) {
   const { statsLocal, statsVisit, h2h, lesionesLocal, lesionesVisit, clima } = datos;
 
   let lambdaLocal = statsLocal && statsVisit
-    ? parseFloat(statsLocal.golesLocal) * (parseFloat(statsVisit.recibidosVisit) / 1.2)
+    ? parseFloat(statsLocal.golesPromedio) * (parseFloat(statsVisit.golesRecibidosPromedio) / 1.2)
     : 1.5;
   let lambdaVisit = statsLocal && statsVisit
-    ? parseFloat(statsVisit.golesVisit) * (parseFloat(statsLocal.recibidosLocal) / 1.2)
+    ? parseFloat(statsVisit.golesPromedio) * (parseFloat(statsLocal.golesRecibidosPromedio) / 1.2)
     : 1.2;
 
   if (lesionesLocal?.impacto === 'ALTO') lambdaLocal *= 0.85;
@@ -5673,60 +5622,61 @@ function calcularProbabilidadAjustada(datos) {
 
 // ── FUNCIÓN PRINCIPAL DE ANÁLISIS ────────────────────────────
 
-async function analizarPartidoCompleto(homeTeam, awayTeam, ciudad, fixtureId) {
+async function analizarPartidoCompleto(homeTeam, awayTeam, liga, fixtureId) {
   const panelId = 'analisis-estadistico';
   if (!qs(panelId)) return null;
+
+  const ligaCode = LIGA_MAP[liga] || null;
+  const tieneDatos = !!ligaCode;
+
+  if (!tieneDatos) {
+    // Liga no cubierta por el plan gratuito de Football-Data.org —
+    // mostrar análisis honesto con solo el modelo matemático (defaults Poisson)
+    const analisisBasico = calcularProbabilidadAjustada({
+      statsLocal: null, statsVisit: null, h2h: null,
+      lesionesLocal: null, lesionesVisit: null, clima: null,
+    });
+    renderAnalisisEstadistico(analisisBasico, homeTeam, awayTeam, null, null, false);
+    return analisisBasico;
+  }
+
   setHTML(panelId, `
     <div style="text-align:center;padding:24px;color:var(--outline)">
       <div class="loading"><span class="spin">⌛</span></div>
-      <div style="margin-top:8px;font-size:16px">Analizando partido con IA estadística...</div>
-      <div style="font-size:14px;margin-top:4px;color:var(--outline)">Cargando estadísticas, H2H, lesiones y clima</div>
+      <div style="margin-top:8px;font-size:16px">Analizando con datos reales de Football-Data.org...</div>
+      <div style="font-size:14px;margin-top:4px;color:var(--outline)">Cargando forma reciente y clima</div>
     </div>
   `);
 
-  const [idLocal, idVisit] = await Promise.all([buscarEquipoId(homeTeam), buscarEquipoId(awayTeam)]);
+  const [idLocal, idVisit] = await Promise.all([
+    buscarEquipoFD(homeTeam, ligaCode),
+    buscarEquipoFD(awayTeam, ligaCode),
+  ]);
 
-  // Resolver ciudad real para el clima (la ciudad aproximada "<equipo> stadium" no es válida para OpenWeatherMap)
-  let ciudadReal = ciudad;
-  if (fixtureId) {
-    const fixture = await fetchApiSportsCached(`/fixtures?id=${fixtureId}`);
-    const venue = fixture?.response?.[0]?.fixture?.venue?.city;
-    if (venue) ciudadReal = venue;
-  }
-  if (!ciudadReal || ciudadReal.includes('stadium')) {
-    const teamData = await fetchApiSportsCached(`/teams?search=${encodeURIComponent(homeTeam)}`);
-    const city = teamData?.response?.[0]?.venue?.city;
-    ciudadReal = city || null;
-  }
-
-  const [statsLocal, statsVisit, h2h, lesionesLocal, lesionesVisit, arbitro, clima] = await Promise.allSettled([
-    obtenerEstadisticasEquipo(idLocal),
-    obtenerEstadisticasEquipo(idVisit),
-    obtenerH2HCompleto(idLocal, idVisit),
-    obtenerLesiones(idLocal),
-    obtenerLesiones(idVisit),
-    obtenerArbitro(fixtureId),
-    ciudadReal ? obtenerClima(ciudadReal) : Promise.resolve(null),
+  const [formaLocal, formaVisit, clima] = await Promise.allSettled([
+    obtenerFormaReciente(idLocal),
+    obtenerFormaReciente(idVisit),
+    obtenerClima(null), // ciudad pendiente — Football-Data no expone venue por equipo en el plan gratis
   ]);
 
   const val = r => r.status === 'fulfilled' ? r.value : null;
 
   const analisis = calcularProbabilidadAjustada({
-    statsLocal: val(statsLocal),
-    statsVisit: val(statsVisit),
-    h2h: val(h2h),
-    lesionesLocal: val(lesionesLocal),
-    lesionesVisit: val(lesionesVisit),
+    statsLocal: val(formaLocal),
+    statsVisit: val(formaVisit),
+    h2h: null,
+    lesionesLocal: null,
+    lesionesVisit: null,
     clima: val(clima),
   });
 
-  renderAnalisisEstadistico(analisis, homeTeam, awayTeam, val(arbitro), val(clima));
+  renderAnalisisEstadistico(analisis, homeTeam, awayTeam, null, val(clima), true);
   return analisis;
 }
 
 // ── RENDER DEL ANÁLISIS ESTADÍSTICO ──────────────────────────
 
-function renderAnalisisEstadistico(analisis, local, visitante, arbitro, clima) {
+function renderAnalisisEstadistico(analisis, local, visitante, arbitro, clima, tieneDatosReales) {
   const p = analisis.probabilidades;
   const f = analisis.factores;
 
@@ -5737,12 +5687,23 @@ function renderAnalisisEstadistico(analisis, local, visitante, arbitro, clima) {
 
   const tituloSec = (txt) => `<div style="font-size:14px;font-weight:800;color:var(--text-2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em">${txt}</div>`;
 
+  const badgeDatos = tieneDatosReales
+    ? `<div style="background:rgba(78,222,163,0.08);border:1px solid rgba(78,222,163,0.3);border-radius:var(--radius);padding:10px 14px;margin-bottom:16px;font-size:14px;color:var(--tertiary)">
+        ✅ Análisis con datos reales de Football-Data.org · Fuente y hora: ${new Date().toLocaleString('es-EC')}
+      </div>`
+    : `<div style="background:rgba(255,196,0,0.08);border:1px solid rgba(255,196,0,0.3);border-radius:var(--radius);padding:10px 14px;margin-bottom:16px;font-size:14px;color:var(--warning)">
+        ⚠️ Estadísticas detalladas no disponibles para esta liga en el plan gratuito. El análisis usa solo probabilidades matemáticas (Pinnacle).
+        Estimación sin estadísticas reales — λ local: ${analisis.lambdaLocal} (estimado) · λ visitante: ${analisis.lambdaVisit} (estimado)
+      </div>`;
+
   const html = `
   <div class="card" style="margin-top:24px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
       <div class="card-title" style="margin-bottom:0">🧮 ANÁLISIS ESTADÍSTICO COMPLETO</div>
-      <span style="font-size:13px;color:var(--text-3);font-family:var(--f-mono)">Modelo Poisson + API-Sports + Clima</span>
+      <span style="font-size:13px;color:var(--text-3);font-family:var(--f-mono)">Modelo Poisson + Football-Data.org + Clima</span>
     </div>
+
+    ${badgeDatos}
 
     <!-- Goles esperados -->
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
@@ -5829,23 +5790,29 @@ function renderAnalisisEstadistico(analisis, local, visitante, arbitro, clima) {
 
         <div style="background:var(--surface-high);border-radius:var(--radius);padding:12px">
           <div style="font-size:13px;color:var(--outline);margin-bottom:6px">🏥 Lesiones ${escHtml(local)}</div>
-          <div style="font-size:18px;font-weight:700;color:${colorImpacto(f.lesionesLocal)}">Impacto ${f.lesionesLocal}</div>
-          ${f.jugadoresLocal.length > 0
-            ? f.jugadoresLocal.map(j => `<div style="font-size:13px;color:var(--outline);margin-top:4px">• ${escHtml(j.nombre)} (${escHtml(j.posicion)})</div>`).join('')
-            : '<div style="font-size:13px;color:var(--tertiary)">Sin bajas confirmadas</div>'}
+          ${f.lesionesLocal === 'N/A'
+            ? '<div style="font-size:13px;color:var(--text-3)">Datos de lesiones no disponibles en el plan gratuito</div>'
+            : `<div style="font-size:18px;font-weight:700;color:${colorImpacto(f.lesionesLocal)}">Impacto ${f.lesionesLocal}</div>
+               ${f.jugadoresLocal.length > 0
+                 ? f.jugadoresLocal.map(j => `<div style="font-size:13px;color:var(--outline);margin-top:4px">• ${escHtml(j.nombre)} (${escHtml(j.posicion)})</div>`).join('')
+                 : '<div style="font-size:13px;color:var(--tertiary)">Sin bajas confirmadas</div>'}`}
         </div>
 
         <div style="background:var(--surface-high);border-radius:var(--radius);padding:12px">
           <div style="font-size:13px;color:var(--outline);margin-bottom:6px">🏥 Lesiones ${escHtml(visitante)}</div>
-          <div style="font-size:18px;font-weight:700;color:${colorImpacto(f.lesionesVisit)}">Impacto ${f.lesionesVisit}</div>
-          ${f.jugadoresVisit.length > 0
-            ? f.jugadoresVisit.map(j => `<div style="font-size:13px;color:var(--outline);margin-top:4px">• ${escHtml(j.nombre)} (${escHtml(j.posicion)})</div>`).join('')
-            : '<div style="font-size:13px;color:var(--tertiary)">Sin bajas confirmadas</div>'}
+          ${f.lesionesVisit === 'N/A'
+            ? '<div style="font-size:13px;color:var(--text-3)">Datos de lesiones no disponibles en el plan gratuito</div>'
+            : `<div style="font-size:18px;font-weight:700;color:${colorImpacto(f.lesionesVisit)}">Impacto ${f.lesionesVisit}</div>
+               ${f.jugadoresVisit.length > 0
+                 ? f.jugadoresVisit.map(j => `<div style="font-size:13px;color:var(--outline);margin-top:4px">• ${escHtml(j.nombre)} (${escHtml(j.posicion)})</div>`).join('')
+                 : '<div style="font-size:13px;color:var(--tertiary)">Sin bajas confirmadas</div>'}`}
         </div>
 
         <div style="background:var(--surface-high);border-radius:var(--radius);padding:12px">
           <div style="font-size:13px;color:var(--outline);margin-bottom:6px">⚔️ H2H Últimos 10 partidos</div>
-          <div style="display:flex;gap:16px">
+          ${f.h2hGoles === 'N/A'
+            ? '<div style="font-size:13px;color:var(--text-3)">Datos de enfrentamientos directos no disponibles en el plan gratuito</div>'
+            : `<div style="display:flex;gap:16px">
             <div>
               <div style="font-size:12px;color:var(--outline)">Goles prom.</div>
               <div style="font-size:24px;font-weight:700;font-family:var(--font-mono)">${f.h2hGoles}</div>
@@ -5863,7 +5830,7 @@ function renderAnalisisEstadistico(analisis, local, visitante, arbitro, clima) {
             ? '<div style="margin-top:8px">' + f.h2hResultados.map(r =>
                 `<div style="font-size:13px;color:var(--outline)">${escHtml(r.local)} ${r.golesLocal}-${r.golesVisit} ${escHtml(r.visitante)}</div>`
               ).join('') + '</div>'
-            : ''}
+            : ''}`}
         </div>
 
         <div style="background:var(--surface-high);border-radius:var(--radius);padding:12px">
