@@ -4668,6 +4668,7 @@ async function cargarPartidosAnalisis() {
     }
     const data=await r.json();
     STATE.an.games=Array.isArray(data)?data:[];
+    console.log('cargarPartidosAnalisis: juegos en STATE.an.games:', STATE.an.games.length, STATE.an.games.map(g => g.home_team + ' ' + g.commence_time));
     renderAnStep1();
   } catch(e) {
     setHTML('an-content',`<div class="card"><div style="color:var(--error);font-size:16px;padding:12px">Error al cargar partidos: ${e.message}. Usa entrada manual.</div></div>`);
@@ -4694,6 +4695,7 @@ function calcNoVigProbs(oddsArr) {
 // ── RENDER STEP 1 — selección de partido ────────────────────
 function renderAnStep1() {
   const {games,searchText}=STATE.an;
+  console.log('Games to render:', games.map(g => g.home_team + ' ' + g.commence_time));
   const q=(searchText||'').toLowerCase();
   const filtered=games.filter(g=>{
     const t=(g.home_team+' '+g.away_team).toLowerCase();
