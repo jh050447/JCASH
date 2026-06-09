@@ -4651,12 +4651,18 @@ function setCalcTab(tab) {
 async function cargarPartidosAnalisis() {
   setHTML('an-content','<div class="loading"><span class="spin">⌛</span> Cargando partidos de fútbol...</div>');
   try {
-    const url=`https://api.the-odds-api.com/v4/sports/soccer/odds?regions=eu&markets=h2h,totals&oddsFormat=decimal`;
-    const r=await fetchSeguro(proxyUrl(url) + '&api=odds', 14000);
-    if (!r.ok) {
-      const text = await r.text();
-      let data;
-      try { data = JSON.parse(text); } catch { data = null; }
+    const tFrom = new Date(Date.now() - 3 * 3600000).toISOString().split('.')[0] + 'Z';
+    const tTo   = new Date(Date.now() + 3 * 24 * 3600000).toISOString().split('.')[0] + 'Z';
+    const timeParams = `&commenceTimeFrom=${tFrom}&commenceTimeTo=${tTo}`;
+    const urlSoccer  = `https://api.the-odds-api.com/v4/sports/soccer/odds?regions=eu&markets=h2h&oddsFormat=decimal${timeParams}`;
+    const urlMundial = `https://api.the-odds-api.com/v4/sports/soccer_fifa_world_cup/odds?regions=eu&markets=h2h&oddsFormat=decimal${timeParams}`;
+    const [rSoccer, rMundial] = await Promise.all([
+      fetchSeguro(proxyUrl(urlSoccer)  + '&api=odds', 14000).catch(() => null),
+      fetchSeguro(proxyUrl(urlMundial) + '&api=odds',  8000).catch(() => null),
+    ]);
+    if (rSoccer && !rSoccer.ok) {
+      const text = await rSoccer.text();
+      let data; try { data = JSON.parse(text); } catch { data = null; }
       if (data?.message?.includes('exceeded')) {
         console.warn('Odds API limit exceeded');
         STATE.oddsLimitExceeded = true;
@@ -4664,10 +4670,12 @@ async function cargarPartidosAnalisis() {
         renderAnStep1();
         return;
       }
-      throw new Error('HTTP '+r.status);
+      throw new Error('HTTP '+rSoccer.status);
     }
-    const data=await r.json();
-    STATE.an.games=Array.isArray(data)?data:[];
+    const soccerGames  = rSoccer  && rSoccer.ok  ? (d => Array.isArray(d) ? d : [])(await rSoccer.json())  : [];
+    const mundialGames = rMundial && rMundial.ok ? (d => Array.isArray(d) ? d.map(g => ({...g, esMundial: true})) : [])(await rMundial.json()) : [];
+    STATE.an.games = [...soccerGames, ...mundialGames]
+      .sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time));
     console.log('cargarPartidosAnalisis: juegos en STATE.an.games:', STATE.an.games.length, STATE.an.games.map(g => g.home_team + ' ' + g.commence_time));
     renderAnStep1();
   } catch(e) {
