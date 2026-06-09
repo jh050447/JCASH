@@ -3139,8 +3139,8 @@ async function cargarDeportes() {
   // commenceTimeFrom = 3h ago (catch live games); commenceTimeTo = 3 days out
   // No daysFrom param exists — The Odds API uses ISO 8601 timestamps
   // Raw ISO strings — proxyUrl() will encodeURIComponent the whole URL, so no pre-encoding
-  const tFrom = new Date(Date.now() - 3 * 3600000).toISOString();
-  const tTo   = new Date(Date.now() + 3 * 24 * 3600000).toISOString();
+  const tFrom = new Date(Date.now() - 3 * 3600000).toISOString().split('.')[0] + 'Z';
+  const tTo   = new Date(Date.now() + 3 * 24 * 3600000).toISOString().split('.')[0] + 'Z';
   const timeParams = `&commenceTimeFrom=${tFrom}&commenceTimeTo=${tTo}`;
 
   // One call per sport × market — commas in regions break proxy URL reconstruction (%2C issue)
