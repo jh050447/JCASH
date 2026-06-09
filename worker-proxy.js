@@ -102,8 +102,11 @@ export default {
     }
 
     try {
+      const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
       const response = await fetch(targetUrl, {
+        method:  request.method,
         headers: reqHeaders,
+        body:    hasBody ? request.body : undefined,
         cf: { cacheTtl: 0, cacheEverything: false },
       });
 
