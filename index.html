@@ -4519,7 +4519,8 @@ function cerrarAsesor() {
 function escHtml(t) { var d = document.createElement('div'); d.appendChild(document.createTextNode(t)); return d.innerHTML; }
 function escAttr(t) { return String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-const GEMINI_URL = proxyUrl('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent') + '&api=gemini';
+const GROQ_URL = 'https://jcahs-proxy.jh050447.workers.dev/?url=' +
+  encodeURIComponent('https://api.groq.com/openai/v1/chat/completions') + '&api=groq';
 
 async function consultarAsesor(asesorId, pregunta) {
   var input = document.getElementById('ia-input-' + asesorId);
@@ -4532,13 +4533,13 @@ async function consultarAsesor(asesorId, pregunta) {
   if (!STATE.iaChats) STATE.iaChats = {};
   if (!STATE.iaChats[asesorId]) STATE.iaChats[asesorId] = [];
 
-  // Normalizar historial antiguo (formato Anthropic) a formato Gemini
+  // Normalizar historial antiguo (formato Gemini) a formato OpenAI
   STATE.iaChats[asesorId] = STATE.iaChats[asesorId].map(function(m) {
-    if (m.parts) return m;
-    return { role: m.role === 'assistant' ? 'model' : m.role, parts: [{ text: m.content || '' }] };
+    if (m.content !== undefined) return m;
+    return { role: m.role === 'model' ? 'assistant' : m.role, content: (m.parts && m.parts[0] && m.parts[0].text) || '' };
   });
 
-  STATE.iaChats[asesorId].push({ role: 'user', parts: [{ text: pregunta }] });
+  STATE.iaChats[asesorId].push({ role: 'user', content: pregunta });
   agregarMensajeChat(asesorId, 'user', pregunta);
   document.getElementById('ia-quick-' + asesorId)?.remove();
   mostrarEscribiendo(asesorId);
@@ -4548,40 +4549,33 @@ async function consultarAsesor(asesorId, pregunta) {
   var systemPrompt = a.systemPrompt(ctx);
 
   try {
-    var response = await fetch(GEMINI_URL, {
+    var messages = [{ role: 'system', content: systemPrompt }].concat(STATE.iaChats[asesorId]);
+
+    var response = await fetch(GROQ_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: STATE.iaChats[asesorId],
-        tools: [{ google_search: {} }],
-        generationConfig: { maxOutputTokens: 1500, temperature: 0.7 }
+        model: 'llama-3.3-70b-versatile',
+        messages: messages,
+        max_tokens: 1500,
+        temperature: 0.7
       })
     });
 
     var data = await response.json();
-    if (!response.ok) throw new Error(data.error?.message || 'HTTP ' + response.status);
+    if (data.error) throw new Error(data.error.message);
+    if (!response.ok) throw new Error('HTTP ' + response.status);
 
-    var texto = (data.candidates?.[0]?.content?.parts || [])
-      .filter(function(p) { return p.text; })
-      .map(function(p) { return p.text; })
-      .join('\n').trim() || 'Sin respuesta';
+    var texto = data.choices?.[0]?.message?.content || 'Sin respuesta';
 
-    var queries = data.candidates?.[0]?.groundingMetadata?.webSearchQueries || [];
-    var usoSearch = queries.length > 0 || data.candidates?.[0]?.groundingMetadata?.searchEntryPoint != null;
-    var badge = usoSearch
-      ? '🔍 Verificado en Google — ' + new Date().toLocaleTimeString('es-EC') +
-        (queries.length > 0 ? '\nBusqué: ' + queries.join(', ') : '')
-      : null;
-
-    STATE.iaChats[asesorId].push({ role: 'model', parts: [{ text: texto }] });
+    STATE.iaChats[asesorId].push({ role: 'assistant', content: texto });
     if (STATE.iaChats[asesorId].length > 20) STATE.iaChats[asesorId] = STATE.iaChats[asesorId].slice(-20);
     localStorage.setItem('jcahs_ia_chats', JSON.stringify(STATE.iaChats));
     ocultarEscribiendo(asesorId);
-    agregarMensajeChat(asesorId, 'assistant', texto, badge);
+    agregarMensajeChat(asesorId, 'assistant', texto);
 
   } catch(e) {
-    console.error('Gemini error:', e);
+    console.error('Groq error:', e);
     ocultarEscribiendo(asesorId);
     agregarMensajeChat(asesorId, 'error', 'Error al consultar: ' + e.message + '. Intenta de nuevo.');
   }

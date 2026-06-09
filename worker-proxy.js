@@ -10,6 +10,7 @@
  *   /?url=...&api=owm                               (OpenWeatherMap: injects appid query param)
  *   /?url=...&api=odds                              (The Odds API: injects apiKey query param)
  *   /?url=...&api=gemini                            (Gemini: injects key query param)
+ *   /?url=...&api=groq                              (Groq: injects Authorization: Bearer header)
  *
  * All sensitive API keys live here as Cloudflare Worker env vars (secrets).
  * Fallback values are kept for local `wrangler dev` only — rotate these after
@@ -44,6 +45,7 @@ export default {
     const APISPORTS_KEY = env.APISPORTS_KEY || '9718242f5c1a4e31e5a14622569d087c';
     const FD_KEY        = env.FD_KEY        || 'b153b71ca08f4ae8bfe48f8f85f79014';
     const GEMINI_KEY    = env.GEMINI_KEY    || '';
+    const GROQ_KEY      = env.GROQ_KEY      || '';
 
     const url = new URL(request.url);
     const target   = url.searchParams.get('url');
@@ -82,7 +84,6 @@ export default {
       targetUrlObj.searchParams.set('key', GEMINI_KEY);
       targetUrl = targetUrlObj.toString();
     }
-
     // Build request headers
     const reqHeaders = {};
 
@@ -99,6 +100,9 @@ export default {
     }
     if (api === 'footballdata') {
       reqHeaders['X-Auth-Token'] = FD_KEY;
+    }
+    if (api === 'groq') {
+      reqHeaders['Authorization'] = 'Bearer ' + GROQ_KEY;
     }
 
     // Forward original Accept-Encoding if present
