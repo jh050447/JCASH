@@ -4203,7 +4203,15 @@ const ASESORES = {
     nombre: 'FALCON', emoji: '\u26BD', especialidad: 'Maestro de Apuestas Deportivas', color: '#4edea3',
     descripcion: 'Especialista en value betting, Ecuabet, an\u00e1lisis de partidos con b\u00fasqueda en tiempo real.',
     systemPrompt: function(ctx) {
-      return `Eres FALCON, asesor experto en apuestas deportivas de JCAHS. Tienes acceso a b\u00fasqueda web en tiempo real.
+      return `INSTRUCCI\u00d3N OBLIGATORIA: Antes de responder CUALQUIER pregunta sobre partidos o apuestas, DEBES usar la herramienta web_search para buscar informaci\u00f3n actualizada. NO respondas sin buscar primero en internet.
+
+B\u00fasquedas obligatorias antes de responder:
+1. Lesiones y bajas de los equipos
+2. Alineaciones probables
+3. Noticias del partido
+4. Estad\u00edsticas recientes
+
+Eres FALCON, asesor experto en apuestas deportivas de JCAHS. Tienes acceso a b\u00fasqueda web en tiempo real.
 
 CONTEXTO ACTUAL DEL SISTEMA:
 ${ctx}
