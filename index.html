@@ -3136,11 +3136,17 @@ async function cargarDeportes() {
   const markets = ['h2h','totals'];
   console.log('cargarDeportes started');
 
-  // One call per sport × market — commas in regions break the proxy URL reconstruction
-  // so we use a single region string to avoid %2C encoding issues
+  // commenceTimeFrom = 3h ago (catch live games); commenceTimeTo = 3 days out
+  // No daysFrom param exists — The Odds API uses ISO 8601 timestamps
+  // Raw ISO strings — proxyUrl() will encodeURIComponent the whole URL, so no pre-encoding
+  const tFrom = new Date(Date.now() - 3 * 3600000).toISOString();
+  const tTo   = new Date(Date.now() + 3 * 24 * 3600000).toISOString();
+  const timeParams = `&commenceTimeFrom=${tFrom}&commenceTimeTo=${tTo}`;
+
+  // One call per sport × market — commas in regions break proxy URL reconstruction (%2C issue)
   const sports = ['soccer', 'soccer_fifa_world_cup'];
   const calls = sports.flatMap(sport => markets.map(market => {
-    const url = `https://api.the-odds-api.com/v4/sports/${sport}/odds?regions=eu&markets=${market}&oddsFormat=decimal`;
+    const url = `https://api.the-odds-api.com/v4/sports/${sport}/odds?regions=eu&markets=${market}&oddsFormat=decimal${timeParams}`;
     return fetchSeguro(proxyUrl(url) + '&api=odds', 8000).catch(() => null);
   }));
   // call order: [soccer-h2h, soccer-totals, wc-h2h, wc-totals]
