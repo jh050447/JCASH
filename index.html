@@ -4480,8 +4480,10 @@ function abrirAsesor(id) {
   var chatHtml = '';
   var msgs = STATE.iaChats[id] || [];
   for (var i = 0; i < msgs.length; i++) {
-    chatHtml += '<div style="display:flex;justify-content:' + (msgs[i].role === 'user' ? 'flex-end' : 'flex-start') + ';margin-bottom:10px">' +
-      '<div style="max-width:80%;padding:10px 14px;border-radius:' + (msgs[i].role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px') + ';background:' + (msgs[i].role === 'user' ? 'rgba(78,222,163,0.12)' : 'var(--surface-3)') + ';font-size:15px;line-height:1.6;color:var(--text);border:1px solid ' + (msgs[i].role === 'user' ? 'rgba(78,222,163,0.25)' : 'rgba(144,144,151,0.08)') + '">' + escHtml(msgs[i].content) + '</div></div>';
+    var msgRole = msgs[i].role === 'model' ? 'assistant' : msgs[i].role;
+    var msgText = msgs[i].content || (msgs[i].parts && msgs[i].parts[0] && msgs[i].parts[0].text) || '';
+    chatHtml += '<div style="display:flex;justify-content:' + (msgRole === 'user' ? 'flex-end' : 'flex-start') + ';margin-bottom:10px">' +
+      '<div style="max-width:80%;padding:10px 14px;border-radius:' + (msgRole === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px') + ';background:' + (msgRole === 'user' ? 'rgba(78,222,163,0.12)' : 'var(--surface-3)') + ';font-size:15px;line-height:1.6;color:var(--text);border:1px solid ' + (msgRole === 'user' ? 'rgba(78,222,163,0.25)' : 'rgba(144,144,151,0.08)') + '">' + escHtml(msgText) + '</div></div>';
   }
 
   var showQuick = msgs.length === 0 ? 'style="display:flex"' : 'style="display:none"';
@@ -4517,23 +4519,10 @@ function cerrarAsesor() {
 function escHtml(t) { var d = document.createElement('div'); d.appendChild(document.createTextNode(t)); return d.innerHTML; }
 function escAttr(t) { return String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-function procesarRespuestaAsesor(data) {
-  var bloques = data.content || [];
-  var texto = bloques
-    .filter(function(b) { return b.type === 'text'; })
-    .map(function(b) { return b.text; })
-    .join('\n')
-    .trim();
-  var usoBusqueda = bloques.some(function(b) { return b.type === 'tool_use'; });
-  return {
-    texto: texto || 'Sin respuesta',
-    badge: usoBusqueda
-      ? '🔍 Información verificada en internet — ' + new Date().toLocaleTimeString('es-EC')
-      : null
-  };
-}
+const GEMINI_KEY = 'AIzaSyAQ.Ab8RN6JeRLIQosDIlJKl6BUpnHiYhHloXujGRsM4_BguFMaVg';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + GEMINI_KEY;
 
-function consultarAsesor(asesorId, pregunta) {
+async function consultarAsesor(asesorId, pregunta) {
   var input = document.getElementById('ia-input-' + asesorId);
   if (!pregunta) {
     if (!input) return;
@@ -4544,48 +4533,59 @@ function consultarAsesor(asesorId, pregunta) {
   if (!STATE.iaChats) STATE.iaChats = {};
   if (!STATE.iaChats[asesorId]) STATE.iaChats[asesorId] = [];
 
-  STATE.iaChats[asesorId].push({ role: 'user', content: pregunta });
+  // Normalizar historial antiguo (formato Anthropic) a formato Gemini
+  STATE.iaChats[asesorId] = STATE.iaChats[asesorId].map(function(m) {
+    if (m.parts) return m;
+    return { role: m.role === 'assistant' ? 'model' : m.role, parts: [{ text: m.content || '' }] };
+  });
+
+  STATE.iaChats[asesorId].push({ role: 'user', parts: [{ text: pregunta }] });
   agregarMensajeChat(asesorId, 'user', pregunta);
   document.getElementById('ia-quick-' + asesorId)?.remove();
-
   mostrarEscribiendo(asesorId);
 
   var ctx = construirContextoCompleto();
   var a = ASESORES[asesorId];
   var systemPrompt = a.systemPrompt(ctx);
 
-  fetch(proxyUrl('https://api.anthropic.com/v1/messages'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1000,
-      system: systemPrompt,
-      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-      messages: STATE.iaChats[asesorId]
-    })
-  }).then(function(r) {
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    return r.json();
-  }).then(function(data) {
-    var resultado = procesarRespuestaAsesor(data);
-    STATE.iaChats[asesorId].push({ role: 'assistant', content: resultado.texto });
-    if (STATE.iaChats[asesorId].length > 20) {
-      STATE.iaChats[asesorId] = STATE.iaChats[asesorId].slice(-20);
-    }
+  try {
+    var response = await fetch(GEMINI_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents: STATE.iaChats[asesorId],
+        tools: [{ google_search: {} }],
+        generationConfig: { maxOutputTokens: 1500, temperature: 0.7 }
+      })
+    });
+
+    var data = await response.json();
+    if (!response.ok) throw new Error(data.error?.message || 'HTTP ' + response.status);
+
+    var texto = (data.candidates?.[0]?.content?.parts || [])
+      .filter(function(p) { return p.text; })
+      .map(function(p) { return p.text; })
+      .join('\n').trim() || 'Sin respuesta';
+
+    var queries = data.candidates?.[0]?.groundingMetadata?.webSearchQueries || [];
+    var usoSearch = queries.length > 0 || data.candidates?.[0]?.groundingMetadata?.searchEntryPoint != null;
+    var badge = usoSearch
+      ? '🔍 Verificado en Google — ' + new Date().toLocaleTimeString('es-EC') +
+        (queries.length > 0 ? '\nBusqué: ' + queries.join(', ') : '')
+      : null;
+
+    STATE.iaChats[asesorId].push({ role: 'model', parts: [{ text: texto }] });
+    if (STATE.iaChats[asesorId].length > 20) STATE.iaChats[asesorId] = STATE.iaChats[asesorId].slice(-20);
     localStorage.setItem('jcahs_ia_chats', JSON.stringify(STATE.iaChats));
     ocultarEscribiendo(asesorId);
-    agregarMensajeChat(asesorId, 'assistant', resultado.texto, resultado.badge);
-  }).catch(function(e) {
+    agregarMensajeChat(asesorId, 'assistant', texto, badge);
+
+  } catch(e) {
+    console.error('Gemini error:', e);
     ocultarEscribiendo(asesorId);
-    var fallback = generarRespuestaIA(asesorId, pregunta);
-    STATE.iaChats[asesorId].push({ role: 'assistant', content: fallback });
-    if (STATE.iaChats[asesorId].length > 20) {
-      STATE.iaChats[asesorId] = STATE.iaChats[asesorId].slice(-20);
-    }
-    localStorage.setItem('jcahs_ia_chats', JSON.stringify(STATE.iaChats));
-    agregarMensajeChat(asesorId, 'assistant', fallback);
-  });
+    agregarMensajeChat(asesorId, 'error', 'Error al consultar: ' + e.message + '. Intenta de nuevo.');
+  }
 }
 
 function agregarMensajeChat(asesorId, role, texto, badge) {
