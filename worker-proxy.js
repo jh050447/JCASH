@@ -1,20 +1,19 @@
 /**
  * JCAHS Proxy Worker
  * Cloudflare Worker — generic HTTP proxy with CORS headers.
- * 
+ *
  * Usage:
- *   /?url=https://api.example.com/data       (generic proxy)
- *   /?url=https://query1.finance.yahoo.com/...&provider=yahoo  (Yahoo with browser headers)
- *   /?url=https://v3.football.api-sports.io/...&api=sportsapi  (API-Sports with auth header)
+ *   /?url=https://api.example.com/data             (generic proxy)
+ *   /?url=...&provider=yahoo                        (Yahoo with browser headers)
+ *   /?url=...&api=sportsapi                         (API-Sports: injects x-apisports-key header)
+ *   /?url=...&api=footballdata                      (Football-Data.org: injects X-Auth-Token header)
+ *   /?url=...&api=owm                               (OpenWeatherMap: injects appid query param)
+ *   /?url=...&api=odds                              (The Odds API: injects apiKey query param)
  *
- * The provider=yahoo flag adds browser-like headers so Yahoo Finance
- * does not 500 the request.
- *
- * The api=sportsapi flag attaches the x-apisports-key header so
- * API-Sports (api-sports.io) authenticates the request.
+ * All sensitive API keys live here as Cloudflare Worker env vars (secrets).
+ * Fallback values are kept for local `wrangler dev` only — rotate these after
+ * they were exposed in git history.
  */
-
-const API_SPORTS_KEY = '9718242f5c1a4e31e5a14622569d087c';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -38,10 +37,16 @@ export default {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
 
+    // Keys resolved from Cloudflare env secrets (set via wrangler secret put)
+    const OWM_KEY       = env.OWM_KEY       || '49d3ba9ad419cb6b820cb5b348efa66e';
+    const ODDS_KEY      = env.ODDS_KEY      || '80e2cc925122c3aec2b46ba756ad0df1';
+    const APISPORTS_KEY = env.APISPORTS_KEY || '9718242f5c1a4e31e5a14622569d087c';
+    const FD_KEY        = env.FD_KEY        || 'b153b71ca08f4ae8bfe48f8f85f79014';
+
     const url = new URL(request.url);
-    const target = url.searchParams.get('url');
+    const target   = url.searchParams.get('url');
     const provider = url.searchParams.get('provider') || '';
-    const api = url.searchParams.get('api') || '';
+    const api      = url.searchParams.get('api') || '';
 
     if (!target) {
       return new Response(JSON.stringify({ error: 'Missing ?url= parameter' }), {
@@ -51,14 +56,25 @@ export default {
     }
 
     let targetUrl;
+    let targetUrlObj;
     try {
       targetUrl = decodeURIComponent(target);
-      new URL(targetUrl); // validate
+      targetUrlObj = new URL(targetUrl);
     } catch {
       return new Response(JSON.stringify({ error: 'Invalid ?url= parameter' }), {
         status: 400,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Inject query-param keys before building headers
+    if (api === 'owm') {
+      targetUrlObj.searchParams.set('appid', OWM_KEY);
+      targetUrl = targetUrlObj.toString();
+    }
+    if (api === 'odds') {
+      targetUrlObj.searchParams.set('apiKey', ODDS_KEY);
+      targetUrl = targetUrlObj.toString();
     }
 
     // Build request headers
@@ -67,17 +83,19 @@ export default {
     if (provider === 'yahoo') {
       Object.assign(reqHeaders, YAHOO_HEADERS);
     } else {
-      // Generic browser-ish headers
       reqHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
       reqHeaders['Accept'] = 'application/json, text/plain, */*';
       reqHeaders['Accept-Language'] = 'en-US,en;q=0.9';
     }
 
     if (api === 'sportsapi') {
-      reqHeaders['x-apisports-key'] = API_SPORTS_KEY;
+      reqHeaders['x-apisports-key'] = APISPORTS_KEY;
+    }
+    if (api === 'footballdata') {
+      reqHeaders['X-Auth-Token'] = FD_KEY;
     }
 
-    // Forward original Accept-Encoding if present (for passthrough)
+    // Forward original Accept-Encoding if present
     const origAcceptEnc = request.headers.get('Accept-Encoding');
     if (origAcceptEnc) {
       reqHeaders['Accept-Encoding'] = origAcceptEnc;
@@ -89,7 +107,6 @@ export default {
         cf: { cacheTtl: 0, cacheEverything: false },
       });
 
-      // Read the body as text (handle both JSON and non-JSON responses)
       const body = await response.text();
       const contentType = response.headers.get('Content-Type') || 'application/json';
 
