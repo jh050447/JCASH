@@ -4519,8 +4519,7 @@ function cerrarAsesor() {
 function escHtml(t) { var d = document.createElement('div'); d.appendChild(document.createTextNode(t)); return d.innerHTML; }
 function escAttr(t) { return String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-const GEMINI_KEY = 'AIzaSyAQ.Ab8RN6JeRLIQosDIlJKl6BUpnHiYhHloXujGRsM4_BguFMaVg';
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + GEMINI_KEY;
+const GEMINI_URL = proxyUrl('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent') + '&api=gemini';
 
 async function consultarAsesor(asesorId, pregunta) {
   var input = document.getElementById('ia-input-' + asesorId);
