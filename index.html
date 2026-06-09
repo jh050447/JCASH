@@ -1618,6 +1618,7 @@ const STATE = {
   },
   analisisActual: null,
   fdCache: {},
+  tsdbCache: {},
   mentor: {
     abierto:false, paso:1,
     capital:null, gananciaMin:null, gananciaMax:null,
@@ -4669,8 +4670,8 @@ function renderAnStep1() {
     const dt=g.commence_time?new Date(g.commence_time).toLocaleString('es-EC',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
     const tieneStats=!!LIGA_MAP[g.sport_key];
     const badge=tieneStats
-      ?`<span style="font-size:12px;padding:2px 7px;border-radius:20px;background:rgba(78,222,163,0.12);color:var(--tertiary);font-weight:600;white-space:nowrap">📊 Stats reales</span>`
-      :`<span style="font-size:12px;padding:2px 7px;border-radius:20px;background:rgba(255,255,255,0.06);color:var(--text-3);font-weight:600;white-space:nowrap">📐 Solo matemático</span>`;
+      ?`<span style="font-size:12px;padding:2px 7px;border-radius:20px;background:rgba(78,222,163,0.12);color:var(--tertiary);font-weight:600;white-space:nowrap">📊 Stats</span>`
+      :`<span style="font-size:12px;padding:2px 7px;border-radius:20px;background:rgba(96,180,255,0.12);color:#60b4ff;font-weight:600;white-space:nowrap">📊 TheSportsDB</span>`;
     return `<div class="an-game-row" onclick="seleccionarPartido(${games.indexOf(g)})">
       <div>
         <div style="font-weight:700;font-size:16px">${g.home_team} vs ${g.away_team}</div>
@@ -5520,6 +5521,102 @@ async function obtenerFormaReciente(teamId) {
   };
 }
 
+// ── THESPORTSDB — cubre casi todas las ligas (gratis, sin key) ────────────────
+
+const TSDB_BASE = 'https://www.thesportsdb.com/api/v1/json/3';
+
+const fetchTSDB = async (endpoint) => {
+  try {
+    const url = `${TSDB_BASE}${endpoint}`;
+    const proxyUrl = `https://jcahs-proxy.jh050447.workers.dev/?url=${encodeURIComponent(url)}`;
+    const r = await fetchSeguro(proxyUrl, 8000);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
+};
+
+const fetchTSDBCached = async (endpoint) => {
+  const cached = STATE.tsdbCache[endpoint];
+  if (cached && Date.now() - cached.ts < 3600000) return cached.data;
+  const data = await fetchTSDB(endpoint);
+  if (data) STATE.tsdbCache[endpoint] = { data, ts: Date.now() };
+  return data;
+};
+
+async function buscarEquipoTSDB(nombre) {
+  const data = await fetchTSDBCached(`/searchteams.php?t=${encodeURIComponent(nombre)}`);
+  return data?.teams?.[0]?.idTeam || null;
+}
+
+async function obtenerFormaTSDB(teamId) {
+  if (!teamId) return null;
+  const data = await fetchTSDBCached(`/eventslast.php?id=${teamId}`);
+  const eventos = data?.results || [];
+  if (!eventos.length) return null;
+
+  const ultimos5 = eventos.slice(0, 5);
+  let golesMarcados = 0, golesRecibidos = 0, victorias = 0;
+
+  ultimos5.forEach(e => {
+    const esLocal = e.idHomeTeam === teamId;
+    const golesF = parseInt(esLocal ? e.intHomeScore : e.intAwayScore) || 0;
+    const golesC = parseInt(esLocal ? e.intAwayScore : e.intHomeScore) || 0;
+    golesMarcados += golesF;
+    golesRecibidos += golesC;
+    if (golesF > golesC) victorias++;
+  });
+
+  const n = ultimos5.length;
+  return {
+    jugados: n,
+    victorias,
+    golesPromedio: (golesMarcados / n).toFixed(2),
+    golesRecibidosPromedio: (golesRecibidos / n).toFixed(2),
+    forma: ultimos5.map(e => {
+      const esLocal = e.idHomeTeam === teamId;
+      const gF = parseInt(esLocal ? e.intHomeScore : e.intAwayScore) || 0;
+      const gC = parseInt(esLocal ? e.intAwayScore : e.intHomeScore) || 0;
+      return gF > gC ? 'W' : gF === gC ? 'D' : 'L';
+    }).join(''),
+  };
+}
+
+async function obtenerH2HTSDB(teamId1, teamId2) {
+  if (!teamId1 || !teamId2) return null;
+  const data = await fetchTSDBCached(`/eventsh2h.php?idHomeTeam=${teamId1}&idAwayTeam=${teamId2}`);
+  const partidos = data?.results || [];
+  if (!partidos.length) return null;
+
+  const ultimos10 = partidos.slice(0, 10);
+  let totalGoles = 0, bttsCount = 0, over25Count = 0, victoriasTeam1 = 0;
+
+  ultimos10.forEach(p => {
+    const gLocal = parseInt(p.intHomeScore) || 0;
+    const gVisit = parseInt(p.intAwayScore) || 0;
+    const total = gLocal + gVisit;
+    totalGoles += total;
+    if (gLocal > 0 && gVisit > 0) bttsCount++;
+    if (total > 2.5) over25Count++;
+    if (p.idHomeTeam === teamId1 && gLocal > gVisit) victoriasTeam1++;
+    if (p.idAwayTeam === teamId1 && gVisit > gLocal) victoriasTeam1++;
+  });
+
+  const n = ultimos10.length;
+  return {
+    totalPartidos: n,
+    golesPromedio: (totalGoles / n).toFixed(1),
+    victoriasLocal: victoriasTeam1,
+    btts: ((bttsCount / n) * 100).toFixed(0),
+    over25: ((over25Count / n) * 100).toFixed(0),
+    ultimosResultados: ultimos10.slice(0, 5).map(p => ({
+      local: p.strHomeTeam,
+      visitante: p.strAwayTeam,
+      golesLocal: parseInt(p.intHomeScore) || 0,
+      golesVisit: parseInt(p.intAwayScore) || 0,
+    })),
+  };
+}
+
 async function obtenerClima(ciudad) {
   if (!ciudad) return null;
   const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(ciudad)}&units=metric&lang=es`;
@@ -5634,57 +5731,73 @@ async function analizarPartidoCompleto(homeTeam, awayTeam, liga, fixtureId) {
   const panelId = 'analisis-estadistico';
   if (!qs(panelId)) return null;
 
-  const ligaCode = LIGA_MAP[liga] || null;
-  const tieneDatos = !!ligaCode;
-
-  if (!tieneDatos) {
-    // Liga no cubierta por el plan gratuito de Football-Data.org —
-    // mostrar análisis honesto con solo el modelo matemático (defaults Poisson)
-    const analisisBasico = calcularProbabilidadAjustada({
-      statsLocal: null, statsVisit: null, h2h: null,
-      lesionesLocal: null, lesionesVisit: null, clima: null,
-    });
-    renderAnalisisEstadistico(analisisBasico, homeTeam, awayTeam, null, null, false);
-    return analisisBasico;
-  }
-
   setHTML(panelId, `
     <div style="text-align:center;padding:24px;color:var(--outline)">
       <div class="loading"><span class="spin">⌛</span></div>
-      <div style="margin-top:8px;font-size:16px">Analizando con datos reales de Football-Data.org...</div>
-      <div style="font-size:14px;margin-top:4px;color:var(--outline)">Cargando forma reciente y clima</div>
+      <div style="margin-top:8px;font-size:16px">⚙️ Cargando estadísticas...</div>
     </div>
   `);
 
-  const [idLocal, idVisit] = await Promise.all([
-    buscarEquipoFD(homeTeam, ligaCode),
-    buscarEquipoFD(awayTeam, ligaCode),
-  ]);
-
-  const [formaLocal, formaVisit, clima] = await Promise.allSettled([
-    obtenerFormaReciente(idLocal),
-    obtenerFormaReciente(idVisit),
-    obtenerClima(null), // ciudad pendiente — Football-Data no expone venue por equipo en el plan gratis
-  ]);
-
   const val = r => r.status === 'fulfilled' ? r.value : null;
+  const ligaCode = LIGA_MAP[liga] || null;
+
+  let formaLocal = null, formaVisit = null, h2hData = null;
+  let tieneDatosReales = false, fuente = '';
+
+  if (ligaCode) {
+    // Opción 1: Football-Data.org (ligas top europeas)
+    const [idLocal, idVisit] = await Promise.all([
+      buscarEquipoFD(homeTeam, ligaCode),
+      buscarEquipoFD(awayTeam, ligaCode),
+    ]);
+    if (idLocal || idVisit) {
+      const [fl, fv] = await Promise.allSettled([
+        obtenerFormaReciente(idLocal),
+        obtenerFormaReciente(idVisit),
+      ]);
+      formaLocal = val(fl);
+      formaVisit = val(fv);
+      tieneDatosReales = !!(formaLocal || formaVisit);
+      fuente = 'Football-Data.org';
+    }
+  }
+
+  if (!tieneDatosReales) {
+    // Opción 2: TheSportsDB (cubre casi todas las ligas, gratis)
+    const [idLocal, idVisit] = await Promise.all([
+      buscarEquipoTSDB(homeTeam),
+      buscarEquipoTSDB(awayTeam),
+    ]);
+    if (idLocal || idVisit) {
+      const [fl, fv, h2h] = await Promise.allSettled([
+        obtenerFormaTSDB(idLocal),
+        obtenerFormaTSDB(idVisit),
+        obtenerH2HTSDB(idLocal, idVisit),
+      ]);
+      formaLocal = val(fl);
+      formaVisit = val(fv);
+      h2hData = val(h2h);
+      tieneDatosReales = !!(formaLocal || formaVisit);
+      fuente = 'TheSportsDB';
+    }
+  }
 
   const analisis = calcularProbabilidadAjustada({
-    statsLocal: val(formaLocal),
-    statsVisit: val(formaVisit),
-    h2h: null,
+    statsLocal: formaLocal,
+    statsVisit: formaVisit,
+    h2h: h2hData,
     lesionesLocal: null,
     lesionesVisit: null,
-    clima: val(clima),
+    clima: null,
   });
 
-  renderAnalisisEstadistico(analisis, homeTeam, awayTeam, null, val(clima), true);
+  renderAnalisisEstadistico(analisis, homeTeam, awayTeam, null, null, tieneDatosReales, fuente);
   return analisis;
 }
 
 // ── RENDER DEL ANÁLISIS ESTADÍSTICO ──────────────────────────
 
-function renderAnalisisEstadistico(analisis, local, visitante, arbitro, clima, tieneDatosReales) {
+function renderAnalisisEstadistico(analisis, local, visitante, arbitro, clima, tieneDatosReales, fuente) {
   const p = analisis.probabilidades;
   const f = analisis.factores;
 
@@ -5697,18 +5810,17 @@ function renderAnalisisEstadistico(analisis, local, visitante, arbitro, clima, t
 
   const badgeDatos = tieneDatosReales
     ? `<div style="background:rgba(78,222,163,0.08);border:1px solid rgba(78,222,163,0.3);border-radius:var(--radius);padding:10px 14px;margin-bottom:16px;font-size:14px;color:var(--tertiary)">
-        ✅ Análisis con datos reales de Football-Data.org · Fuente y hora: ${new Date().toLocaleString('es-EC')}
+        ✅ Datos reales — Fuente: ${escHtml(fuente || '')} · ${new Date().toLocaleString('es-EC')}
       </div>`
     : `<div style="background:rgba(255,196,0,0.08);border:1px solid rgba(255,196,0,0.3);border-radius:var(--radius);padding:10px 14px;margin-bottom:16px;font-size:14px;color:var(--warning)">
-        ⚠️ Estadísticas detalladas no disponibles para esta liga en el plan gratuito. El análisis usa solo probabilidades matemáticas (Pinnacle).
-        Estimación sin estadísticas reales — λ local: ${analisis.lambdaLocal} (estimado) · λ visitante: ${analisis.lambdaVisit} (estimado)
+        ⚠️ Liga no cubierta — Estimación Poisson · λ local: ${analisis.lambdaLocal} · λ visitante: ${analisis.lambdaVisit}
       </div>`;
 
   const html = `
   <div class="card" style="margin-top:24px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
       <div class="card-title" style="margin-bottom:0">🧮 ANÁLISIS ESTADÍSTICO COMPLETO</div>
-      <span style="font-size:13px;color:var(--text-3);font-family:var(--f-mono)">Modelo Poisson + Football-Data.org + Clima</span>
+      <span style="font-size:13px;color:var(--text-3);font-family:var(--f-mono)">Modelo Poisson + ${escHtml(fuente || 'Estimación')}</span>
     </div>
 
     ${badgeDatos}
