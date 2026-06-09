@@ -11,6 +11,7 @@
  *   /?url=...&api=odds                              (The Odds API: injects apiKey query param)
  *   /?url=...&api=gemini                            (Gemini: injects key query param)
  *   /?url=...&api=groq                              (Groq: injects Authorization: Bearer header)
+ *   /?url=...&api=tavily                            (Tavily: injects Authorization: Bearer header)
  *
  * All sensitive API keys live here as Cloudflare Worker env vars (secrets).
  * Fallback values are kept for local `wrangler dev` only — rotate these after
@@ -46,6 +47,7 @@ export default {
     const FD_KEY        = env.FD_KEY        || 'b153b71ca08f4ae8bfe48f8f85f79014';
     const GEMINI_KEY    = env.GEMINI_KEY    || '';
     const GROQ_KEY      = env.GROQ_KEY      || '';
+    const TAVILY_KEY    = env.TAVILY_KEY    || '';
 
     const url = new URL(request.url);
     const target   = url.searchParams.get('url');
@@ -103,6 +105,9 @@ export default {
     }
     if (api === 'groq') {
       reqHeaders['Authorization'] = 'Bearer ' + GROQ_KEY;
+    }
+    if (api === 'tavily') {
+      reqHeaders['Authorization'] = 'Bearer ' + TAVILY_KEY;
     }
 
     // Forward original Accept-Encoding if present
