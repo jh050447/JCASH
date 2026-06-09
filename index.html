@@ -6604,187 +6604,350 @@ async function mentorMostrarSugerencias() {
   actualizarBadgeMentor();
 }
 
+// ── MENTOR FILTROS DE CALIDAD ────────────────────────────────
+const MENTOR_FILTROS = {
+  edgeMinApostar:      7,
+  edgeMinRevisar:      4,
+  probRealMin:         35,
+  oddMin:              1.40,
+  oddMax:              3.50,
+  minCasasConfirman:   2,
+  maxApuestasDia:      5,
+  stopLossDiario:      -10,
+  rachaNegativaAlerta: 3,
+};
+
+function confirmaPoisson(vb, analisis) {
+  if (!analisis?.analisis?.probabilidades) return false;
+  const p = analisis.analisis.probabilidades;
+  if (!analisis.local || !vb.partido.includes(analisis.local)) return false;
+  if (vb.pick.includes('Más de 2.5'))   return parseFloat(p.over25) > 50;
+  if (vb.pick.includes('Menos de 2.5')) return parseFloat(p.under25 ?? 0) > 50;
+  if (vb.pick.includes('gana el partido') && vb.pick.includes(analisis.local))
+    return parseFloat(p.local) > 45;
+  return false;
+}
+
+function calcularScoreMentor(vb) {
+  let score = 0;
+  score += Math.min(40, vb.edge * 2.5);
+  score += Math.max(0, Math.min(30, (vb.probReal - 35) * 1.5));
+  score += (vb.odd >= 1.60 && vb.odd <= 2.50) ? 20 : 12;
+  if (STATE.analisisActual && confirmaPoisson(vb, STATE.analisisActual)) score += 10;
+  return Math.round(Math.min(100, score));
+}
+
+function verificarEstadoUsuario() {
+  const ops = STATE.ops || [];
+  const hoy = new Date().toDateString();
+  const opsHoy = ops.filter(o => new Date(o.fecha).toDateString() === hoy);
+  const pnlHoy = opsHoy.reduce((acc, o) => acc + (o.pnl || 0), 0);
+  const pnlPct = STATE.bankroll > 0 ? (pnlHoy / STATE.bankroll) * 100 : 0;
+  let racha = 0;
+  for (let i = ops.length - 1; i >= 0; i--) {
+    if (ops[i].resultado === 'perdió') racha++;
+    else break;
+  }
+  const apuestasHoy = opsHoy.filter(o => o.tipo === 'apuesta').length;
+  const alertas = [];
+  if (pnlPct <= MENTOR_FILTROS.stopLossDiario)
+    alertas.push({ tipo: 'CRITICA',
+      mensaje: `⛔ STOP LOSS ACTIVADO — Pérdida del día: ${pnlPct.toFixed(1)}% del bankroll. No se recomienda operar más hoy.` });
+  if (racha >= MENTOR_FILTROS.rachaNegativaAlerta)
+    alertas.push({ tipo: 'ADVERTENCIA',
+      mensaje: `⚠️ RACHA NEGATIVA — ${racha} pérdidas consecutivas. Reduce el tamaño de apuesta al 50%.` });
+  if (apuestasHoy >= MENTOR_FILTROS.maxApuestasDia)
+    alertas.push({ tipo: 'ADVERTENCIA',
+      mensaje: `⚠️ LÍMITE DIARIO — Ya realizaste ${apuestasHoy} apuestas hoy. Considera pausar para evitar el tilt.` });
+  return { alertas, pnlHoy, pnlPct, racha, apuestasHoy };
+}
+
 function generarSugerencias(capital, gananciaMin, gananciaMax, tipo) {
   console.log('MENTOR DEBUG - generating:', STATE.valueBets?.length, Object.keys(STATE.senalesCripto)?.length);
-  const sugerencias=[];
+  const deportes = [], crypto = [];
 
-  // 1. Value bets de deportes
-  const valueBets=STATE.valueBets||[];
-  valueBets.forEach(vb=>{
-    if (vb.edge<=0) return;
-    const ganancia=capital*(vb.odd-1);
-    const enRango=ganancia>=gananciaMin && ganancia<=gananciaMax;
-    sugerencias.push({
-      tipo:'APUESTA',
-      descripcion:`${vb.partido} — ${vb.mercado}: ${vb.pick}`,
-      partido:vb.partido, mercado:vb.mercado, pick:vb.pick,
-      liga:vb.liga||'', bk:vb.bk||'', fecha:vb.fecha,
-      apostar:capital, ganancia, odd:vb.odd, edge:parseFloat(vb.edge),
-      prob:vb.probReal, kelly:vb.kelly,
-      nota:enRango?null:'Ajusta tu capital para este bet',
-      razon:`Edge +${vb.edge.toFixed(1)}% sobre la casa. Probabilidad real ${vb.probReal.toFixed(0)}% vs ${(100/vb.odd).toFixed(0)}% implícita.`,
+  // 1. Value bets de deportes — filtros de calidad profesional
+  (STATE.valueBets || []).forEach(vb => {
+    if (vb.edge    < MENTOR_FILTROS.edgeMinRevisar) return;
+    if (vb.probReal < MENTOR_FILTROS.probRealMin)   return;
+    if (vb.odd < MENTOR_FILTROS.oddMin || vb.odd > MENTOR_FILTROS.oddMax) return;
+
+    const score = calcularScoreMentor(vb);
+    if (score < 50) return;
+
+    let calidad;
+    if      (score >= 80) calidad = 'APOSTAR';
+    else if (score >= 65) calidad = 'CONSIDERAR';
+    else                   calidad = 'REVISAR';
+
+    const ganancia = capital * (vb.odd - 1);
+    const enRango  = ganancia >= gananciaMin && ganancia <= gananciaMax;
+    deportes.push({
+      tipo: 'APUESTA', seccion: 'deportes',
+      descripcion: `${vb.partido} — ${vb.mercado}: ${vb.pick}`,
+      partido: vb.partido, mercado: vb.mercado, pick: vb.pick,
+      liga: vb.liga || '', bk: vb.bk || '', fecha: vb.fecha,
+      apostar: capital, ganancia, odd: vb.odd, edge: parseFloat(vb.edge),
+      prob: vb.probReal, kelly: vb.kelly, score, calidad,
+      nota: enRango ? null : 'Ajusta tu capital para este bet',
+      razon: `Edge +${vb.edge.toFixed(1)}% sobre la casa. Probabilidad real ${vb.probReal.toFixed(0)}% vs ${(100 / vb.odd).toFixed(0)}% implícita.`,
     });
   });
+  deportes.sort((a, b) => b.score - a.score);
 
-  // 2. Señales crypto
-  Object.keys(STATE.senalesCripto||{}).forEach(sym=>{
-    const sig=STATE.senalesCripto[sym];
-    if (!sig||(sig.señal!=='COMPRAR'&&sig.señal!=='VENDER')) return;
-    const op=calcOperacion(sym,sig);
+  // 2. Señales crypto — ordenadas por score RSI
+  Object.keys(STATE.senalesCripto || {}).forEach(sym => {
+    const sig = STATE.senalesCripto[sym];
+    if (!sig || (sig.señal !== 'COMPRAR' && sig.señal !== 'VENDER')) return;
+    const op = calcOperacion(sym, sig);
     if (!op) return;
-    const gananciaEst=op.gaO1;
-    if (gananciaEst>=gananciaMin && gananciaEst<=gananciaMax) {
-      const prob=Math.min(0.95,Math.max(0.05,sig.score/100*0.7+0.15))*100;
-      sugerencias.push({
-        tipo:'CRYPTO',
-        descripcion:`${sym} — ${sig.señal} · Objetivo 1 (+4%)`,
-        apostar:op.capital, ganancia:gananciaEst, odd:null,
-        edge:sig.score, prob, kelly:op.kellyPct,
-        razon:`RSI ${sig.rsi?.toFixed(1)??'N/D'} + Fear&Greed ${STATE.fng?.valor??'N/D'}. Score de confianza: ${sig.score}/100.`,
+    const gananciaEst = op.gaO1;
+    if (gananciaEst >= gananciaMin && gananciaEst <= gananciaMax) {
+      const prob = Math.min(0.95, Math.max(0.05, sig.score / 100 * 0.7 + 0.15)) * 100;
+      crypto.push({
+        tipo: 'CRYPTO', seccion: 'crypto',
+        descripcion: `${sym} — ${sig.señal} · Objetivo 1 (+4%)`,
+        apostar: op.capital, ganancia: gananciaEst, odd: null,
+        edge: sig.score, prob, kelly: op.kellyPct, score: sig.score,
+        razon: `RSI ${sig.rsi?.toFixed(1) ?? 'N/D'} + Fear&Greed ${STATE.fng?.valor ?? 'N/D'}. Score de confianza: ${sig.score}/100.`,
       });
     }
   });
+  crypto.sort((a, b) => b.score - a.score);
 
-  // Ordenar por edge descendente
-  sugerencias.sort((a,b)=>b.edge-a.edge);
-
-  // MÚLTIPLE → combinar 2-3 value bets
-  if (tipo==='multiple' && sugerencias.length>=2) {
-    const picks=sugerencias.filter(s=>s.tipo==='APUESTA').slice(0,3);
-    if (picks.length>=2) {
-      const oddComb=picks.reduce((acc,p)=>acc*p.odd,1);
-      const gananciaComb=capital*(oddComb-1);
-      sugerencias.unshift({
-        tipo:'MÚLTIPLE',
-        descripcion:picks.map(p=>p.descripcion).join(' + '),
-        apostar:capital, ganancia:gananciaComb, odd:oddComb,
-        edge:picks.reduce((acc,p)=>acc+p.edge,0)/picks.length,
-        prob:picks.reduce((acc,p)=>acc*p.prob/100,1)*100,
-        kelly:null,
-        razon:`Acumulador de ${picks.length} value bets con edge positivo individual.`,
+  // MÚLTIPLE → combinar mejores picks con score promedio
+  if (tipo === 'multiple' && deportes.length >= 2) {
+    const picks = deportes.filter(s => s.tipo === 'APUESTA').slice(0, 3);
+    if (picks.length >= 2) {
+      const oddComb = picks.reduce((acc, p) => acc * p.odd, 1);
+      deportes.unshift({
+        tipo: 'MÚLTIPLE', seccion: 'deportes',
+        descripcion: picks.map(p => p.descripcion).join(' + '),
+        apostar: capital, ganancia: capital * (oddComb - 1), odd: oddComb,
+        edge:  picks.reduce((acc, p) => acc + p.edge, 0)  / picks.length,
+        score: Math.round(picks.reduce((acc, p) => acc + p.score, 0) / picks.length),
+        prob:  picks.reduce((acc, p) => acc * p.prob / 100, 1) * 100,
+        kelly: null, calidad: 'MÚLTIPLE',
+        razon: `Acumulador de ${picks.length} value bets con edge positivo individual.`,
       });
     }
   }
 
-  // SISTEMA → sistema 2/3 con los mejores picks
-  if (tipo==='sistema' && sugerencias.length>=3) {
-    const picks=sugerencias.filter(s=>s.tipo==='APUESTA').slice(0,3);
-    if (picks.length>=3) {
-      const combos=[[0,1],[0,2],[1,2]];
-      const oddProm=combos.reduce((acc,[i,j])=>acc+picks[i].odd*picks[j].odd,0)/combos.length;
-      const gananciaSist=(capital/3)*(oddProm-1);
-      sugerencias.unshift({
-        tipo:'SISTEMA',
-        descripcion:`Sistema 2/3 — ${picks.map(p=>p.descripcion).join(' · ')}`,
-        apostar:capital, ganancia:gananciaSist, odd:oddProm,
-        edge:picks.reduce((acc,p)=>acc+p.edge,0)/picks.length,
-        prob:null, kelly:null,
-        razon:`Sistema 2 de 3: ganas si aciertas al menos 2 de los ${picks.length} picks seleccionados. Reduce el riesgo frente a una múltiple completa.`,
+  // SISTEMA → sistema 2/3 con score promedio
+  if (tipo === 'sistema') {
+    const picks = deportes.filter(s => s.tipo === 'APUESTA').slice(0, 3);
+    if (picks.length >= 3) {
+      const combos = [[0,1],[0,2],[1,2]];
+      const oddProm = combos.reduce((acc,[i,j]) => acc + picks[i].odd * picks[j].odd, 0) / combos.length;
+      deportes.unshift({
+        tipo: 'SISTEMA', seccion: 'deportes',
+        descripcion: `Sistema 2/3 — ${picks.map(p => p.descripcion).join(' · ')}`,
+        apostar: capital, ganancia: (capital / 3) * (oddProm - 1), odd: oddProm,
+        edge:  picks.reduce((acc, p) => acc + p.edge, 0)  / picks.length,
+        score: Math.round(picks.reduce((acc, p) => acc + p.score, 0) / picks.length),
+        prob: null, kelly: null, calidad: 'SISTEMA',
+        razon: `Sistema 2 de 3: ganas si aciertas al menos 2 de los ${picks.length} picks seleccionados. Reduce el riesgo frente a una múltiple completa.`,
       });
     }
   }
 
-  return sugerencias.slice(0,5);
+  return [...deportes.slice(0, 5), ...crypto.slice(0, 3)];
+}
+
+function renderCardMentor(s, i) {
+  const score = s.score || 0;
+  let scoreColor, scoreEmoji;
+  if      (score >= 80) { scoreColor = '#4edea3'; scoreEmoji = '🟢'; }
+  else if (score >= 65) { scoreColor = '#FFD700'; scoreEmoji = '🟡'; }
+  else                   { scoreColor = '#60b4ff'; scoreEmoji = '🔵'; }
+
+  const scoreBarra = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <span style="font-size:13px;color:var(--outline);white-space:nowrap">Score</span>
+      <div style="flex:1;height:6px;background:var(--surface-high);border-radius:3px">
+        <div style="width:${score}%;height:100%;background:${scoreColor};border-radius:3px"></div>
+      </div>
+      <span style="font-size:14px;font-weight:700;color:${scoreColor};white-space:nowrap">${score}/100 ${scoreEmoji}</span>
+    </div>`;
+
+  // ₿ CRYPTO
+  if (s.tipo === 'CRYPTO') {
+    return `
+    <div style="background:var(--surface-mid);border:1px solid rgba(78,222,163,0.2);border-radius:12px;padding:20px;margin-bottom:16px">
+      <div style="margin-bottom:10px"><span style="font-size:13px;padding:2px 8px;border-radius:4px;background:var(--surface-high)">₿ CRYPTO</span></div>
+      ${scoreBarra}
+      <div style="font-size:18px;font-weight:700;margin-bottom:8px">${s.descripcion}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div><div style="font-size:12px;color:var(--outline);letter-spacing:0.05em">APOSTAR</div>
+             <div style="font-size:24px;font-family:var(--f-mono);font-weight:600">$${s.apostar.toFixed(2)}</div></div>
+        <div><div style="font-size:12px;color:var(--outline);letter-spacing:0.05em">SI ACIERTA</div>
+             <div style="font-size:24px;font-family:var(--f-mono);font-weight:600;color:#4edea3">+$${s.ganancia.toFixed(2)}</div></div>
+      </div>
+      <div style="font-size:15px;color:var(--text-3);margin-bottom:16px;line-height:1.5">${s.razon}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button class="btn btn-primary" onclick="mentorAddCupon(${i})" style="font-size:16px;padding:12px">✅ Añadir al cupón</button>
+        <button class="btn btn-ghost"   onclick="mentorIgnorar(${i})"   style="font-size:16px;padding:12px">Ignorar</button>
+      </div>
+    </div>`;
+  }
+
+  // 🎟️ MÚLTIPLE / 🎯 SISTEMA
+  if (s.tipo === 'MÚLTIPLE' || s.tipo === 'SISTEMA') {
+    const tagTxt = s.tipo === 'MÚLTIPLE' ? '🎟️ MÚLTIPLE' : '🎯 SISTEMA';
+    return `
+    <div style="background:var(--surface-mid);border:1px solid rgba(78,222,163,0.2);border-radius:12px;padding:20px;margin-bottom:16px">
+      <div style="margin-bottom:10px"><span style="font-size:13px;padding:2px 8px;border-radius:4px;background:var(--surface-high)">${tagTxt}</span></div>
+      ${scoreBarra}
+      <div style="font-size:16px;line-height:1.5;margin-bottom:14px">${s.descripcion}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+        <div><div style="font-size:12px;color:var(--outline);letter-spacing:0.05em">APOSTAR</div>
+             <div style="font-size:24px;font-family:var(--f-mono);font-weight:600">$${s.apostar.toFixed(2)}</div></div>
+        <div><div style="font-size:12px;color:var(--outline);letter-spacing:0.05em">SI ACIERTA</div>
+             <div style="font-size:24px;font-family:var(--f-mono);font-weight:600;color:#4edea3">+$${s.ganancia.toFixed(2)}</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button class="btn btn-primary" onclick="mentorAddCupon(${i})" style="font-size:16px;padding:12px">✅ Añadir al cupón</button>
+        <button class="btn btn-ghost"   onclick="mentorIgnorar(${i})"   style="font-size:16px;padding:12px">Ignorar</button>
+      </div>
+    </div>`;
+  }
+
+  // ⚽ APUESTA individual
+  const parts = (s.partido || '').split(' vs ');
+  const local = parts[0] || '', visit = parts[1] || '';
+  const edgeVal = parseFloat(s.edge) || 0;
+  const pick = (s.pick || '').trim();
+  const mercado = (s.mercado || '').trim();
+  let fechaStr = '';
+  if (s.fecha) {
+    try {
+      const d = new Date(s.fecha), now = new Date();
+      const hora = d.toLocaleTimeString('es-EC', {timeZone:'America/Guayaquil',hour:'2-digit',minute:'2-digit',hour12:true});
+      const dia  = d.toLocaleDateString('es-EC', {timeZone:'America/Guayaquil',weekday:'short',day:'numeric',month:'short'});
+      fechaStr = d.toDateString()===now.toDateString() ? 'HOY · '+hora : dia.charAt(0).toUpperCase()+dia.slice(1)+' · '+hora;
+    } catch(e) {}
+  }
+  let mercadoEcuabet = mercado;
+  if      (/h2h|1X2|ganador/i.test(mercado))          mercadoEcuabet = '1X2 / Ganador del partido';
+  else if (/total|over|under/i.test(mercado))          mercadoEcuabet = 'Total de goles';
+  else if (/btts|ambos/i.test(mercado))                mercadoEcuabet = 'Ambos equipos marcan (BTTS)';
+  else if (/draw.?no.?bet|dnb/i.test(mercado))         mercadoEcuabet = 'Draw No Bet (DNB)';
+  else if (/spread|hándicap|handicap/i.test(mercado))  mercadoEcuabet = 'Hándicap Asiático';
+
+  return `
+  <div style="background:var(--surface-mid);border:1px solid rgba(78,222,163,0.2);border-radius:12px;padding:20px;margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <div style="width:14px;height:14px;border-radius:50%;background:${scoreColor}"></div>
+      <span style="font-size:14px;font-weight:700;letter-spacing:0.05em;color:${scoreColor}">${s.calidad || 'REVISAR'}</span>
+      <span style="margin-left:auto;font-size:13px;color:var(--outline)">${fechaStr}</span>
+    </div>
+    ${scoreBarra}
+    <div style="font-size:18px;font-weight:700;margin-bottom:4px">${s.partido}</div>
+    <div style="font-size:22px;font-weight:700;color:#4edea3;line-height:1.3;margin-bottom:4px">${pick}</div>
+    <div style="font-size:15px;color:var(--text-3);margin-bottom:16px">${traducirPickClaro(s.pick, s.mercado, local, visit)}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div><div style="font-size:12px;color:var(--outline);letter-spacing:0.05em">APOSTAR</div>
+           <div style="font-size:24px;font-family:var(--f-mono);font-weight:600">$${s.apostar.toFixed(2)}</div></div>
+      <div><div style="font-size:12px;color:var(--outline);letter-spacing:0.05em">SI ACIERTA</div>
+           <div style="font-size:24px;font-family:var(--f-mono);font-weight:600;color:#4edea3">+$${s.ganancia.toFixed(2)}</div></div>
+    </div>
+    <div style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:13px;color:var(--outline)">Tu ventaja sobre la casa</span>
+        <span style="font-size:13px;font-weight:700;color:#4edea3">+${edgeVal.toFixed(1)}%</span>
+      </div>
+      <div style="height:6px;background:var(--surface-high);border-radius:3px">
+        <div style="width:${Math.min(edgeVal*5,100)}%;height:100%;background:#4edea3;border-radius:3px"></div>
+      </div>
+      <div style="font-size:13px;color:var(--outline);margin-top:4px">Por cada $100 apostados así, ganarías $${edgeVal.toFixed(2)} a largo plazo</div>
+    </div>
+    <div style="background:var(--surface);border-radius:8px;padding:12px;margin-bottom:16px;border-left:3px solid #4edea3">
+      <div style="font-size:12px;font-weight:700;letter-spacing:0.05em;color:var(--outline);margin-bottom:6px">DÓNDE APOSTAR</div>
+      <div style="font-size:14px;color:var(--on-surface);line-height:1.6">
+        Ecuabet → Fútbol → ${s.liga || '--'}<br>
+        → ${s.partido}<br>
+        → ${mercadoEcuabet}<br>
+        → Selecciona: <strong>${pick}</strong>
+      </div>
+    </div>
+    <div style="display:flex;gap:16px;font-size:13px;color:var(--outline);margin-bottom:16px">
+      <span>ODD <strong style="color:var(--on-surface)">${s.odd?.toFixed(2) || '--'}</strong></span>
+      <span>PROB <strong style="color:var(--on-surface)">${s.prob?.toFixed(0) || '--'}%</strong></span>
+      <span>KELLY <strong style="color:var(--on-surface)">${s.kelly?.toFixed(1) || '--'}%</strong></span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button class="btn btn-primary" onclick="mentorAddCupon(${i})" style="font-size:16px;padding:12px">✅ Añadir al cupón</button>
+      <button class="btn btn-ghost"   onclick="mentorIgnorar(${i})"   style="font-size:16px;padding:12px">Ignorar</button>
+    </div>
+  </div>`;
 }
 
 function renderMentorPaso2() {
-  const m=STATE.mentor;
+  const m = STATE.mentor;
   if (m.analisisProfundo) return renderAnalisisProfundo();
-  const lista=m.sugerencias;
-  const cardsHtml=lista.length?lista.map((s,i)=>{
-    if (s.tipo!=='APUESTA') {
-      const tagTxt=s.tipo==='CRYPTO'?'₿ CRYPTO':s.tipo==='MÚLTIPLE'?'🎟️ MÚLTIPLE':'🎯 SISTEMA';
-      return `
-      <div style="background:var(--surface-mid);border:1px solid rgba(78,222,163,0.2);border-radius:12px;padding:20px;margin-bottom:16px">
-        <div style="font-size:18px;font-weight:700;margin-bottom:12px"><span style="padding:2px 8px;border-radius:4px;background:var(--surface-high);font-size:13px">${tagTxt}</span></div>
-        <div style="font-size:15px;margin-bottom:12px">${s.descripcion}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-          <div><div style="font-size:12px;color:var(--outline);letter-spacing:0.05em">APOSTAR</div><div style="font-size:24px;font-family:var(--font-mono);font-weight:600">$${s.apostar.toFixed(2)}</div></div>
-          <div><div style="font-size:12px;color:var(--outline);letter-spacing:0.05em">SI ACIERTA</div><div style="font-size:24px;font-family:var(--font-mono);font-weight:600;color:#4edea3">+$${s.ganancia.toFixed(2)}</div></div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <button class="btn btn-primary" onclick="mentorAddCupon(${i})" style="font-size:16px;padding:12px">✅ Añadir al cupón</button>
-          <button class="btn btn-ghost" onclick="mentorIgnorar(${i})" style="font-size:16px;padding:12px">Ignorar</button>
-        </div>
-      </div>`;
-    }
-    const parts=(s.partido||'').split(' vs ');
-    const local=parts[0]||'', visit=parts[1]||'';
-    const edgeVal=parseFloat(s.edge)||0;
-    const isGood=edgeVal>5;
-    const pick=(s.pick||'').trim();
-    const mercado=(s.mercado||'').trim();
-    let fecha_hora_partido='';
-    if (s.fecha) {
-      try {
-        const d=new Date(s.fecha), now=new Date();
-        const hora=d.toLocaleTimeString('es-EC',{timeZone:'America/Guayaquil',hour:'2-digit',minute:'2-digit',hour12:true});
-        const dia=d.toLocaleDateString('es-EC',{timeZone:'America/Guayaquil',weekday:'short',day:'numeric',month:'short'});
-        const esHoy=d.toDateString()===now.toDateString();
-        fecha_hora_partido=esHoy?'HOY · '+hora:dia.charAt(0).toUpperCase()+dia.slice(1)+' · '+hora;
-      } catch(e) { fecha_hora_partido=''; }
-    }
-    let mercado_ecuabet='';
-    if (/h2h|1X2|ganador/i.test(mercado)) mercado_ecuabet='1X2 / Ganador del partido';
-    else if (/total|over|under/i.test(mercado)) mercado_ecuabet='Total de goles';
-    else if (/btts|ambos/i.test(mercado)) mercado_ecuabet='Ambos equipos marcan (BTTS)';
-    else if (/draw.?no.?bet|dnb/i.test(mercado)) mercado_ecuabet='Draw No Bet (DNB)';
-    else if (/spread|hándicap|handicap/i.test(mercado)) mercado_ecuabet='Hándicap Asiático';
-    else mercado_ecuabet=mercado;
+
+  const { alertas } = verificarEstadoUsuario();
+  const lista = m.sugerencias;
+  const deportesList = lista.map((s, i) => ({ s, i })).filter(({ s }) => s.seccion === 'deportes');
+  const cryptoList   = lista.map((s, i) => ({ s, i })).filter(({ s }) => s.seccion === 'crypto');
+  const totalVB   = (STATE.valueBets || []).length;
+  const mostradas = deportesList.filter(({ s }) => s.tipo === 'APUESTA').length;
+
+  const alertasHtml = alertas.map(a => {
+    const crit = a.tipo === 'CRITICA';
     return `
-      <div style="background:var(--surface-mid);border:1px solid rgba(78,222,163,0.2);border-radius:12px;padding:20px;margin-bottom:16px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-          <div style="width:14px;height:14px;border-radius:50%;background:${isGood?'#4edea3':'#FF9500'}"></div>
-          <span style="font-size:14px;font-weight:700;letter-spacing:0.05em;color:${isGood?'#4edea3':'#FF9500'}">${isGood?'APOSTAR':'REVISAR'}</span>
-          <span style="margin-left:auto;font-size:13px;color:var(--outline)">${fecha_hora_partido}</span>
-        </div>
-        <div style="font-size:18px;font-weight:700;margin-bottom:4px">${s.partido}</div>
-        <div style="font-size:22px;font-weight:700;color:#4edea3;line-height:1.3;margin-bottom:4px">${pick}</div>
-        <div style="font-size:15px;color:var(--text-3);margin-bottom:16px">${traducirPickClaro(s.pick, s.mercado, local, visit)}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-          <div><div style="font-size:12px;color:var(--outline);letter-spacing:0.05em">APOSTAR</div><div style="font-size:24px;font-family:var(--font-mono);font-weight:600">$${s.apostar.toFixed(2)}</div></div>
-          <div><div style="font-size:12px;color:var(--outline);letter-spacing:0.05em">SI ACIERTA</div><div style="font-size:24px;font-family:var(--font-mono);font-weight:600;color:#4edea3">+$${s.ganancia.toFixed(2)}</div></div>
-        </div>
-        <div style="margin-bottom:16px">
-          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-            <span style="font-size:13px;color:var(--outline)">Tu ventaja sobre la casa</span>
-            <span style="font-size:13px;font-weight:700;color:#4edea3">+${edgeVal.toFixed(1)}%</span>
-          </div>
-          <div style="height:6px;background:var(--surface-high);border-radius:3px">
-            <div style="width:${Math.min(edgeVal*5,100)}%;height:100%;background:#4edea3;border-radius:3px"></div>
-          </div>
-          <div style="font-size:13px;color:var(--outline);margin-top:4px">Por cada $100 apostados así, ganarías $${edgeVal.toFixed(2)} a largo plazo</div>
-        </div>
-        <div style="background:var(--surface);border-radius:8px;padding:12px;margin-bottom:16px;border-left:3px solid #4edea3">
-          <div style="font-size:12px;font-weight:700;letter-spacing:0.05em;color:var(--outline);margin-bottom:6px">DÓNDE APOSTAR</div>
-          <div style="font-size:14px;color:var(--on-surface);line-height:1.6">
-            Ecuabet → Fútbol → ${s.liga||'--'}<br>
-            → ${s.partido}<br>
-            → ${mercado_ecuabet}<br>
-            → Selecciona: <strong>${pick}</strong>
-          </div>
-        </div>
-        <div style="display:flex;gap:16px;font-size:13px;color:var(--outline);margin-bottom:16px">
-          <span>ODD <strong style="color:var(--on-surface)">${s.odd?.toFixed(2)||'--'}</strong></span>
-          <span>PROB <strong style="color:var(--on-surface)">${s.prob?.toFixed(0)||'--'}%</strong></span>
-          <span>KELLY <strong style="color:var(--on-surface)">${s.kelly?.toFixed(1)||'--'}%</strong></span>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <button class="btn btn-primary" onclick="mentorAddCupon(${i})" style="font-size:16px;padding:12px">✅ Añadir al cupón</button>
-          <button class="btn btn-ghost" onclick="mentorIgnorar(${i})" style="font-size:16px;padding:12px">Ignorar</button>
-        </div>
-      </div>`;
-  }).join(''):`
-    <div class="card" style="text-align:center;padding:24px;color:var(--text-3);font-size:15px">
-      No hay sugerencias que cumplan tus objetivos en este momento.<br>Prueba ajustando el capital o el rango de ganancia.
+    <div style="background:${crit?'var(--error)':'rgba(255,149,0,0.12)'};border:1px solid ${crit?'var(--error)':'#FF9500'};border-radius:12px;padding:16px 20px;margin-bottom:12px">
+      <div style="font-size:16px;font-weight:700;color:${crit?'#fff':'#FF9500'};line-height:1.5">${a.mensaje}</div>
+      ${crit ? `<button class="btn" onclick="this.parentElement.remove()"
+        style="margin-top:12px;background:rgba(255,255,255,0.15);color:#fff;font-size:16px;border:1px solid rgba(255,255,255,0.3)">
+        Entendido — igual operar</button>` : ''}
+    </div>`;
+  }).join('');
+
+  let resumenHtml;
+  if (mostradas === 0 && cryptoList.length === 0) {
+    resumenHtml = `
+    <div style="background:var(--surface-mid);border-radius:12px;padding:24px;margin-bottom:20px;text-align:center">
+      <div style="font-size:32px;margin-bottom:10px">✅</div>
+      <div style="font-size:18px;font-weight:700;margin-bottom:8px">Mercado eficiente ahora mismo</div>
+      <div style="font-size:16px;color:var(--text-3);line-height:1.6">No hay apuestas con ventaja real en este momento.<br>Vuelve a revisar en 2–3 horas.</div>
+    </div>`;
+  } else {
+    resumenHtml = `
+    <div style="background:var(--surface-mid);border-radius:12px;padding:14px 18px;margin-bottom:16px;border-left:3px solid var(--tertiary)">
+      <div style="font-size:16px;color:var(--text-2);line-height:1.5">
+        📊 Análisis: <strong>${totalVB}</strong> value bets analizados →
+        <strong style="color:var(--tertiary)">${mostradas}</strong> cumplen criterios de calidad
+        <span style="font-size:14px;color:var(--text-3)">
+          (edge&gt;${MENTOR_FILTROS.edgeMinRevisar}%, prob&gt;${MENTOR_FILTROS.probRealMin}%, odd ${MENTOR_FILTROS.oddMin}–${MENTOR_FILTROS.oddMax})
+        </span>
+      </div>
+    </div>`;
+  }
+
+  const deportesHtml = deportesList.length ? `
+    <div style="font-size:18px;font-weight:800;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+      ⚽ <span>Apuestas Deportivas</span>
+      <span style="font-size:13px;font-weight:400;color:var(--text-3)">${deportesList.length} sugerencia${deportesList.length!==1?'s':''}</span>
     </div>
-  `;
+    ${deportesList.map(({ s, i }) => renderCardMentor(s, i)).join('')}` : '';
+
+  const cryptoHtml = cryptoList.length ? `
+    <div style="font-size:18px;font-weight:800;margin:${deportesList.length?'20px':'0'} 0 14px;display:flex;align-items:center;gap:8px">
+      ₿ <span>Señales Crypto</span>
+      <span style="font-size:13px;font-weight:400;color:var(--text-3)">${cryptoList.length} señal${cryptoList.length!==1?'es':''}</span>
+    </div>
+    ${cryptoList.map(({ s, i }) => renderCardMentor(s, i)).join('')}` : '';
+
   return `
     <button class="btn btn-ghost" onclick="STATE.mentor.paso=1;STATE.mentor.analisisProfundo=null;renderMentor()">← Ajustar objetivos</button>
-    <div style="font-size:13px;color:var(--text-3);font-family:var(--f-mono)">
+    <div style="font-size:13px;color:var(--text-3);font-family:var(--f-mono);margin:8px 0 16px">
       Capital: $${m.capital.toFixed(2)} · Objetivo: $${m.gananciaMin}–$${m.gananciaMax} · Tipo: ${m.tipo.toUpperCase()}
     </div>
-    ${cardsHtml}
+    ${alertasHtml}
+    ${resumenHtml}
+    ${deportesHtml}
+    ${cryptoHtml}
   `;
 }
 
