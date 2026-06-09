@@ -1,0 +1,10 @@
+name                = "jcahs-proxy"
+main                = "worker-proxy.js"
+compatibility_date  = "2026-05-29"
+preview_urls        = false
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
