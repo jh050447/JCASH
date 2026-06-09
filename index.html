@@ -1081,6 +1081,11 @@ body {
           </button>
         </div>
 
+        <!-- Decision Engine -->
+        <div id="decision-engine" style="margin-bottom:24px">
+          <div style="text-align:center;padding:20px;color:var(--outline)">⚙️ Cargando Decision Engine...</div>
+        </div>
+
         <!-- KPIs -->
         <div class="grid-4" style="margin-bottom:20px">
           <div class="card card-sm">
@@ -3294,6 +3299,7 @@ async function cargarDeportes() {
 
   STATE.oddsGames = games;
   mentorActualizarEstado('ready');
+  ejecutarDecisionEngine();
   console.log('MENTOR DEBUG - odds loaded:', STATE.valueBets?.length, Object.keys(STATE));
 
   // ── Card 1: Value Bets ────────────────────────────────────
@@ -4677,6 +4683,219 @@ async function consultarAsesor(asesorId, pregunta) {
     agregarMensajeChat(asesorId, 'error', 'Error al consultar: ' + e.message + '. Intenta de nuevo.');
   }
 }
+
+// ── DECISION ENGINE ──────────────────────────────────────────
+
+async function ejecutarDecisionEngine() {
+  var de = document.getElementById('decision-engine');
+  if (!de) return;
+
+  de.innerHTML = '<div style="text-align:center;padding:20px;color:var(--outline)">⚙️ Analizando mercados...</div>';
+
+  if (!STATE.valueBets || !STATE.valueBets.length) {
+    de.innerHTML = '<div style="text-align:center;padding:20px;color:var(--outline)">Sin partidos disponibles ahora mismo. Vuelve más tarde.</div>';
+    return;
+  }
+
+  var todasLasApuestas = STATE.valueBets
+    .filter(function(vb) {
+      return vb.edge >= 4 && vb.probReal >= 35 && vb.odd >= 1.40 && vb.odd <= 3.50;
+    })
+    .map(function(vb) {
+      return Object.assign({}, vb, { score: calcularScoreMentor(vb) });
+    })
+    .filter(function(vb) { return vb.score >= 50; })
+    .sort(function(a, b) { return b.score - a.score; });
+
+  if (!todasLasApuestas.length) {
+    de.innerHTML = '<div style="background:rgba(255,180,171,0.1);border:1px solid rgba(255,180,171,0.2);border-radius:12px;padding:24px;text-align:center">' +
+      '<div style="font-size:28px;margin-bottom:8px">⏳</div>' +
+      '<div style="font-size:18px;font-weight:700;color:var(--error)">Sin apuestas con valor ahora</div>' +
+      '<div style="font-size:16px;color:var(--outline);margin-top:8px">El mercado está eficiente en este momento. Vuelve a revisar en 2-3 horas.</div>' +
+      '<div style="font-size:13px;color:var(--outline);margin-top:12px">Última actualización: ' + new Date().toLocaleTimeString('es-EC') + '</div>' +
+      '</div>';
+    return;
+  }
+
+  var top1 = todasLasApuestas[0];
+  var top3 = todasLasApuestas.slice(0, 3);
+
+  var opIndividual = {
+    tipo: 'INDIVIDUAL',
+    picks: [top1],
+    odd: top1.odd,
+    probReal: top1.probReal,
+    score: top1.score,
+    apostar: Math.max(0.50, (STATE.bankroll || 0) * Math.max(0.01, (top1.kelly || 0) / 100) * 0.25)
+  };
+  opIndividual.ganancia = opIndividual.apostar * (top1.odd - 1);
+
+  var picksMultiple = top3.filter(function(p, idx) {
+    if (p.score < 65) return false;
+    for (var j = 0; j < idx; j++) {
+      if (top3[j].partido === p.partido) return false;
+    }
+    return true;
+  });
+
+  var opMultiple = null;
+  if (picksMultiple.length >= 2) {
+    var pMulti = picksMultiple.slice(0, 3);
+    var oddComb = pMulti.reduce(function(acc, p) { return acc * p.odd; }, 1);
+    var probComb = pMulti.reduce(function(acc, p) { return acc * p.probReal / 100; }, 1) * 100;
+    var apostarM = Math.max(0.50, (STATE.bankroll || 0) * 0.015);
+    opMultiple = {
+      tipo: 'MÚLTIPLE',
+      picks: pMulti,
+      odd: oddComb,
+      probReal: probComb,
+      score: pMulti.reduce(function(a, p) { return a + p.score; }, 0) / pMulti.length,
+      apostar: apostarM,
+      ganancia: apostarM * (oddComb - 1)
+    };
+  }
+
+  var opSistema = null;
+  if (picksMultiple.length >= 3) {
+    var p3 = picksMultiple.slice(0, 3);
+    var combos = [[0,1],[0,2],[1,2]];
+    var oddProm = combos.reduce(function(acc, c) { return acc + p3[c[0]].odd * p3[c[1]].odd; }, 0) / 3;
+    var apostarS = Math.max(0.50, (STATE.bankroll || 0) * 0.02);
+    opSistema = {
+      tipo: 'SISTEMA 2/3',
+      picks: p3,
+      odd: oddProm,
+      probReal: 68,
+      score: p3.reduce(function(a, p) { return a + p.score; }, 0) / 3,
+      apostar: apostarS,
+      ganancia: (apostarS / 3) * (oddProm - 1)
+    };
+  }
+
+  var opciones = [opIndividual, opMultiple, opSistema].filter(Boolean);
+  opciones.sort(function(a, b) {
+    var fa = a.score * (a.tipo === 'INDIVIDUAL' ? 1.0 : a.tipo === 'MÚLTIPLE' ? 0.85 : 0.90);
+    var fb = b.score * (b.tipo === 'INDIVIDUAL' ? 1.0 : b.tipo === 'MÚLTIPLE' ? 0.85 : 0.90);
+    return fb - fa;
+  });
+
+  renderDecisionEngine(de, opciones[0], opciones, todasLasApuestas.length);
+}
+
+function renderDecisionEngine(el, ganadora, todasOpciones, totalAnalizado) {
+  var colorTipo = ganadora.tipo === 'INDIVIDUAL' ? '#4edea3' : ganadora.tipo === 'MÚLTIPLE' ? '#FF9500' : '#4A9EFF';
+  var scoreColor = ganadora.score >= 80 ? '#4edea3' : ganadora.score >= 65 ? '#FF9500' : '#4A9EFF';
+
+  var picksHtml = ganadora.picks.map(function(pick, i) {
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid rgba(144,144,151,0.1)">' +
+      '<div>' +
+      (ganadora.picks.length > 1 ? '<div style="font-size:12px;color:var(--outline);margin-bottom:2px">Pick ' + (i+1) + '</div>' : '') +
+      '<div style="font-size:16px;font-weight:600">' + escHtml(pick.partido) + '</div>' +
+      '<div style="font-size:18px;font-weight:700;color:' + colorTipo + ';margin-top:2px">' + escHtml(pick.pick) + '</div>' +
+      '</div>' +
+      '<div style="text-align:right">' +
+      '<div style="font-size:24px;font-weight:700;font-family:var(--font-mono)">' + pick.odd.toFixed(2) + '</div>' +
+      '<div style="font-size:13px;color:' + colorTipo + '">Edge +' + pick.edge.toFixed(1) + '%</div>' +
+      '</div>' +
+      '</div>';
+  }).join('');
+
+  var rutaHtml = '';
+  if (ganadora.picks[0] && ganadora.picks[0].liga) {
+    rutaHtml = '<div style="background:var(--surface);border-radius:8px;padding:12px;margin-top:12px;border-left:3px solid ' + colorTipo + '">' +
+      '<div style="font-size:12px;font-weight:700;letter-spacing:0.05em;color:var(--outline);margin-bottom:6px">DÓNDE APOSTAR</div>' +
+      '<div style="font-size:15px;line-height:1.7">Ecuabet → Fútbol → ' + escHtml(ganadora.picks[0].liga) + '<br>' +
+      ganadora.picks.map(function(p) {
+        return '→ ' + escHtml(p.partido) + ' → ' + escHtml(p.mercado || '') + ' → <strong>' + escHtml(p.pick) + '</strong>';
+      }).join('<br>') + '</div></div>';
+  }
+
+  el.innerHTML =
+    '<div style="border:2px solid ' + colorTipo + ';border-radius:16px;overflow:hidden">' +
+    // Header
+    '<div style="background:' + colorTipo + '20;padding:16px 20px;border-bottom:1px solid ' + colorTipo + '40;display:flex;justify-content:space-between;align-items:center">' +
+    '<div>' +
+    '<div style="font-size:12px;font-weight:700;letter-spacing:0.1em;color:' + colorTipo + '">🎯 DECISION ENGINE</div>' +
+    '<div style="font-size:20px;font-weight:700;margin-top:2px">' + ganadora.tipo + '</div>' +
+    '</div>' +
+    '<div style="text-align:right">' +
+    '<div style="font-size:36px;font-weight:700;font-family:var(--font-mono);color:' + scoreColor + '">' + Math.round(ganadora.score) + '/100</div>' +
+    '<div style="font-size:12px;color:var(--outline)">' + totalAnalizado + ' apuestas analizadas</div>' +
+    '</div>' +
+    '</div>' +
+    // Body
+    '<div style="padding:16px 20px">' +
+    picksHtml +
+    // Resumen financiero
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:16px">' +
+    '<div style="text-align:center;padding:12px;background:var(--surface-high);border-radius:8px">' +
+    '<div style="font-size:11px;color:var(--outline);letter-spacing:0.05em">ODD FINAL</div>' +
+    '<div style="font-size:24px;font-weight:700;font-family:var(--font-mono)">' + ganadora.odd.toFixed(2) + '</div>' +
+    '</div>' +
+    '<div style="text-align:center;padding:12px;background:var(--surface-high);border-radius:8px">' +
+    '<div style="font-size:11px;color:var(--outline);letter-spacing:0.05em">APOSTAR</div>' +
+    '<div style="font-size:24px;font-weight:700;font-family:var(--font-mono);color:' + colorTipo + '">$' + ganadora.apostar.toFixed(2) + '</div>' +
+    '</div>' +
+    '<div style="text-align:center;padding:12px;background:var(--surface-high);border-radius:8px">' +
+    '<div style="font-size:11px;color:var(--outline);letter-spacing:0.05em">SI GANA</div>' +
+    '<div style="font-size:24px;font-weight:700;font-family:var(--font-mono);color:' + colorTipo + '">+$' + ganadora.ganancia.toFixed(2) + '</div>' +
+    '</div>' +
+    '</div>' +
+    rutaHtml +
+    // Probabilidad
+    '<div style="margin-top:14px">' +
+    '<div style="display:flex;justify-content:space-between;margin-bottom:4px">' +
+    '<span style="font-size:14px;color:var(--outline)">Probabilidad real</span>' +
+    '<span style="font-size:14px;font-weight:700;color:' + scoreColor + '">' + ganadora.probReal.toFixed(1) + '%</span>' +
+    '</div>' +
+    '<div style="height:6px;background:var(--surface-high);border-radius:3px">' +
+    '<div style="width:' + Math.min(ganadora.probReal, 100) + '%;height:100%;background:' + scoreColor + ';border-radius:3px"></div>' +
+    '</div>' +
+    '</div>' +
+    // Botones
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px">' +
+    '<button class="btn btn-primary" onclick="confirmarDecision()" style="font-size:16px;padding:14px;font-weight:700">✅ CONFIRMAR Y REGISTRAR</button>' +
+    '<button class="btn btn-ghost" onclick="verAlternativas()" style="font-size:16px;padding:14px">🔄 VER ALTERNATIVAS</button>' +
+    '</div>' +
+    '<div style="font-size:13px;color:var(--outline);text-align:center;margin-top:10px">' +
+    'Actualizado: ' + new Date().toLocaleTimeString('es-EC') + ' · ' + totalAnalizado + ' apuestas analizadas' +
+    '</div>' +
+    '</div></div>';
+
+  STATE.decisionActual = ganadora;
+  STATE.todasOpciones = todasOpciones;
+}
+
+function confirmarDecision() {
+  var d = STATE.decisionActual;
+  if (!d) return;
+  if (d.tipo === 'INDIVIDUAL') {
+    abrirFormOpCon({
+      tipo: 'apuesta',
+      descripcion: d.picks[0].partido + ' — ' + d.picks[0].pick,
+      mercado: d.picks[0].mercado || '',
+      stake: d.apostar,
+      odd: d.picks[0].odd,
+      liga: d.picks[0].liga || '',
+      resultado: 'pendiente'
+    });
+  } else {
+    abrirFormOpCon({
+      tipo: 'apuesta',
+      descripcion: d.tipo + ': ' + d.picks.map(function(p) { return p.pick; }).join(' + '),
+      mercado: d.tipo,
+      stake: d.apostar,
+      odd: d.odd,
+      resultado: 'pendiente'
+    });
+  }
+}
+
+function verAlternativas() {
+  toggleMentor();
+}
+
+// ── FIN DECISION ENGINE ───────────────────────────────────────
 
 function agregarMensajeChat(asesorId, role, texto, badge) {
   var chat = document.getElementById('ia-chat-' + asesorId);
