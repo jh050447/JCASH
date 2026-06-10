@@ -3216,7 +3216,11 @@ async function buscarTorneosActivos() {
       (t.upcomingFixtures > 0 || t.liveFixtures > 0) &&
       !t.tournamentSlug?.includes('qualification') &&
       !t.tournamentSlug?.includes('qualifying') &&
+      !t.tournamentSlug?.includes('-w-') &&
       !t.tournamentSlug?.includes('women') &&
+      !t.tournamentSlug?.includes('female') &&
+      !t.tournamentName?.toLowerCase().includes('women') &&
+      !t.tournamentName?.toLowerCase().includes('femenin') &&
       !t.tournamentSlug?.includes('u21') &&
       !t.tournamentSlug?.includes('u20') &&
       !t.tournamentSlug?.includes('u19') &&
@@ -3232,6 +3236,16 @@ async function buscarTorneosActivos() {
       (b.upcomingFixtures + b.liveFixtures) -
       (a.upcomingFixtures + a.liveFixtures)
     );
+
+    // Si el Mundial 2026 está en la lista, moverlo al frente
+    const mundialIdx = activos.findIndex(t =>
+      t.tournamentName?.toLowerCase().includes('world cup') &&
+      !t.tournamentSlug?.includes('qualif')
+    );
+    if (mundialIdx > 0) {
+      const mundial = activos.splice(mundialIdx, 1)[0];
+      activos.unshift(mundial);
+    }
 
     // Top 5 únicamente — límite de OddsPapi
     const top5 = activos.slice(0, 5);
