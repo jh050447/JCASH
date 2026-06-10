@@ -1575,6 +1575,7 @@ const CFG = {
   footballKey: '',
   fng:         'https://api.alternative.me/fng/?limit=1',
   ODDSPAPI_BASE: 'https://api.oddspapi.io/v4',
+  oddsPapiKey: 'f1d9ee0e-35cf-40ef-bb8a-5eb5bfed774d',
   // Tournament IDs conocidos — Mundial 2026 se busca dinámicamente
   ODDSPAPI_TOURNAMENTS: {
     mundial: null, // se llena automáticamente al init
@@ -3204,8 +3205,10 @@ async function buscarTournamentMundial() {
   if (CFG.ODDSPAPI_TOURNAMENTS.mundial) return CFG.ODDSPAPI_TOURNAMENTS.mundial;
 
   try {
-    const url = `${CFG.ODDSPAPI_BASE}/tournaments?sportId=10&language=en`;
-    const res = await fetchSeguro(proxyUrl(url) + '&api=oddspapi', 8000);
+    // Llamada directa (sin proxy) — OddsPapi permite CORS pero bloquea
+    // peticiones desde Cloudflare Workers (403)
+    const res = await fetch(`${CFG.ODDSPAPI_BASE}/tournaments?sportId=10&language=en&apiKey=${CFG.oddsPapiKey}`);
+    console.log('OddsPapi tournaments status:', res.status, res.headers.get('access-control-allow-origin'));
     if (!res.ok) throw new Error(`${res.status}`);
     const torneos = await res.json();
 
@@ -3244,11 +3247,9 @@ async function cargarDatosOddsPapi() {
     const tournamentIds = [...CFG.ODDSPAPI_TOURNAMENTS.soccer];
     if (mundialId) tournamentIds.push(mundialId);
 
-    // UNA SOLA LLAMADA con Pinnacle — trae todo
-    const url = `${CFG.ODDSPAPI_BASE}/odds-by-tournaments?bookmaker=pinnacle&tournamentIds=${tournamentIds.join(',')}&oddsFormat=decimal`;
-
-    console.log('OddsPapi: fetching', url);
-    const res = await fetchSeguro(proxyUrl(url) + '&api=oddspapi', 10000);
+    // UNA SOLA LLAMADA con Pinnacle — trae todo (sin proxy, ver buscarTournamentMundial)
+    const res = await fetch(`${CFG.ODDSPAPI_BASE}/odds-by-tournaments?bookmaker=pinnacle&tournamentIds=${tournamentIds.join(',')}&oddsFormat=decimal&apiKey=${CFG.oddsPapiKey}`);
+    console.log('OddsPapi odds status:', res.status, res.headers.get('access-control-allow-origin'));
 
     if (!res.ok) {
       console.error('OddsPapi error:', res.status);
