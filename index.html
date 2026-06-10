@@ -3248,7 +3248,9 @@ async function cargarDeportes() {
         setHTML('dep-partidos', '');
         STATE.oddsApiRemaining = 0;
         actualizarMonitorQuota();
+        console.log('FALLBACK: activando cargarPartidosFallback()');
         await cargarPartidosFallback();
+        console.log('FALLBACK: cargarPartidosFallback() completado, STATE.modoFallback:', STATE.modoFallback);
         STATE.ultimaActualizacionDeportes = Date.now();
         return;
       }
@@ -3514,7 +3516,9 @@ async function cargarDeportes() {
   STATE.ultimaActualizacionDeportes = Date.now();
 
   if (huboError401 || games.length === 0) {
+    console.log('FALLBACK: activando cargarPartidosFallback()');
     await cargarPartidosFallback();
+    console.log('FALLBACK: cargarPartidosFallback() completado, STATE.modoFallback:', STATE.modoFallback);
   } else {
     STATE.modoFallback = false;
     document.querySelectorAll('.aviso-fallback').forEach(el => el.remove());
@@ -3602,6 +3606,7 @@ function mostrarAvisoFallback(mensaje) {
 }
 
 async function cargarPartidosFallback() {
+  console.log('FALLBACK FD: iniciando fetch a Football-Data.org');
   const hoy = new Date().toISOString().split('T')[0];
   const url = `https://api.football-data.org/v4/matches?dateFrom=${hoy}&dateTo=${hoy}`;
 
@@ -3652,7 +3657,7 @@ async function cargarPartidosFallback() {
     if (STATE.secActiva === 'sec-de') renderListaDE();
 
   } catch (err) {
-    console.error('Fallback FD error:', err);
+    console.error('FALLBACK FD: error completo:', err);
     mostrarAvisoFallback('Sin datos disponibles — Odds API y Football-Data.org no responden');
   }
 }
