@@ -3324,9 +3324,9 @@ async function cargarDatosOddsPapi() {
     });
     const MUNDIAL_ID = CFG.ODDSPAPI_TOURNAMENTS.mundialId || 16;
 
-    // UNA SOLA LLAMADA con Pinnacle — trae todo (sin proxy, ver buscarTorneosActivos)
+    // LLAMADA 1: Pinnacle — referencia "sharp" para probabilidad real (de-vig)
     const res = await fetch(`${CFG.ODDSPAPI_BASE}/odds-by-tournaments?bookmaker=pinnacle&tournamentIds=${tournamentIds.join(',')}&oddsFormat=decimal&apiKey=${CFG.oddsPapiKey}`);
-    console.log('OddsPapi odds status:', res.status, res.headers.get('access-control-allow-origin'));
+    console.log('OddsPapi odds status (pinnacle):', res.status, res.headers.get('access-control-allow-origin'));
 
     if (!res.ok) {
       console.error('OddsPapi error:', res.status);
@@ -3334,14 +3334,36 @@ async function cargarDatosOddsPapi() {
     }
 
     const fixtures = await res.json();
-    console.log('OddsPapi: fixtures recibidos:', fixtures.length);
+    console.log('OddsPapi: fixtures recibidos (pinnacle):', fixtures.length);
     if (fixtures.length > 0) {
       console.log('OddsPapi fixture sample completo:', JSON.stringify(fixtures[0]).slice(0, 600));
     }
 
+    // LLAMADA 2: Bet365 — bookmaker "blando" para calcular edge real
+    // OddsPapi solo permite UN bookmaker por llamada ("Please provide exactly
+    // one bookmaker using the 'bookmaker' query parameter") — requiere 2da llamada
+    let fixturesBet365 = [];
+    try {
+      const resBet365 = await fetch(`${CFG.ODDSPAPI_BASE}/odds-by-tournaments?bookmaker=bet365&tournamentIds=${tournamentIds.join(',')}&oddsFormat=decimal&apiKey=${CFG.oddsPapiKey}`);
+      console.log('OddsPapi odds status (bet365):', resBet365.status);
+      if (resBet365.ok) {
+        fixturesBet365 = await resBet365.json();
+        console.log('OddsPapi: fixtures recibidos (bet365):', fixturesBet365.length);
+      } else {
+        console.error('OddsPapi error (bet365):', resBet365.status);
+      }
+    } catch (err) {
+      console.error('OddsPapi bet365 fetch error:', err);
+    }
+
+    const bet365Map = {};
+    fixturesBet365.forEach(f => {
+      if (f.bookmakerOdds?.bet365) bet365Map[f.fixtureId] = f.bookmakerOdds.bet365;
+    });
+
     // Actualizar contador — OddsPapi no devuelve headers de quota
-    // Decrementar manualmente
-    STATE.oddsPapiUsed = (STATE.oddsPapiUsed || 0) + 1;
+    // Decrementar manualmente (2 llamadas: pinnacle + bet365)
+    STATE.oddsPapiUsed = (STATE.oddsPapiUsed || 0) + 2;
     STATE.oddsPapiRemaining = Math.max(0, 250 - STATE.oddsPapiUsed);
     localStorage.setItem('oddsPapiUsed', STATE.oddsPapiUsed);
     localStorage.setItem('oddsPapiRemaining', STATE.oddsPapiRemaining);
@@ -3364,64 +3386,73 @@ async function cargarDatosOddsPapi() {
       const pinnacle = fixture.bookmakerOdds?.pinnacle;
       if (!pinnacle || !pinnacle.bookmakerIsActive) continue;
 
-      const markets = pinnacle.markets;
-      if (!markets) continue;
+      const mercado1X2Pinnacle = pinnacle.markets?.['101'];
+      if (!mercado1X2Pinnacle?.outcomes) continue;
 
-      // Market 101 = 1X2 (h2h)
-      const mercado1X2 = markets['101'];
+      const oddHomePinnacle = mercado1X2Pinnacle.outcomes['101']?.players?.['0']?.price;
+      const oddDrawPinnacle = mercado1X2Pinnacle.outcomes['102']?.players?.['0']?.price;
+      const oddAwayPinnacle = mercado1X2Pinnacle.outcomes['103']?.players?.['0']?.price;
+      if (!oddHomePinnacle || !oddDrawPinnacle || !oddAwayPinnacle) continue;
 
       const homeName = nombresMap[fixture.participant1Id] || `Equipo ${fixture.participant1Id}`;
       const awayName = nombresMap[fixture.participant2Id] || `Equipo ${fixture.participant2Id}`;
       const esMundial = fixture.tournamentId === MUNDIAL_ID;
 
-      if (mercado1X2?.outcomes) {
-        const outcomes = mercado1X2.outcomes;
-        const oddHome = outcomes['101']?.players?.['0']?.price;
-        const oddDraw = outcomes['102']?.players?.['0']?.price;
-        const oddAway = outcomes['103']?.players?.['0']?.price;
+      // Probabilidades reales sin margen (de-vig de Pinnacle)
+      const sumInv = 1/oddHomePinnacle + 1/oddDrawPinnacle + 1/oddAwayPinnacle;
+      const trueProbs = {
+        home: (1/oddHomePinnacle) / sumInv,
+        draw: (1/oddDrawPinnacle) / sumInv,
+        away: (1/oddAwayPinnacle) / sumInv
+      };
 
-        if (oddHome && oddDraw && oddAway) {
-          // Calcular probabilidades reales desde Pinnacle (de-vig)
-          const sumInv = 1/oddHome + 1/oddDraw + 1/oddAway;
+      // Si hay bet365, calcular edge vs bet365; si no, fallback a Pinnacle (edge ~0)
+      const bet365 = bet365Map[fixture.fixtureId];
+      const mercado1X2Soft = bet365?.markets?.['101'];
 
-          [
-            { odd: oddHome, outcome: 'home' },
-            { odd: oddDraw, outcome: 'draw' },
-            { odd: oddAway, outcome: 'away' }
-          ].forEach(({ odd, outcome }) => {
-            const trueProb    = (1/odd) / sumInv;
-            const impliedProb = 1 / odd;
-            // Edge vs Pinnacle mismo (referencia interna)
-            // Cuando se integre Ecuabet el edge será Pinnacle vs Ecuabet
-            const edge = ((trueProb * odd) - 1) * 100;
-            if (edge <= 0) return;
+      const oddsParaEdge = {
+        home: mercado1X2Soft?.outcomes?.['101']?.players?.['0']?.price || oddHomePinnacle,
+        draw: mercado1X2Soft?.outcomes?.['102']?.players?.['0']?.price || oddDrawPinnacle,
+        away: mercado1X2Soft?.outcomes?.['103']?.players?.['0']?.price || oddAwayPinnacle
+      };
 
-            const b      = odd - 1;
-            const kellyF = b > 0 ? Math.max(0, (trueProb * b - (1 - trueProb)) / b * 0.25) : 0;
-            const stake  = STATE.bankroll * kellyF;
+      [
+        { key: 'home', outcome: 'home' },
+        { key: 'draw', outcome: 'draw' },
+        { key: 'away', outcome: 'away' }
+      ].forEach(({ key, outcome }) => {
+        const trueProb = trueProbs[key];
+        const oddSoft  = oddsParaEdge[key];
+        const edge = ((trueProb * oddSoft) - 1) * 100;
 
-            valueBets.push({
-              gameId:    fixture.fixtureId,
-              partido:   homeName + ' vs ' + awayName,
-              liga:      ligaMap[fixture.tournamentId] || 'Fútbol',
-              fecha:     fixture.startTime,
-              esMundial: esMundial,
-              mercado:   traducirMercado('h2h'),
-              pick:      traducirPick(outcome, 'h2h', homeName, awayName),
-              odd,
-              edge,
-              probReal:  trueProb * 100,
-              probIp:    impliedProb * 100,
-              kelly:     kellyF * 100,
-              stake,
-              ganancia:  stake * b,
-              bk:        'Pinnacle',
-              score:     Math.round(Math.min(edge * 5, 100)),
-              fuente:    'oddspapi',
-            });
-          });
-        }
-      }
+        console.log(`Edge ${homeName} vs ${awayName} [${outcome}]: trueProb=${trueProb.toFixed(3)} oddSoft=${oddSoft} edge=${edge.toFixed(2)}%`);
+
+        if (edge <= 2) return; // umbral bajo para probar — ajustar después
+
+        const b      = oddSoft - 1;
+        const kellyF = b > 0 ? Math.max(0, (trueProb * b - (1 - trueProb)) / b * 0.25) : 0;
+        const stake  = STATE.bankroll * kellyF;
+
+        valueBets.push({
+          gameId:    fixture.fixtureId,
+          partido:   homeName + ' vs ' + awayName,
+          liga:      ligaMap[fixture.tournamentId] || 'Fútbol',
+          fecha:     fixture.startTime,
+          esMundial: esMundial,
+          mercado:   traducirMercado('h2h'),
+          pick:      traducirPick(outcome, 'h2h', homeName, awayName),
+          odd:       oddSoft,
+          edge,
+          probReal:  trueProb * 100,
+          probIp:    (1/oddSoft) * 100,
+          kelly:     kellyF * 100,
+          stake,
+          ganancia:  stake * b,
+          bk:        bet365 ? 'Bet365' : 'Pinnacle',
+          score:     Math.round(Math.min(edge * 5, 100)),
+          fuente:    'oddspapi',
+        });
+      });
     }
 
     // Ordenar por edge descendente
