@@ -3643,7 +3643,16 @@ async function cargarPartidosFallback() {
     STATE.oddsGames    = [];
     STATE.modoFallback = true;
 
-    mostrarAvisoFallback(`Mostrando ${partidos.length} partidos de Football-Data.org — sin cálculo de edge hasta que Odds API se restaure`);
+    // Forzar renderizado en todas las secciones relevantes
+    if (typeof renderListaDE === 'function') renderListaDE();
+    if (typeof renderDeportes === 'function') renderDeportes();
+    if (typeof renderMentor === 'function') renderMentor();
+
+    // Mostrar aviso
+    mostrarAvisoFallback(`Mostrando ${STATE.valueBets.length} partidos de Football-Data.org — sin cálculo de edge hasta que Odds API se restaure`);
+
+    // Log para verificar
+    console.log('FALLBACK FD: partidos cargados:', STATE.valueBets.length, STATE.valueBets[0]);
 
     setText('dep-sub', `${partidos.length} partidos (sin odds) · Football-Data.org`);
     setHTML('dep-value-bets', '<div class="loading">⚡ Modo alternativo: sin value bets — Odds API no disponible</div>');
