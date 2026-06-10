@@ -12,6 +12,7 @@
  *   /?url=...&api=gemini                            (Gemini: injects key query param)
  *   /?url=...&api=groq                              (Groq: injects Authorization: Bearer header)
  *   /?url=...&api=tavily                            (Tavily: injects Authorization: Bearer header)
+ *   /?url=...&api=oddspapi                          (OddsPapi: injects apiKey query param)
  *
  * All sensitive API keys live here as Cloudflare Worker env vars (secrets).
  * Fallback values are kept for local `wrangler dev` only — rotate these after
@@ -48,6 +49,7 @@ export default {
     const GEMINI_KEY    = env.GEMINI_KEY    || '';
     const GROQ_KEY      = env.GROQ_KEY      || '';
     const TAVILY_KEY    = env.TAVILY_KEY    || '';
+    const ODDSPAPI_KEY  = env.ODDSPAPI_KEY  || '';
 
     const url = new URL(request.url);
     const target   = url.searchParams.get('url');
@@ -86,11 +88,19 @@ export default {
       targetUrlObj.searchParams.set('key', GEMINI_KEY);
       targetUrl = targetUrlObj.toString();
     }
+    if (api === 'oddspapi') {
+      targetUrlObj.searchParams.set('apiKey', ODDSPAPI_KEY);
+      targetUrl = targetUrlObj.toString();
+    }
     // Build request headers
     const reqHeaders = {};
 
     if (provider === 'yahoo') {
       Object.assign(reqHeaders, YAHOO_HEADERS);
+    } else if (api === 'oddspapi') {
+      // OddsPapi (Cloudflare-fronted) bloquea peticiones que aparentan ser
+      // un navegador real desde un Worker — no spoofear UA de Chrome.
+      reqHeaders['Accept'] = 'application/json';
     } else {
       reqHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
       reqHeaders['Accept'] = 'application/json, text/plain, */*';
