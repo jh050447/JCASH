@@ -4953,8 +4953,109 @@ function mostrarDetalleDE(idx) {
     '</div>' +
     '<div style="font-size:15px;color:var(--text-2);line-height:1.6">' + escHtml(justificacion) + '</div>' +
     '</div>' +
+    // Verificación FALCON
+    '<div style="background:var(--surface-2);border-radius:12px;padding:16px;margin-bottom:20px">' +
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">' +
+    '<span style="font-size:20px">🦅</span>' +
+    '<span style="font-size:12px;font-weight:700;letter-spacing:0.08em;color:var(--outline)">FALCON — VERIFICACIÓN EN TIEMPO REAL</span>' +
+    '<span id="falcon-badge" style="display:none;background:#4edea322;border:1px solid #4edea3;color:#4edea3;padding:2px 8px;border-radius:20px;font-size:11px">🔍 Verificado</span>' +
+    '</div>' +
+    '<div id="falcon-resultado" style="font-size:14px;color:var(--text-2)">⏳ Consultando lesiones y noticias...</div>' +
+    '</div>' +
     // Botón confirmar
     '<button class="btn btn-primary" onclick="confirmarDecision()" style="width:100%;font-size:17px;padding:16px;font-weight:700">✅ CONFIRMAR Y REGISTRAR</button>';
+
+  consultarFALCONparaDE(vb);
+}
+
+// ── FALCON — verificación en tiempo real para Decision Engine ─
+
+async function consultarFALCONparaDE(vb) {
+  var divResultado = document.getElementById('falcon-resultado');
+  var badge = document.getElementById('falcon-badge');
+  if (!divResultado) return;
+
+  var equipos = extraerEquipos(vb.partido);
+  var busquedas;
+  if (equipos) {
+    busquedas = [
+      equipos.t1en + ' vs ' + equipos.t2en + ' injuries lineup news',
+      'lesiones bajas alineaciones ' + equipos.es
+    ];
+    if (equipos.t1en === 'South Africa' || equipos.t2en === 'South Africa') {
+      busquedas.unshift('Bafana Bafana injuries squad news');
+    }
+  } else {
+    busquedas = ['lesiones bajas alineaciones ' + vb.partido];
+  }
+
+  var infoWeb = '';
+  try {
+    var resultados = await Promise.allSettled(busquedas.map(function(q) { return buscarTavily(q); }));
+    infoWeb = resultados
+      .map(function(r) { return (r.status === 'fulfilled' && r.value) ? r.value : null; })
+      .filter(Boolean)
+      .join('\n\n---\n\n');
+  } catch(e) {
+    console.error('FALCON Tavily error:', e);
+  }
+
+  var prompt = 'Eres FALCON, analista experto en apuestas deportivas.\n\n' +
+    'Analiza esta apuesta:\n' +
+    'Partido: ' + vb.partido + '\n' +
+    'Mercado: ' + (vb.mercado || vb.pick || '') + '\n' +
+    'Pick: ' + vb.pick + '\n' +
+    'Odd: ' + vb.odd.toFixed(2) + '\n' +
+    'Probabilidad real estimada: ' + vb.probReal.toFixed(1) + '%\n' +
+    'Edge: +' + vb.edge.toFixed(1) + '%\n\n' +
+    (infoWeb ? '=== INFORMACIÓN ACTUALIZADA DE INTERNET ===\n' + infoWeb + '\n=== FIN ===\n\n' : '') +
+    'Da un veredicto breve sobre esta apuesta:\n' +
+    '- CONFIRMADO: la apuesta se ve segura\n' +
+    '- PRECAUCIÓN: hay factores a considerar\n' +
+    '- EVITAR: riesgo significativo detectado\n\n' +
+    'Responde en español, máximo 4 frases. Empieza con el veredicto en mayúsculas, luego la explicación.';
+
+  try {
+    var response = await fetch(GROQ_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        max_tokens: 300,
+        temperature: 0.5,
+        messages: [
+          { role: 'system', content: prompt },
+          { role: 'user', content: 'Dame tu veredicto.' }
+        ]
+      })
+    });
+
+    var data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+
+    var texto = (data.choices?.[0]?.message?.content || 'Sin respuesta').trim();
+    var textoUpper = texto.toUpperCase();
+    var esConfirmado = textoUpper.includes('CONFIRMADO') || textoUpper.includes('CONFIRMED');
+    var esEvitar = textoUpper.includes('EVITAR') || textoUpper.includes('AVOID');
+    var color = esConfirmado ? '#4edea3' : esEvitar ? 'var(--error)' : '#FF9500';
+    var icono = esConfirmado ? '✅' : esEvitar ? '🚫' : '⚠️';
+
+    var partes = texto.split('. ');
+    var primera = partes[0] + (partes.length > 1 ? '.' : '');
+    var resto = partes.slice(1).join('. ');
+
+    divResultado.innerHTML =
+      '<div style="color:' + color + ';font-size:15px;font-weight:600;margin-bottom:8px">' + icono + ' ' + escHtml(primera) + '</div>' +
+      (resto ? '<div style="font-size:13px;color:var(--text-2);line-height:1.6">' + escHtml(resto) + '</div>' : '') +
+      (infoWeb ? '<div style="font-size:11px;color:var(--outline);margin-top:8px">🔍 Verificado con búsqueda web en tiempo real</div>' : '');
+
+    if (badge) badge.style.display = 'inline-block';
+
+  } catch(e) {
+    console.error('FALCON DE error:', e);
+    divResultado.innerHTML = '<span style="color:#ff6b35">⚠️ FALCON no disponible — verifica manualmente antes de apostar</span>';
+  }
 }
 
 function volverListaDE() {
