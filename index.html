@@ -3607,8 +3607,15 @@ function mostrarAvisoFallback(mensaje) {
 
 async function cargarPartidosFallback() {
   console.log('FALLBACK FD: iniciando fetch a Football-Data.org');
-  const hoy = new Date().toISOString().split('T')[0];
-  const url = `https://api.football-data.org/v4/matches?dateFrom=${hoy}&dateTo=${hoy}`;
+  const hoy = new Date();
+  const hoyStr = hoy.toISOString().split('T')[0];
+
+  const en3dias = new Date(hoy);
+  en3dias.setDate(en3dias.getDate() + 3);
+  const en3diasStr = en3dias.toISOString().split('T')[0];
+
+  // URL con rango ampliado
+  const url = `https://api.football-data.org/v4/matches?dateFrom=${hoyStr}&dateTo=${en3diasStr}`;
 
   try {
     const r = await fetchSeguro(proxyUrl(url) + '&api=footballdata', 8000);
@@ -3620,7 +3627,7 @@ async function cargarPartidosFallback() {
       STATE.modoFallback = true;
       STATE.valueBets = [];
       STATE.deApuestas = [];
-      mostrarAvisoFallback('Football-Data.org sin partidos hoy');
+      mostrarAvisoFallback('Football-Data.org sin partidos en los próximos 3 días');
       setText('dep-sub', 'Sin partidos disponibles');
       setHTML('dep-partidos', '<div class="loading">Sin partidos disponibles</div>');
       if (STATE.secActiva === 'sec-de') renderListaDE();
@@ -3649,12 +3656,12 @@ async function cargarPartidosFallback() {
     if (typeof renderMentor === 'function') renderMentor();
 
     // Mostrar aviso
-    mostrarAvisoFallback(`Mostrando ${STATE.valueBets.length} partidos de Football-Data.org — sin cálculo de edge hasta que Odds API se restaure`);
+    mostrarAvisoFallback(`Mostrando ${partidos.length} partidos (hoy + 3 días) — sin edge hasta que Odds API se restaure`);
 
     // Log para verificar
     console.log('FALLBACK FD: partidos cargados:', STATE.valueBets.length, STATE.valueBets[0]);
 
-    setText('dep-sub', `${partidos.length} partidos (sin odds) · Football-Data.org`);
+    setText('dep-sub', `${partidos.length} partidos (hoy + 3 días, sin odds) · Football-Data.org`);
     setHTML('dep-value-bets', '<div class="loading">⚡ Modo alternativo: sin value bets — Odds API no disponible</div>');
     setHTML('dep-partidos', STATE.valueBets.map(vb =>
       '<div class="partido-row">' +
