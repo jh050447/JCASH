@@ -1637,6 +1637,7 @@ const STATE = {
   oddsApiUsed:      parseInt(localStorage.getItem('oddsApiUsed')) || null,
   ultimaActualizacionDeportes: null,
   modoFallback:    false,
+  deportesCargando: false,
   ohlc:            { BTC:[], ETH:[], SOL:[], XRP:[] },
   senalesCripto:   {},
   exchSelected:    { BTC:'binance', ETH:'binance', SOL:'binance', XRP:'binance' },
@@ -3180,6 +3181,14 @@ function traducirPick(nombre, mktKey, local, visitante) {
 
 // ─── SECCIÓN DEPORTES (The Odds API) ────────────────────────
 async function cargarDeportes() {
+  // Evitar llamadas simultáneas (condición de carrera)
+  if (STATE.deportesCargando) {
+    console.log('cargarDeportes: ya en progreso, ignorando llamada duplicada');
+    return;
+  }
+  STATE.deportesCargando = true;
+
+  try {
   // Cache de 10 minutos — no quemar quota innecesariamente
   const cacheCheck = Date.now();
   const CACHE_MS = 10 * 60 * 1000; // 10 minutos
@@ -3509,6 +3518,9 @@ async function cargarDeportes() {
   } else {
     STATE.modoFallback = false;
     document.querySelectorAll('.aviso-fallback').forEach(el => el.remove());
+  }
+  } finally {
+    STATE.deportesCargando = false;
   }
 }
 
