@@ -3427,7 +3427,7 @@ async function cargarDatosOddsPapi() {
 
         console.log(`Edge ${homeName} vs ${awayName} [${outcome}]: trueProb=${trueProb.toFixed(3)} oddSoft=${oddSoft} edge=${edge.toFixed(2)}%`);
 
-        if (edge <= 2) return; // umbral bajo para probar — ajustar después
+        if (edge <= 0) return;
 
         const b      = oddSoft - 1;
         const kellyF = b > 0 ? Math.max(0, (trueProb * b - (1 - trueProb)) / b * 0.25) : 0;
