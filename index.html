@@ -3902,6 +3902,13 @@ function actualizarMonitorQuota() {
   }
 
   if (remaining === 0) {
+    // Calcular días hasta el 1 de julio (reset mensual de The Odds API)
+    const hoy = new Date();
+    const reset = new Date(hoy.getFullYear(), 6, 1); // 1 de julio
+    if (reset <= hoy) reset.setFullYear(reset.getFullYear() + 1);
+    const diasHastaReset = Math.ceil((reset - hoy) / (1000 * 60 * 60 * 24));
+    const textoReset = `AGOTADA — se resetea en ${diasHastaReset} días (1 jul)`;
+
     el.innerHTML =
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
       '<span style="color:#8892a4;font-size:11px;letter-spacing:1px">ODDS API</span>' +
@@ -3910,7 +3917,7 @@ function actualizarMonitorQuota() {
       '<div style="background:#1a2540;border-radius:4px;height:5px;margin-bottom:5px">' +
       '<div style="background:#ff4444;width:100%;height:100%;border-radius:4px"></div>' +
       '</div>' +
-      '<div style="color:#ff4444;font-size:10px;text-align:center">AGOTADA — se resetea mañana</div>';
+      '<div style="color:#ff4444;font-size:10px;text-align:center">' + textoReset + '</div>';
   } else {
     const total = remaining + (used || 0);
     const pct = total > 0 ? Math.round((remaining / total) * 100) : 0;
