@@ -1139,7 +1139,7 @@ body {
         <div class="sec-header">
           <div>
             <div class="sec-title">Análisis Cripto</div>
-            <div class="sec-sub" id="cripto-sub">RSI · Tendencia · Fear &amp; Greed · Señales — Fuente: Binance</div>
+            <div class="sec-sub" id="cripto-sub">RSI · Tendencia · Fear &amp; Greed · Señales — Fuente: CoinGecko</div>
           </div>
           <button class="btn btn-ghost" onclick="cargarCripto()">
             <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px">refresh</span>
@@ -1555,7 +1555,6 @@ body {
 const CFG = {
   proxy:       'https://jcahs-proxy.jh050447.workers.dev/?url=',
   scraper:     'https://jcahs-scraper.jh050447.workers.dev/',
-  binance:     'https://api.binance.com/api/v3',
   oddsKey:     '',
   footballKey: '',
   fng:         'https://api.alternative.me/fng/?limit=1',
@@ -1629,6 +1628,7 @@ const STATE = {
   oddsLimitExceeded: false,
   oddsResetDate:    null,
   oddsRemaining:    null,
+  ultimaActualizacionDeportes: null,
   ohlc:            { BTC:[], ETH:[], SOL:[], XRP:[] },
   senalesCripto:   {},
   exchSelected:    { BTC:'binance', ETH:'binance', SOL:'binance', XRP:'binance' },
@@ -1765,9 +1765,7 @@ function iniciarReloj() {
   setInterval(actualizar, 1000);
 }
 
-// ─── CARGA DE PRECIOS (Binance primario) ────────────────────
-const BIN_SYMS = ['BTCUSDT','ETHUSDT','BNBUSDT','SOLUSDT','XRPUSDT'];
-const SYM_MAP  = { BTCUSDT:'BTC', ETHUSDT:'ETH', BNBUSDT:'BNB', SOLUSDT:'SOL', XRPUSDT:'XRP' };
+// ─── CARGA DE PRECIOS (CoinGecko) ────────────────────────────
 const NOMBRES  = { BTC:'Bitcoin', ETH:'Ethereum', BNB:'BNB Chain', SOL:'Solana', XRP:'XRP' };
 const COIN_COLOR = { BTC:'#F7931A', ETH:'#627EEA', BNB:'#F3BA2F', SOL:'#9945FF', XRP:'#00AAE4' };
 const COIN_EMOJI = { BTC:'₿', ETH:'Ξ', BNB:'B', SOL:'◎', XRP:'✕' };
@@ -1778,8 +1776,11 @@ const EXCHANGES  = {
   kraken:  { nombre:'Kraken',  spot:0.0016, futuros:0.0005 },
 };
 
+const COINGECKO_IDS = { BTC:'bitcoin', ETH:'ethereum', BNB:'binancecoin', SOL:'solana', XRP:'ripple' };
+
 async function cargarPrecios() {
-  const url = `${CFG.binance}/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(BIN_SYMS))}`;
+  const ids = Object.values(COINGECKO_IDS).join(',');
+  const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`;
   let data;
 
   // Intento 1: directo
@@ -1798,15 +1799,15 @@ async function cargarPrecios() {
 
   if (!data) return false;
 
-  for (const item of data) {
-    const sym = SYM_MAP[item.symbol];
-    if (!sym) continue;
+  for (const sym of Object.keys(COINGECKO_IDS)) {
+    const d = data[COINGECKO_IDS[sym]];
+    if (!d) continue;
     STATE.precios[sym] = {
-      precio:   parseFloat(item.lastPrice),
-      cambio24h: parseFloat(item.priceChangePercent),
-      volumen:  parseFloat(item.quoteVolume),
-      fuente:   'Binance',
-      ts:       ts(),
+      precio:    d.usd,
+      cambio24h: d.usd_24h_change,
+      volumen:   STATE.precios[sym]?.volumen ?? null,
+      fuente:    'CoinGecko',
+      ts:        ts(),
     };
   }
   return true;
@@ -1870,9 +1871,11 @@ function calcEdge(prob, odd) {
   return (prob - ip) * 100;
 }
 
-// ─── OHLC DESDE BINANCE ──────────────────────────────────────
+// ─── OHLC DESDE COINGECKO ────────────────────────────────────
 async function cargarOHLC(sym, interval = '1d', limit = 30) {
-  const url = `${CFG.binance}/klines?symbol=${sym}USDT&interval=${interval}&limit=${limit}`;
+  const id = COINGECKO_IDS[sym];
+  if (!id) return null;
+  const url = `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=${limit}&interval=daily`;
   let data;
   try {
     const r = await fetchSeguro(url, 6000);
@@ -1884,8 +1887,8 @@ async function cargarOHLC(sym, interval = '1d', limit = 30) {
       if (r.ok) data = await r.json();
     } catch (_) {}
   }
-  if (!data) return null;
-  return data.map(k => ({ o:parseFloat(k[1]), h:parseFloat(k[2]), l:parseFloat(k[3]), c:parseFloat(k[4]), v:parseFloat(k[5]) }));
+  if (!data?.prices) return null;
+  return data.prices.map(p => ({ o:p[1], h:p[1], l:p[1], c:p[1], v:0 }));
 }
 
 // ─── SEÑAL CRYPTO ────────────────────────────────────────────
@@ -1913,7 +1916,7 @@ async function generarSenalCrypto(sym) {
   }
   confianza = Math.min(95, confianza);
 
-  STATE.senales[sym] = { sym, señal, rsi, confianza, ts: ts(), fuente: 'Binance/RSI' };
+  STATE.senales[sym] = { sym, señal, rsi, confianza, ts: ts(), fuente: 'CoinGecko/RSI' };
   STATE.senalesCripto[sym] = {
     sym, score: Math.min(100, Math.round(confianza)), señal, rsi,
     direction: señal==='COMPRAR'?'long':señal==='VENDER'?'short':'neutral', ts: ts()
@@ -2419,7 +2422,7 @@ function renderCriptoCard(sym) {
       ${exchHtml}
     </div>
     <div class="cs-footer">
-      <div class="cs-footer-src">Fuente: Binance · ${sig?.ts || ts()}</div>
+      <div class="cs-footer-src">Fuente: CoinGecko · ${sig?.ts || ts()}</div>
       <div class="cs-actions">
         ${op ? `<button class="btn btn-primary" style="font-size:14px;padding:9px 16px"
           onclick="registrarOp('${sym}',${op.capital.toFixed(2)},${op.entrada.toFixed(2)})">✅ Registrar</button>` : ''}
@@ -2542,7 +2545,7 @@ async function cargarCripto() {
   renderTopOportunidades();
 
   const fng = STATE.fng;
-  setText('cripto-source', `Fuente: Binance OHLC + alternative.me · Fear & Greed: ${fng ? fng.valor + ' — ' + fng.label : 'N/D'} · ${ts()}`);
+  setText('cripto-source', `Fuente: CoinGecko OHLC + alternative.me · Fear & Greed: ${fng ? fng.valor + ' — ' + fng.label : 'N/D'} · ${ts()}`);
 }
 
 // ─── WIZARD ESTRATEGIAS ─────────────────────────────────────
@@ -2643,7 +2646,7 @@ function renderEstrategias() {
       <button class="strat-tab${filtro==='apuesta'?' active':''}" onclick="wizSetTab('apuesta')">APUESTAS</button>
     </div>
     <div class="strat-detected">${cardsHtml}</div>
-    <div class="card-source" style="margin-top:14px">Análisis basado en: Binance OHLC · The Odds API · alternative.me · ${ts()}</div>`);
+    <div class="card-source" style="margin-top:14px">Análisis basado en: CoinGecko OHLC · The Odds API · alternative.me · ${ts()}</div>`);
 }
 
 function wizSetTab(t) { STATE.wizard.tabFiltro=t; renderEstrategias(); }
@@ -2781,7 +2784,7 @@ function renderWizardFuturos() {
         <span class="wiz-snap-l">Señal:</span><span class="wiz-snap-v" style="color:${w.dir==='long'?'var(--tertiary)':'var(--error)'}">${w.dir==='long'?'COMPRAR CON APALANCAMIENTO':'VENDER CON APALANCAMIENTO'}</span>
       </div>
       <div class="wiz-warn-box" style="margin-top:14px">⚠️ Los futuros con apalancamiento son instrumentos de alto riesgo. Solo opera con capital que puedas perder totalmente. Stop Loss obligatorio siempre.</div>
-      <div class="card-source" style="margin-top:10px">Fuente: Binance · alternative.me · ${ts()}</div>
+      <div class="card-source" style="margin-top:10px">Fuente: CoinGecko · alternative.me · ${ts()}</div>
       ${wizNav(paso,4,'wizardBack()','<button class="btn btn-primary" onclick="wizardNext()">CONTINUAR →</button>')}`;
   } else if (paso===2) {
     const recCap=(STATE.bankroll*0.05).toFixed(2);
@@ -2930,7 +2933,7 @@ function renderWizardGrid() {
         <span class="wiz-snap-l">Mínimo 3 días (Low):</span><span class="wiz-snap-v">${fmtUSD(gridMin)}</span>
         <span class="wiz-snap-l">Máximo 3 días (High):</span><span class="wiz-snap-v">${fmtUSD(gridMax)}</span>
         <span class="wiz-snap-l">RSI actual:</span><span class="wiz-snap-v">${STATE.senalesCripto[w.sym]?.rsi?.toFixed(1)??'N/D'}</span>
-        <span class="wiz-snap-l">Fuente:</span><span class="wiz-snap-v" style="font-size:14px;color:var(--text-3)">Binance OHLC · ${ts()}</span>
+        <span class="wiz-snap-l">Fuente:</span><span class="wiz-snap-v" style="font-size:14px;color:var(--text-3)">CoinGecko OHLC · ${ts()}</span>
       </div>
       ${wizNav(paso,3,'wizardBack()','<button class="btn btn-primary" onclick="wizardNext()">CONFIGURAR GRID →</button>')}`;
   } else if (paso===2) {
@@ -2983,7 +2986,7 @@ function renderWizardGrid() {
         <div class="wiz-instruc-step">4. Inicia el bot y monitorea que el precio permanezca dentro del rango</div>
         <div class="wiz-instruc-step">5. Si el precio rompe el rango — detén el bot y evalúa la situación</div>
       </div>
-      <div class="card-source" style="margin-top:10px">Datos de rango: Binance OHLC · ${ts()}</div>
+      <div class="card-source" style="margin-top:10px">Datos de rango: CoinGecko OHLC · ${ts()}</div>
       ${wizNav(paso,3,'wizardBack()','<button class="btn btn-primary" onclick="cerrarWizard()">FINALIZAR ✅</button>')}`;
   }
   return wizWrap(`Wizard — Grid Trading · ${w.sym}`,paso,labels,body);
@@ -3162,6 +3165,21 @@ function traducirPick(nombre, mktKey, local, visitante) {
 
 // ─── SECCIÓN DEPORTES (The Odds API) ────────────────────────
 async function cargarDeportes() {
+  // Cache de 30 minutos — no quemar quota innecesariamente
+  const cacheCheck = Date.now();
+  const CACHE_MS = 30 * 60 * 1000; // 30 minutos
+  if (
+    STATE.valueBets &&
+    STATE.valueBets.length > 0 &&
+    STATE.ultimaActualizacionDeportes &&
+    (cacheCheck - STATE.ultimaActualizacionDeportes) < CACHE_MS
+  ) {
+    console.log('cargarDeportes: usando cache, faltan',
+      Math.round((CACHE_MS - (cacheCheck - STATE.ultimaActualizacionDeportes)) / 60000),
+      'minutos para refresh');
+    return;
+  }
+
   console.log('STEP 1: Starting');
   setHTML('dep-value-bets', '<div class="loading"><span class="spin">⌛</span> Buscando value bets...</div>');
   setHTML('dep-partidos',   '<div class="loading"><span class="spin">⌛</span> Cargando partidos...</div>');
@@ -3207,6 +3225,9 @@ async function cargarDeportes() {
       }
       if (r.headers?.get('x-requests-remaining')) {
         STATE.oddsRemaining = parseInt(r.headers.get('x-requests-remaining'));
+      }
+      if (r.status === 401) {
+        mostrarAvisoQuota();
       }
       if (r.ok && Array.isArray(data)) {
         console.log('cargarDeportes', stepNames[idx], data.length, 'games');
@@ -3452,6 +3473,18 @@ async function cargarDeportes() {
 
   setText('dep-sub', `${STATE.valueBets.length} value bets · ${games.length} partidos · The Odds API · ${ahora}`);
   mentorActualizarEstado();
+  STATE.ultimaActualizacionDeportes = Date.now();
+}
+
+function mostrarAvisoQuota() {
+  let aviso = document.getElementById('aviso-quota');
+  if (aviso) return;
+  aviso = document.createElement('div');
+  aviso.id = 'aviso-quota';
+  aviso.style.cssText = 'background:#1a0a00;border:1px solid #ff6b35;color:#ff6b35;padding:12px 16px;border-radius:8px;font-size:14px;margin:0 0 16px';
+  aviso.textContent = '⚠️ Quota de The Odds API agotada — datos se recargan mañana. Usando último cache disponible.';
+  const panel = document.getElementById('sec-panel') || document.getElementById('sec-deportes');
+  if (panel) panel.prepend(aviso);
 }
 
 async function checkOddsRemaining() {
