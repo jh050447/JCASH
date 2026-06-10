@@ -3310,23 +3310,30 @@ async function cargarDatosOddsPapi() {
   STATE.oddsPapiCargando = true;
 
   try {
-    const tournamentIds = await buscarTorneosActivos();
+    let tournamentIds = await buscarTorneosActivos();
     if (!tournamentIds || tournamentIds.length === 0) {
       console.error('OddsPapi: no hay torneos activos disponibles');
       return false;
     }
     console.log('OddsPapi: usando tournament IDs:', tournamentIds);
 
-    // Mapa tournamentId → nombre de liga
-    const ligaMap = {};
-    CFG.ODDSPAPI_TOURNAMENTS.activos.forEach((id, i) => {
-      ligaMap[id] = CFG.ODDSPAPI_TOURNAMENTS.activosNombres[i] || 'Fútbol';
-    });
     const MUNDIAL_ID = CFG.ODDSPAPI_TOURNAMENTS.mundialId || 16;
 
     // LLAMADA 1: Pinnacle — referencia "sharp" para probabilidad real (de-vig)
-    const res = await fetch(`${CFG.ODDSPAPI_BASE}/odds-by-tournaments?bookmaker=pinnacle&tournamentIds=${tournamentIds.join(',')}&oddsFormat=decimal&apiKey=${CFG.oddsPapiKey}`);
+    let res = await fetch(`${CFG.ODDSPAPI_BASE}/odds-by-tournaments?bookmaker=pinnacle&tournamentIds=${tournamentIds.join(',')}&oddsFormat=decimal&apiKey=${CFG.oddsPapiKey}`);
     console.log('OddsPapi odds status (pinnacle):', res.status, res.headers.get('access-control-allow-origin'));
+
+    if (res.status === 404) {
+      console.log('OddsPapi 404 — torneo sin fixtures, reintentando con torneos alternativos');
+      CFG.ODDSPAPI_TOURNAMENTS.activos = [];
+      const newIds = await buscarTorneosActivos();
+      if (newIds && newIds.length > 0) {
+        tournamentIds = newIds;
+        console.log('OddsPapi: reintentando con tournament IDs:', tournamentIds);
+        res = await fetch(`${CFG.ODDSPAPI_BASE}/odds-by-tournaments?bookmaker=pinnacle&tournamentIds=${tournamentIds.join(',')}&oddsFormat=decimal&apiKey=${CFG.oddsPapiKey}`);
+        console.log('OddsPapi odds status (pinnacle, reintento):', res.status);
+      }
+    }
 
     if (!res.ok) {
       console.error('OddsPapi error:', res.status);
@@ -3338,6 +3345,15 @@ async function cargarDatosOddsPapi() {
     if (fixtures.length > 0) {
       console.log('OddsPapi fixture sample completo:', JSON.stringify(fixtures[0]).slice(0, 600));
     }
+
+    // Mapa tournamentId → nombre de liga (refleja IDs finales, tras posible reintento)
+    const ligaMap = {};
+    CFG.ODDSPAPI_TOURNAMENTS.activos.forEach((id, i) => {
+      ligaMap[id] = CFG.ODDSPAPI_TOURNAMENTS.activosNombres[i] || 'Fútbol';
+    });
+
+    // Evitar rate limit de OddsPapi entre llamadas (máx. ~1 req/seg)
+    await new Promise(resolve => setTimeout(resolve, 1100));
 
     // LLAMADA 2: Bet365 — bookmaker "blando" para calcular edge real
     // OddsPapi solo permite UN bookmaker por llamada ("Please provide exactly
@@ -5860,6 +5876,7 @@ async function cargarNoticias() {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const d = await r.json();
     const arts = d?.articles || [];
+    console.log('Noticias fetch status:', r.status, 'data length:', arts?.length);
     if (!arts.length) {
       setHTML('noticias-list', '<div class="loading">Sin noticias disponibles en este momento</div>');
       return;
