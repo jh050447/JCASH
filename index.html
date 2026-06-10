@@ -1576,10 +1576,10 @@ const CFG = {
   fng:         'https://api.alternative.me/fng/?limit=1',
   ODDSPAPI_BASE: 'https://api.oddspapi.io/v4',
   oddsPapiKey: 'f1d9ee0e-35cf-40ef-bb8a-5eb5bfed774d',
-  // Tournament IDs conocidos — Mundial 2026 se busca dinámicamente
+  // Torneos activos — se detectan dinámicamente según partidos en curso
   ODDSPAPI_TOURNAMENTS: {
-    mundial: null, // se llena automáticamente al init
-    soccer: [17, 8, 7, 3, 4, 5, 6] // Premier League, LaLiga, UCL, Serie A, Bundesliga, Ligue1, Eredivisie
+    activos: [],        // se llena dinámicamente
+    activosNombres: []  // nombres para mostrar en UI
   },
   refresh: {
     precios:  60_000,   // 1 min
@@ -3201,34 +3201,56 @@ function traducirPick(nombre, mktKey, local, visitante) {
 }
 
 // ─── ODDSPAPI (fuente principal de odds) ────────────────────
-async function buscarTournamentMundial() {
-  if (CFG.ODDSPAPI_TOURNAMENTS.mundial) return CFG.ODDSPAPI_TOURNAMENTS.mundial;
-
+async function buscarTorneosActivos() {
   try {
-    // Llamada directa (sin proxy) — OddsPapi permite CORS pero bloquea
-    // peticiones desde Cloudflare Workers (403)
+    console.log('OddsPapi: buscando torneos activos...');
     const res = await fetch(`${CFG.ODDSPAPI_BASE}/tournaments?sportId=10&language=en&apiKey=${CFG.oddsPapiKey}`);
-    console.log('OddsPapi tournaments status:', res.status, res.headers.get('access-control-allow-origin'));
-    if (!res.ok) throw new Error(`${res.status}`);
+    if (!res.ok) throw new Error(`tournaments ${res.status}`);
     const torneos = await res.json();
 
-    const mundial = torneos.find(t =>
-      t.tournamentSlug?.includes('world-cup') ||
-      t.tournamentName?.toLowerCase().includes('world cup') ||
-      t.tournamentName?.toLowerCase().includes('mundial')
+    console.log('OddsPapi: total torneos recibidos:', torneos.length);
+
+    // Solo torneos con partidos próximos o en vivo
+    // Excluir clasificatorias, femenino, juveniles, reservas
+    const activos = torneos.filter(t =>
+      (t.upcomingFixtures > 0 || t.liveFixtures > 0) &&
+      !t.tournamentSlug?.includes('qualification') &&
+      !t.tournamentSlug?.includes('qualifying') &&
+      !t.tournamentSlug?.includes('women') &&
+      !t.tournamentSlug?.includes('u21') &&
+      !t.tournamentSlug?.includes('u20') &&
+      !t.tournamentSlug?.includes('u19') &&
+      !t.tournamentSlug?.includes('u18') &&
+      !t.tournamentSlug?.includes('reserve') &&
+      !t.tournamentSlug?.includes('youth') &&
+      !t.tournamentSlug?.includes('friendly') &&
+      !t.tournamentSlug?.includes('amistoso')
     );
 
-    if (mundial) {
-      CFG.ODDSPAPI_TOURNAMENTS.mundial = mundial.tournamentId;
-      console.log('OddsPapi Mundial encontrado:', mundial.tournamentId, mundial.tournamentName);
-      return mundial.tournamentId;
-    }
+    // Ordenar por más partidos próximos primero
+    activos.sort((a, b) =>
+      (b.upcomingFixtures + b.liveFixtures) -
+      (a.upcomingFixtures + a.liveFixtures)
+    );
 
-    console.warn('OddsPapi: Mundial 2026 no encontrado en torneos');
-    return null;
+    // Top 5 únicamente — límite de OddsPapi
+    const top5 = activos.slice(0, 5);
+
+    console.log('OddsPapi torneos top 5 activos:',
+      top5.map(t => `[${t.tournamentId}] ${t.tournamentName} — ${t.upcomingFixtures} upcoming, ${t.liveFixtures} live`));
+
+    // Guardar en CFG para referencia
+    CFG.ODDSPAPI_TOURNAMENTS.activos = top5.map(t => t.tournamentId);
+    CFG.ODDSPAPI_TOURNAMENTS.activosNombres = top5.map(t => t.tournamentName);
+
+    return top5.map(t => t.tournamentId);
+
   } catch (err) {
-    console.error('OddsPapi buscarTournamentMundial error:', err);
-    return null;
+    console.error('OddsPapi buscarTorneosActivos error:', err);
+    // Fallback: IDs conocidos si la llamada falla
+    // En junio 2026 el Mundial debería ser el torneo principal
+    console.log('OddsPapi: usando IDs de fallback');
+    return [17, 8, 7, 3, 13];
   }
 }
 
@@ -3240,14 +3262,14 @@ async function cargarDatosOddsPapi() {
   STATE.oddsPapiCargando = true;
 
   try {
-    // Buscar tournament ID del Mundial si no lo tenemos
-    const mundialId = await buscarTournamentMundial();
+    const tournamentIds = await buscarTorneosActivos();
+    if (!tournamentIds || tournamentIds.length === 0) {
+      console.error('OddsPapi: no hay torneos activos disponibles');
+      return false;
+    }
+    console.log('OddsPapi: usando tournament IDs:', tournamentIds);
 
-    // Construir lista de tournament IDs
-    const tournamentIds = [...CFG.ODDSPAPI_TOURNAMENTS.soccer];
-    if (mundialId) tournamentIds.push(mundialId);
-
-    // UNA SOLA LLAMADA con Pinnacle — trae todo (sin proxy, ver buscarTournamentMundial)
+    // UNA SOLA LLAMADA con Pinnacle — trae todo (sin proxy, ver buscarTorneosActivos)
     const res = await fetch(`${CFG.ODDSPAPI_BASE}/odds-by-tournaments?bookmaker=pinnacle&tournamentIds=${tournamentIds.join(',')}&oddsFormat=decimal&apiKey=${CFG.oddsPapiKey}`);
     console.log('OddsPapi odds status:', res.status, res.headers.get('access-control-allow-origin'));
 
@@ -3282,7 +3304,8 @@ async function cargarDatosOddsPapi() {
 
       const homeName = fixture.participant1Name || `Equipo ${fixture.participant1Id}`;
       const awayName = fixture.participant2Name || `Equipo ${fixture.participant2Id}`;
-      const esMundial = !!(mundialId && fixture.tournamentId === mundialId);
+      const ligaLower = (fixture.tournamentName || '').toLowerCase();
+      const esMundial = ligaLower.includes('world cup') && !ligaLower.includes('qualif');
 
       if (mercado1X2?.outcomes) {
         const outcomes = mercado1X2.outcomes;
@@ -3810,6 +3833,14 @@ function actualizarMonitorOddsPapi() {
   const color = pct > 50 ? '#00ff88' : pct > 20 ? '#ffd700' : '#ff4444';
   const estado = pct > 50 ? 'OK' : pct > 20 ? 'BAJO' : 'CRÍTICO';
 
+  const nombres = CFG.ODDSPAPI_TOURNAMENTS?.activosNombres || [];
+  const torneosHtml = nombres.length > 0
+    ? `<div style="color:#4a5568; font-size:10px; margin-top:4px; line-height:1.5;">
+        ${nombres.slice(0,3).map(n => `• ${n}`).join('<br>')}
+        ${nombres.length > 3 ? `<br>• +${nombres.length - 3} más` : ''}
+       </div>`
+    : '';
+
   el.innerHTML =
     '<div style="padding:8px 0">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
@@ -3823,6 +3854,7 @@ function actualizarMonitorOddsPapi() {
     '<span style="color:#4a5568;font-size:10px">' + used + ' usadas</span>' +
     '<span style="color:' + color + ';font-size:11px;font-weight:600">' + remaining + '/250 restantes</span>' +
     '</div>' +
+    torneosHtml +
     '</div>';
 }
 
