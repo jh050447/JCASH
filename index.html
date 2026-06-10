@@ -3451,6 +3451,7 @@ async function cargarDatosOddsPapi() {
           bk:        bet365 ? 'Bet365' : 'Pinnacle',
           score:     Math.round(Math.min(edge * 5, 100)),
           fuente:    'oddspapi',
+          outcome,
         });
       });
     }
@@ -5976,7 +5977,67 @@ function setCalcTab(tab) {
 }
 
 // ── ODDS API ────────────────────────────────────────────────
+// Convierte STATE.valueBets (esquema OddsPapi/fallback) al formato de
+// STATE.an.games que esperan renderAnStep1()/seleccionarPartido()
+// (home_team, away_team, commence_time, sport_title, esMundial, bookmakers[].markets[].outcomes)
+function construirGamesDesdeValueBets(valueBets) {
+  const porPartido = {};
+  valueBets.forEach(vb => {
+    const key = vb.gameId ?? vb.partido;
+    if (!porPartido[key]) {
+      const [homeTeam, awayTeam] = (vb.partido || '').split(' vs ');
+      porPartido[key] = {
+        home_team: homeTeam || '',
+        away_team: awayTeam || '',
+        commence_time: vb.fecha,
+        sport_title: vb.liga,
+        esMundial: vb.esMundial || false,
+        bookmakers: (vb.bk && vb.bk !== '—')
+          ? [{ title: vb.bk, markets: [{ key: 'h2h', outcomes: [] }] }]
+          : [],
+      };
+    }
+    if (vb.outcome && vb.odd > 0) {
+      const mkt = porPartido[key].bookmakers[0]?.markets[0];
+      if (mkt) {
+        const name = vb.outcome === 'home' ? porPartido[key].home_team
+                    : vb.outcome === 'draw' ? 'Draw'
+                    : porPartido[key].away_team;
+        mkt.outcomes.push({ name, price: vb.odd });
+      }
+    }
+  });
+  return Object.values(porPartido)
+    .sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time));
+}
+
 async function cargarPartidosAnalisis() {
+  // Si OddsPapi ya tiene datos, reutilizarlos
+  if (STATE.valueBets?.length > 0 && !STATE.modoFallback) {
+    console.log('cargarPartidosAnalisis: reutilizando datos de OddsPapi');
+    STATE.an.games = construirGamesDesdeValueBets(STATE.valueBets);
+    renderAnStep1();
+    return;
+  }
+
+  // Si hay fallback activo, usar esos partidos
+  if (STATE.modoFallback && STATE.valueBets?.length > 0) {
+    console.log('cargarPartidosAnalisis: reutilizando fallback');
+    STATE.an.games = construirGamesDesdeValueBets(STATE.valueBets);
+    renderAnStep1();
+    return;
+  }
+
+  // Si no hay datos, intentar cargar
+  await cargarDeportes();
+  if (STATE.valueBets?.length > 0) {
+    STATE.an.games = construirGamesDesdeValueBets(STATE.valueBets);
+    renderAnStep1();
+    return;
+  }
+
+  // Sin datos disponibles — último recurso: llamada directa a The Odds API
+  console.log('cargarPartidosAnalisis: sin datos disponibles, usando The Odds API directa');
   setHTML('an-content','<div class="loading"><span class="spin">⌛</span> Cargando partidos de fútbol...</div>');
   try {
     const tFrom = new Date(Date.now() - 3 * 3600000).toISOString().split('.')[0] + 'Z';
