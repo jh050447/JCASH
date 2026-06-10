@@ -3284,6 +3284,24 @@ async function buscarTorneosActivos() {
   }
 }
 
+async function resolverNombresOddsPapi(participantIds) {
+  try {
+    const ids = [...new Set(participantIds)].join(',');
+    const res = await fetch(`${CFG.ODDSPAPI_BASE}/participants?participantIds=${ids}&sportId=10&apiKey=${CFG.oddsPapiKey}`);
+    if (!res.ok) throw new Error(`participants ${res.status}`);
+    const data = await res.json();
+
+    // La API devuelve un diccionario { "participantId": "nombre" }
+    const mapa = {};
+    Object.keys(data).forEach(id => { mapa[id] = data[id]; });
+    console.log('OddsPapi: nombres resueltos:', Object.keys(mapa).length);
+    return mapa;
+  } catch (err) {
+    console.error('OddsPapi resolverNombres error:', err);
+    return {};
+  }
+}
+
 async function cargarDatosOddsPapi() {
   if (STATE.oddsPapiCargando) {
     console.log('OddsPapi: ya en progreso, ignorando llamada duplicada');
@@ -3310,6 +3328,9 @@ async function cargarDatosOddsPapi() {
 
     const fixtures = await res.json();
     console.log('OddsPapi: fixtures recibidos:', fixtures.length);
+    if (fixtures.length > 0) {
+      console.log('OddsPapi fixture sample completo:', JSON.stringify(fixtures[0]).slice(0, 600));
+    }
 
     // Actualizar contador — OddsPapi no devuelve headers de quota
     // Decrementar manualmente
@@ -3318,6 +3339,16 @@ async function cargarDatosOddsPapi() {
     localStorage.setItem('oddsPapiUsed', STATE.oddsPapiUsed);
     localStorage.setItem('oddsPapiRemaining', STATE.oddsPapiRemaining);
     actualizarMonitorOddsPapi();
+
+    // Recolectar todos los IDs de participantes
+    const participantIds = [];
+    fixtures.forEach(f => {
+      if (f.participant1Id) participantIds.push(f.participant1Id);
+      if (f.participant2Id) participantIds.push(f.participant2Id);
+    });
+
+    // Resolver nombres
+    const nombresMap = await resolverNombresOddsPapi(participantIds);
 
     // Parsear fixtures al formato que usa el sistema (mismo esquema que STATE.valueBets)
     const valueBets = [];
@@ -3332,8 +3363,8 @@ async function cargarDatosOddsPapi() {
       // Market 101 = 1X2 (h2h)
       const mercado1X2 = markets['101'];
 
-      const homeName = fixture.participant1Name || `Equipo ${fixture.participant1Id}`;
-      const awayName = fixture.participant2Name || `Equipo ${fixture.participant2Id}`;
+      const homeName = nombresMap[fixture.participant1Id] || `Equipo ${fixture.participant1Id}`;
+      const awayName = nombresMap[fixture.participant2Id] || `Equipo ${fixture.participant2Id}`;
       const ligaLower = (fixture.tournamentName || '').toLowerCase();
       const esMundial = ligaLower.includes('world cup') && !ligaLower.includes('qualif');
 
