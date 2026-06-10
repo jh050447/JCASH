@@ -3317,6 +3317,13 @@ async function cargarDatosOddsPapi() {
     }
     console.log('OddsPapi: usando tournament IDs:', tournamentIds);
 
+    // Mapa tournamentId → nombre de liga
+    const ligaMap = {};
+    CFG.ODDSPAPI_TOURNAMENTS.activos.forEach((id, i) => {
+      ligaMap[id] = CFG.ODDSPAPI_TOURNAMENTS.activosNombres[i] || 'Fútbol';
+    });
+    const MUNDIAL_ID = CFG.ODDSPAPI_TOURNAMENTS.mundialId || 16;
+
     // UNA SOLA LLAMADA con Pinnacle — trae todo (sin proxy, ver buscarTorneosActivos)
     const res = await fetch(`${CFG.ODDSPAPI_BASE}/odds-by-tournaments?bookmaker=pinnacle&tournamentIds=${tournamentIds.join(',')}&oddsFormat=decimal&apiKey=${CFG.oddsPapiKey}`);
     console.log('OddsPapi odds status:', res.status, res.headers.get('access-control-allow-origin'));
@@ -3365,8 +3372,7 @@ async function cargarDatosOddsPapi() {
 
       const homeName = nombresMap[fixture.participant1Id] || `Equipo ${fixture.participant1Id}`;
       const awayName = nombresMap[fixture.participant2Id] || `Equipo ${fixture.participant2Id}`;
-      const ligaLower = (fixture.tournamentName || '').toLowerCase();
-      const esMundial = ligaLower.includes('world cup') && !ligaLower.includes('qualif');
+      const esMundial = fixture.tournamentId === MUNDIAL_ID;
 
       if (mercado1X2?.outcomes) {
         const outcomes = mercado1X2.outcomes;
@@ -3397,7 +3403,7 @@ async function cargarDatosOddsPapi() {
             valueBets.push({
               gameId:    fixture.fixtureId,
               partido:   homeName + ' vs ' + awayName,
-              liga:      fixture.tournamentName || 'Fútbol',
+              liga:      ligaMap[fixture.tournamentId] || 'Fútbol',
               fecha:     fixture.startTime,
               esMundial: esMundial,
               mercado:   traducirMercado('h2h'),
