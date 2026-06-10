@@ -3237,15 +3237,31 @@ async function buscarTorneosActivos() {
       (a.upcomingFixtures + a.liveFixtures)
     );
 
-    // Si el Mundial 2026 está en la lista, moverlo al frente
-    const mundialIdx = activos.findIndex(t =>
-      t.tournamentName?.toLowerCase().includes('world cup') &&
-      !t.tournamentSlug?.includes('qualif')
-    );
-    if (mundialIdx > 0) {
-      const mundial = activos.splice(mundialIdx, 1)[0];
-      activos.unshift(mundial);
+    // Mundial 2026 = ID 16 en OddsPapi (confirmado)
+    // Forzarlo al frente cuando tenga cualquier tipo de fixtures
+    const MUNDIAL_ID = 16;
+    const mundialTorneo = torneos.find(t => t.tournamentId === MUNDIAL_ID);
+
+    if (mundialTorneo && (mundialTorneo.upcomingFixtures > 0 || mundialTorneo.liveFixtures > 0)) {
+      // Tiene partidos próximos — moverlo al frente de activos
+      const idx = activos.findIndex(t => t.tournamentId === MUNDIAL_ID);
+      if (idx > 0) {
+        activos.splice(idx, 1);
+        activos.unshift(mundialTorneo);
+      } else if (idx === -1) {
+        activos.unshift(mundialTorneo);
+      }
+      console.log('OddsPapi: Mundial 2026 activado y priorizado');
     }
+
+    // Guardar referencia del Mundial independientemente
+    CFG.ODDSPAPI_TOURNAMENTS.mundialId = MUNDIAL_ID;
+    CFG.ODDSPAPI_TOURNAMENTS.mundialActivo =
+      (mundialTorneo?.upcomingFixtures > 0 || mundialTorneo?.liveFixtures > 0);
+
+    console.log('OddsPapi: Mundial status — future:', mundialTorneo?.futureFixtures,
+      'upcoming:', mundialTorneo?.upcomingFixtures,
+      'live:', mundialTorneo?.liveFixtures);
 
     // Top 5 únicamente — límite de OddsPapi
     const top5 = activos.slice(0, 5);
@@ -3855,6 +3871,16 @@ function actualizarMonitorOddsPapi() {
        </div>`
     : '';
 
+  const mundialActivo = CFG.ODDSPAPI_TOURNAMENTS?.mundialActivo;
+  const mundialHtml = `
+    <div style="margin-top:6px; padding-top:6px; border-top:1px solid #1e2d45;">
+        <span style="color:#4a5568; font-size:10px;">🏆 Mundial 2026: </span>
+        <span style="color:${mundialActivo ? '#00ff88' : '#ffd700'}; font-size:10px; font-weight:600;">
+            ${mundialActivo ? 'ACTIVO' : 'En espera de odds...'}
+        </span>
+    </div>
+  `;
+
   el.innerHTML =
     '<div style="padding:8px 0">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
@@ -3869,6 +3895,7 @@ function actualizarMonitorOddsPapi() {
     '<span style="color:' + color + ';font-size:11px;font-weight:600">' + remaining + '/250 restantes</span>' +
     '</div>' +
     torneosHtml +
+    mundialHtml +
     '</div>';
 }
 
