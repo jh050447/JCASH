@@ -1032,6 +1032,11 @@ body {
           <span style="color:#4a5568;font-size:11px">ODDS API — cargando...</span>
         </div>
       </div>
+      <div style="padding:0 12px;border-top:1px solid #1e2d45;margin-top:4px">
+        <div id="monitor-quota-oddspapi" style="min-height:48px">
+          <span style="color:#4a5568;font-size:11px">⚡ ODDSPAPI — cargando...</span>
+        </div>
+      </div>
       <div class="sidebar-bk" id="sidebar-bk" onclick="editarBankroll()">
         <span>💰 <span class="bk-val" id="sidebar-bk-val">$200.00</span></span>
         <span class="bk-edit-icon">📝</span>
@@ -1176,10 +1181,13 @@ body {
             <div class="sec-title">Apuestas Deportivas</div>
             <div class="sec-sub" id="dep-sub">Fuente: The Odds API · football-data.org</div>
           </div>
-          <button class="btn btn-ghost" onclick="cargarDeportes()">
-            <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px">refresh</span>
-            Refrescar
-          </button>
+          <div style="display:flex;gap:8px">
+            <button onclick="actualizarDatosManual()" id="btn-actualizar-deportes" style="background:transparent;border:1px solid #00ff88;color:#00ff88;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">🔄 Actualizar datos</button>
+            <button class="btn btn-ghost" onclick="cargarDeportes()">
+              <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px">refresh</span>
+              Refrescar
+            </button>
+          </div>
         </div>
 
         <!-- Card 1: Value Bets — ancho completo -->
@@ -1238,10 +1246,13 @@ body {
             <div class="sec-title">🎯 Decision Engine</div>
             <div class="sec-sub" id="de-sub">Las mejores apuestas del día por score</div>
           </div>
-          <button class="btn btn-ghost" onclick="ejecutarDecisionEngine();renderListaDE()">
-            <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px">refresh</span>
-            Actualizar
-          </button>
+          <div style="display:flex;gap:8px">
+            <button onclick="actualizarDatosManual()" id="btn-actualizar-de" style="background:transparent;border:1px solid #00ff88;color:#00ff88;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">🔄 Actualizar datos</button>
+            <button class="btn btn-ghost" onclick="ejecutarDecisionEngine();renderListaDE()">
+              <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px">refresh</span>
+              Actualizar
+            </button>
+          </div>
         </div>
         <div id="de-lista"></div>
         <div id="de-detalle" style="display:none"></div>
@@ -1563,6 +1574,12 @@ const CFG = {
   oddsKey:     '',
   footballKey: '',
   fng:         'https://api.alternative.me/fng/?limit=1',
+  ODDSPAPI_BASE: 'https://api.oddspapi.io/v4',
+  // Tournament IDs conocidos — Mundial 2026 se busca dinámicamente
+  ODDSPAPI_TOURNAMENTS: {
+    mundial: null, // se llena automáticamente al init
+    soccer: [17, 8, 7, 3, 4, 5, 6] // Premier League, LaLiga, UCL, Serie A, Bundesliga, Ligue1, Eredivisie
+  },
   refresh: {
     precios:  60_000,   // 1 min
     senales: 300_000,   // 5 min
@@ -1635,6 +1652,9 @@ const STATE = {
   oddsRemaining:    null,
   oddsApiRemaining: parseInt(localStorage.getItem('oddsApiRemaining')) || null,
   oddsApiUsed:      parseInt(localStorage.getItem('oddsApiUsed')) || null,
+  oddsPapiRemaining: parseInt(localStorage.getItem('oddsPapiRemaining')) || 250,
+  oddsPapiUsed:      parseInt(localStorage.getItem('oddsPapiUsed')) || 0,
+  oddsPapiCargando:  false,
   ultimaActualizacionDeportes: null,
   modoFallback:    false,
   deportesCargando: false,
@@ -3179,7 +3199,159 @@ function traducirPick(nombre, mktKey, local, visitante) {
   return nombre;
 }
 
-// ─── SECCIÓN DEPORTES (The Odds API) ────────────────────────
+// ─── ODDSPAPI (fuente principal de odds) ────────────────────
+async function buscarTournamentMundial() {
+  if (CFG.ODDSPAPI_TOURNAMENTS.mundial) return CFG.ODDSPAPI_TOURNAMENTS.mundial;
+
+  try {
+    const url = `${CFG.ODDSPAPI_BASE}/tournaments?sportId=10&language=en`;
+    const res = await fetchSeguro(proxyUrl(url) + '&api=oddspapi', 8000);
+    if (!res.ok) throw new Error(`${res.status}`);
+    const torneos = await res.json();
+
+    const mundial = torneos.find(t =>
+      t.tournamentSlug?.includes('world-cup') ||
+      t.tournamentName?.toLowerCase().includes('world cup') ||
+      t.tournamentName?.toLowerCase().includes('mundial')
+    );
+
+    if (mundial) {
+      CFG.ODDSPAPI_TOURNAMENTS.mundial = mundial.tournamentId;
+      console.log('OddsPapi Mundial encontrado:', mundial.tournamentId, mundial.tournamentName);
+      return mundial.tournamentId;
+    }
+
+    console.warn('OddsPapi: Mundial 2026 no encontrado en torneos');
+    return null;
+  } catch (err) {
+    console.error('OddsPapi buscarTournamentMundial error:', err);
+    return null;
+  }
+}
+
+async function cargarDatosOddsPapi() {
+  if (STATE.oddsPapiCargando) {
+    console.log('OddsPapi: ya en progreso, ignorando llamada duplicada');
+    return false;
+  }
+  STATE.oddsPapiCargando = true;
+
+  try {
+    // Buscar tournament ID del Mundial si no lo tenemos
+    const mundialId = await buscarTournamentMundial();
+
+    // Construir lista de tournament IDs
+    const tournamentIds = [...CFG.ODDSPAPI_TOURNAMENTS.soccer];
+    if (mundialId) tournamentIds.push(mundialId);
+
+    // UNA SOLA LLAMADA con Pinnacle — trae todo
+    const url = `${CFG.ODDSPAPI_BASE}/odds-by-tournaments?bookmaker=pinnacle&tournamentIds=${tournamentIds.join(',')}&oddsFormat=decimal`;
+
+    console.log('OddsPapi: fetching', url);
+    const res = await fetchSeguro(proxyUrl(url) + '&api=oddspapi', 10000);
+
+    if (!res.ok) {
+      console.error('OddsPapi error:', res.status);
+      return false;
+    }
+
+    const fixtures = await res.json();
+    console.log('OddsPapi: fixtures recibidos:', fixtures.length);
+
+    // Actualizar contador — OddsPapi no devuelve headers de quota
+    // Decrementar manualmente
+    STATE.oddsPapiUsed = (STATE.oddsPapiUsed || 0) + 1;
+    STATE.oddsPapiRemaining = Math.max(0, 250 - STATE.oddsPapiUsed);
+    localStorage.setItem('oddsPapiUsed', STATE.oddsPapiUsed);
+    localStorage.setItem('oddsPapiRemaining', STATE.oddsPapiRemaining);
+    actualizarMonitorOddsPapi();
+
+    // Parsear fixtures al formato que usa el sistema (mismo esquema que STATE.valueBets)
+    const valueBets = [];
+
+    for (const fixture of fixtures) {
+      const pinnacle = fixture.bookmakerOdds?.pinnacle;
+      if (!pinnacle || !pinnacle.bookmakerIsActive) continue;
+
+      const markets = pinnacle.markets;
+      if (!markets) continue;
+
+      // Market 101 = 1X2 (h2h)
+      const mercado1X2 = markets['101'];
+
+      const homeName = fixture.participant1Name || `Equipo ${fixture.participant1Id}`;
+      const awayName = fixture.participant2Name || `Equipo ${fixture.participant2Id}`;
+      const esMundial = !!(mundialId && fixture.tournamentId === mundialId);
+
+      if (mercado1X2?.outcomes) {
+        const outcomes = mercado1X2.outcomes;
+        const oddHome = outcomes['101']?.players?.['0']?.price;
+        const oddDraw = outcomes['102']?.players?.['0']?.price;
+        const oddAway = outcomes['103']?.players?.['0']?.price;
+
+        if (oddHome && oddDraw && oddAway) {
+          // Calcular probabilidades reales desde Pinnacle (de-vig)
+          const sumInv = 1/oddHome + 1/oddDraw + 1/oddAway;
+
+          [
+            { odd: oddHome, outcome: 'home' },
+            { odd: oddDraw, outcome: 'draw' },
+            { odd: oddAway, outcome: 'away' }
+          ].forEach(({ odd, outcome }) => {
+            const trueProb    = (1/odd) / sumInv;
+            const impliedProb = 1 / odd;
+            // Edge vs Pinnacle mismo (referencia interna)
+            // Cuando se integre Ecuabet el edge será Pinnacle vs Ecuabet
+            const edge = ((trueProb * odd) - 1) * 100;
+            if (edge <= 0) return;
+
+            const b      = odd - 1;
+            const kellyF = b > 0 ? Math.max(0, (trueProb * b - (1 - trueProb)) / b * 0.25) : 0;
+            const stake  = STATE.bankroll * kellyF;
+
+            valueBets.push({
+              gameId:    fixture.fixtureId,
+              partido:   homeName + ' vs ' + awayName,
+              liga:      fixture.tournamentName || 'Fútbol',
+              fecha:     fixture.startTime,
+              esMundial: esMundial,
+              mercado:   traducirMercado('h2h'),
+              pick:      traducirPick(outcome, 'h2h', homeName, awayName),
+              odd,
+              edge,
+              probReal:  trueProb * 100,
+              probIp:    impliedProb * 100,
+              kelly:     kellyF * 100,
+              stake,
+              ganancia:  stake * b,
+              bk:        'Pinnacle',
+              score:     Math.round(Math.min(edge * 5, 100)),
+              fuente:    'oddspapi',
+            });
+          });
+        }
+      }
+    }
+
+    // Ordenar por edge descendente
+    valueBets.sort((a, b) => b.edge - a.edge);
+    STATE.valueBets = valueBets;
+    STATE.oddsGames = [];
+    STATE.modoFallback = false;
+    STATE.ultimaActualizacionDeportes = Date.now();
+
+    console.log('OddsPapi: STATE.valueBets final:', valueBets.length);
+    return true;
+
+  } catch (err) {
+    console.error('OddsPapi cargarDatosOddsPapi error:', err);
+    return false;
+  } finally {
+    STATE.oddsPapiCargando = false;
+  }
+}
+
+// ─── SECCIÓN DEPORTES (The Odds API — fuente auxiliar) ──────
 async function cargarDeportes() {
   // Evitar llamadas simultáneas (condición de carrera)
   if (STATE.deportesCargando) {
@@ -3204,6 +3376,25 @@ async function cargarDeportes() {
     return;
   }
 
+  // ── INTENTO 1: OddsPapi (fuente principal) ──────────────────
+  console.log('cargarDeportes: intentando OddsPapi...');
+  const oddspapiOk = await cargarDatosOddsPapi();
+
+  if (oddspapiOk && STATE.valueBets?.length > 0) {
+    console.log('cargarDeportes: OddsPapi exitoso', STATE.valueBets.length, 'bets');
+    mentorActualizarEstado('ready');
+    ejecutarDecisionEngine();
+    setText('dep-sub', `${STATE.valueBets.length} value bets · OddsPapi (Pinnacle) · ${ts()}`);
+    setHTML('dep-value-bets', `<div class="loading">📡 ${STATE.valueBets.length} value bets vía OddsPapi — ver detalle en Decision Engine</div>`);
+    setHTML('dep-partidos', `<div class="loading">📡 Partidos vía OddsPapi (Pinnacle) · ${ts()}</div>`);
+    document.querySelectorAll('.aviso-fallback').forEach(el => el.remove());
+    if (typeof renderMentor === 'function') renderMentor();
+    if (typeof renderListaDE === 'function') renderListaDE();
+    return; // No necesitamos The Odds API
+  }
+
+  // ── INTENTO 2: The Odds API (auxiliar) ──────────────────────
+  console.log('cargarDeportes: OddsPapi falló, intentando The Odds API...');
   console.log('STEP 1: Starting');
   setHTML('dep-value-bets', '<div class="loading"><span class="spin">⌛</span> Buscando value bets...</div>');
   setHTML('dep-partidos',   '<div class="loading"><span class="spin">⌛</span> Cargando partidos...</div>');
@@ -3528,6 +3719,25 @@ async function cargarDeportes() {
   }
 }
 
+// ─── ACTUALIZACIÓN MANUAL (botón "🔄 Actualizar datos") ─────
+async function actualizarDatosManual() {
+  const btns = document.querySelectorAll('[id^="btn-actualizar"]');
+  btns.forEach(btn => {
+    btn.disabled = true;
+    btn.textContent = '⏳ Cargando...';
+  });
+
+  // Forzar refresh ignorando cache
+  STATE.ultimaActualizacionDeportes = null;
+
+  await cargarDeportes();
+
+  btns.forEach(btn => {
+    btn.disabled = false;
+    btn.textContent = '🔄 Actualizar datos';
+  });
+}
+
 function mostrarAvisoQuota() {
   let aviso = document.getElementById('aviso-quota');
   if (aviso) return;
@@ -3586,6 +3796,33 @@ function actualizarMonitorQuota() {
     localStorage.setItem('oddsApiRemaining', STATE.oddsApiRemaining);
     localStorage.setItem('oddsApiUsed', STATE.oddsApiUsed);
   } catch (e) {}
+}
+
+function actualizarMonitorOddsPapi() {
+  const el = document.getElementById('monitor-quota-oddspapi');
+  if (!el) return;
+
+  const used = STATE.oddsPapiUsed || 0;
+  const remaining = STATE.oddsPapiRemaining ?? 250;
+  const total = 250;
+  const pct = Math.round((remaining / total) * 100);
+  const color = pct > 50 ? '#00ff88' : pct > 20 ? '#ffd700' : '#ff4444';
+  const estado = pct > 50 ? 'OK' : pct > 20 ? 'BAJO' : 'CRÍTICO';
+
+  el.innerHTML =
+    '<div style="padding:8px 0">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
+    '<span style="color:#8892a4;font-size:11px;letter-spacing:1px">⚡ ODDSPAPI</span>' +
+    '<span style="color:' + color + ';font-size:11px;font-weight:700">' + estado + '</span>' +
+    '</div>' +
+    '<div style="background:#1a2540;border-radius:4px;height:5px;margin-bottom:5px">' +
+    '<div style="background:' + color + ';width:' + pct + '%;height:100%;border-radius:4px;transition:width 0.5s"></div>' +
+    '</div>' +
+    '<div style="display:flex;justify-content:space-between">' +
+    '<span style="color:#4a5568;font-size:10px">' + used + ' usadas</span>' +
+    '<span style="color:' + color + ';font-size:11px;font-weight:600">' + remaining + '/250 restantes</span>' +
+    '</div>' +
+    '</div>';
 }
 
 // ─── FALLBACK DE PARTIDOS — FOOTBALL-DATA.ORG ─────────────────
@@ -5532,6 +5769,9 @@ async function init() {
   if (STATE.oddsApiRemaining !== null && STATE.oddsApiRemaining !== undefined) {
     actualizarMonitorQuota();
   }
+
+  // Mostrar último valor conocido de quota OddsPapi (persistido en localStorage)
+  actualizarMonitorOddsPapi();
 
   // Restaurar sección activa
   const secInicial = STATE.secActiva;
