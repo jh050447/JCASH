@@ -1027,6 +1027,11 @@ body {
     </a>
 
     <div class="sidebar-footer">
+      <div style="padding:0 12px;border-top:1px solid #1e2d45;margin-top:8px">
+        <div id="monitor-quota-odds" style="min-height:40px;padding:6px 0">
+          <span style="color:#4a5568;font-size:11px">ODDS API — cargando...</span>
+        </div>
+      </div>
       <div class="sidebar-bk" id="sidebar-bk" onclick="editarBankroll()">
         <span>💰 <span class="bk-val" id="sidebar-bk-val">$200.00</span></span>
         <span class="bk-edit-icon">📝</span>
@@ -1628,6 +1633,8 @@ const STATE = {
   oddsLimitExceeded: false,
   oddsResetDate:    null,
   oddsRemaining:    null,
+  oddsApiRemaining: parseInt(localStorage.getItem('oddsApiRemaining')) || null,
+  oddsApiUsed:      parseInt(localStorage.getItem('oddsApiUsed')) || null,
   ultimaActualizacionDeportes: null,
   modoFallback:    false,
   ohlc:            { BTC:[], ETH:[], SOL:[], XRP:[] },
@@ -3230,16 +3237,26 @@ async function cargarDeportes() {
         mentorActualizarEstado('ready');
         setHTML('dep-value-bets', '<div class="wiz-info-box" style="background:var(--error);color:#fff">⚠️ Límite de API alcanzado</div>');
         setHTML('dep-partidos', '');
+        STATE.oddsApiRemaining = 0;
+        actualizarMonitorQuota();
         await cargarPartidosFallback();
         STATE.ultimaActualizacionDeportes = Date.now();
         return;
       }
-      if (r.headers?.get('x-requests-remaining')) {
-        STATE.oddsRemaining = parseInt(r.headers.get('x-requests-remaining'));
+      // Capturar quota restante de The Odds API
+      const quotaRemaining = r.headers?.get('x-requests-remaining');
+      const quotaUsed = r.headers?.get('x-requests-used');
+      if (quotaRemaining !== null && quotaUsed !== null) {
+        STATE.oddsRemaining = parseInt(quotaRemaining);
+        STATE.oddsApiRemaining = parseInt(quotaRemaining);
+        STATE.oddsApiUsed = parseInt(quotaUsed);
+        actualizarMonitorQuota();
       }
       if (r.status === 401) {
         mostrarAvisoQuota();
         huboError401 = true;
+        STATE.oddsApiRemaining = 0;
+        actualizarMonitorQuota();
       }
       if (r.ok && Array.isArray(data)) {
         console.log('cargarDeportes', stepNames[idx], data.length, 'games');
@@ -3504,6 +3521,55 @@ function mostrarAvisoQuota() {
   aviso.textContent = '⚠️ Quota de The Odds API agotada — datos se recargan mañana. Usando último cache disponible.';
   const panel = document.getElementById('sec-panel') || document.getElementById('sec-deportes');
   if (panel) panel.prepend(aviso);
+}
+
+// ─── MONITOR DE QUOTA — THE ODDS API (sidebar) ────────────────
+function actualizarMonitorQuota() {
+  const el = document.getElementById('monitor-quota-odds');
+  if (!el) return;
+
+  const remaining = STATE.oddsApiRemaining ?? null;
+  const used = STATE.oddsApiUsed ?? null;
+
+  if (remaining === null) {
+    el.innerHTML = '<span style="color:#4a5568;font-size:11px">ODDS API — sin datos de quota</span>';
+    return;
+  }
+
+  if (remaining === 0) {
+    el.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
+      '<span style="color:#8892a4;font-size:11px;letter-spacing:1px">ODDS API</span>' +
+      '<span style="color:#ff4444;font-size:11px;font-weight:700">CRÍTICO</span>' +
+      '</div>' +
+      '<div style="background:#1a2540;border-radius:4px;height:5px;margin-bottom:5px">' +
+      '<div style="background:#ff4444;width:100%;height:100%;border-radius:4px"></div>' +
+      '</div>' +
+      '<div style="color:#ff4444;font-size:10px;text-align:center">AGOTADA — se resetea mañana</div>';
+  } else {
+    const total = remaining + (used || 0);
+    const pct = total > 0 ? Math.round((remaining / total) * 100) : 0;
+    const color = pct > 50 ? '#00ff88' : pct > 20 ? '#ffd700' : '#ff4444';
+    const estado = pct > 50 ? 'OK' : pct > 20 ? 'BAJO' : 'CRÍTICO';
+
+    el.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
+      '<span style="color:#8892a4;font-size:11px;letter-spacing:1px">ODDS API</span>' +
+      '<span style="color:' + color + ';font-size:11px;font-weight:700">' + estado + '</span>' +
+      '</div>' +
+      '<div style="background:#1a2540;border-radius:4px;height:5px;margin-bottom:5px">' +
+      '<div style="background:' + color + ';width:' + pct + '%;height:100%;border-radius:4px;transition:width 0.5s"></div>' +
+      '</div>' +
+      '<div style="display:flex;justify-content:space-between">' +
+      '<span style="color:#4a5568;font-size:10px">' + used + ' usadas</span>' +
+      '<span style="color:' + color + ';font-size:11px;font-weight:600">' + remaining + ' restantes</span>' +
+      '</div>';
+  }
+
+  try {
+    localStorage.setItem('oddsApiRemaining', STATE.oddsApiRemaining);
+    localStorage.setItem('oddsApiUsed', STATE.oddsApiUsed);
+  } catch (e) {}
 }
 
 // ─── FALLBACK DE PARTIDOS — FOOTBALL-DATA.ORG ─────────────────
@@ -5414,6 +5480,11 @@ function setEstado(online) {
 async function init() {
   // Restaurar modo
   setModo(STATE.modo);
+
+  // Mostrar último valor conocido de quota Odds API (persistido en localStorage)
+  if (STATE.oddsApiRemaining !== null && STATE.oddsApiRemaining !== undefined) {
+    actualizarMonitorQuota();
+  }
 
   // Restaurar sección activa
   const secInicial = STATE.secActiva;
