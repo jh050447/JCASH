@@ -6011,6 +6011,7 @@ function construirGamesDesdeValueBets(valueBets) {
     if (!porPartido[key]) {
       const [homeTeam, awayTeam] = (vb.partido || '').split(' vs ');
       porPartido[key] = {
+        gameId: vb.gameId,
         home_team: homeTeam || '',
         away_team: awayTeam || '',
         commence_time: vb.fecha,
@@ -6173,7 +6174,7 @@ function seleccionarPartido(idx) {
   const g=STATE.an.games[idx];
   if(!g) return;
   STATE.an.partido={local:g.home_team, visitante:g.away_team, liga:g.sport_title||'Fútbol',
-    fecha:g.commence_time?new Date(g.commence_time).toLocaleString('es-EC'):'', idx};
+    fecha:g.commence_time?new Date(g.commence_time).toLocaleString('es-EC'):'', idx, gameId:g.gameId??g.id};
   STATE.an.apiH2h=[];
   STATE.an.apiOU={};
   STATE.an.ecuabet={};
@@ -6233,11 +6234,95 @@ function anOddChanged(key, val) {
   renderCupon();
 }
 
+// ── VEREDICTO MENTOR (cruce con STATE.valueBets / Pinnacle) ──
+const RX_DIACRITICOS = new RegExp('[̀-ͯ]', 'g');
+function normalizarTextoEquipo(s) {
+  return (s||'').toLowerCase()
+    .normalize('NFD').replace(RX_DIACRITICOS,'')
+    .replace(/[^a-z0-9\s]/g,' ')
+    .replace(/\s+/g,' ').trim();
+}
+const VEREDICTO_STOPWORDS = new Set(['fc','cf','sc','cd','sd','ac','afc','ec','if','club','de','del','la','el','los','las','the','united','utd']);
+function palabrasClaveEquipo(nombre) {
+  return normalizarTextoEquipo(nombre).split(' ').filter(w=>w.length>3 && !VEREDICTO_STOPWORDS.has(w));
+}
+
+function obtenerVeredictoMentor(homeName, awayName, gameId) {
+  if (!STATE.valueBets || STATE.valueBets.length===0) return null;
+
+  let betsDelPartido=[];
+
+  // 1. Match exacto por gameId/fixtureId (más confiable, evita problemas de idioma)
+  if (gameId!=null) {
+    betsDelPartido = STATE.valueBets.filter(b=>b.gameId===gameId);
+  }
+
+  // 2. Match por nombre — substring en ambas direcciones
+  if (!betsDelPartido.length) {
+    const h=(homeName||'').toLowerCase().trim(), a=(awayName||'').toLowerCase().trim();
+    betsDelPartido = STATE.valueBets.filter(b=>{
+      const [bH,bA]=(b.partido||'').split(' vs ').map(x=>(x||'').toLowerCase().trim());
+      if (!bH||!bA) return false;
+      return bH.includes(h)||h.includes(bH)||bA.includes(a)||a.includes(bA);
+    });
+  }
+
+  // 3. Fallback por palabras clave (ej. nombres en idiomas distintos / abreviaturas)
+  if (!betsDelPartido.length) {
+    const claves=[...palabrasClaveEquipo(homeName),...palabrasClaveEquipo(awayName)];
+    if (claves.length) {
+      betsDelPartido = STATE.valueBets.filter(b=>{
+        const texto=normalizarTextoEquipo(b.partido);
+        return claves.some(w=>texto.includes(w));
+      });
+    }
+  }
+
+  if (!betsDelPartido.length) return {estado:'sin_datos'};
+
+  const mejorBet=betsDelPartido.slice().sort((a,b)=>b.edge-a.edge)[0];
+
+  if (mejorBet.edge>0) {
+    return {
+      estado:'confirmado',
+      bet:mejorBet,
+      texto:`${mejorBet.mercado}: ${mejorBet.pick} — Edge +${mejorBet.edge.toFixed(1)}%`,
+    };
+  }
+  return {estado:'sin_value', bet:mejorBet};
+}
+
+function renderVeredictoMentorHtml(veredicto) {
+  if (!veredicto) return '';
+  if (veredicto.estado==='confirmado') {
+    const score=veredicto.bet.score ?? calcularScoreMentor(veredicto.bet);
+    return `<div style="background:#00ff8815; border:1px solid #00ff8844;
+        border-radius:6px; padding:8px 12px; margin:8px 0;">
+        <span style="color:#00ff88; font-size:12px; font-weight:700;">✅ PINNACLE CONFIRMA VALUE</span>
+        <div style="color:#fff; font-size:13px; margin-top:4px;">${veredicto.texto}</div>
+        <div style="color:#8892a4; font-size:11px;">Score: ${score}/100 · Prob real: ${Math.round(veredicto.bet.probReal)}%</div>
+    </div>`;
+  }
+  if (veredicto.estado==='sin_value') {
+    return `<div style="background:#ff444415; border:1px solid #ff444444;
+        border-radius:6px; padding:8px 12px; margin:8px 0;">
+        <span style="color:#ff4444; font-size:12px; font-weight:700;">❌ PINNACLE SIN VALUE</span>
+        <div style="color:#8892a4; font-size:12px; margin-top:2px;">Bet365 no ofrece ventaja sobre Pinnacle en este partido</div>
+    </div>`;
+  }
+  return `<div style="background:#ffd70015; border:1px solid #ffd70044;
+      border-radius:6px; padding:8px 12px; margin:8px 0;">
+      <span style="color:#ffd700; font-size:12px; font-weight:700;">⚠️ SIN DATOS PINNACLE</span>
+      <div style="color:#8892a4; font-size:12px; margin-top:2px;">Solo análisis Poisson estimado — sin referencia de mercado</div>
+  </div>`;
+}
+
 function renderAnStep2() {
   const {partido,apiH2h}=STATE.an;
   if (!partido) { renderAnStep1(); return; }
   const hasApi=apiH2h.length===3&&apiH2h[0]>0;
   const ts=new Date().toLocaleString('es-EC');
+  const veredicto=obtenerVeredictoMentor(partido.local, partido.visitante, partido.gameId);
 
   setHTML('an-content',`
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
@@ -6248,6 +6333,7 @@ function renderAnStep2() {
       </div>
       <button class="btn btn-primary" onclick="registrarAnalisis()">💾 Guardar</button>
     </div>
+    ${renderVeredictoMentorHtml(veredicto)}
 
     <div class="an-layout">
       <div>
