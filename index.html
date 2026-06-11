@@ -5652,20 +5652,21 @@ async function consultarFALCONparaDE(vb) {
     console.error('FALCON Tavily error:', e);
   }
 
-  var prompt = 'Eres FALCON, analista experto en apuestas deportivas.\n\n' +
-    'Analiza esta apuesta:\n' +
-    'Partido: ' + vb.partido + '\n' +
-    'Mercado: ' + (vb.mercado || vb.pick || '') + '\n' +
-    'Pick: ' + vb.pick + '\n' +
-    'Odd: ' + vb.odd.toFixed(2) + '\n' +
-    'Probabilidad real estimada: ' + vb.probReal.toFixed(1) + '%\n' +
-    'Edge: +' + vb.edge.toFixed(1) + '%\n\n' +
+  var prompt = 'You are FALCON, a sports intelligence analyst.\n\n' +
+    'Analyze this match for a betting decision:\n' +
+    '"' + vb.partido + '" - Market: "' + (vb.mercado || vb.pick || '') + '"\n\n' +
+    'Search and provide a STRUCTURED ANALYSIS covering:\n\n' +
+    '1. TEAM FORM: Last 5 matches results for each team\n' +
+    '2. HEAD TO HEAD: Last 3 meetings between these teams\n' +
+    '3. KEY PLAYERS: Any injuries, suspensions, or notable absences\n' +
+    '4. TACTICAL CONTEXT: Playing style, motivation, home/away factors\n' +
+    '5. EXTERNAL FACTORS: Weather, referee, stadium crowd\n\n' +
     (infoWeb ? '=== INFORMACIÓN ACTUALIZADA DE INTERNET ===\n' + infoWeb + '\n=== FIN ===\n\n' : '') +
-    'Da un veredicto breve sobre esta apuesta:\n' +
-    '- CONFIRMADO: la apuesta se ve segura\n' +
-    '- PRECAUCIÓN: hay factores a considerar\n' +
-    '- EVITAR: riesgo significativo detectado\n\n' +
-    'Responde en español, máximo 4 frases. Empieza con el veredicto en mayúsculas, luego la explicación.';
+    'Then give a VERDICT:\n' +
+    '- APOSTAR: Clear reasons to bet this market\n' +
+    '- NO APOSTAR: Clear reasons to avoid\n' +
+    '- DATOS INSUFICIENTES: Not enough information found\n\n' +
+    'Respond in Spanish. Be direct and specific. No generic commentary.';
 
   try {
     var response = await fetch(GROQ_URL, {
@@ -5688,10 +5689,10 @@ async function consultarFALCONparaDE(vb) {
 
     var texto = (data.choices?.[0]?.message?.content || 'Sin respuesta').trim();
     var textoUpper = texto.toUpperCase();
-    var esConfirmado = textoUpper.includes('CONFIRMADO') || textoUpper.includes('CONFIRMED');
-    var esEvitar = textoUpper.includes('EVITAR') || textoUpper.includes('AVOID');
-    var color = esConfirmado ? '#4edea3' : esEvitar ? 'var(--error)' : '#FF9500';
-    var icono = esConfirmado ? '✅' : esEvitar ? '🚫' : '⚠️';
+    var esNoApostar = textoUpper.includes('NO APOSTAR');
+    var esApostar = !esNoApostar && textoUpper.includes('APOSTAR');
+    var color = esApostar ? '#4edea3' : esNoApostar ? 'var(--error)' : '#FF9500';
+    var icono = esApostar ? '✅' : esNoApostar ? '🚫' : '⚠️';
 
     var partes = texto.split('. ');
     var primera = partes[0] + (partes.length > 1 ? '.' : '');
