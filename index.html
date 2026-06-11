@@ -6342,6 +6342,25 @@ function mktCell(key, label, apiOdd, refProb, placeholder) {
   </div>`;
 }
 
+// ── CARD DE RECOMENDACIÓN DEL MODELO ─────────────────────────
+function renderRecomendacion(opciones) {
+  const valida = opciones.filter(o=>o.prob>0);
+  if (!valida.length) {
+    return `<div style="background:#0d2540; border:1px solid #00ff8844;
+        border-radius:8px; padding:12px 16px; margin-bottom:12px;">
+        <div style="color:#8892a4; font-size:11px; margin-bottom:4px;">⭐ RECOMENDACIÓN DEL MODELO</div>
+        <div style="color:#8892a4; font-size:13px;">Sin datos suficientes — esperando odds de referencia</div>
+    </div>`;
+  }
+  const best = valida.reduce((a,b)=>b.prob>a.prob?b:a);
+  return `<div style="background:#0d2540; border:1px solid #00ff8844;
+      border-radius:8px; padding:12px 16px; margin-bottom:12px;">
+      <div style="color:#8892a4; font-size:11px; margin-bottom:4px;">⭐ RECOMENDACIÓN DEL MODELO</div>
+      <div style="color:#00ff88; font-size:16px; font-weight:700;">${best.label}</div>
+      <div style="color:#8892a4; font-size:13px;">Prob: ${(best.prob*100).toFixed(1)}% — basado en modelo Poisson</div>
+  </div>`;
+}
+
 // ── VALIDACIÓN GRUPAL 1X2 ────────────────────────────────────
 function validarGrupo1X2() {
   const {ecuabet}=STATE.an;
@@ -6385,13 +6404,24 @@ function renderMkt1X2() {
   const hasApi=apiH2h.length===3&&apiH2h[0]>0;
   const probs=hasApi?calcNoVigProbs(apiH2h):[0,0,0];
   const [pH,pD,pA]=probs;
+  const recomendacion=renderRecomendacion([
+    {label:`${partido.local} gana`, prob:pH},
+    {label:'Empate', prob:pD},
+    {label:`${partido.visitante} gana`, prob:pA},
+  ]);
   return anSec('1X2 — Resultado Final',`
-    <div class="mkt-grid-3">
-      ${mktCell('1x2_H',`${partido.local} gana`,hasApi?apiH2h[0]:0,pH,'Ej: 1.95')}
-      ${mktCell('1x2_D','Empate',hasApi?apiH2h[1]:0,pD,'Ej: 3.05')}
-      ${mktCell('1x2_A',`${partido.visitante} gana`,hasApi?apiH2h[2]:0,pA,'Ej: 4.30')}
-    </div>
-    <div id="an-1x2-grupo">${validarGrupo1X2()}</div>
+    ${recomendacion}
+    <details style="margin-top:8px;">
+      <summary style="color:#8892a4; font-size:13px; cursor:pointer; padding:8px 0; list-style:none;">▼ Ingresar odds de Ecuabet manualmente</summary>
+      <div style="margin-top:12px;">
+        <div class="mkt-grid-3">
+          ${mktCell('1x2_H',`${partido.local} gana`,hasApi?apiH2h[0]:0,pH,'Ej: 1.95')}
+          ${mktCell('1x2_D','Empate',hasApi?apiH2h[1]:0,pD,'Ej: 3.05')}
+          ${mktCell('1x2_A',`${partido.visitante} gana`,hasApi?apiH2h[2]:0,pA,'Ej: 4.30')}
+        </div>
+        <div id="an-1x2-grupo">${validarGrupo1X2()}</div>
+      </div>
+    </details>
   `,'Ingresa la odd exacta que aparece en Ecuabet para este mercado');
 }
 
@@ -6406,12 +6436,23 @@ function renderMktDC() {
     hasApi&&pX2>0?1/pX2:0,
     hasApi&&p12>0?1/p12:0
   ];
+  const recomendacion=renderRecomendacion([
+    {label:`${partido.local} o Empate`, prob:p1X},
+    {label:`Empate o ${partido.visitante}`, prob:pX2},
+    {label:`${partido.local} o ${partido.visitante}`, prob:p12},
+  ]);
   return anSec('Doble Oportunidad',`
-    <div class="mkt-grid-3">
-      ${mktCell('dc_1X',`${partido.local} o Empate`,apiDC[0]>1?apiDC[0]:0,p1X)}
-      ${mktCell('dc_X2',`Empate o ${partido.visitante}`,apiDC[1]>1?apiDC[1]:0,pX2)}
-      ${mktCell('dc_12',`${partido.local} o ${partido.visitante}`,apiDC[2]>1?apiDC[2]:0,p12)}
-    </div>
+    ${recomendacion}
+    <details style="margin-top:8px;">
+      <summary style="color:#8892a4; font-size:13px; cursor:pointer; padding:8px 0; list-style:none;">▼ Ingresar odds de Ecuabet manualmente</summary>
+      <div style="margin-top:12px;">
+        <div class="mkt-grid-3">
+          ${mktCell('dc_1X',`${partido.local} o Empate`,apiDC[0]>1?apiDC[0]:0,p1X)}
+          ${mktCell('dc_X2',`Empate o ${partido.visitante}`,apiDC[1]>1?apiDC[1]:0,pX2)}
+          ${mktCell('dc_12',`${partido.local} o ${partido.visitante}`,apiDC[2]>1?apiDC[2]:0,p12)}
+        </div>
+      </div>
+    </details>
   `,'Ingresa la odd exacta que aparece en Ecuabet para este mercado');
 }
 
@@ -6422,12 +6463,22 @@ function renderMktDNB() {
   const [pH,,pA]=probs;
   const sum=pH+pA;
   const pDnbH=sum>0?pH/sum:0, pDnbA=sum>0?pA/sum:0;
+  const recomendacion=renderRecomendacion([
+    {label:`${partido.local} gana (sin empate)`, prob:pDnbH},
+    {label:`${partido.visitante} gana (sin empate)`, prob:pDnbA},
+  ]);
   return anSec('Pronóstico Sin Empate (Draw No Bet)',`
     <div style="font-size:12px;color:var(--text-3);font-family:var(--f-mono);margin-bottom:8px">Probabilidad condicional sin considerar el empate (no-vig 1X2)</div>
-    <div class="mkt-grid-2">
-      ${mktCell('dnb_H',`${partido.local} gana (sin empate)`,0,pDnbH)}
-      ${mktCell('dnb_A',`${partido.visitante} gana (sin empate)`,0,pDnbA)}
-    </div>
+    ${recomendacion}
+    <details style="margin-top:8px;">
+      <summary style="color:#8892a4; font-size:13px; cursor:pointer; padding:8px 0; list-style:none;">▼ Ingresar odds de Ecuabet manualmente</summary>
+      <div style="margin-top:12px;">
+        <div class="mkt-grid-2">
+          ${mktCell('dnb_H',`${partido.local} gana (sin empate)`,0,pDnbH)}
+          ${mktCell('dnb_A',`${partido.visitante} gana (sin empate)`,0,pDnbA)}
+        </div>
+      </div>
+    </details>
   `,'Ingresa la odd exacta que aparece en Ecuabet para este mercado');
 }
 
@@ -6456,9 +6507,20 @@ function renderMktOU() {
       <div></div>
     `;
   });
+  const pU25=pTotalUnder(2), pO25=1-pU25;
+  const recomendacion=renderRecomendacion([
+    {label:'Más de 2.5 goles', prob:pO25},
+    {label:'Menos de 2.5 goles', prob:pU25},
+  ]);
   return anSec('Total de Goles (O/U)',`
     <div style="font-size:12px;color:var(--text-3);font-family:var(--f-mono);margin-bottom:8px">λ Total esperado: ${avgL.toFixed(2)} goles · Probabilidades via Poisson</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${cells.join('')}</div>
+    ${recomendacion}
+    <details style="margin-top:8px;">
+      <summary style="color:#8892a4; font-size:13px; cursor:pointer; padding:8px 0; list-style:none;">▼ Ingresar odds de Ecuabet manualmente</summary>
+      <div style="margin-top:12px;">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${cells.join('')}</div>
+      </div>
+    </details>
   `,'Ingresa la odd exacta que aparece en Ecuabet para este mercado');
 }
 
