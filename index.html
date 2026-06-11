@@ -7989,6 +7989,12 @@ function renderMentorPaso1() {
       ` : ''}
     </div>
     <button class="btn btn-primary" style="font-size:16px;padding:14px;margin-top:16px" onclick="mentorMostrarSugerencias()">MOSTRAR SUGERENCIAS →</button>
+    <button onclick="mostrarTodasApuestasMentor()" style="
+        width:100%; background:transparent;
+        border:1px solid #00ff88; color:#00ff88;
+        padding:12px; border-radius:8px; cursor:pointer;
+        font-size:14px; font-weight:600; margin-top:12px;
+    ">👁 Ver todas las apuestas disponibles</button>
   `;
 }
 
@@ -8071,6 +8077,45 @@ async function mentorMostrarSugerencias() {
 
   m.sugerencias=generarSugerencias(m.capital, m.gananciaMin, m.gananciaMax, m.tipo);
   m.paso=2;
+  renderMentor();
+  actualizarBadgeMentor();
+}
+
+// ── MENTOR: VER TODAS LAS APUESTAS (sin filtros de configuración) ─
+function mostrarTodasApuestasMentor() {
+  const bets = (STATE.valueBets || [])
+    .filter(vb => vb.edge > 0)
+    .map(vb => {
+      const score = calcularScoreMentor(vb);
+      let calidad;
+      if      (score >= 80) calidad = 'APOSTAR';
+      else if (score >= 65) calidad = 'CONSIDERAR';
+      else                   calidad = 'REVISAR';
+      return {
+        tipo: 'APUESTA', seccion: 'deportes',
+        descripcion: `${vb.partido} — ${vb.mercado}: ${vb.pick}`,
+        partido: vb.partido, mercado: vb.mercado, pick: vb.pick,
+        liga: vb.liga || '', bk: vb.bk || '', fecha: vb.fecha,
+        apostar: vb.stake || 0, ganancia: vb.ganancia || 0, odd: vb.odd, edge: parseFloat(vb.edge),
+        prob: vb.probReal, kelly: vb.kelly, score, calidad,
+        razon: `Edge +${vb.edge.toFixed(1)}% sobre la casa. Probabilidad real ${vb.probReal.toFixed(0)}% vs ${(100 / vb.odd).toFixed(0)}% implícita.`,
+      };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  if (!bets.length) {
+    setHTML('mentor-body', `
+      <button class="btn btn-ghost" onclick="renderMentor()">← Volver</button>
+      <div class="card" style="text-align:center;padding:24px;color:var(--text-3);font-size:15px;margin-top:12px">
+        Sin apuestas con ventaja real disponibles ahora mismo.
+      </div>`);
+    return;
+  }
+
+  STATE.mentor.sugerencias = bets;
+  STATE.mentor.verTodo = true;
+  STATE.mentor.analisisProfundo = null;
+  STATE.mentor.paso = 2;
   renderMentor();
   actualizarBadgeMentor();
 }
@@ -8376,7 +8421,14 @@ function renderMentorPaso2() {
   }).join('');
 
   let resumenHtml;
-  if (mostradas === 0 && cryptoList.length === 0) {
+  if (m.verTodo) {
+    resumenHtml = `
+    <div style="background:var(--surface-mid);border-radius:12px;padding:14px 18px;margin-bottom:16px;border-left:3px solid var(--tertiary)">
+      <div style="font-size:16px;color:var(--text-2);line-height:1.5">
+        👁 Mostrando <strong>${mostradas}</strong> apuesta${mostradas!==1?'s':''} con edge positivo, ordenadas por score — sin filtros de calidad.
+      </div>
+    </div>`;
+  } else if (mostradas === 0 && cryptoList.length === 0) {
     resumenHtml = `
     <div style="background:var(--surface-mid);border-radius:12px;padding:24px;margin-bottom:20px;text-align:center">
       <div style="font-size:32px;margin-bottom:10px">✅</div>
@@ -8410,11 +8462,15 @@ function renderMentorPaso2() {
     </div>
     ${cryptoList.map(({ s, i }) => renderCardMentor(s, i)).join('')}` : '';
 
+  const cabeceraHtml = m.verTodo
+    ? `<div style="font-size:13px;color:var(--text-3);font-family:var(--f-mono);margin:8px 0 16px">👁 Vista completa — todas las apuestas disponibles</div>`
+    : `<div style="font-size:13px;color:var(--text-3);font-family:var(--f-mono);margin:8px 0 16px">
+        Capital: $${m.capital.toFixed(2)} · Objetivo: $${m.gananciaMin}–$${m.gananciaMax} · Tipo: ${m.tipo.toUpperCase()}
+      </div>`;
+
   return `
-    <button class="btn btn-ghost" onclick="STATE.mentor.paso=1;STATE.mentor.analisisProfundo=null;renderMentor()">← Ajustar objetivos</button>
-    <div style="font-size:13px;color:var(--text-3);font-family:var(--f-mono);margin:8px 0 16px">
-      Capital: $${m.capital.toFixed(2)} · Objetivo: $${m.gananciaMin}–$${m.gananciaMax} · Tipo: ${m.tipo.toUpperCase()}
-    </div>
+    <button class="btn btn-ghost" onclick="STATE.mentor.paso=1;STATE.mentor.analisisProfundo=null;STATE.mentor.verTodo=false;renderMentor()">← Ajustar objetivos</button>
+    ${cabeceraHtml}
     ${alertasHtml}
     ${resumenHtml}
     ${deportesHtml}
