@@ -6496,6 +6496,7 @@ function renderMkt1X2() {
     {label:`${partido.visitante} gana`, prob:pA},
   ]);
   return anSec('1X2 — Resultado Final',`
+    <div style="color:#4a5568; font-size:11px; margin-bottom:6px;">${partido.local} vs ${partido.visitante}</div>
     ${recomendacion}
     <details style="margin-top:8px;">
       <summary style="color:#8892a4; font-size:13px; cursor:pointer; padding:8px 0; list-style:none;">▼ Ingresar odds de Ecuabet manualmente</summary>
@@ -6528,6 +6529,7 @@ function renderMktDC() {
     {label:`${partido.local} o ${partido.visitante}`, prob:p12},
   ]);
   return anSec('Doble Oportunidad',`
+    <div style="color:#4a5568; font-size:11px; margin-bottom:6px;">${partido.local} vs ${partido.visitante}</div>
     ${recomendacion}
     <details style="margin-top:8px;">
       <summary style="color:#8892a4; font-size:13px; cursor:pointer; padding:8px 0; list-style:none;">▼ Ingresar odds de Ecuabet manualmente</summary>
@@ -6554,6 +6556,7 @@ function renderMktDNB() {
     {label:`${partido.visitante} gana (sin empate)`, prob:pDnbA},
   ]);
   return anSec('Pronóstico Sin Empate (Draw No Bet)',`
+    <div style="color:#4a5568; font-size:11px; margin-bottom:6px;">${partido.local} vs ${partido.visitante}</div>
     <div style="font-size:12px;color:var(--text-3);font-family:var(--f-mono);margin-bottom:8px">Probabilidad condicional sin considerar el empate (no-vig 1X2)</div>
     ${recomendacion}
     <details style="margin-top:8px;">
@@ -6569,6 +6572,24 @@ function renderMktDNB() {
 }
 
 function renderMktOU() {
+  const {partido}=STATE.an;
+  const partidoHtml=`<div style="color:#4a5568; font-size:11px; margin-bottom:6px;">${partido.local} vs ${partido.visitante}</div>`;
+
+  // Sin datos reales (lambdas genéricos por defecto) — el O/U Poisson no es confiable
+  const esGenerico=STATE.an.lambdaL===1.5 && STATE.an.lambdaV===1.2;
+  if (esGenerico) {
+    return anSec('Total de Goles (O/U)',`
+      ${partidoHtml}
+      <div style="background:#0d1526; border:1px solid #1e2d45;
+          border-radius:10px; padding:20px; margin-bottom:16px;">
+          <div style="color:#8892a4; font-size:13px;">
+              📊 Total de Goles no disponible — se requieren datos históricos
+              reales de estos equipos para calcular correctamente.
+          </div>
+      </div>
+    `,'Ingresa la odd exacta que aparece en Ecuabet para este mercado');
+  }
+
   const lL=STATE.an.lambdaL||1.5, lV=STATE.an.lambdaV||1.2;
   const avgL=lL+lV;
   // Poisson P(total goles ≤ k)
@@ -6599,6 +6620,7 @@ function renderMktOU() {
     {label:'Menos de 2.5 goles', prob:pU25},
   ]);
   return anSec('Total de Goles (O/U)',`
+    ${partidoHtml}
     <div style="font-size:12px;color:var(--text-3);font-family:var(--f-mono);margin-bottom:8px">λ Total esperado: ${avgL.toFixed(2)} goles · Probabilidades via Poisson</div>
     ${recomendacion}
     <details style="margin-top:8px;">
