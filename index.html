@@ -1915,15 +1915,9 @@ async function cargarOHLC(sym, interval = '1d', limit = 30) {
   const url = `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=${limit}&interval=daily`;
   let data;
   try {
-    const r = await fetchSeguro(url, 6000);
+    const r = await fetchSeguro(proxyUrl(url), 8000);
     if (r.ok) data = await r.json();
   } catch (_) {}
-  if (!data) {
-    try {
-      const r = await fetchSeguro(proxyUrl(url), 8000);
-      if (r.ok) data = await r.json();
-    } catch (_) {}
-  }
   if (!data?.prices) return null;
   return data.prices.map(p => ({ o:p[1], h:p[1], l:p[1], c:p[1], v:0 }));
 }
