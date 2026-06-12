@@ -1672,7 +1672,7 @@ const STATE = {
   an: {
     step:1, games:[], partido:null, apiH2h:[], apiOU:{},
     ecuabet:{}, probs:{},
-    lambdaL:1.5, lambdaV:1.2,
+    lambdaL:1.5, lambdaV:1.2, lambdaCalidad:'genérico',
     cupon:[], capitalCupon:50,
     expandMas:false, enVivo:false,
     minuto:0, marcL:0, marcV:0, searchText:'',
@@ -1680,6 +1680,7 @@ const STATE = {
   analisisActual: null,
   fdCache: {},
   tsdbCache: {},
+  lambdaCache: {},
   mentor: {
     abierto:false, paso:1,
     capital:null, gananciaMin:null, gananciaMax:null,
@@ -6404,6 +6405,97 @@ function renderAnStep1() {
 
 function renderAnalizador() { renderAnStep1(); }
 
+// ── LAMBDAS REALES — Free API Live Football Data (RapidAPI) ──
+const RAPIDAPI_LIVEFOOTBALL_HOST = 'free-api-live-football-data.p.rapidapi.com';
+
+async function buscarEquipoRapidApi(nombre) {
+  try {
+    const url = `https://${RAPIDAPI_LIVEFOOTBALL_HOST}/footballSearchTeam?search=${encodeURIComponent(nombre)}`;
+    const res = await fetchSeguro(proxyUrl(url) + `&api=rapidapi&host=${RAPIDAPI_LIVEFOOTBALL_HOST}`, 8000);
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const lista = Array.isArray(data) ? data : (data.response || data.data || data.results || []);
+    if (!lista.length) return null;
+
+    const primero = lista[0];
+    return primero.id ?? primero.teamId ?? primero.team_id ?? null;
+  } catch (err) {
+    console.error('RapidAPI buscarEquipoRapidApi error:', nombre, err);
+    return null;
+  }
+}
+
+async function obtenerStatsEquipoRapidApi(teamId) {
+  try {
+    const url = `https://${RAPIDAPI_LIVEFOOTBALL_HOST}/footballTeamStats?teamId=${teamId}`;
+    const res = await fetchSeguro(proxyUrl(url) + `&api=rapidapi&host=${RAPIDAPI_LIVEFOOTBALL_HOST}`, 8000);
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const stats = data.response || data.data || data;
+
+    const golesFor    = stats.goalsFor ?? stats.goalsScored ?? stats.avgGoalsScored ?? stats.avgGoals ?? stats.goals_for ?? null;
+    const golesContra = stats.goalsAgainst ?? stats.goalsConceded ?? stats.avgGoalsConceded ?? stats.goals_against ?? null;
+    if (golesFor == null || golesContra == null) return null;
+
+    return { golesFor: parseFloat(golesFor), golesContra: parseFloat(golesContra) };
+  } catch (err) {
+    console.error('RapidAPI obtenerStatsEquipoRapidApi error:', teamId, err);
+    return null;
+  }
+}
+
+function clampLambda(v) {
+  return Math.round(Math.min(4.0, Math.max(0.5, v)) * 100) / 100;
+}
+
+async function cargarLambdasReales(homeTeam, awayTeam) {
+  const cacheKey = homeTeam + '_' + awayTeam;
+  if (STATE.lambdaCache[cacheKey]) return STATE.lambdaCache[cacheKey];
+
+  const generico = { lambdaL: 1.5, lambdaV: 1.2, calidad: 'genérico' };
+
+  try {
+    const [idLocal, idVisit] = await Promise.all([
+      buscarEquipoRapidApi(homeTeam),
+      buscarEquipoRapidApi(awayTeam),
+    ]);
+
+    const [statsLocal, statsVisit] = await Promise.all([
+      idLocal != null ? obtenerStatsEquipoRapidApi(idLocal) : null,
+      idVisit != null ? obtenerStatsEquipoRapidApi(idVisit) : null,
+    ]);
+
+    let resultado;
+    if (statsLocal && statsVisit) {
+      resultado = {
+        lambdaL: clampLambda(statsLocal.golesFor * (statsVisit.golesContra / 1.2)),
+        lambdaV: clampLambda(statsVisit.golesFor * (statsLocal.golesContra / 1.5)),
+        calidad: 'alta',
+      };
+    } else if (statsLocal || statsVisit) {
+      // Solo un equipo con datos reales — el otro usa referencia genérica
+      const sL = statsLocal || { golesFor: 1.5, golesContra: 1.2 };
+      const sV = statsVisit || { golesFor: 1.2, golesContra: 1.5 };
+      resultado = {
+        lambdaL: clampLambda(sL.golesFor * (sV.golesContra / 1.2)),
+        lambdaV: clampLambda(sV.golesFor * (sL.golesContra / 1.5)),
+        calidad: 'parcial',
+      };
+    } else {
+      resultado = generico;
+    }
+
+    STATE.lambdaCache[cacheKey] = resultado;
+    return resultado;
+  } catch (err) {
+    console.error('cargarLambdasReales error:', err);
+    STATE.lambdaCache[cacheKey] = generico;
+    return generico;
+  }
+}
+
 // ── SELECCIONAR PARTIDO ──────────────────────────────────────
 function seleccionarPartido(idx) {
   const g=STATE.an.games[idx];
@@ -6434,9 +6526,22 @@ function seleccionarPartido(idx) {
       }
     }
   }
+  // Lambdas genéricas por defecto — cargarLambdasReales() las actualiza si hay datos
+  STATE.an.lambdaL=1.5;
+  STATE.an.lambdaV=1.2;
+  STATE.an.lambdaCalidad='genérico';
   STATE.an.step=2;
   renderAnStep2();
   analizarPartidoCompleto(g.home_team, g.away_team, g.home_team + ' stadium', null);
+
+  // Lambdas reales (Free API Live Football Data) en segundo plano
+  cargarLambdasReales(g.home_team, g.away_team).then(({lambdaL, lambdaV, calidad}) => {
+    if (STATE.an.partido?.idx !== idx) return; // el usuario cambió de partido
+    STATE.an.lambdaL = lambdaL;
+    STATE.an.lambdaV = lambdaV;
+    STATE.an.lambdaCalidad = calidad;
+    if (STATE.an.step===2) renderAnStep2();
+  });
 }
 
 // ── ENTRADA MANUAL ───────────────────────────────────────────
@@ -6552,6 +6657,16 @@ function renderVeredictoMentorHtml(veredicto) {
   </div>`;
 }
 
+function renderLambdaBadge() {
+  const map = {
+    alta:     { txt:'λ real (API)', bg:'rgba(78,222,163,0.12)',  color:'var(--tertiary)', border:'var(--tert-mid)' },
+    parcial:  { txt:'λ estimado',   bg:'rgba(255,217,102,0.12)', color:'var(--warning)',  border:'rgba(255,217,102,0.3)' },
+    'genérico': { txt:'λ genérico', bg:'rgba(136,146,164,0.12)', color:'var(--text-3)',   border:'rgba(136,146,164,0.3)' },
+  };
+  const s = map[STATE.an.lambdaCalidad] || map['genérico'];
+  return `<span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;background:${s.bg};color:${s.color};border:1px solid ${s.border};white-space:nowrap">${s.txt}</span>`;
+}
+
 function renderAnStep2() {
   const {partido,apiH2h}=STATE.an;
   if (!partido) { renderAnStep1(); return; }
@@ -6563,7 +6678,7 @@ function renderAnStep2() {
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
       <button class="btn btn-ghost" onclick="STATE.an.step=1;renderAnStep1()">← Volver</button>
       <div style="flex:1">
-        <div style="font-size:20px;font-weight:800">${partido.local} <span style="color:var(--text-3)">vs</span> ${partido.visitante}</div>
+        <div style="font-size:20px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap">${partido.local} <span style="color:var(--text-3)">vs</span> ${partido.visitante} ${renderLambdaBadge()}</div>
         <div style="font-size:13px;color:var(--text-3);font-family:var(--f-mono)">${partido.liga} · ${partido.fecha} · Analizado: ${ts}</div>
       </div>
       <button class="btn btn-primary" onclick="registrarAnalisis()">💾 Guardar</button>
