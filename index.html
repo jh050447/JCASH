@@ -1037,6 +1037,16 @@ body {
           <span style="color:#4a5568;font-size:11px">⚡ ODDSPAPI — cargando...</span>
         </div>
       </div>
+      <div style="padding:0 12px;border-top:1px solid #1e2d45;margin-top:4px">
+        <div id="monitor-quota-oddsapiio" style="min-height:40px;padding:6px 0">
+          <span style="color:#4a5568;font-size:11px">ODDS-API.IO — cargando...</span>
+        </div>
+      </div>
+      <div style="padding:0 12px;border-top:1px solid #1e2d45;margin-top:4px">
+        <div id="monitor-quota-rapidapi" style="min-height:40px;padding:6px 0">
+          <span style="color:#4a5568;font-size:11px">RAPIDAPI — cargando...</span>
+        </div>
+      </div>
       <div class="sidebar-bk" id="sidebar-bk" onclick="editarBankroll()">
         <span>💰 <span class="bk-val" id="sidebar-bk-val">$200.00</span></span>
         <span class="bk-edit-icon">📝</span>
@@ -1656,6 +1666,11 @@ const STATE = {
   oddsApiUsed:      parseInt(localStorage.getItem('oddsApiUsed')) || null,
   oddsPapiRemaining: parseInt(localStorage.getItem('oddsPapiRemaining')) || 250,
   oddsPapiUsed:      parseInt(localStorage.getItem('oddsPapiUsed')) || 0,
+  oddsApiIoRemaining: parseInt(localStorage.getItem('oddsApiIoRemaining')) || 100,
+  oddsApiIoUsed:      parseInt(localStorage.getItem('oddsApiIoUsed')) || 0,
+  oddsApiIoResetTs:   parseInt(localStorage.getItem('oddsApiIoResetTs')) || Date.now(),
+  rapidApiRemaining: parseInt(localStorage.getItem('rapidApiRemaining')) || 100,
+  rapidApiUsed:      parseInt(localStorage.getItem('rapidApiUsed')) || 0,
   oddsPapiCargando:  false,
   ultimaActualizacionDeportes: null,
   modoFallback:    false,
@@ -3379,7 +3394,7 @@ async function cargarDatosOddsPapi() {
     STATE.oddsPapiRemaining = Math.max(0, 250 - STATE.oddsPapiUsed);
     localStorage.setItem('oddsPapiUsed', STATE.oddsPapiUsed);
     localStorage.setItem('oddsPapiRemaining', STATE.oddsPapiRemaining);
-    actualizarMonitorOddsPapi();
+    actualizarTodosMonitores();
 
     // Recolectar todos los IDs de participantes
     const participantIds = [];
@@ -3497,6 +3512,8 @@ async function cargarDatosOddsApiIo() {
       return false;
     }
 
+    registrarUsoOddsApiIo(1);
+
     const dataEventos = await resEventos.json();
     const eventos = Array.isArray(dataEventos) ? dataEventos : (dataEventos.data || dataEventos.events || []);
     if (!eventos.length) {
@@ -3529,6 +3546,7 @@ async function cargarDatosOddsApiIo() {
         console.error('odds-api.io odds fetch error:', eventId, err);
         continue;
       } finally {
+        registrarUsoOddsApiIo(1);
         // Evitar rate limit entre llamadas — plan gratuito: 100 peticiones/hora
         await new Promise(resolve => setTimeout(resolve, 300));
       }
@@ -3805,7 +3823,7 @@ async function cargarDeportes() {
         setHTML('dep-value-bets', '<div class="wiz-info-box" style="background:var(--error);color:#fff">⚠️ Límite de API alcanzado</div>');
         setHTML('dep-partidos', '');
         STATE.oddsApiRemaining = 0;
-        actualizarMonitorQuota();
+        actualizarTodosMonitores();
         console.log('FALLBACK: activando cargarPartidosFallback()');
         await cargarPartidosFallback();
         console.log('FALLBACK: cargarPartidosFallback() completado, STATE.modoFallback:', STATE.modoFallback);
@@ -3820,13 +3838,13 @@ async function cargarDeportes() {
         STATE.oddsRemaining = parseInt(quotaRemaining);
         STATE.oddsApiRemaining = parseInt(quotaRemaining);
         STATE.oddsApiUsed = parseInt(quotaUsed);
-        actualizarMonitorQuota();
+        actualizarTodosMonitores();
       }
       if (r.status === 401) {
         mostrarAvisoQuota();
         huboError401 = true;
         STATE.oddsApiRemaining = 0;
-        actualizarMonitorQuota();
+        actualizarTodosMonitores();
       }
       if (r.ok && Array.isArray(data)) {
         console.log('cargarDeportes', stepNames[idx], data.length, 'games');
@@ -4133,14 +4151,19 @@ function actualizarMonitorQuota() {
     return;
   }
 
-  if (remaining === 0) {
-    // Calcular días hasta el 1 de julio (reset mensual de The Odds API)
-    const hoy = new Date();
-    const reset = new Date(hoy.getFullYear(), 6, 1); // 1 de julio
-    if (reset <= hoy) reset.setFullYear(reset.getFullYear() + 1);
-    const diasHastaReset = Math.ceil((reset - hoy) / (1000 * 60 * 60 * 24));
-    const textoReset = `AGOTADA — se resetea en ${diasHastaReset} días (1 jul)`;
+  const total = 500;
+  const pct = Math.round((remaining / total) * 100);
+  const color = pct > 50 ? '#00ff88' : pct > 20 ? '#ffd700' : '#ff4444';
+  const estado = pct > 50 ? 'OK' : pct > 20 ? 'BAJO' : 'CRÍTICO';
 
+  // Fecha de reset mensual: 1 de cada mes
+  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const hoy = new Date();
+  const reset = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1);
+  const diasHastaReset = Math.ceil((reset - hoy) / (1000 * 60 * 60 * 24));
+  const resetHtml = '<div style="color:#4a5568;font-size:10px;margin-top:4px">reset: 1 ' + meses[reset.getMonth()] + '</div>';
+
+  if (remaining === 0) {
     el.innerHTML =
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
       '<span style="color:#8892a4;font-size:11px;letter-spacing:1px">ODDS API</span>' +
@@ -4149,13 +4172,9 @@ function actualizarMonitorQuota() {
       '<div style="background:#1a2540;border-radius:4px;height:5px;margin-bottom:5px">' +
       '<div style="background:#ff4444;width:100%;height:100%;border-radius:4px"></div>' +
       '</div>' +
-      '<div style="color:#ff4444;font-size:10px;text-align:center">' + textoReset + '</div>';
+      '<div style="color:#ff4444;font-size:10px;text-align:center">AGOTADA — reset en ' + diasHastaReset + ' días</div>' +
+      resetHtml;
   } else {
-    const total = remaining + (used || 0);
-    const pct = total > 0 ? Math.round((remaining / total) * 100) : 0;
-    const color = pct > 50 ? '#00ff88' : pct > 20 ? '#ffd700' : '#ff4444';
-    const estado = pct > 50 ? 'OK' : pct > 20 ? 'BAJO' : 'CRÍTICO';
-
     el.innerHTML =
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
       '<span style="color:#8892a4;font-size:11px;letter-spacing:1px">ODDS API</span>' +
@@ -4165,9 +4184,10 @@ function actualizarMonitorQuota() {
       '<div style="background:' + color + ';width:' + pct + '%;height:100%;border-radius:4px;transition:width 0.5s"></div>' +
       '</div>' +
       '<div style="display:flex;justify-content:space-between">' +
-      '<span style="color:#4a5568;font-size:10px">' + used + ' usadas</span>' +
-      '<span style="color:' + color + ';font-size:11px;font-weight:600">' + remaining + ' restantes</span>' +
-      '</div>';
+      '<span style="color:#4a5568;font-size:10px">' + (used ?? 0) + ' usadas</span>' +
+      '<span style="color:' + color + ';font-size:11px;font-weight:600">' + remaining + '/' + total + ' restantes</span>' +
+      '</div>' +
+      resetHtml;
   }
 
   try {
@@ -4221,6 +4241,96 @@ function actualizarMonitorOddsPapi() {
     torneosHtml +
     mundialHtml +
     '</div>';
+}
+
+// ─── MONITOR DE QUOTA — ODDS-API.IO (sidebar) ─────────────────
+function actualizarMonitorOddsApiIo() {
+  const el = document.getElementById('monitor-quota-oddsapiio');
+  if (!el) return;
+
+  const used = STATE.oddsApiIoUsed || 0;
+  const remaining = STATE.oddsApiIoRemaining ?? 100;
+  const total = 100;
+  const pct = Math.round((remaining / total) * 100);
+  const color = pct > 50 ? '#00ff88' : pct > 20 ? '#ffd700' : '#ff4444';
+  const estado = pct > 50 ? 'OK' : pct > 20 ? 'BAJO' : 'CRÍTICO';
+
+  el.innerHTML =
+    '<div style="padding:8px 0">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
+    '<span style="color:#8892a4;font-size:11px;letter-spacing:1px">ODDS-API.IO</span>' +
+    '<span style="color:' + color + ';font-size:11px;font-weight:700">' + estado + '</span>' +
+    '</div>' +
+    '<div style="background:#1a2540;border-radius:4px;height:5px;margin-bottom:5px">' +
+    '<div style="background:' + color + ';width:' + pct + '%;height:100%;border-radius:4px;transition:width 0.5s"></div>' +
+    '</div>' +
+    '<div style="display:flex;justify-content:space-between">' +
+    '<span style="color:#4a5568;font-size:10px">' + used + ' usadas</span>' +
+    '<span style="color:' + color + ';font-size:11px;font-weight:600">' + remaining + '/' + total + ' restantes</span>' +
+    '</div>' +
+    '<div style="color:#4a5568;font-size:10px;margin-top:4px">reset cada hora</div>' +
+    '</div>';
+}
+
+// ─── MONITOR DE QUOTA — RAPIDAPI (Free Live Football) (sidebar) ──
+function actualizarMonitorRapidApi() {
+  const el = document.getElementById('monitor-quota-rapidapi');
+  if (!el) return;
+
+  const used = STATE.rapidApiUsed || 0;
+  const remaining = STATE.rapidApiRemaining ?? 100;
+  const total = 100;
+  const pct = Math.round((remaining / total) * 100);
+  const color = pct > 50 ? '#00ff88' : pct > 20 ? '#ffd700' : '#ff4444';
+  const estado = pct > 50 ? 'OK' : pct > 20 ? 'BAJO' : 'CRÍTICO';
+
+  el.innerHTML =
+    '<div style="padding:8px 0">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
+    '<span style="color:#8892a4;font-size:11px;letter-spacing:1px">RAPIDAPI</span>' +
+    '<span style="color:' + color + ';font-size:11px;font-weight:700">' + estado + '</span>' +
+    '</div>' +
+    '<div style="background:#1a2540;border-radius:4px;height:5px;margin-bottom:5px">' +
+    '<div style="background:' + color + ';width:' + pct + '%;height:100%;border-radius:4px;transition:width 0.5s"></div>' +
+    '</div>' +
+    '<div style="display:flex;justify-content:space-between">' +
+    '<span style="color:#4a5568;font-size:10px">' + used + ' usadas</span>' +
+    '<span style="color:' + color + ';font-size:11px;font-weight:600">' + remaining + '/' + total + ' restantes</span>' +
+    '</div>' +
+    '<div style="color:#4a5568;font-size:10px;margin-top:4px">para lambdas reales</div>' +
+    '</div>';
+}
+
+// ─── REGISTRO DE CONSUMO DE QUOTA — ODDS-API.IO / RAPIDAPI ─────
+// Decremento manual (estas APIs no devuelven headers de quota utilizables aquí)
+function registrarUsoOddsApiIo(n) {
+  const ahora = Date.now();
+  if (ahora - (STATE.oddsApiIoResetTs || 0) >= 60 * 60 * 1000) {
+    STATE.oddsApiIoUsed = 0;
+    STATE.oddsApiIoResetTs = ahora;
+    localStorage.setItem('oddsApiIoResetTs', STATE.oddsApiIoResetTs);
+  }
+  STATE.oddsApiIoUsed = (STATE.oddsApiIoUsed || 0) + n;
+  STATE.oddsApiIoRemaining = Math.max(0, 100 - STATE.oddsApiIoUsed);
+  localStorage.setItem('oddsApiIoUsed', STATE.oddsApiIoUsed);
+  localStorage.setItem('oddsApiIoRemaining', STATE.oddsApiIoRemaining);
+  actualizarTodosMonitores();
+}
+
+function registrarUsoRapidApi(n) {
+  STATE.rapidApiUsed = (STATE.rapidApiUsed || 0) + n;
+  STATE.rapidApiRemaining = Math.max(0, 100 - STATE.rapidApiUsed);
+  localStorage.setItem('rapidApiUsed', STATE.rapidApiUsed);
+  localStorage.setItem('rapidApiRemaining', STATE.rapidApiRemaining);
+  actualizarTodosMonitores();
+}
+
+// ─── ORQUESTADOR — actualiza todos los monitores de quota ──────
+function actualizarTodosMonitores() {
+  actualizarMonitorQuota();
+  actualizarMonitorOddsApiIo();
+  actualizarMonitorOddsPapi();
+  actualizarMonitorRapidApi();
 }
 
 // ─── FALLBACK DE PARTIDOS — FOOTBALL-DATA.ORG ─────────────────
@@ -6165,13 +6275,8 @@ async function init() {
   // Restaurar modo
   setModo(STATE.modo);
 
-  // Mostrar último valor conocido de quota Odds API (persistido en localStorage)
-  if (STATE.oddsApiRemaining !== null && STATE.oddsApiRemaining !== undefined) {
-    actualizarMonitorQuota();
-  }
-
-  // Mostrar último valor conocido de quota OddsPapi (persistido en localStorage)
-  actualizarMonitorOddsPapi();
+  // Mostrar últimos valores conocidos de quota (persistidos en localStorage)
+  actualizarTodosMonitores();
 
   // Restaurar sección activa
   const secInicial = STATE.secActiva;
@@ -6457,6 +6562,9 @@ async function cargarLambdasReales(homeTeam, awayTeam) {
   const generico = { lambdaL: 1.5, lambdaV: 1.2, calidad: 'genérico' };
 
   try {
+    // Quota RapidAPI: 2 peticiones por partido analizado (1 búsqueda equipo + 1 stats)
+    registrarUsoRapidApi(2);
+
     const [idLocal, idVisit] = await Promise.all([
       buscarEquipoRapidApi(homeTeam),
       buscarEquipoRapidApi(awayTeam),
