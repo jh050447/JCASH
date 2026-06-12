@@ -13,7 +13,7 @@
  *   /?url=...&api=groq                              (Groq: injects Authorization: Bearer header)
  *   /?url=...&api=tavily                            (Tavily: injects Authorization: Bearer header)
  *   /?url=...&api=oddspapi                          (OddsPapi: injects apiKey query param)
- *   /?url=...&api=oddsapio                          (odds-api.io: injects x-api-key header)
+ *   /?url=...&api=oddsapio                          (odds-api.io: injects apiKey query param)
  *   /?url=...&api=rapidapi&host=...                 (RapidAPI: injects X-RapidAPI-Key/X-RapidAPI-Host headers)
  *
  * All sensitive API keys live here as Cloudflare Worker env vars (secrets).
@@ -96,6 +96,10 @@ export default {
       targetUrlObj.searchParams.set('apiKey', ODDSPAPI_KEY);
       targetUrl = targetUrlObj.toString();
     }
+    if (api === 'oddsapio') {
+      targetUrlObj.searchParams.set('apiKey', ODDS_API_IO_KEY);
+      targetUrl = targetUrlObj.toString();
+    }
     // Build request headers
     const reqHeaders = {};
 
@@ -122,9 +126,6 @@ export default {
     }
     if (api === 'tavily') {
       reqHeaders['Authorization'] = 'Bearer ' + TAVILY_KEY;
-    }
-    if (api === 'oddsapio') {
-      reqHeaders['x-api-key'] = ODDS_API_IO_KEY;
     }
     if (api === 'rapidapi') {
       reqHeaders['X-RapidAPI-Key'] = RAPIDAPI_KEY;

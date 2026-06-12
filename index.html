@@ -1576,7 +1576,7 @@ const CFG = {
   fng:         'https://api.alternative.me/fng/?limit=1',
   ODDSPAPI_BASE: 'https://api.oddspapi.io/v4',
   oddsPapiKey: 'f1d9ee0e-35cf-40ef-bb8a-5eb5bfed774d',
-  ODDSAPIIO_BASE: 'https://odds-api.io/api/v1',
+  ODDSAPIIO_BASE: 'https://api.odds-api.io/v3',
   // Torneos activos — se detectan dinámicamente según partidos en curso
   ODDSPAPI_TOURNAMENTS: {
     activos: [],        // se llena dinámicamente
@@ -3488,30 +3488,56 @@ async function cargarDatosOddsPapi() {
 // ─── ODDS-API.IO (fuente secundaria — fallback de OddsPapi) ─
 async function cargarDatosOddsApiIo() {
   try {
-    const url = `${CFG.ODDSAPIIO_BASE}/odds?sport=soccer&market=moneyline`;
-    const res = await fetchSeguro(proxyUrl(url) + '&api=oddsapio', 8000);
-    if (!res.ok) {
-      console.error('odds-api.io error:', res.status);
+    // PASO 1: lista de eventos de fútbol
+    const urlEventos = `${CFG.ODDSAPIIO_BASE}/events?sport=football`;
+    const resEventos = await fetchSeguro(proxyUrl(urlEventos) + '&api=oddsapio', 8000);
+    if (!resEventos.ok) {
+      console.error('odds-api.io error (events):', resEventos.status);
       return false;
     }
 
-    const data = await res.json();
-    const eventos = Array.isArray(data) ? data : (data.data || data.events || []);
+    const dataEventos = await resEventos.json();
+    const eventos = Array.isArray(dataEventos) ? dataEventos : (dataEventos.data || dataEventos.events || []);
     if (!eventos.length) {
       console.log('odds-api.io: sin eventos');
       return false;
     }
 
+    // Limitar a los primeros 10 eventos — plan gratuito: 100 peticiones/hora
+    const eventosLimitados = eventos.slice(0, 10);
+    console.log('odds-api.io: eventos recibidos:', eventos.length, '- usando', eventosLimitados.length);
+
     // Parsear eventos al formato que usa el sistema (mismo esquema que STATE.valueBets)
     const valueBets = [];
 
-    for (const ev of eventos) {
-      const homeName = ev.home || ev.home_team || ev.homeTeam;
-      const awayName = ev.away || ev.away_team || ev.awayTeam;
+    for (const ev of eventosLimitados) {
+      const eventId = ev.id || ev.eventId;
+      if (!eventId) continue;
+
+      // PASO 2: odds del evento
+      let oddsEv;
+      try {
+        const urlOdds = `${CFG.ODDSAPIIO_BASE}/odds?eventId=${eventId}`;
+        const resOdds = await fetchSeguro(proxyUrl(urlOdds) + '&api=oddsapio', 8000);
+        if (!resOdds.ok) {
+          console.error('odds-api.io error (odds):', eventId, resOdds.status);
+          continue;
+        }
+        oddsEv = await resOdds.json();
+      } catch (err) {
+        console.error('odds-api.io odds fetch error:', eventId, err);
+        continue;
+      } finally {
+        // Evitar rate limit entre llamadas — plan gratuito: 100 peticiones/hora
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+
+      const homeName = ev.home || ev.home_team || ev.homeTeam || oddsEv.home || oddsEv.home_team;
+      const awayName = ev.away || ev.away_team || ev.awayTeam || oddsEv.away || oddsEv.away_team;
       if (!homeName || !awayName) continue;
 
       // Normalizar lista de bookmakers (objeto o array según la respuesta)
-      const bms = ev.bookmakers;
+      const bms = oddsEv.bookmakers;
       let lista = [];
       if (Array.isArray(bms)) {
         lista = bms.map(b => ({ nombre: b.name || b.title || b.bookmaker, odds: b.odds || b.ML?.odds || b.markets?.ML?.odds }));
@@ -3560,10 +3586,10 @@ async function cargarDatosOddsApiIo() {
         const stake  = STATE.bankroll * kellyF;
 
         valueBets.push({
-          gameId:    ev.id || ev.eventId || (homeName + '-' + awayName),
+          gameId:    eventId,
           partido:   homeName + ' vs ' + awayName,
-          liga:      ev.league || ev.competition || 'Fútbol',
-          fecha:     ev.date || ev.commence_time,
+          liga:      ev.league || ev.competition || oddsEv.league || 'Fútbol',
+          fecha:     ev.date || ev.commence_time || oddsEv.date,
           esMundial: false,
           mercado:   traducirMercado('h2h'),
           pick:      traducirPick(outcome, 'h2h', homeName, awayName),
