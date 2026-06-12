@@ -1576,6 +1576,7 @@ const CFG = {
   fng:         'https://api.alternative.me/fng/?limit=1',
   ODDSPAPI_BASE: 'https://api.oddspapi.io/v4',
   oddsPapiKey: 'f1d9ee0e-35cf-40ef-bb8a-5eb5bfed774d',
+  ODDSAPIIO_BASE: 'https://odds-api.io/api/v1',
   // Torneos activos — se detectan dinámicamente según partidos en curso
   ODDSPAPI_TOURNAMENTS: {
     activos: [],        // se llena dinámicamente
@@ -3484,6 +3485,193 @@ async function cargarDatosOddsPapi() {
   }
 }
 
+// ─── ODDS-API.IO (fuente secundaria — fallback de OddsPapi) ─
+async function cargarDatosOddsApiIo() {
+  try {
+    const url = `${CFG.ODDSAPIIO_BASE}/odds?sport=soccer&market=moneyline`;
+    const res = await fetchSeguro(proxyUrl(url) + '&api=oddsapio', 8000);
+    if (!res.ok) {
+      console.error('odds-api.io error:', res.status);
+      return false;
+    }
+
+    const data = await res.json();
+    const eventos = Array.isArray(data) ? data : (data.data || data.events || []);
+    if (!eventos.length) {
+      console.log('odds-api.io: sin eventos');
+      return false;
+    }
+
+    // Parsear eventos al formato que usa el sistema (mismo esquema que STATE.valueBets)
+    const valueBets = [];
+
+    for (const ev of eventos) {
+      const homeName = ev.home || ev.home_team || ev.homeTeam;
+      const awayName = ev.away || ev.away_team || ev.awayTeam;
+      if (!homeName || !awayName) continue;
+
+      // Normalizar lista de bookmakers (objeto o array según la respuesta)
+      const bms = ev.bookmakers;
+      let lista = [];
+      if (Array.isArray(bms)) {
+        lista = bms.map(b => ({ nombre: b.name || b.title || b.bookmaker, odds: b.odds || b.ML?.odds || b.markets?.ML?.odds }));
+      } else if (bms && typeof bms === 'object') {
+        lista = Object.entries(bms).map(([nombre, b]) => ({ nombre, odds: b.odds || b.ML?.odds || b.markets?.ML?.odds }));
+      }
+      lista = lista.filter(b => b.odds && b.odds.home && b.odds.draw && b.odds.away);
+      if (!lista.length) continue;
+
+      // Pinnacle como referencia "sharp" para de-vig; si no existe, usar la primera
+      const sharp = lista.find(b => /pinnacle/i.test(b.nombre)) || lista[0];
+      const soft  = lista.find(b => b !== sharp) || sharp;
+
+      const oddHomeSharp = parseFloat(sharp.odds.home);
+      const oddDrawSharp = parseFloat(sharp.odds.draw);
+      const oddAwaySharp = parseFloat(sharp.odds.away);
+      if (!oddHomeSharp || !oddDrawSharp || !oddAwaySharp) continue;
+
+      // Probabilidades reales sin margen (de-vig del bookmaker "sharp")
+      const sumInv = 1/oddHomeSharp + 1/oddDrawSharp + 1/oddAwaySharp;
+      const trueProbs = {
+        home: (1/oddHomeSharp) / sumInv,
+        draw: (1/oddDrawSharp) / sumInv,
+        away: (1/oddAwaySharp) / sumInv
+      };
+
+      const oddsParaEdge = {
+        home: parseFloat(soft.odds.home) || oddHomeSharp,
+        draw: parseFloat(soft.odds.draw) || oddDrawSharp,
+        away: parseFloat(soft.odds.away) || oddAwaySharp
+      };
+
+      [
+        { key: 'home', outcome: 'home' },
+        { key: 'draw', outcome: 'draw' },
+        { key: 'away', outcome: 'away' }
+      ].forEach(({ key, outcome }) => {
+        const trueProb = trueProbs[key];
+        const oddSoft  = oddsParaEdge[key];
+        const edge = ((trueProb * oddSoft) - 1) * 100;
+
+        if (edge <= 0) return;
+
+        const b      = oddSoft - 1;
+        const kellyF = b > 0 ? Math.max(0, (trueProb * b - (1 - trueProb)) / b * 0.25) : 0;
+        const stake  = STATE.bankroll * kellyF;
+
+        valueBets.push({
+          gameId:    ev.id || ev.eventId || (homeName + '-' + awayName),
+          partido:   homeName + ' vs ' + awayName,
+          liga:      ev.league || ev.competition || 'Fútbol',
+          fecha:     ev.date || ev.commence_time,
+          esMundial: false,
+          mercado:   traducirMercado('h2h'),
+          pick:      traducirPick(outcome, 'h2h', homeName, awayName),
+          odd:       oddSoft,
+          edge,
+          probReal:  trueProb * 100,
+          probIp:    (1/oddSoft) * 100,
+          kelly:     kellyF * 100,
+          stake,
+          ganancia:  stake * b,
+          bk:        soft.nombre || 'odds-api.io',
+          score:     Math.round(Math.min(edge * 5, 100)),
+          fuente:    'oddsapio',
+          outcome,
+        });
+      });
+    }
+
+    valueBets.sort((a, b) => b.edge - a.edge);
+    STATE.valueBets = valueBets;
+    STATE.oddsGames = [];
+    STATE.modoFallback = false;
+    STATE.ultimaActualizacionDeportes = Date.now();
+
+    console.log('odds-api.io: STATE.valueBets final:', valueBets.length);
+    return valueBets.length > 0;
+
+  } catch (err) {
+    console.error('odds-api.io cargarDatosOddsApiIo error:', err);
+    return false;
+  }
+}
+
+// ─── CACHÉ LOCAL DE ODDS (resiliencia Capa 1) ───────────────
+const ODDS_CACHE_KEY    = 'jcahs_odds_cache';
+const ODDS_CACHE_MAX_MS = 3 * 60 * 60 * 1000; // 3 horas
+
+function guardarCacheOdds(fuente) {
+  try {
+    localStorage.setItem(ODDS_CACHE_KEY, JSON.stringify({
+      data: STATE.valueBets,
+      ts: Date.now(),
+      fuente,
+    }));
+  } catch (err) {
+    console.warn('jcahs_odds_cache: no se pudo guardar', err);
+  }
+}
+
+function leerCacheOdds() {
+  try {
+    const raw = localStorage.getItem(ODDS_CACHE_KEY);
+    if (!raw) return null;
+    const cache = JSON.parse(raw);
+    if (!Array.isArray(cache?.data) || !cache.ts) return null;
+    return cache;
+  } catch (err) {
+    console.warn('jcahs_odds_cache: no se pudo leer', err);
+    return null;
+  }
+}
+
+// Fuente 4 — último recurso: todas las fuentes en vivo fallaron
+function cargarDesdeCacheOdds() {
+  const cache = leerCacheOdds();
+  if (!cache || !cache.data.length) {
+    console.log('Fuente 4 (cache): no hay datos en caché');
+    return false;
+  }
+  const horas = Math.max(1, Math.round((Date.now() - cache.ts) / 3600000));
+  STATE.valueBets    = cache.data;
+  STATE.oddsGames    = [];
+  STATE.modoFallback = true;
+  mostrarAvisoFallback(`Usando datos en caché de hace ${horas}h (${cache.fuente})`);
+  setText('dep-sub', `${STATE.valueBets.length} value bets · caché (${cache.fuente}) · hace ${horas}h`);
+  if (typeof renderMentor === 'function') renderMentor();
+  if (typeof renderListaDE === 'function') renderListaDE();
+  if (typeof renderDeportes === 'function') renderDeportes();
+  mentorActualizarEstado('ready');
+  ejecutarDecisionEngine();
+  console.log('Fuente 4 (cache): usando', cache.fuente, 'de hace', horas, 'horas,', STATE.valueBets.length, 'bets');
+  return true;
+}
+
+// Tras cualquier intento de carga: si STATE.valueBets quedó vacío, usar
+// la caché local (Fuente 4); si no, persistir esta carga para la próxima vez.
+function finalizarCargaOdds(fuenteOk) {
+  if (!STATE.valueBets || !STATE.valueBets.length) {
+    cargarDesdeCacheOdds();
+  } else {
+    guardarCacheOdds(fuenteOk);
+  }
+}
+
+// Al arrancar — si hay caché de menos de 3h, usarla como datos iniciales
+// mientras la fuente real carga en segundo plano (ver cargarDeportes()).
+function cargarCacheOddsInicial() {
+  const cache = leerCacheOdds();
+  if (!cache) return false;
+  const edadMs = Date.now() - cache.ts;
+  if (edadMs > ODDS_CACHE_MAX_MS) return false;
+  STATE.valueBets = cache.data;
+  console.log('Cache inicial de odds:', cache.fuente, '-', STATE.valueBets.length, 'bets, hace', Math.round(edadMs / 60000), 'min');
+  if (typeof renderMentor === 'function') renderMentor();
+  if (typeof renderListaDE === 'function') renderListaDE();
+  return true;
+}
+
 // ─── SECCIÓN DEPORTES (The Odds API — fuente auxiliar) ──────
 async function cargarDeportes() {
   // Evitar llamadas simultáneas (condición de carrera)
@@ -3523,11 +3711,30 @@ async function cargarDeportes() {
     document.querySelectorAll('.aviso-fallback').forEach(el => el.remove());
     if (typeof renderMentor === 'function') renderMentor();
     if (typeof renderListaDE === 'function') renderListaDE();
+    guardarCacheOdds('OddsPapi (Pinnacle)');
+    return; // No necesitamos odds-api.io ni The Odds API
+  }
+
+  // ── INTENTO 2: odds-api.io (fuente secundaria) ──────────────
+  console.log('cargarDeportes: OddsPapi falló, intentando odds-api.io...');
+  const oddsapioOk = await cargarDatosOddsApiIo();
+
+  if (oddsapioOk && STATE.valueBets?.length > 0) {
+    console.log('cargarDeportes: odds-api.io exitoso', STATE.valueBets.length, 'bets');
+    mentorActualizarEstado('ready');
+    ejecutarDecisionEngine();
+    setText('dep-sub', `${STATE.valueBets.length} value bets · odds-api.io · ${ts()}`);
+    setHTML('dep-value-bets', `<div class="loading">📡 ${STATE.valueBets.length} value bets vía odds-api.io — ver detalle en Decision Engine</div>`);
+    setHTML('dep-partidos', `<div class="loading">📡 Partidos vía odds-api.io · ${ts()}</div>`);
+    document.querySelectorAll('.aviso-fallback').forEach(el => el.remove());
+    if (typeof renderMentor === 'function') renderMentor();
+    if (typeof renderListaDE === 'function') renderListaDE();
+    guardarCacheOdds('odds-api.io');
     return; // No necesitamos The Odds API
   }
 
-  // ── INTENTO 2: The Odds API (auxiliar) ──────────────────────
-  console.log('cargarDeportes: OddsPapi falló, intentando The Odds API...');
+  // ── INTENTO 3: The Odds API (auxiliar) ──────────────────────
+  console.log('cargarDeportes: OddsPapi y odds-api.io fallaron, intentando The Odds API...');
   console.log('STEP 1: Starting');
   setHTML('dep-value-bets', '<div class="loading"><span class="spin">⌛</span> Buscando value bets...</div>');
   setHTML('dep-partidos',   '<div class="loading"><span class="spin">⌛</span> Cargando partidos...</div>');
@@ -3576,6 +3783,7 @@ async function cargarDeportes() {
         await cargarPartidosFallback();
         console.log('FALLBACK: cargarPartidosFallback() completado, STATE.modoFallback:', STATE.modoFallback);
         STATE.ultimaActualizacionDeportes = Date.now();
+        finalizarCargaOdds('Football-Data (fallback)');
         return;
       }
       // Capturar quota restante de The Odds API
@@ -3847,6 +4055,9 @@ async function cargarDeportes() {
     STATE.modoFallback = false;
     document.querySelectorAll('.aviso-fallback').forEach(el => el.remove());
   }
+
+  // ── INTENTO 4: caché local (último recurso) ─────────────────
+  finalizarCargaOdds(STATE.modoFallback ? 'Football-Data (fallback)' : 'The Odds API');
   } finally {
     STATE.deportesCargando = false;
   }
@@ -5941,6 +6152,9 @@ async function init() {
 
   // Iniciar reloj
   iniciarReloj();
+
+  // Caché de odds (Capa 1) — mostrar datos previos mientras carga la fuente real
+  cargarCacheOddsInicial();
 
   // Llenar bankroll en calculadoras
   ['k-bk','vb-bk'].forEach(id => {
