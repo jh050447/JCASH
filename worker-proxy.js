@@ -13,6 +13,8 @@
  *   /?url=...&api=groq                              (Groq: injects Authorization: Bearer header)
  *   /?url=...&api=tavily                            (Tavily: injects Authorization: Bearer header)
  *   /?url=...&api=oddspapi                          (OddsPapi: injects apiKey query param)
+ *   /?url=...&api=oddsapio                          (odds-api.io: injects x-api-key header)
+ *   /?url=...&api=rapidapi&host=...                 (RapidAPI: injects X-RapidAPI-Key/X-RapidAPI-Host headers)
  *
  * All sensitive API keys live here as Cloudflare Worker env vars (secrets).
  * Fallback values are kept for local `wrangler dev` only — rotate these after
@@ -50,6 +52,8 @@ export default {
     const GROQ_KEY      = env.GROQ_KEY      || '';
     const TAVILY_KEY    = env.TAVILY_KEY    || '';
     const ODDSPAPI_KEY  = env.ODDSPAPI_KEY  || '';
+    const ODDS_API_IO_KEY = env.ODDS_API_IO_KEY || '';
+    const RAPIDAPI_KEY  = env.RAPIDAPI_KEY  || '';
 
     const url = new URL(request.url);
     const target   = url.searchParams.get('url');
@@ -118,6 +122,13 @@ export default {
     }
     if (api === 'tavily') {
       reqHeaders['Authorization'] = 'Bearer ' + TAVILY_KEY;
+    }
+    if (api === 'oddsapio') {
+      reqHeaders['x-api-key'] = ODDS_API_IO_KEY;
+    }
+    if (api === 'rapidapi') {
+      reqHeaders['X-RapidAPI-Key'] = RAPIDAPI_KEY;
+      reqHeaders['X-RapidAPI-Host'] = url.searchParams.get('host') || '';
     }
 
     // Forward original Accept-Encoding if present
