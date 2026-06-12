@@ -128,8 +128,9 @@ export default {
       reqHeaders['Authorization'] = 'Bearer ' + TAVILY_KEY;
     }
     if (api === 'rapidapi') {
+      const rapidApiHost = url.searchParams.get('host') || '';
       reqHeaders['X-RapidAPI-Key'] = RAPIDAPI_KEY;
-      reqHeaders['X-RapidAPI-Host'] = url.searchParams.get('host') || '';
+      reqHeaders['X-RapidAPI-Host'] = rapidApiHost;
     }
 
     // Forward original Accept-Encoding if present
