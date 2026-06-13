@@ -6889,14 +6889,28 @@ function renderAnalizador() { renderAnStep1(); }
 // ── LAMBDAS REALES — Free API Live Football Data (RapidAPI) ──
 const RAPIDAPI_LIVEFOOTBALL_HOST = 'free-api-live-football-data.p.rapidapi.com';
 
+// TEMPORAL: ejecutar desde la consola (debugRapidApiAllLeagues()) para
+// inspeccionar la estructura real de respuesta de /football-get-all-leagues
+// y confirmar los endpoints/campos correctos de esta API. Borrar cuando ya
+// no se necesite.
+async function debugRapidApiAllLeagues() {
+  const url = `https://${RAPIDAPI_LIVEFOOTBALL_HOST}/football-get-all-leagues`;
+  const res = await fetchSeguro(proxyUrl(url) + `&api=rapidapi&host=${RAPIDAPI_LIVEFOOTBALL_HOST}`, 8000);
+  console.log('debugRapidApiAllLeagues status:', res.status, res.ok);
+  const data = await res.json();
+  console.log('debugRapidApiAllLeagues response:', data);
+  return data;
+}
+
 // Quita acentos/diacríticos: "São Paulo" -> "Sao Paulo"
 function quitarAcentos(str) {
   return str.normalize('NFD').replace(/\p{Diacritic}/gu, '');
 }
 
-async function buscarEquipoIdRapidApi(nombre) {
+async function buscarEquipoIdRapidApi(nombre, contador) {
   const url = `https://${RAPIDAPI_LIVEFOOTBALL_HOST}/footballSearchTeam?search=${encodeURIComponent(nombre)}`;
   const res = await fetchSeguro(proxyUrl(url) + `&api=rapidapi&host=${RAPIDAPI_LIVEFOOTBALL_HOST}`, 8000);
+  if (contador && res.ok) contador.exitosas++;
   if (!res.ok) return null;
 
   const data = await res.json();
@@ -6907,19 +6921,19 @@ async function buscarEquipoIdRapidApi(nombre) {
   return primero.id ?? primero.teamId ?? primero.team_id ?? null;
 }
 
-async function buscarEquipoRapidApi(nombre) {
+async function buscarEquipoRapidApi(nombre, contador) {
   try {
     const nombreNorm = quitarAcentos(nombre);
-    let id = await buscarEquipoIdRapidApi(nombreNorm);
+    let id = await buscarEquipoIdRapidApi(nombreNorm, contador);
     if (id != null) return id;
 
     // Fallback para nombres compuestos: "IR Iran" -> "Iran" -> "IR"
     const palabras = nombreNorm.trim().split(/\s+/);
     if (palabras.length > 1) {
-      id = await buscarEquipoIdRapidApi(palabras[palabras.length - 1]);
+      id = await buscarEquipoIdRapidApi(palabras[palabras.length - 1], contador);
       if (id != null) return id;
 
-      id = await buscarEquipoIdRapidApi(palabras[0]);
+      id = await buscarEquipoIdRapidApi(palabras[0], contador);
       if (id != null) return id;
     }
 
@@ -6930,10 +6944,11 @@ async function buscarEquipoRapidApi(nombre) {
   }
 }
 
-async function obtenerStatsEquipoRapidApi(teamId) {
+async function obtenerStatsEquipoRapidApi(teamId, contador) {
   try {
     const url = `https://${RAPIDAPI_LIVEFOOTBALL_HOST}/footballTeamStats?teamId=${teamId}`;
     const res = await fetchSeguro(proxyUrl(url) + `&api=rapidapi&host=${RAPIDAPI_LIVEFOOTBALL_HOST}`, 8000);
+    if (contador && res.ok) contador.exitosas++;
     if (!res.ok) return null;
 
     const data = await res.json();
@@ -6967,19 +6982,24 @@ async function cargarLambdasReales(homeTeam, awayTeam) {
   }
 
   try {
-    // Quota RapidAPI: 2 peticiones por partido analizado (1 búsqueda equipo + 1 stats)
-    registrarUsoRapidApi(2);
-    registrarLlamada('rapidapi');
+    const contador = { exitosas: 0 };
 
     // Búsquedas secuenciales con delay — evitar 429 (rate limit) del plan gratuito
-    const idLocal = await buscarEquipoRapidApi(homeTeam);
+    const idLocal = await buscarEquipoRapidApi(homeTeam, contador);
     await new Promise(resolve => setTimeout(resolve, CFG.apiRateControl.rapidapi.delayEntreLlamadasMs));
-    const idVisit = await buscarEquipoRapidApi(awayTeam);
+    const idVisit = await buscarEquipoRapidApi(awayTeam, contador);
 
     const [statsLocal, statsVisit] = await Promise.all([
-      idLocal != null ? obtenerStatsEquipoRapidApi(idLocal) : null,
-      idVisit != null ? obtenerStatsEquipoRapidApi(idVisit) : null,
+      idLocal != null ? obtenerStatsEquipoRapidApi(idLocal, contador) : null,
+      idVisit != null ? obtenerStatsEquipoRapidApi(idVisit, contador) : null,
     ]);
+
+    // Solo se descuenta quota/registra la llamada por cada respuesta
+    // realmente exitosa (status 200) — los 404/errores no consumen créditos
+    if (contador.exitosas > 0) {
+      registrarUsoRapidApi(contador.exitosas);
+      registrarLlamada('rapidapi');
+    }
 
     let resultado;
     if (statsLocal && statsVisit) {
