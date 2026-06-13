@@ -6513,19 +6513,41 @@ function renderAnalizador() { renderAnStep1(); }
 // ── LAMBDAS REALES — Free API Live Football Data (RapidAPI) ──
 const RAPIDAPI_LIVEFOOTBALL_HOST = 'free-api-live-football-data.p.rapidapi.com';
 
+// Quita acentos/diacríticos: "São Paulo" -> "Sao Paulo"
+function quitarAcentos(str) {
+  return str.normalize('NFD').replace(/\p{Diacritic}/gu, '');
+}
+
+async function buscarEquipoIdRapidApi(nombre) {
+  const url = `https://${RAPIDAPI_LIVEFOOTBALL_HOST}/footballSearchTeam?search=${encodeURIComponent(nombre)}`;
+  const res = await fetchSeguro(proxyUrl(url) + `&api=rapidapi&host=${RAPIDAPI_LIVEFOOTBALL_HOST}`, 8000);
+  if (!res.ok) return null;
+
+  const data = await res.json();
+  const lista = Array.isArray(data) ? data : (data.response || data.data || data.results || []);
+  if (!lista.length) return null;
+
+  const primero = lista[0];
+  return primero.id ?? primero.teamId ?? primero.team_id ?? null;
+}
+
 async function buscarEquipoRapidApi(nombre) {
   try {
-    const url = `https://${RAPIDAPI_LIVEFOOTBALL_HOST}/footballSearchTeam?search=${encodeURIComponent(nombre)}`;
-    const res = await fetchSeguro(proxyUrl(url) + `&api=rapidapi&host=${RAPIDAPI_LIVEFOOTBALL_HOST}`, 8000);
-    if (!res.ok) return null;
+    const nombreNorm = quitarAcentos(nombre);
+    let id = await buscarEquipoIdRapidApi(nombreNorm);
+    if (id != null) return id;
 
-    const data = await res.json();
-    console.log('RapidAPI buscarEquipoRapidApi — respuesta cruda:', nombre, JSON.stringify(data));
-    const lista = Array.isArray(data) ? data : (data.response || data.data || data.results || []);
-    if (!lista.length) return null;
+    // Fallback para nombres compuestos: "IR Iran" -> "Iran" -> "IR"
+    const palabras = nombreNorm.trim().split(/\s+/);
+    if (palabras.length > 1) {
+      id = await buscarEquipoIdRapidApi(palabras[palabras.length - 1]);
+      if (id != null) return id;
 
-    const primero = lista[0];
-    return primero.id ?? primero.teamId ?? primero.team_id ?? null;
+      id = await buscarEquipoIdRapidApi(palabras[0]);
+      if (id != null) return id;
+    }
+
+    return null;
   } catch (err) {
     console.error('RapidAPI buscarEquipoRapidApi error:', nombre, err);
     return null;
@@ -6539,9 +6561,7 @@ async function obtenerStatsEquipoRapidApi(teamId) {
     if (!res.ok) return null;
 
     const data = await res.json();
-    console.log('RapidAPI obtenerStatsEquipoRapidApi — respuesta cruda:', teamId, JSON.stringify(data));
     const stats = data.response || data.data || data;
-    console.log('RapidAPI obtenerStatsEquipoRapidApi — stats extraído:', teamId, JSON.stringify(stats));
 
     const golesFor    = stats.goalsFor ?? stats.goalsScored ?? stats.avgGoalsScored ?? stats.avgGoals ?? stats.goals_for ?? null;
     const golesContra = stats.goalsAgainst ?? stats.goalsConceded ?? stats.avgGoalsConceded ?? stats.goals_against ?? null;
@@ -6568,10 +6588,10 @@ async function cargarLambdasReales(homeTeam, awayTeam) {
     // Quota RapidAPI: 2 peticiones por partido analizado (1 búsqueda equipo + 1 stats)
     registrarUsoRapidApi(2);
 
-    const [idLocal, idVisit] = await Promise.all([
-      buscarEquipoRapidApi(homeTeam),
-      buscarEquipoRapidApi(awayTeam),
-    ]);
+    // Búsquedas secuenciales con delay — evitar 429 (rate limit) del plan gratuito
+    const idLocal = await buscarEquipoRapidApi(homeTeam);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const idVisit = await buscarEquipoRapidApi(awayTeam);
 
     const [statsLocal, statsVisit] = await Promise.all([
       idLocal != null ? obtenerStatsEquipoRapidApi(idLocal) : null,
@@ -7616,6 +7636,8 @@ const TSDB_BASE = 'https://www.thesportsdb.com/api/v1/json/3';
 
 const fetchTSDB = async (endpoint) => {
   try {
+    // Evitar 429 (rate limit) — delay antes de cada llamada a TheSportsDB
+    await new Promise(resolve => setTimeout(resolve, 500));
     const url = `${TSDB_BASE}${endpoint}`;
     const proxyUrl = `https://jcahs-proxy.jh050447.workers.dev/?url=${encodeURIComponent(url)}`;
     const r = await fetchSeguro(proxyUrl, 8000);
