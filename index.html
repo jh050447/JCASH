@@ -1192,7 +1192,7 @@ body {
             <div class="sec-sub" id="dep-sub">Fuente: The Odds API · football-data.org</div>
           </div>
           <div style="display:flex;gap:8px">
-            <button onclick="actualizarDatosManual()" id="btn-actualizar-deportes" style="background:transparent;border:1px solid #00ff88;color:#00ff88;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">🔄 Actualizar datos</button>
+            <button onmousedown="pulsacionLargaInicio(this)" onmouseup="pulsacionLargaFin(this)" onmouseleave="pulsacionLargaCancelar(this)" ontouchstart="pulsacionLargaInicio(this)" ontouchend="pulsacionLargaFin(this)" id="btn-actualizar-deportes" style="background:transparent;border:1px solid #00ff88;color:#00ff88;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">🔄 Actualizar datos</button>
             <button class="btn btn-ghost" onclick="cargarDeportes()">
               <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px">refresh</span>
               Refrescar
@@ -1257,7 +1257,7 @@ body {
             <div class="sec-sub" id="de-sub">Las mejores apuestas del día por score</div>
           </div>
           <div style="display:flex;gap:8px">
-            <button onclick="actualizarDatosManual()" id="btn-actualizar-de" style="background:transparent;border:1px solid #00ff88;color:#00ff88;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">🔄 Actualizar datos</button>
+            <button onmousedown="pulsacionLargaInicio(this)" onmouseup="pulsacionLargaFin(this)" onmouseleave="pulsacionLargaCancelar(this)" ontouchstart="pulsacionLargaInicio(this)" ontouchend="pulsacionLargaFin(this)" id="btn-actualizar-de" style="background:transparent;border:1px solid #00ff88;color:#00ff88;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">🔄 Actualizar datos</button>
             <button class="btn btn-ghost" onclick="ejecutarDecisionEngine();renderListaDE()">
               <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px">refresh</span>
               Actualizar
@@ -1711,10 +1711,15 @@ const STATE = {
   oddsPapiCallsSesion: 0,
   theOddsApiUsedMes:   parseInt(localStorage.getItem('jcahs_theodds_used')) || 0,
   theOddsApiMesTs:     parseInt(localStorage.getItem('jcahs_theodds_mes_ts')) || Date.now(),
+  theOddsApiLastCall:  0,
+  oddsApiIoLastCall:   0,
   rapidApiLastCall:    0,
   tsdbCallsSesion:     0,
   coingeckoLastCall:        0,
   coingeckoCallTimestamps:  [],
+  // ─── CONTROL MANUAL DE LLAMADAS (forzar / ignorar cooldown) ──
+  forzarLlamada:    null,  // null | true (forzar todo) | 'oddspapi'|'oddsapio'|'theoddsapi'|'rapidapi'
+  forzarBotonHasta: {},    // { [apiName]: timestampMs hasta el que el botón ↺ está deshabilitado }
   oddsPapiCargando:  false,
   ultimaActualizacionDeportes: null,
   modoFallback:    false,
@@ -4196,22 +4201,60 @@ async function cargarDeportes() {
 }
 
 // ─── ACTUALIZACIÓN MANUAL (botón "🔄 Actualizar datos") ─────
-async function actualizarDatosManual() {
+// forzar=true: ignora el cooldown/gate de checkApiLimit y consume una llamada real
+async function actualizarDatosManual(forzar = false) {
   const btns = document.querySelectorAll('[id^="btn-actualizar"]');
   btns.forEach(btn => {
     btn.disabled = true;
-    btn.textContent = '⏳ Cargando...';
+    if (forzar) {
+      btn.textContent = '⚡ Forzando actualización...';
+      btn.title = 'Forzando actualización...';
+    } else {
+      btn.textContent = '⏳ Cargando...';
+    }
   });
+
+  if (forzar) STATE.forzarLlamada = true;
 
   // Forzar refresh ignorando cache
   STATE.ultimaActualizacionDeportes = null;
 
   await cargarDeportes();
 
+  if (forzar) STATE.forzarLlamada = null;
+
   btns.forEach(btn => {
     btn.disabled = false;
     btn.textContent = '🔄 Actualizar datos';
+    btn.title = '';
   });
+}
+
+// ─── CLICK NORMAL vs PULSACIÓN LARGA (2s) — botón "🔄 Actualizar datos" ──
+const _pulsacionLargaState = new WeakMap();
+
+function pulsacionLargaInicio(btn) {
+  const estado = { forzada: false, timer: null };
+  estado.timer = setTimeout(() => {
+    estado.forzada = true;
+    actualizarDatosManual(true);
+  }, 2000);
+  _pulsacionLargaState.set(btn, estado);
+}
+
+function pulsacionLargaFin(btn) {
+  const estado = _pulsacionLargaState.get(btn);
+  if (!estado) return;
+  clearTimeout(estado.timer);
+  if (!estado.forzada) actualizarDatosManual(false);
+  _pulsacionLargaState.delete(btn);
+}
+
+function pulsacionLargaCancelar(btn) {
+  const estado = _pulsacionLargaState.get(btn);
+  if (!estado) return;
+  clearTimeout(estado.timer);
+  _pulsacionLargaState.delete(btn);
 }
 
 function mostrarAvisoQuota() {
@@ -4232,6 +4275,78 @@ function htmlResetMensual() {
   const reset = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1);
   const diasHastaReset = Math.ceil((reset - hoy) / (1000 * 60 * 60 * 24));
   return '<div style="color:#4a5568;font-size:10px;margin-top:4px">reset: 1 ' + meses[reset.getMonth()] + ' (' + diasHastaReset + ' días)</div>';
+}
+
+// ─── BOTÓN "↺" DEL SIDEBAR — fuerza una API específica ignorando cooldown ──
+const FORZAR_COOLDOWN_MS = 2 * 60 * 1000; // 2 min — el botón solo aparece si pasó este tiempo
+const FORZAR_DISABLE_MS  = 30 * 1000;     // 30 s — deshabilitado tras usarlo
+
+// HTML del botón ↺ — visible solo si pasaron >= 2 min desde la última llamada real a apiName
+function htmlBotonForzar(apiName, lastCall) {
+  const ahora = Date.now();
+  const deshabilitadoHasta = STATE.forzarBotonHasta?.[apiName] || 0;
+  if (ahora < deshabilitadoHasta) {
+    return '<button disabled style="margin-top:6px;background:transparent;border:1px solid #2d3b56;color:#4a5568;font-size:10px;padding:2px 8px;border-radius:4px;cursor:not-allowed">Actualizando...</button>';
+  }
+  if (ahora - (lastCall || 0) < FORZAR_COOLDOWN_MS) return '';
+  return '<button onclick="forzarApiSidebar(\'' + apiName + '\')" style="margin-top:6px;background:transparent;border:1px solid #2d3b56;color:#8892a4;font-size:10px;padding:2px 8px;border-radius:4px;cursor:pointer" title="Forzar actualización ignorando cooldown">↺ forzar</button>';
+}
+
+// Click en "↺" — fuerza apiName ignorando su cooldown/gate y consume una llamada real
+async function forzarApiSidebar(apiName) {
+  STATE.forzarBotonHasta[apiName] = Date.now() + FORZAR_DISABLE_MS;
+  STATE.forzarLlamada = apiName;
+  actualizarTodosMonitores(); // muestra "Actualizando..." de inmediato
+
+  try {
+    switch (apiName) {
+      case 'oddspapi': {
+        const ok = await cargarDatosOddsPapi();
+        if (ok && STATE.valueBets?.length > 0) {
+          ejecutarDecisionEngine();
+          if (typeof renderMentor === 'function') renderMentor();
+          if (typeof renderListaDE === 'function') renderListaDE();
+          guardarCacheOdds('OddsPapi (Pinnacle)');
+        }
+        break;
+      }
+      case 'oddsapio': {
+        const ok = await cargarDatosOddsApiIo();
+        if (ok && STATE.valueBets?.length > 0) {
+          ejecutarDecisionEngine();
+          if (typeof renderMentor === 'function') renderMentor();
+          if (typeof renderListaDE === 'function') renderListaDE();
+          guardarCacheOdds('odds-api.io');
+        }
+        break;
+      }
+      case 'theoddsapi': {
+        STATE.ultimaActualizacionDeportes = null;
+        await cargarDeportes();
+        break;
+      }
+      case 'rapidapi': {
+        // Limpia la caché de lambdas del partido en análisis (si hay uno abierto)
+        // para forzar una nueva consulta real ignorando la reserva mínima
+        const p = STATE.an?.partido;
+        if (p) {
+          delete STATE.lambdaCache[p.home_team + '_' + p.away_team];
+          cargarLambdasReales(p.home_team, p.away_team).then(({lambdaL, lambdaV, calidad}) => {
+            STATE.an.lambdaL = lambdaL;
+            STATE.an.lambdaV = lambdaV;
+            STATE.an.lambdaCalidad = calidad;
+            if (STATE.an.step === 2) renderAnStep2();
+          });
+        }
+        break;
+      }
+    }
+  } finally {
+    STATE.forzarLlamada = null;
+  }
+
+  actualizarTodosMonitores();
+  setTimeout(actualizarTodosMonitores, FORZAR_DISABLE_MS);
 }
 
 // ─── MONITOR DE QUOTA — THE ODDS API (sidebar) ────────────────
@@ -4259,6 +4374,9 @@ function actualizarMonitorQuota() {
   const diasHastaReset = Math.ceil((reset - hoy) / (1000 * 60 * 60 * 24));
   const resetHtml = '<div style="color:#4a5568;font-size:10px;margin-top:4px">reset: 1 ' + meses[reset.getMonth()] + '</div>';
 
+  // Botón "↺ forzar" — fuerza The Odds API ignorando su cooldown (consume llamada real)
+  const forzarHtml = htmlBotonForzar('theoddsapi', STATE.theOddsApiLastCall);
+
   if (remaining === 0) {
     el.innerHTML =
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
@@ -4269,7 +4387,8 @@ function actualizarMonitorQuota() {
       '<div style="background:#ff4444;width:100%;height:100%;border-radius:4px"></div>' +
       '</div>' +
       '<div style="color:#ff4444;font-size:10px;text-align:center">AGOTADA — reset en ' + diasHastaReset + ' días</div>' +
-      resetHtml;
+      resetHtml +
+      forzarHtml;
   } else {
     el.innerHTML =
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
@@ -4283,7 +4402,8 @@ function actualizarMonitorQuota() {
       '<span style="color:#4a5568;font-size:10px">' + (used ?? 0) + ' usadas</span>' +
       '<span style="color:' + color + ';font-size:11px;font-weight:600">' + remaining + '/' + total + ' restantes</span>' +
       '</div>' +
-      resetHtml;
+      resetHtml +
+      forzarHtml;
   }
 
   try {
@@ -4331,6 +4451,15 @@ function actualizarMonitorOddsPapi() {
   // Reset mensual — solo cuando la quota está baja
   const resetHtml = pct <= 20 ? htmlResetMensual() : '';
 
+  // Última actualización — hace cuántos minutos fue la última llamada real
+  const ultimaHtml = STATE.oddsPapiLastCall
+    ? '<div style="color:#4a5568;font-size:10px;margin-top:4px">última actualización: hace ' +
+      Math.floor((Date.now() - STATE.oddsPapiLastCall) / 60000) + ' min</div>'
+    : '<div style="color:#4a5568;font-size:10px;margin-top:4px">sin actualizaciones aún</div>';
+
+  // Botón "↺ forzar" — fuerza OddsPapi ignorando su cooldown (consume llamada real)
+  const forzarHtml = htmlBotonForzar('oddspapi', STATE.oddsPapiLastCall);
+
   el.innerHTML =
     '<div style="padding:8px 0">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
@@ -4345,7 +4474,9 @@ function actualizarMonitorOddsPapi() {
     '<span style="color:' + color + ';font-size:11px;font-weight:600">' + remaining + '/250 restantes</span>' +
     '</div>' +
     gateHtml +
+    ultimaHtml +
     resetHtml +
+    forzarHtml +
     torneosHtml +
     mundialHtml +
     '</div>';
@@ -4371,6 +4502,9 @@ function actualizarMonitorOddsApiIo() {
     ? 'reset en ' + minHastaReset + 'm — límite cercano (' + used + '/' + reservaCreditos + ' usados)'
     : 'reset cada hora · próximo en ' + minHastaReset + 'm';
 
+  // Botón "↺ forzar" — fuerza odds-api.io ignorando su cooldown (consume llamada real)
+  const forzarHtml = htmlBotonForzar('oddsapio', STATE.oddsApiIoLastCall);
+
   el.innerHTML =
     '<div style="padding:8px 0">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
@@ -4385,6 +4519,7 @@ function actualizarMonitorOddsApiIo() {
     '<span style="color:' + color + ';font-size:11px;font-weight:600">' + remaining + '/' + total + ' restantes</span>' +
     '</div>' +
     '<div style="color:#4a5568;font-size:10px;margin-top:4px">' + resetTxt + '</div>' +
+    forzarHtml +
     '</div>';
 }
 
@@ -4409,6 +4544,9 @@ function actualizarMonitorRapidApi() {
   // Reset mensual — solo cuando la quota está baja
   const resetHtml = pct <= 20 ? htmlResetMensual() : '';
 
+  // Botón "↺ forzar" — fuerza RapidAPI ignorando su cooldown (consume llamada real)
+  const forzarHtml = htmlBotonForzar('rapidapi', STATE.rapidApiLastCall);
+
   el.innerHTML =
     '<div style="padding:8px 0">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
@@ -4425,6 +4563,7 @@ function actualizarMonitorRapidApi() {
     '<div style="color:#4a5568;font-size:10px;margin-top:4px">para lambdas reales</div>' +
     reservaHtml +
     resetHtml +
+    forzarHtml +
     '</div>';
 }
 
@@ -4492,6 +4631,8 @@ function checkLimiteCoingeckoPorMinuto(ahora) {
 function checkApiLimit(apiName) {
   const ahora = Date.now();
   const r = CFG.apiRateControl;
+  // Control manual — forzar ignora el cooldown/gate (pero registrarLlamada sigue contando la llamada)
+  if (STATE.forzarLlamada === true || STATE.forzarLlamada === apiName) return true;
   switch (apiName) {
     case 'oddspapi': {
       if ((STATE.oddsPapiRemaining ?? 250) <= 0) return false;
@@ -4542,12 +4683,14 @@ function registrarLlamada(apiName) {
       localStorage.setItem('jcahs_oddspapi_last_call', String(ahora));
       break;
     case 'oddsapio':
+      STATE.oddsApiIoLastCall = ahora;
       // contador de créditos gestionado por registrarUsoOddsApiIo()
       break;
     case 'theoddsapi':
       checkResetMensualTheOddsApi();
       STATE.theOddsApiUsedMes = (STATE.theOddsApiUsedMes || 0) + 1;
       localStorage.setItem('jcahs_theodds_used', String(STATE.theOddsApiUsedMes));
+      STATE.theOddsApiLastCall = ahora;
       break;
     case 'rapidapi':
       STATE.rapidApiLastCall = ahora;
