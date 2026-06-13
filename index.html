@@ -6520,6 +6520,7 @@ async function buscarEquipoRapidApi(nombre) {
     if (!res.ok) return null;
 
     const data = await res.json();
+    console.log('RapidAPI buscarEquipoRapidApi — respuesta cruda:', nombre, JSON.stringify(data));
     const lista = Array.isArray(data) ? data : (data.response || data.data || data.results || []);
     if (!lista.length) return null;
 
@@ -6538,7 +6539,9 @@ async function obtenerStatsEquipoRapidApi(teamId) {
     if (!res.ok) return null;
 
     const data = await res.json();
+    console.log('RapidAPI obtenerStatsEquipoRapidApi — respuesta cruda:', teamId, JSON.stringify(data));
     const stats = data.response || data.data || data;
+    console.log('RapidAPI obtenerStatsEquipoRapidApi — stats extraído:', teamId, JSON.stringify(stats));
 
     const golesFor    = stats.goalsFor ?? stats.goalsScored ?? stats.avgGoalsScored ?? stats.avgGoals ?? stats.goals_for ?? null;
     const golesContra = stats.goalsAgainst ?? stats.goalsConceded ?? stats.avgGoalsConceded ?? stats.goals_against ?? null;
