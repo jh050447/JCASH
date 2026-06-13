@@ -1042,11 +1042,6 @@ body {
           <span style="color:#4a5568;font-size:11px">ODDS-API.IO — cargando...</span>
         </div>
       </div>
-      <div style="padding:0 12px;border-top:1px solid #1e2d45;margin-top:4px">
-        <div id="monitor-quota-rapidapi" style="min-height:40px;padding:6px 0">
-          <span style="color:#4a5568;font-size:11px">RAPIDAPI — cargando...</span>
-        </div>
-      </div>
       <div class="sidebar-bk" id="sidebar-bk" onclick="editarBankroll()">
         <span>💰 <span class="bk-val" id="sidebar-bk-val">$200.00</span></span>
         <span class="bk-edit-icon">📝</span>
@@ -1617,12 +1612,6 @@ const CFG = {
       localStorageUsed:  'jcahs_theodds_used',
       localStorageMesTs: 'jcahs_theodds_mes_ts',
     },
-    rapidapi: {
-      limiteMensual: 100,
-      llamadasPorPartido: 2,      // 1 búsqueda + 1 stats
-      delayEntreLlamadasMs: 1500,
-      reservaCreditos: 10,        // no llamar si quedan menos de 10 créditos
-    },
     thesportsdb: {
       delayMs: 500,
       maxLlamadasPorSesion: 5,
@@ -1704,8 +1693,6 @@ const STATE = {
   oddsApiIoRemaining: parseInt(localStorage.getItem('oddsApiIoRemaining')) || 100,
   oddsApiIoUsed:      parseInt(localStorage.getItem('oddsApiIoUsed')) || 0,
   oddsApiIoResetTs:   parseInt(localStorage.getItem('oddsApiIoResetTs')) || Date.now(),
-  rapidApiRemaining: parseInt(localStorage.getItem('rapidApiRemaining')) || 100,
-  rapidApiUsed:      parseInt(localStorage.getItem('rapidApiUsed')) || 0,
   // ─── CONTROL DE LÍMITES DE API (Task K) ──────────────────
   oddsPapiLastCall:    parseInt(localStorage.getItem('jcahs_oddspapi_last_call')) || 0,
   oddsPapiCallsSesion: 0,
@@ -1713,12 +1700,11 @@ const STATE = {
   theOddsApiMesTs:     parseInt(localStorage.getItem('jcahs_theodds_mes_ts')) || Date.now(),
   theOddsApiLastCall:  0,
   oddsApiIoLastCall:   0,
-  rapidApiLastCall:    0,
   tsdbCallsSesion:     0,
   coingeckoLastCall:        0,
   coingeckoCallTimestamps:  [],
   // ─── CONTROL MANUAL DE LLAMADAS (forzar / ignorar cooldown) ──
-  forzarLlamada:    null,  // null | true (forzar todo) | 'oddspapi'|'oddsapio'|'theoddsapi'|'rapidapi'
+  forzarLlamada:    null,  // null | true (forzar todo) | 'oddspapi'|'oddsapio'|'theoddsapi'
   forzarBotonHasta: {},    // { [apiName]: timestampMs hasta el que el botón ↺ está deshabilitado }
   oddsPapiCargando:  false,
   ultimaActualizacionDeportes: null,
@@ -1736,7 +1722,7 @@ const STATE = {
   an: {
     step:1, games:[], partido:null, apiH2h:[], apiOU:{},
     ecuabet:{}, probs:{},
-    lambdaL:1.5, lambdaV:1.2, lambdaCalidad:'genérico',
+    lambdaL:1.5, lambdaV:1.2, lambdaCalidad:'parcial',
     cupon:[], capitalCupon:50,
     expandMas:false, enVivo:false,
     minuto:0, marcL:0, marcV:0, searchText:'',
@@ -1744,7 +1730,6 @@ const STATE = {
   analisisActual: null,
   fdCache: {},
   tsdbCache: {},
-  lambdaCache: {},
   mentor: {
     abierto:false, paso:1,
     capital:null, gananciaMin:null, gananciaMax:null,
@@ -4325,21 +4310,6 @@ async function forzarApiSidebar(apiName) {
         await cargarDeportes();
         break;
       }
-      case 'rapidapi': {
-        // Limpia la caché de lambdas del partido en análisis (si hay uno abierto)
-        // para forzar una nueva consulta real ignorando la reserva mínima
-        const p = STATE.an?.partido;
-        if (p) {
-          delete STATE.lambdaCache[p.home_team + '_' + p.away_team];
-          cargarLambdasReales(p.home_team, p.away_team).then(({lambdaL, lambdaV, calidad}) => {
-            STATE.an.lambdaL = lambdaL;
-            STATE.an.lambdaV = lambdaV;
-            STATE.an.lambdaCalidad = calidad;
-            if (STATE.an.step === 2) renderAnStep2();
-          });
-        }
-        break;
-      }
     }
   } finally {
     STATE.forzarLlamada = null;
@@ -4523,51 +4493,7 @@ function actualizarMonitorOddsApiIo() {
     '</div>';
 }
 
-// ─── MONITOR DE QUOTA — RAPIDAPI (Free Live Football) (sidebar) ──
-function actualizarMonitorRapidApi() {
-  const el = document.getElementById('monitor-quota-rapidapi');
-  if (!el) return;
-
-  const used = STATE.rapidApiUsed || 0;
-  const remaining = STATE.rapidApiRemaining ?? 100;
-  const total = 100;
-  const pct = Math.round((remaining / total) * 100);
-  const color = pct > 50 ? '#00ff88' : pct > 20 ? '#ffd700' : '#ff4444';
-  const estado = pct > 50 ? 'OK' : pct > 20 ? 'BAJO' : 'CRÍTICO';
-
-  // Reserva mínima (apiRateControl.rapidapi.reservaCreditos) — sin nuevas llamadas si remaining < reserva
-  const reserva = CFG.apiRateControl.rapidapi.reservaCreditos;
-  const reservaHtml = remaining < reserva
-    ? '<div style="color:#ff4444;font-size:10px;margin-top:4px">por debajo de la reserva mínima (' + reserva + ') — usando lambdas genéricas</div>'
-    : '';
-
-  // Reset mensual — solo cuando la quota está baja
-  const resetHtml = pct <= 20 ? htmlResetMensual() : '';
-
-  // Botón "↺ forzar" — fuerza RapidAPI ignorando su cooldown (consume llamada real)
-  const forzarHtml = htmlBotonForzar('rapidapi', STATE.rapidApiLastCall);
-
-  el.innerHTML =
-    '<div style="padding:8px 0">' +
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
-    '<span style="color:#8892a4;font-size:11px;letter-spacing:1px">RAPIDAPI</span>' +
-    '<span style="color:' + color + ';font-size:11px;font-weight:700">' + estado + '</span>' +
-    '</div>' +
-    '<div style="background:#1a2540;border-radius:4px;height:5px;margin-bottom:5px">' +
-    '<div style="background:' + color + ';width:' + pct + '%;height:100%;border-radius:4px;transition:width 0.5s"></div>' +
-    '</div>' +
-    '<div style="display:flex;justify-content:space-between">' +
-    '<span style="color:#4a5568;font-size:10px">' + used + ' usadas</span>' +
-    '<span style="color:' + color + ';font-size:11px;font-weight:600">' + remaining + '/' + total + ' restantes</span>' +
-    '</div>' +
-    '<div style="color:#4a5568;font-size:10px;margin-top:4px">para lambdas reales</div>' +
-    reservaHtml +
-    resetHtml +
-    forzarHtml +
-    '</div>';
-}
-
-// ─── REGISTRO DE CONSUMO DE QUOTA — ODDS-API.IO / RAPIDAPI ─────
+// ─── REGISTRO DE CONSUMO DE QUOTA — ODDS-API.IO ────────────────
 // Decremento manual (estas APIs no devuelven headers de quota utilizables aquí)
 function checkResetOddsApiIoHora() {
   const ahora = Date.now();
@@ -4590,20 +4516,11 @@ function registrarUsoOddsApiIo(n) {
   actualizarTodosMonitores();
 }
 
-function registrarUsoRapidApi(n) {
-  STATE.rapidApiUsed = (STATE.rapidApiUsed || 0) + n;
-  STATE.rapidApiRemaining = Math.max(0, 100 - STATE.rapidApiUsed);
-  localStorage.setItem('rapidApiUsed', STATE.rapidApiUsed);
-  localStorage.setItem('rapidApiRemaining', STATE.rapidApiRemaining);
-  actualizarTodosMonitores();
-}
-
 // ─── ORQUESTADOR — actualiza todos los monitores de quota ──────
 function actualizarTodosMonitores() {
   actualizarMonitorQuota();
   actualizarMonitorOddsApiIo();
   actualizarMonitorOddsPapi();
-  actualizarMonitorRapidApi();
 }
 
 // ─── CONTROL DE LÍMITES DE API — checkApiLimit / registrarLlamada ──
@@ -4652,10 +4569,6 @@ function checkApiLimit(apiName) {
       if ((STATE.theOddsApiUsedMes || 0) >= r.theoddsapi.limiteMensual) return false;
       return true;
     }
-    case 'rapidapi': {
-      if ((STATE.rapidApiRemaining ?? 100) < r.rapidapi.reservaCreditos) return false;
-      return true;
-    }
     case 'thesportsdb': {
       if ((STATE.tsdbCallsSesion || 0) >= r.thesportsdb.maxLlamadasPorSesion) return false;
       return true;
@@ -4691,10 +4604,6 @@ function registrarLlamada(apiName) {
       STATE.theOddsApiUsedMes = (STATE.theOddsApiUsedMes || 0) + 1;
       localStorage.setItem('jcahs_theodds_used', String(STATE.theOddsApiUsedMes));
       STATE.theOddsApiLastCall = ahora;
-      break;
-    case 'rapidapi':
-      STATE.rapidApiLastCall = ahora;
-      // contador de créditos gestionado por registrarUsoRapidApi()
       break;
     case 'thesportsdb':
       STATE.tsdbCallsSesion = (STATE.tsdbCallsSesion || 0) + 1;
@@ -6886,150 +6795,6 @@ function renderAnStep1() {
 
 function renderAnalizador() { renderAnStep1(); }
 
-// ── LAMBDAS REALES — Free API Live Football Data (RapidAPI) ──
-const RAPIDAPI_LIVEFOOTBALL_HOST = 'free-api-live-football-data.p.rapidapi.com';
-
-// TEMPORAL: ejecutar desde la consola (debugRapidApiAllLeagues()) para
-// inspeccionar la estructura real de respuesta de /football-get-all-leagues
-// y confirmar los endpoints/campos correctos de esta API. Borrar cuando ya
-// no se necesite.
-async function debugRapidApiAllLeagues() {
-  const url = `https://${RAPIDAPI_LIVEFOOTBALL_HOST}/football-get-all-leagues`;
-  const res = await fetchSeguro(proxyUrl(url) + `&api=rapidapi&host=${RAPIDAPI_LIVEFOOTBALL_HOST}`, 8000);
-  console.log('debugRapidApiAllLeagues status:', res.status, res.ok);
-  const data = await res.json();
-  console.log('debugRapidApiAllLeagues response:', data);
-  return data;
-}
-
-// Quita acentos/diacríticos: "São Paulo" -> "Sao Paulo"
-function quitarAcentos(str) {
-  return str.normalize('NFD').replace(/\p{Diacritic}/gu, '');
-}
-
-async function buscarEquipoIdRapidApi(nombre, contador) {
-  const url = `https://${RAPIDAPI_LIVEFOOTBALL_HOST}/footballSearchTeam?search=${encodeURIComponent(nombre)}`;
-  const res = await fetchSeguro(proxyUrl(url) + `&api=rapidapi&host=${RAPIDAPI_LIVEFOOTBALL_HOST}`, 8000);
-  if (contador && res.ok) contador.exitosas++;
-  if (!res.ok) return null;
-
-  const data = await res.json();
-  const lista = Array.isArray(data) ? data : (data.response || data.data || data.results || []);
-  if (!lista.length) return null;
-
-  const primero = lista[0];
-  return primero.id ?? primero.teamId ?? primero.team_id ?? null;
-}
-
-async function buscarEquipoRapidApi(nombre, contador) {
-  try {
-    const nombreNorm = quitarAcentos(nombre);
-    let id = await buscarEquipoIdRapidApi(nombreNorm, contador);
-    if (id != null) return id;
-
-    // Fallback para nombres compuestos: "IR Iran" -> "Iran" -> "IR"
-    const palabras = nombreNorm.trim().split(/\s+/);
-    if (palabras.length > 1) {
-      id = await buscarEquipoIdRapidApi(palabras[palabras.length - 1], contador);
-      if (id != null) return id;
-
-      id = await buscarEquipoIdRapidApi(palabras[0], contador);
-      if (id != null) return id;
-    }
-
-    return null;
-  } catch (err) {
-    console.error('RapidAPI buscarEquipoRapidApi error:', nombre, err);
-    return null;
-  }
-}
-
-async function obtenerStatsEquipoRapidApi(teamId, contador) {
-  try {
-    const url = `https://${RAPIDAPI_LIVEFOOTBALL_HOST}/footballTeamStats?teamId=${teamId}`;
-    const res = await fetchSeguro(proxyUrl(url) + `&api=rapidapi&host=${RAPIDAPI_LIVEFOOTBALL_HOST}`, 8000);
-    if (contador && res.ok) contador.exitosas++;
-    if (!res.ok) return null;
-
-    const data = await res.json();
-    const stats = data.response || data.data || data;
-
-    const golesFor    = stats.goalsFor ?? stats.goalsScored ?? stats.avgGoalsScored ?? stats.avgGoals ?? stats.goals_for ?? null;
-    const golesContra = stats.goalsAgainst ?? stats.goalsConceded ?? stats.avgGoalsConceded ?? stats.goals_against ?? null;
-    if (golesFor == null || golesContra == null) return null;
-
-    return { golesFor: parseFloat(golesFor), golesContra: parseFloat(golesContra) };
-  } catch (err) {
-    console.error('RapidAPI obtenerStatsEquipoRapidApi error:', teamId, err);
-    return null;
-  }
-}
-
-function clampLambda(v) {
-  return Math.round(Math.min(4.0, Math.max(0.5, v)) * 100) / 100;
-}
-
-async function cargarLambdasReales(homeTeam, awayTeam) {
-  const cacheKey = homeTeam + '_' + awayTeam;
-  if (STATE.lambdaCache[cacheKey]) return STATE.lambdaCache[cacheKey];
-
-  const generico = { lambdaL: 1.5, lambdaV: 1.2, calidad: 'genérico' };
-
-  if (!checkApiLimit('rapidapi')) {
-    console.log('RapidAPI: límite de control de tasa alcanzado, usando lambdas genéricas');
-    STATE.lambdaCache[cacheKey] = generico;
-    return generico;
-  }
-
-  try {
-    const contador = { exitosas: 0 };
-
-    // Búsquedas secuenciales con delay — evitar 429 (rate limit) del plan gratuito
-    const idLocal = await buscarEquipoRapidApi(homeTeam, contador);
-    await new Promise(resolve => setTimeout(resolve, CFG.apiRateControl.rapidapi.delayEntreLlamadasMs));
-    const idVisit = await buscarEquipoRapidApi(awayTeam, contador);
-
-    const [statsLocal, statsVisit] = await Promise.all([
-      idLocal != null ? obtenerStatsEquipoRapidApi(idLocal, contador) : null,
-      idVisit != null ? obtenerStatsEquipoRapidApi(idVisit, contador) : null,
-    ]);
-
-    // Solo se descuenta quota/registra la llamada por cada respuesta
-    // realmente exitosa (status 200) — los 404/errores no consumen créditos
-    if (contador.exitosas > 0) {
-      registrarUsoRapidApi(contador.exitosas);
-      registrarLlamada('rapidapi');
-    }
-
-    let resultado;
-    if (statsLocal && statsVisit) {
-      resultado = {
-        lambdaL: clampLambda(statsLocal.golesFor * (statsVisit.golesContra / 1.2)),
-        lambdaV: clampLambda(statsVisit.golesFor * (statsLocal.golesContra / 1.5)),
-        calidad: 'alta',
-      };
-    } else if (statsLocal || statsVisit) {
-      // Solo un equipo con datos reales — el otro usa referencia genérica
-      const sL = statsLocal || { golesFor: 1.5, golesContra: 1.2 };
-      const sV = statsVisit || { golesFor: 1.2, golesContra: 1.5 };
-      resultado = {
-        lambdaL: clampLambda(sL.golesFor * (sV.golesContra / 1.2)),
-        lambdaV: clampLambda(sV.golesFor * (sL.golesContra / 1.5)),
-        calidad: 'parcial',
-      };
-    } else {
-      resultado = generico;
-    }
-
-    STATE.lambdaCache[cacheKey] = resultado;
-    return resultado;
-  } catch (err) {
-    console.error('cargarLambdasReales error:', err);
-    STATE.lambdaCache[cacheKey] = generico;
-    return generico;
-  }
-}
-
 // ── SELECCIONAR PARTIDO ──────────────────────────────────────
 function seleccionarPartido(idx) {
   const g=STATE.an.games[idx];
@@ -7060,22 +6825,14 @@ function seleccionarPartido(idx) {
       }
     }
   }
-  // Lambdas genéricas por defecto — cargarLambdasReales() las actualiza si hay datos
+  // Lambdas fijas (estimación Poisson) — λ estimado hasta integrar una API
+  // con estadísticas históricas reales por equipo
   STATE.an.lambdaL=1.5;
   STATE.an.lambdaV=1.2;
-  STATE.an.lambdaCalidad='genérico';
+  STATE.an.lambdaCalidad='parcial';
   STATE.an.step=2;
   renderAnStep2();
   analizarPartidoCompleto(g.home_team, g.away_team, g.home_team + ' stadium', null);
-
-  // Lambdas reales (Free API Live Football Data) en segundo plano
-  cargarLambdasReales(g.home_team, g.away_team).then(({lambdaL, lambdaV, calidad}) => {
-    if (STATE.an.partido?.idx !== idx) return; // el usuario cambió de partido
-    STATE.an.lambdaL = lambdaL;
-    STATE.an.lambdaV = lambdaV;
-    STATE.an.lambdaCalidad = calidad;
-    if (STATE.an.step===2) renderAnStep2();
-  });
 }
 
 // ── ENTRADA MANUAL ───────────────────────────────────────────
