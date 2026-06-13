@@ -1598,6 +1598,41 @@ const CFG = {
     ticker:   30_000,   // 30 s
     noticias: 600_000,  // 10 min
   },
+  // ─── CONTROL DE LÍMITES DE API (planes gratuitos) ─────────
+  apiRateControl: {
+    oddspapi: {
+      limiteMensual: 250,
+      maxLlamadasPorSesion: 2,    // pinnacle + bet365
+      minMinutosEntreLlamadas: 10,
+      localStorageLastCall: 'jcahs_oddspapi_last_call',
+    },
+    oddsapio: {
+      limitePorHora: 100,
+      maxOddsPorHora: 10,         // + 1 llamada a /events
+      reservaCreditos: 50,        // no llamar si ya se usaron 50/100 en la hora
+      resetMinutos: 60,
+    },
+    theoddsapi: {
+      limiteMensual: 500,
+      localStorageUsed:  'jcahs_theodds_used',
+      localStorageMesTs: 'jcahs_theodds_mes_ts',
+    },
+    rapidapi: {
+      limiteMensual: 100,
+      llamadasPorPartido: 2,      // 1 búsqueda + 1 stats
+      delayEntreLlamadasMs: 1500,
+      reservaCreditos: 10,        // no llamar si quedan menos de 10 créditos
+    },
+    thesportsdb: {
+      delayMs: 500,
+      maxLlamadasPorSesion: 5,
+    },
+    coingecko: {
+      limitePorMinuto: 30,
+      delayPreciosMs: 2000,
+      ohlcSoloEnSeccionCripto: true,
+    },
+  },
 };
 
 // ─── MIGRACIÓN HISTORIAL (esquema antiguo → esquema v3) ─────
@@ -1671,6 +1706,15 @@ const STATE = {
   oddsApiIoResetTs:   parseInt(localStorage.getItem('oddsApiIoResetTs')) || Date.now(),
   rapidApiRemaining: parseInt(localStorage.getItem('rapidApiRemaining')) || 100,
   rapidApiUsed:      parseInt(localStorage.getItem('rapidApiUsed')) || 0,
+  // ─── CONTROL DE LÍMITES DE API (Task K) ──────────────────
+  oddsPapiLastCall:    parseInt(localStorage.getItem('jcahs_oddspapi_last_call')) || 0,
+  oddsPapiCallsSesion: 0,
+  theOddsApiUsedMes:   parseInt(localStorage.getItem('jcahs_theodds_used')) || 0,
+  theOddsApiMesTs:     parseInt(localStorage.getItem('jcahs_theodds_mes_ts')) || Date.now(),
+  rapidApiLastCall:    0,
+  tsdbCallsSesion:     0,
+  coingeckoLastCall:        0,
+  coingeckoCallTimestamps:  [],
   oddsPapiCargando:  false,
   ultimaActualizacionDeportes: null,
   modoFallback:    false,
@@ -1833,6 +1877,12 @@ const EXCHANGES  = {
 const COINGECKO_IDS = { BTC:'bitcoin', ETH:'ethereum', BNB:'binancecoin', SOL:'solana', XRP:'ripple' };
 
 async function cargarPrecios() {
+  if (!checkApiLimit('coingecko_precios')) {
+    console.log('CoinGecko: límite de tasa alcanzado, usando precios en caché');
+    return Object.keys(STATE.precios).length > 0;
+  }
+  registrarLlamada('coingecko_precios');
+
   const ids = Object.values(COINGECKO_IDS).join(',');
   const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`;
   let data;
@@ -1929,6 +1979,11 @@ function calcEdge(prob, odd) {
 async function cargarOHLC(sym, interval = '1d', limit = 30) {
   const id = COINGECKO_IDS[sym];
   if (!id) return null;
+  if (!checkApiLimit('coingecko_ohlc')) {
+    console.log('CoinGecko OHLC: límite de tasa alcanzado, usando caché existente para', sym);
+    return STATE.ohlc[sym]?.length ? STATE.ohlc[sym] : null;
+  }
+  registrarLlamada('coingecko_ohlc');
   const url = `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=${limit}&interval=daily`;
   let data;
   try {
@@ -2139,6 +2194,13 @@ async function cargarTop100() {
   const wrap = qs('top100-wrap');
   if (!wrap) return;
   wrap.classList.add('visible');
+  if (!checkApiLimit('coingecko')) {
+    console.log('CoinGecko: límite de tasa alcanzado, usando top100 en caché');
+    if (STATE.top100.length) { renderTop100(); return; }
+    wrap.innerHTML = '<div class="loading">Límite de CoinGecko alcanzado — intenta en un minuto</div>';
+    return;
+  }
+  registrarLlamada('coingecko');
   wrap.innerHTML = '<div class="loading"><span class="spin">⌛</span> Cargando 100 monedas...</div>';
   const cgUrl = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false&price_change_percentage=24h';
   try {
@@ -3318,6 +3380,10 @@ async function cargarDatosOddsPapi() {
     console.log('OddsPapi: ya en progreso, ignorando llamada duplicada');
     return false;
   }
+  if (!checkApiLimit('oddspapi')) {
+    console.log('OddsPapi: límite de control de tasa alcanzado, usando caché');
+    return false;
+  }
   STATE.oddsPapiCargando = true;
 
   try {
@@ -3394,6 +3460,7 @@ async function cargarDatosOddsPapi() {
     STATE.oddsPapiRemaining = Math.max(0, 250 - STATE.oddsPapiUsed);
     localStorage.setItem('oddsPapiUsed', STATE.oddsPapiUsed);
     localStorage.setItem('oddsPapiRemaining', STATE.oddsPapiRemaining);
+    registrarLlamada('oddspapi');
     actualizarTodosMonitores();
 
     // Recolectar todos los IDs de participantes
@@ -3503,6 +3570,10 @@ async function cargarDatosOddsPapi() {
 
 // ─── ODDS-API.IO (fuente secundaria — fallback de OddsPapi) ─
 async function cargarDatosOddsApiIo() {
+  if (!checkApiLimit('oddsapio')) {
+    console.log('odds-api.io: límite de control de tasa alcanzado, usando caché');
+    return false;
+  }
   try {
     // PASO 1: lista de eventos de fútbol
     const urlEventos = `${CFG.ODDSAPIIO_BASE}/events?sport=football`;
@@ -3531,6 +3602,12 @@ async function cargarDatosOddsApiIo() {
     for (const ev of eventosLimitados) {
       const eventId = ev.id || ev.eventId;
       if (!eventId) continue;
+
+      // Verificar límite antes de cada /odds — puede agotarse a mitad del bucle
+      if (!checkApiLimit('oddsapio')) {
+        console.log('odds-api.io: límite alcanzado durante el bucle de /odds, deteniendo');
+        break;
+      }
 
       // PASO 2: odds del evento
       let oddsEv;
@@ -3780,6 +3857,15 @@ async function cargarDeportes() {
 
   // ── INTENTO 3: The Odds API (auxiliar) ──────────────────────
   console.log('cargarDeportes: OddsPapi y odds-api.io fallaron, intentando The Odds API...');
+
+  if (!checkApiLimit('theoddsapi')) {
+    console.log('cargarDeportes: límite mensual de The Odds API alcanzado, usando fallback/caché');
+    await cargarPartidosFallback();
+    STATE.ultimaActualizacionDeportes = Date.now();
+    finalizarCargaOdds(STATE.modoFallback ? 'Football-Data (fallback)' : 'cache');
+    return;
+  }
+
   console.log('STEP 1: Starting');
   setHTML('dep-value-bets', '<div class="loading"><span class="spin">⌛</span> Buscando value bets...</div>');
   setHTML('dep-partidos',   '<div class="loading"><span class="spin">⌛</span> Cargando partidos...</div>');
@@ -3804,6 +3890,7 @@ async function cargarDeportes() {
   // call order: [soccer-h2h, soccer-totals, wc-h2h, wc-totals]
 
   const results = await Promise.allSettled(calls);
+  calls.forEach(() => registrarLlamada('theoddsapi'));
 
   let h2hData = null, totalsData = null, wcH2hData = null, wcTotalsData = null;
   let huboError401 = false;
@@ -4138,6 +4225,15 @@ function mostrarAvisoQuota() {
   if (panel) panel.prepend(aviso);
 }
 
+// Línea "reset: 1 de [mes]" — reutilizada por los monitores con quota mensual
+function htmlResetMensual() {
+  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const hoy = new Date();
+  const reset = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1);
+  const diasHastaReset = Math.ceil((reset - hoy) / (1000 * 60 * 60 * 24));
+  return '<div style="color:#4a5568;font-size:10px;margin-top:4px">reset: 1 ' + meses[reset.getMonth()] + ' (' + diasHastaReset + ' días)</div>';
+}
+
 // ─── MONITOR DE QUOTA — THE ODDS API (sidebar) ────────────────
 function actualizarMonitorQuota() {
   const el = document.getElementById('monitor-quota-odds');
@@ -4225,6 +4321,16 @@ function actualizarMonitorOddsPapi() {
     </div>
   `;
 
+  // Gate de 10 minutos entre llamadas (apiRateControl.oddspapi)
+  const minMs = CFG.apiRateControl.oddspapi.minMinutosEntreLlamadas * 60 * 1000;
+  const esperaMs = minMs - (Date.now() - (STATE.oddsPapiLastCall || 0));
+  const gateHtml = esperaMs > 0
+    ? '<div style="color:#4a5568;font-size:10px;margin-top:4px">próxima consulta disponible en ' + Math.ceil(esperaMs / 60000) + 'm</div>'
+    : '';
+
+  // Reset mensual — solo cuando la quota está baja
+  const resetHtml = pct <= 20 ? htmlResetMensual() : '';
+
   el.innerHTML =
     '<div style="padding:8px 0">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
@@ -4238,6 +4344,8 @@ function actualizarMonitorOddsPapi() {
     '<span style="color:#4a5568;font-size:10px">' + used + ' usadas</span>' +
     '<span style="color:' + color + ';font-size:11px;font-weight:600">' + remaining + '/250 restantes</span>' +
     '</div>' +
+    gateHtml +
+    resetHtml +
     torneosHtml +
     mundialHtml +
     '</div>';
@@ -4255,6 +4363,14 @@ function actualizarMonitorOddsApiIo() {
   const color = pct > 50 ? '#00ff88' : pct > 20 ? '#ffd700' : '#ff4444';
   const estado = pct > 50 ? 'OK' : pct > 20 ? 'BAJO' : 'CRÍTICO';
 
+  // Reset horario — contador se reinicia 60 min después de oddsApiIoResetTs
+  const msHastaReset = Math.max(0, (STATE.oddsApiIoResetTs || Date.now()) + 60 * 60 * 1000 - Date.now());
+  const minHastaReset = Math.ceil(msHastaReset / 60000);
+  const reservaCreditos = CFG.apiRateControl.oddsapio.reservaCreditos;
+  const resetTxt = used >= reservaCreditos
+    ? 'reset en ' + minHastaReset + 'm — límite cercano (' + used + '/' + reservaCreditos + ' usados)'
+    : 'reset cada hora · próximo en ' + minHastaReset + 'm';
+
   el.innerHTML =
     '<div style="padding:8px 0">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
@@ -4268,7 +4384,7 @@ function actualizarMonitorOddsApiIo() {
     '<span style="color:#4a5568;font-size:10px">' + used + ' usadas</span>' +
     '<span style="color:' + color + ';font-size:11px;font-weight:600">' + remaining + '/' + total + ' restantes</span>' +
     '</div>' +
-    '<div style="color:#4a5568;font-size:10px;margin-top:4px">reset cada hora</div>' +
+    '<div style="color:#4a5568;font-size:10px;margin-top:4px">' + resetTxt + '</div>' +
     '</div>';
 }
 
@@ -4284,6 +4400,15 @@ function actualizarMonitorRapidApi() {
   const color = pct > 50 ? '#00ff88' : pct > 20 ? '#ffd700' : '#ff4444';
   const estado = pct > 50 ? 'OK' : pct > 20 ? 'BAJO' : 'CRÍTICO';
 
+  // Reserva mínima (apiRateControl.rapidapi.reservaCreditos) — sin nuevas llamadas si remaining < reserva
+  const reserva = CFG.apiRateControl.rapidapi.reservaCreditos;
+  const reservaHtml = remaining < reserva
+    ? '<div style="color:#ff4444;font-size:10px;margin-top:4px">por debajo de la reserva mínima (' + reserva + ') — usando lambdas genéricas</div>'
+    : '';
+
+  // Reset mensual — solo cuando la quota está baja
+  const resetHtml = pct <= 20 ? htmlResetMensual() : '';
+
   el.innerHTML =
     '<div style="padding:8px 0">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
@@ -4298,18 +4423,27 @@ function actualizarMonitorRapidApi() {
     '<span style="color:' + color + ';font-size:11px;font-weight:600">' + remaining + '/' + total + ' restantes</span>' +
     '</div>' +
     '<div style="color:#4a5568;font-size:10px;margin-top:4px">para lambdas reales</div>' +
+    reservaHtml +
+    resetHtml +
     '</div>';
 }
 
 // ─── REGISTRO DE CONSUMO DE QUOTA — ODDS-API.IO / RAPIDAPI ─────
 // Decremento manual (estas APIs no devuelven headers de quota utilizables aquí)
-function registrarUsoOddsApiIo(n) {
+function checkResetOddsApiIoHora() {
   const ahora = Date.now();
   if (ahora - (STATE.oddsApiIoResetTs || 0) >= 60 * 60 * 1000) {
     STATE.oddsApiIoUsed = 0;
+    STATE.oddsApiIoRemaining = 100;
     STATE.oddsApiIoResetTs = ahora;
-    localStorage.setItem('oddsApiIoResetTs', STATE.oddsApiIoResetTs);
+    localStorage.setItem('oddsApiIoUsed', '0');
+    localStorage.setItem('oddsApiIoRemaining', '100');
+    localStorage.setItem('oddsApiIoResetTs', String(ahora));
   }
+}
+
+function registrarUsoOddsApiIo(n) {
+  checkResetOddsApiIoHora();
   STATE.oddsApiIoUsed = (STATE.oddsApiIoUsed || 0) + n;
   STATE.oddsApiIoRemaining = Math.max(0, 100 - STATE.oddsApiIoUsed);
   localStorage.setItem('oddsApiIoUsed', STATE.oddsApiIoUsed);
@@ -4331,6 +4465,106 @@ function actualizarTodosMonitores() {
   actualizarMonitorOddsApiIo();
   actualizarMonitorOddsPapi();
   actualizarMonitorRapidApi();
+}
+
+// ─── CONTROL DE LÍMITES DE API — checkApiLimit / registrarLlamada ──
+// Resetea el contador mensual de The Odds API (jcahs_theodds_used) al cambiar de mes
+function checkResetMensualTheOddsApi() {
+  const ahora = new Date();
+  const mesActual = ahora.getFullYear() * 12 + ahora.getMonth();
+  const mesGuardado = new Date(STATE.theOddsApiMesTs || 0);
+  const mesGuardadoNum = mesGuardado.getFullYear() * 12 + mesGuardado.getMonth();
+  if (mesActual !== mesGuardadoNum) {
+    STATE.theOddsApiUsedMes = 0;
+    STATE.theOddsApiMesTs = ahora.getTime();
+    localStorage.setItem('jcahs_theodds_used', '0');
+    localStorage.setItem('jcahs_theodds_mes_ts', String(STATE.theOddsApiMesTs));
+  }
+}
+
+// CoinGecko: 30 llamadas/minuto — ventana deslizante de timestamps
+function checkLimiteCoingeckoPorMinuto(ahora) {
+  STATE.coingeckoCallTimestamps = (STATE.coingeckoCallTimestamps || []).filter(t => ahora - t < 60_000);
+  return STATE.coingeckoCallTimestamps.length < CFG.apiRateControl.coingecko.limitePorMinuto;
+}
+
+// Retorna true si apiName puede llamarse ahora, false si hay que esperar/usar caché.
+function checkApiLimit(apiName) {
+  const ahora = Date.now();
+  const r = CFG.apiRateControl;
+  switch (apiName) {
+    case 'oddspapi': {
+      if ((STATE.oddsPapiRemaining ?? 250) <= 0) return false;
+      if ((STATE.oddsPapiCallsSesion || 0) >= r.oddspapi.maxLlamadasPorSesion) return false;
+      const minMs = r.oddspapi.minMinutosEntreLlamadas * 60 * 1000;
+      if (ahora - (STATE.oddsPapiLastCall || 0) < minMs) return false;
+      return true;
+    }
+    case 'oddsapio': {
+      checkResetOddsApiIoHora();
+      if ((STATE.oddsApiIoUsed || 0) >= r.oddsapio.limitePorHora) return false;
+      if ((STATE.oddsApiIoUsed || 0) >= r.oddsapio.reservaCreditos) return false;
+      return true;
+    }
+    case 'theoddsapi': {
+      checkResetMensualTheOddsApi();
+      if ((STATE.theOddsApiUsedMes || 0) >= r.theoddsapi.limiteMensual) return false;
+      return true;
+    }
+    case 'rapidapi': {
+      if ((STATE.rapidApiRemaining ?? 100) < r.rapidapi.reservaCreditos) return false;
+      return true;
+    }
+    case 'thesportsdb': {
+      if ((STATE.tsdbCallsSesion || 0) >= r.thesportsdb.maxLlamadasPorSesion) return false;
+      return true;
+    }
+    case 'coingecko_precios': {
+      if (ahora - (STATE.coingeckoLastCall || 0) < r.coingecko.delayPreciosMs) return false;
+      return checkLimiteCoingeckoPorMinuto(ahora);
+    }
+    case 'coingecko_ohlc':
+    case 'coingecko': {
+      return checkLimiteCoingeckoPorMinuto(ahora);
+    }
+    default:
+      return true;
+  }
+}
+
+// Registra que se realizó una llamada a apiName — actualiza contadores/timestamps.
+function registrarLlamada(apiName) {
+  const ahora = Date.now();
+  switch (apiName) {
+    case 'oddspapi':
+      STATE.oddsPapiCallsSesion = (STATE.oddsPapiCallsSesion || 0) + 1;
+      STATE.oddsPapiLastCall = ahora;
+      localStorage.setItem('jcahs_oddspapi_last_call', String(ahora));
+      break;
+    case 'oddsapio':
+      // contador de créditos gestionado por registrarUsoOddsApiIo()
+      break;
+    case 'theoddsapi':
+      checkResetMensualTheOddsApi();
+      STATE.theOddsApiUsedMes = (STATE.theOddsApiUsedMes || 0) + 1;
+      localStorage.setItem('jcahs_theodds_used', String(STATE.theOddsApiUsedMes));
+      break;
+    case 'rapidapi':
+      STATE.rapidApiLastCall = ahora;
+      // contador de créditos gestionado por registrarUsoRapidApi()
+      break;
+    case 'thesportsdb':
+      STATE.tsdbCallsSesion = (STATE.tsdbCallsSesion || 0) + 1;
+      break;
+    case 'coingecko_precios':
+    case 'coingecko_ohlc':
+    case 'coingecko':
+      STATE.coingeckoLastCall = ahora;
+      STATE.coingeckoCallTimestamps = STATE.coingeckoCallTimestamps || [];
+      STATE.coingeckoCallTimestamps.push(ahora);
+      break;
+  }
+  actualizarTodosMonitores();
 }
 
 // ─── FALLBACK DE PARTIDOS — FOOTBALL-DATA.ORG ─────────────────
@@ -6303,9 +6537,9 @@ async function init() {
   renderPanel();
   actualizarBadgeMentor();
 
-  // Señales en segundo plano
-  Promise.all(['BTC','ETH','SOL','XRP'].map(s => generarSenalCrypto(s)))
-    .then(() => renderPanel());
+  // Nota: las señales cripto (RSI/OHLC vía CoinGecko) ya NO se cargan aquí en
+  // segundo plano — se cargan solo al entrar a la sección Cripto (cargarCripto()),
+  // para respetar el límite de CoinGecko (30 llamadas/minuto).
 
   // Cargar odds para mentor (en bg, falla silenciosamente)
   cargarDeportes().catch(() => {});
@@ -6322,7 +6556,6 @@ async function init() {
 
   setInterval(async () => {
     await cargarFearGreed();
-    await Promise.all(['BTC','ETH','SOL','XRP'].map(s => generarSenalCrypto(s)));
     renderPanel();
   }, CFG.refresh.senales);
 
@@ -6584,13 +6817,20 @@ async function cargarLambdasReales(homeTeam, awayTeam) {
 
   const generico = { lambdaL: 1.5, lambdaV: 1.2, calidad: 'genérico' };
 
+  if (!checkApiLimit('rapidapi')) {
+    console.log('RapidAPI: límite de control de tasa alcanzado, usando lambdas genéricas');
+    STATE.lambdaCache[cacheKey] = generico;
+    return generico;
+  }
+
   try {
     // Quota RapidAPI: 2 peticiones por partido analizado (1 búsqueda equipo + 1 stats)
     registrarUsoRapidApi(2);
+    registrarLlamada('rapidapi');
 
     // Búsquedas secuenciales con delay — evitar 429 (rate limit) del plan gratuito
     const idLocal = await buscarEquipoRapidApi(homeTeam);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, CFG.apiRateControl.rapidapi.delayEntreLlamadasMs));
     const idVisit = await buscarEquipoRapidApi(awayTeam);
 
     const [statsLocal, statsVisit] = await Promise.all([
@@ -7635,9 +7875,14 @@ async function obtenerFormaReciente(teamId) {
 const TSDB_BASE = 'https://www.thesportsdb.com/api/v1/json/3';
 
 const fetchTSDB = async (endpoint) => {
+  if (!checkApiLimit('thesportsdb')) {
+    console.log('TheSportsDB: límite de llamadas por sesión alcanzado, usando caché');
+    return null;
+  }
+  registrarLlamada('thesportsdb');
   try {
     // Evitar 429 (rate limit) — delay antes de cada llamada a TheSportsDB
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, CFG.apiRateControl.thesportsdb.delayMs));
     const url = `${TSDB_BASE}${endpoint}`;
     const proxyUrl = `https://jcahs-proxy.jh050447.workers.dev/?url=${encodeURIComponent(url)}`;
     const r = await fetchSeguro(proxyUrl, 8000);
