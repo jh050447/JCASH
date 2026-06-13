@@ -5969,7 +5969,7 @@ function ejecutarDecisionEngine() {
 
   var filtradas = STATE.valueBets
     .filter(function(vb) {
-      return vb.edge >= 4 && vb.probReal >= 35 && vb.odd >= 1.40 && vb.odd <= 3.50;
+      return vb.edge >= 4 && vb.probReal >= 35 && vb.odd >= 1.40 && vb.odd <= 8.0;
     })
     .map(function(vb) {
       return Object.assign({}, vb, { score: calcularScoreMentor(vb) });
@@ -8882,7 +8882,7 @@ const MENTOR_FILTROS = {
   edgeMinRevisar:      4,
   probRealMin:         35,
   oddMin:              1.40,
-  oddMax:              3.50,
+  oddMax:              8.0,
   minCasasConfirman:   2,
   maxApuestasDia:      5,
   stopLossDiario:      -10,
@@ -8904,7 +8904,8 @@ function calcularScoreMentor(vb) {
   let score = 0;
   score += Math.min(40, vb.edge * 2.5);
   score += Math.max(0, Math.min(30, (vb.probReal - 35) * 1.5));
-  score += (vb.odd >= 1.60 && vb.odd <= 2.50) ? 20 : 12;
+  // Edge masivo (>8%) compensa la penalización de odd fuera de 1.60-2.50
+  score += (vb.odd >= 1.60 && vb.odd <= 2.50) || vb.edge > 8 ? 20 : 12;
   if (STATE.analisisActual && confirmaPoisson(vb, STATE.analisisActual)) score += 10;
   return Math.round(Math.min(100, score));
 }
