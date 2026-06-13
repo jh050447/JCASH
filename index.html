@@ -5967,6 +5967,23 @@ function ejecutarDecisionEngine() {
     return;
   }
 
+  // TEMPORAL: diagnóstico de filtros — borrar cuando ya no se necesite
+  console.log('=== DIAGNOSTICO ejecutarDecisionEngine — ' + STATE.valueBets.length + ' valueBets ===');
+  STATE.valueBets.forEach(function(vb, i) {
+    var score = calcularScoreMentor(vb);
+    var pasaEdge  = vb.edge >= 4;
+    var pasaProb  = vb.probReal >= 35;
+    var pasaOdd   = vb.odd >= 1.40 && vb.odd <= 8.0;
+    var pasaScore = score >= 50;
+    console.log(
+      '[' + i + '] ' + (vb.partido || '?') + ' | ' + (vb.pick || '?') +
+      ' — edge=' + vb.edge.toFixed(2) + '% (' + (pasaEdge ? 'OK' : 'FALLA') + ')' +
+      ' | odd=' + vb.odd.toFixed(2) + ' (' + (pasaOdd ? 'OK' : 'FALLA') + ')' +
+      ' | probReal=' + vb.probReal.toFixed(2) + '% (' + (pasaProb ? 'OK' : 'FALLA') + ')' +
+      ' | score=' + score + ' (' + (pasaScore ? 'OK' : 'FALLA') + ')'
+    );
+  });
+
   var filtradas = STATE.valueBets
     .filter(function(vb) {
       return vb.edge >= 4 && vb.probReal >= 35 && vb.odd >= 1.40 && vb.odd <= 8.0;
