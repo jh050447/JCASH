@@ -1259,6 +1259,11 @@ body {
             </button>
           </div>
         </div>
+        <div style="background:var(--surface-2);border:1px solid rgba(144,144,151,0.12);border-radius:10px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <label for="de-sensibilidad" style="font-size:13px;color:var(--outline);font-weight:600;white-space:nowrap">Sensibilidad (Probabilidad mínima)</label>
+          <input type="range" id="de-sensibilidad" min="12" max="50" step="1" value="35" oninput="cambiarSensibilidadDE(this.value)" style="flex:1;min-width:120px">
+          <span id="de-sensibilidad-valor" style="font-size:14px;font-weight:700;font-family:var(--font-mono);color:#00ff88;min-width:42px;text-align:right">35%</span>
+        </div>
         <div id="de-lista"></div>
         <div id="de-detalle" style="display:none"></div>
       </section>
@@ -1694,6 +1699,8 @@ const STATE = {
   oddsApiIoRemaining: parseInt(localStorage.getItem('oddsApiIoRemaining')) || 100,
   oddsApiIoUsed:      parseInt(localStorage.getItem('oddsApiIoUsed')) || 0,
   oddsApiIoResetTs:   parseInt(localStorage.getItem('oddsApiIoResetTs')) || Date.now(),
+  // ─── Decision Engine — sensibilidad ajustable (Task H) ───
+  deSensibilidad:     parseInt(localStorage.getItem('jcahs_de_sensibilidad')) || 35,
   // ─── CONTROL DE LÍMITES DE API (Task K) ──────────────────
   oddsPapiLastCall:    parseInt(localStorage.getItem('jcahs_oddspapi_last_call')) || 0,
   oddsPapiCallsSesion: 0,
@@ -5969,6 +5976,15 @@ async function consultarAsesor(asesorId, pregunta) {
 
 // ── DECISION ENGINE ──────────────────────────────────────────
 
+function cambiarSensibilidadDE(valor) {
+  STATE.deSensibilidad = parseInt(valor);
+  localStorage.setItem('jcahs_de_sensibilidad', STATE.deSensibilidad);
+  var sliderDEValor = document.getElementById('de-sensibilidad-valor');
+  if (sliderDEValor) sliderDEValor.textContent = STATE.deSensibilidad + '%';
+  if (!STATE.modoFallback) ejecutarDecisionEngine();
+  renderListaDE();
+}
+
 function ejecutarDecisionEngine() {
   if (!STATE.valueBets || !STATE.valueBets.length) {
     STATE.deApuestas = [];
@@ -5977,12 +5993,14 @@ function ejecutarDecisionEngine() {
     return;
   }
 
+  var probMin = STATE.deSensibilidad || 35;
+
   // TEMPORAL: diagnóstico de filtros — borrar cuando ya no se necesite
   console.log('=== DIAGNOSTICO ejecutarDecisionEngine — ' + STATE.valueBets.length + ' valueBets ===');
   STATE.valueBets.forEach(function(vb, i) {
     var score = calcularScoreMentor(vb);
     var pasaEdge  = vb.edge >= 4;
-    var pasaProb  = vb.probReal >= 35;
+    var pasaProb  = vb.probReal >= probMin;
     var pasaOdd   = vb.odd >= 1.40 && vb.odd <= 8.0;
     var pasaScore = score >= 50;
     console.log(
@@ -5996,7 +6014,7 @@ function ejecutarDecisionEngine() {
 
   var filtradas = STATE.valueBets
     .filter(function(vb) {
-      return vb.edge >= 4 && vb.probReal >= 35 && vb.odd >= 1.40 && vb.odd <= 8.0;
+      return vb.edge >= 4 && vb.probReal >= probMin && vb.odd >= 1.40 && vb.odd <= 8.0;
     })
     .map(function(vb) {
       return Object.assign({}, vb, { score: calcularScoreMentor(vb) });
@@ -6071,6 +6089,11 @@ function renderListaDE() {
   if (detalle) detalle.style.display = 'none';
   lista.style.display = 'block';
 
+  var sliderDE = document.getElementById('de-sensibilidad');
+  var sliderDEValor = document.getElementById('de-sensibilidad-valor');
+  if (sliderDE) sliderDE.value = STATE.deSensibilidad;
+  if (sliderDEValor) sliderDEValor.textContent = STATE.deSensibilidad + '%';
+
   var sub = document.getElementById('de-sub');
 
   // ── Modo alternativo (Football-Data.org, sin odds) ──────────
@@ -6122,6 +6145,8 @@ function renderListaDE() {
     var scoreColor = vb.score >= 80 ? '#4edea3' : vb.score >= 65 ? '#FF9500' : '#4A9EFF';
     var nivelTexto = vb.score >= 80 ? 'ALTA' : vb.score >= 65 ? 'MEDIA' : 'BAJA';
     var apostar = Math.max(0.50, (STATE.bankroll || 0) * Math.max(0.01, (vb.kelly || 0) / 100) * 0.25);
+    var probColor = vb.probReal < 25 ? '#ff5c5c' : vb.probReal <= 35 ? '#ffd700' : '#4edea3';
+    var probLabel = vb.probReal < 25 ? ' — Alta varianza' : vb.probReal <= 35 ? ' — Varianza moderada' : '';
     return '<div onclick="mostrarDetalleDE(' + i + ')" style="cursor:pointer;background:var(--surface-2);border:1px solid rgba(144,144,151,0.12);border-radius:12px;padding:16px 18px;margin-bottom:12px;transition:border-color 0.15s" onmouseover="this.style.borderColor=\'' + scoreColor + '40\'" onmouseout="this.style.borderColor=\'rgba(144,144,151,0.12)\'">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
       '<span style="background:#00ff8815;border:1px solid #00ff8844;color:#00ff88;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600">📡 The Odds API</span>' +
@@ -6156,6 +6181,7 @@ function renderListaDE() {
       '<div style="font-size:18px;font-weight:700;color:' + scoreColor + '">' + nivelTexto + '</div>' +
       '</div>' +
       '</div>' +
+      '<div style="margin-top:8px;font-size:12px;font-weight:600;color:' + probColor + '">Prob real: ' + Math.round(vb.probReal) + '%' + probLabel + '</div>' +
       '</div>';
   }).join('');
 }
