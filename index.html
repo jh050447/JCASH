@@ -3271,6 +3271,73 @@ function traducirPick(nombre, mktKey, local, visitante) {
   return nombre;
 }
 
+// ─── Mercados adicionales de OddsPapi (extensible) ──────────
+// Cada entrada define: marketId de OddsPapi, mktKey (para traducirMercado/
+// traducirPick) y el mapeo outcomeKey → nombre de outcome legible por
+// traducirPick. Para agregar un mercado nuevo, basta sumar una entrada aquí.
+const MERCADOS_ODDSPAPI_EXTRA = [
+  { marketId: '104',  mktKey: 'btts',   outcomes: { '104': 'Yes', '105': 'No' } },
+  { marketId: '1010', mktKey: 'totals', outcomes: { '1010': 'Over 2.5', '1011': 'Under 2.5' } },
+];
+
+// Calcula edge para un mercado adicional (BTTS, Over/Under, etc.) de un
+// fixture de OddsPapi, usando Pinnacle como referencia "sharp" (de-vig) y
+// bet365 como "soft" para el edge. Devuelve entradas con el mismo esquema
+// que las de STATE.valueBets del mercado 1X2.
+function procesarMercadoOddsPapi(fixture, pinnacle, bet365, marketDef, ctx) {
+  const { marketId, mktKey, outcomes } = marketDef;
+  const mercadoPinnacle = pinnacle.markets?.[marketId];
+  if (!mercadoPinnacle?.outcomes) return [];
+
+  const outcomeKeys = Object.keys(outcomes);
+  const oddsPinnacle = {};
+  for (const ok of outcomeKeys) {
+    const price = mercadoPinnacle.outcomes[ok]?.players?.['0']?.price;
+    if (!price) return [];
+    oddsPinnacle[ok] = price;
+  }
+
+  const sumInv = outcomeKeys.reduce((acc, ok) => acc + 1 / oddsPinnacle[ok], 0);
+  const mercadoSoft = bet365?.markets?.[marketId];
+
+  const resultados = [];
+  outcomeKeys.forEach(ok => {
+    const trueProb = (1 / oddsPinnacle[ok]) / sumInv;
+    const oddSoft  = mercadoSoft?.outcomes?.[ok]?.players?.['0']?.price || oddsPinnacle[ok];
+    const edge = ((trueProb * oddSoft) - 1) * 100;
+
+    console.log(`Edge ${ctx.homeName} vs ${ctx.awayName} [${mktKey}:${outcomes[ok]}]: trueProb=${trueProb.toFixed(3)} oddSoft=${oddSoft} edge=${edge.toFixed(2)}%`);
+
+    if (edge <= 0) return;
+
+    const b      = oddSoft - 1;
+    const kellyF = b > 0 ? Math.max(0, (trueProb * b - (1 - trueProb)) / b * 0.25) : 0;
+    const stake  = STATE.bankroll * kellyF;
+
+    resultados.push({
+      gameId:    fixture.fixtureId,
+      partido:   ctx.homeName + ' vs ' + ctx.awayName,
+      liga:      ctx.liga,
+      fecha:     fixture.startTime,
+      esMundial: ctx.esMundial,
+      mercado:   traducirMercado(mktKey),
+      pick:      traducirPick(outcomes[ok], mktKey, ctx.homeName, ctx.awayName),
+      odd:       oddSoft,
+      edge,
+      probReal:  trueProb * 100,
+      probIp:    (1 / oddSoft) * 100,
+      kelly:     kellyF * 100,
+      stake,
+      ganancia:  stake * b,
+      bk:        bet365 ? 'Bet365' : 'Pinnacle',
+      score:     Math.round(Math.min(edge * 5, 100)),
+      fuente:    'oddspapi',
+      outcome:   mktKey + ':' + ok,
+    });
+  });
+  return resultados;
+}
+
 // ─── ODDSPAPI (fuente principal de odds) ────────────────────
 async function buscarTorneosActivos() {
   try {
@@ -3545,6 +3612,12 @@ async function cargarDatosOddsPapi() {
           fuente:    'oddspapi',
           outcome,
         });
+      });
+
+      // Mercados adicionales (BTTS, Over/Under, etc.) — extensible vía MERCADOS_ODDSPAPI_EXTRA
+      const ctxExtra = { homeName, awayName, liga: ligaMap[fixture.tournamentId] || 'Fútbol', esMundial };
+      MERCADOS_ODDSPAPI_EXTRA.forEach(marketDef => {
+        valueBets.push(...procesarMercadoOddsPapi(fixture, pinnacle, bet365, marketDef, ctxExtra));
       });
     }
 
@@ -6701,7 +6774,9 @@ function construirGamesDesdeValueBets(valueBets) {
           : [],
       };
     }
-    if (vb.outcome && vb.odd > 0) {
+    // Solo outcomes h2h (home/draw/away) alimentan el mercado h2h del Analizador;
+    // los mercados adicionales (BTTS, Over/Under, etc.) usan outcome 'mktKey:id'.
+    if ((vb.outcome === 'home' || vb.outcome === 'draw' || vb.outcome === 'away') && vb.odd > 0) {
       const mkt = porPartido[key].bookmakers[0]?.markets[0];
       if (mkt) {
         const name = vb.outcome === 'home' ? porPartido[key].home_team
