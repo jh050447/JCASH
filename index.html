@@ -1609,6 +1609,7 @@ const CFG = {
     },
     theoddsapi: {
       limiteMensual: 500,
+      margenSeguridad: 5,  // si oddsApiRemaining (dato real) <= esto, bloquear sin importar theOddsApiUsedMes
       localStorageUsed:  'jcahs_theodds_used',
       localStorageMesTs: 'jcahs_theodds_mes_ts',
     },
@@ -1686,8 +1687,8 @@ const STATE = {
   oddsLimitExceeded: false,
   oddsResetDate:    null,
   oddsRemaining:    null,
-  oddsApiRemaining: parseInt(localStorage.getItem('oddsApiRemaining')) || null,
-  oddsApiUsed:      parseInt(localStorage.getItem('oddsApiUsed')) || null,
+  oddsApiRemaining: localStorage.getItem('oddsApiRemaining') !== null ? parseInt(localStorage.getItem('oddsApiRemaining')) : null,
+  oddsApiUsed:      localStorage.getItem('oddsApiUsed')      !== null ? parseInt(localStorage.getItem('oddsApiUsed'))      : null,
   oddsPapiRemaining: parseInt(localStorage.getItem('oddsPapiRemaining')) || 250,
   oddsPapiUsed:      parseInt(localStorage.getItem('oddsPapiUsed')) || 0,
   oddsApiIoRemaining: parseInt(localStorage.getItem('oddsApiIoRemaining')) || 100,
@@ -4356,7 +4357,11 @@ function actualizarMonitorQuota() {
       '<div style="background:#1a2540;border-radius:4px;height:5px;margin-bottom:5px">' +
       '<div style="background:#ff4444;width:100%;height:100%;border-radius:4px"></div>' +
       '</div>' +
-      '<div style="color:#ff4444;font-size:10px;text-align:center">AGOTADA — reset en ' + diasHastaReset + ' días</div>' +
+      '<div style="display:flex;justify-content:space-between">' +
+      '<span style="color:#4a5568;font-size:10px">' + (used ?? 0) + ' usadas</span>' +
+      '<span style="color:#ff4444;font-size:11px;font-weight:600">' + remaining + '/' + total + ' restantes</span>' +
+      '</div>' +
+      '<div style="color:#ff4444;font-size:10px;text-align:center;margin-top:4px">AGOTADA — reset en ' + diasHastaReset + ' días</div>' +
       resetHtml +
       forzarHtml;
   } else {
@@ -4566,6 +4571,11 @@ function checkApiLimit(apiName) {
     }
     case 'theoddsapi': {
       checkResetMensualTheOddsApi();
+      // Capa de seguridad con el dato REAL de la API (headers x-requests-remaining):
+      // theOddsApiUsedMes se resetea por mes calendario, pero el ciclo de
+      // facturación real de la key no coincide con el calendario — si la API
+      // ya reportó cupo agotado, bloquear sin importar theOddsApiUsedMes.
+      if (STATE.oddsApiRemaining != null && STATE.oddsApiRemaining <= r.theoddsapi.margenSeguridad) return false;
       if ((STATE.theOddsApiUsedMes || 0) >= r.theoddsapi.limiteMensual) return false;
       return true;
     }
