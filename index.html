@@ -1693,7 +1693,12 @@ const STATE = {
   oddsResetDate:    null,
   oddsRemaining:    null,
   oddsApiRemaining: localStorage.getItem('oddsApiRemaining') !== null ? parseInt(localStorage.getItem('oddsApiRemaining')) : null,
-  oddsApiUsed:      localStorage.getItem('oddsApiUsed')      !== null ? parseInt(localStorage.getItem('oddsApiUsed'))      : null,
+  oddsApiUsed:      (function() {
+    var v = localStorage.getItem('oddsApiUsed');
+    if (v === null || v === 'null' || v === 'NaN') return null;
+    var n = parseInt(v);
+    return isNaN(n) ? null : n;
+  })(),
   oddsPapiRemaining: parseInt(localStorage.getItem('oddsPapiRemaining')) || 250,
   oddsPapiUsed:      parseInt(localStorage.getItem('oddsPapiUsed')) || 0,
   oddsApiIoRemaining: parseInt(localStorage.getItem('oddsApiIoRemaining')) || 100,
@@ -3331,7 +3336,7 @@ function procesarMercadoOddsPapi(fixture, pinnacle, bet365, marketDef, ctx) {
       ganancia:  stake * b,
       bk:        bet365 ? 'Bet365' : 'Pinnacle',
       score:     Math.round(Math.min(edge * 5, 100)),
-      fuente:    'oddspapi',
+      fuente:    'OddsPapi',
       outcome:   mktKey + ':' + ok,
     });
   });
@@ -3609,7 +3614,7 @@ async function cargarDatosOddsPapi() {
           ganancia:  stake * b,
           bk:        bet365 ? 'Bet365' : 'Pinnacle',
           score:     Math.round(Math.min(edge * 5, 100)),
-          fuente:    'oddspapi',
+          fuente:    'OddsPapi',
           outcome,
         });
       });
@@ -3769,7 +3774,7 @@ async function cargarDatosOddsApiIo() {
           ganancia:  stake * b,
           bk:        soft.nombre || 'odds-api.io',
           score:     Math.round(Math.min(edge * 5, 100)),
-          fuente:    'oddsapio',
+          fuente:    'odds-api.io',
           outcome,
         });
       });
@@ -4463,7 +4468,11 @@ function actualizarMonitorQuota() {
 
   try {
     localStorage.setItem('oddsApiRemaining', STATE.oddsApiRemaining);
-    localStorage.setItem('oddsApiUsed', STATE.oddsApiUsed);
+    if (STATE.oddsApiUsed !== null) {
+      localStorage.setItem('oddsApiUsed', STATE.oddsApiUsed);
+    } else {
+      localStorage.removeItem('oddsApiUsed');
+    }
   } catch (e) {}
 }
 
@@ -6155,6 +6164,12 @@ function ejecutarDecisionEngine() {
 
 // ── Vista A — Lista de apuestas ───────────────────────────────
 
+// Badge "📡 <fuente>" — usa vb.fuente si está definido, si no un genérico
+function badgeFuenteDE(vb, sufijo) {
+  var nombre = vb.fuente || 'Odds';
+  return '<span style="background:#00ff8815;border:1px solid #00ff8844;color:#00ff88;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600">📡 ' + escHtml(nombre) + (sufijo || '') + '</span>';
+}
+
 function renderListaDE() {
   var lista = document.getElementById('de-lista');
   var detalle = document.getElementById('de-detalle');
@@ -6222,7 +6237,7 @@ function renderListaDE() {
     var probLabel = vb.probReal < 25 ? ' — Alta varianza' : vb.probReal <= 35 ? ' — Varianza moderada' : '';
     return '<div onclick="mostrarDetalleDE(' + i + ')" style="cursor:pointer;background:var(--surface-2);border:1px solid rgba(144,144,151,0.12);border-radius:12px;padding:16px 18px;margin-bottom:12px;transition:border-color 0.15s" onmouseover="this.style.borderColor=\'' + scoreColor + '40\'" onmouseout="this.style.borderColor=\'rgba(144,144,151,0.12)\'">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
-      '<span style="background:#00ff8815;border:1px solid #00ff8844;color:#00ff88;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600">📡 The Odds API</span>' +
+      badgeFuenteDE(vb) +
       '<span style="color:#4a5568;font-size:10px">' + new Date(vb.fecha).toLocaleDateString('es-EC', {weekday:'short', day:'numeric', month:'short'}) + '</span>' +
       '</div>' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">' +
@@ -6285,7 +6300,7 @@ function mostrarDetalleDE(idx) {
 
   var fuenteBadge = vb.esFallback
     ? '<span style="background:#ffd70015;border:1px solid #ffd70044;color:#ffd700;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600">⚡ Football-Data.org — sin odds</span>'
-    : '<span style="background:#00ff8815;border:1px solid #00ff8844;color:#00ff88;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600">📡 The Odds API — edge verificado</span>';
+    : badgeFuenteDE(vb, ' — edge verificado');
 
   // ── Modo alternativo: sin odds, solo info del partido + FALCON ──
   if (vb.esFallback) {
