@@ -1014,6 +1014,9 @@ body {
     <a class="nav-link" id="nl-sec-historial" onclick="ir('sec-historial')">
       <span class="material-symbols-outlined">history</span>Historial
     </a>
+    <a class="nav-link" href="historial.html" target="_blank" rel="noopener">
+      <span class="material-symbols-outlined">analytics</span>📊 Calibración del Modelo
+    </a>
     <a class="nav-link" id="nl-sec-ia" onclick="ir('sec-ia')">
       <span class="material-symbols-outlined">psychology</span>IA Asesores
     </a>
@@ -6317,6 +6320,7 @@ function renderListaDE() {
       '</div>' +
       '</div>' +
       '<div style="margin-top:8px;font-size:12px;font-weight:600;color:' + probColor + '">Prob real: ' + Math.round(vb.probReal) + '%' + probLabel + '</div>' +
+      '<button class="btn btn-ghost" onclick="event.stopPropagation(); registrarEnHistorial(this, STATE.deApuestas[' + i + '])" style="width:100%;margin-top:10px;font-size:13px;padding:8px">📋 Registrar en Historial</button>' +
       '</div>';
   }).join('');
 }
@@ -9342,10 +9346,11 @@ function renderCardMentor(s, i) {
       <span>PROB <strong style="color:var(--on-surface)">${s.prob?.toFixed(0) || '--'}%</strong></span>
       <span>KELLY <strong style="color:var(--on-surface)">${s.kelly?.toFixed(1) || '--'}%</strong></span>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
       <button class="btn btn-primary" onclick="mentorAddCupon(${i})" style="font-size:16px;padding:12px">✅ Añadir al cupón</button>
       <button class="btn btn-ghost"   onclick="mentorIgnorar(${i})"   style="font-size:16px;padding:12px">Ignorar</button>
     </div>
+    <button class="btn btn-ghost" onclick="registrarEnHistorial(this, STATE.mentor.sugerencias[${i}])" style="width:100%;font-size:14px;padding:10px">📋 Registrar en Historial</button>
   </div>`;
 }
 
@@ -9441,6 +9446,62 @@ function mentorAddCupon(idx) {
 function mentorIgnorar(idx) {
   STATE.mentor.sugerencias.splice(idx,1);
   renderMentor();
+}
+
+// ── HISTORIAL — registrar value bet en historial.html (página independiente) ──
+function slugifyHistorial(str) {
+  return String(str || '')
+    .toLowerCase()
+    .normalize('NFD').replace(RX_DIACRITICOS, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function fechaISOHistorial(f) {
+  const d = f ? new Date(f) : new Date();
+  return isNaN(d.getTime()) ? new Date().toISOString().slice(0, 10) : d.toISOString().slice(0, 10);
+}
+
+function registrarEnHistorial(btn, vb) {
+  if (!vb) return;
+  const fecha = fechaISOHistorial(vb.fecha);
+  const partidoId = slugifyHistorial(vb.partido) + '-' + fecha.replace(/-/g, '');
+  const probReal = (vb.probReal != null) ? vb.probReal : (vb.prob != null ? vb.prob : null);
+  const edge = (vb.edge != null) ? parseFloat(vb.edge) : null;
+
+  const registro = {
+    fecha,
+    partido: vb.partido || '',
+    liga: vb.liga || '',
+    mercado: vb.mercado || '',
+    pick: vb.pick || '',
+    cuotaPrograma: (vb.odd != null) ? vb.odd : null,
+    cuotaReal: null,
+    probReal,
+    edge,
+    partidoId,
+    montoApostado: null,
+    resultado: 'pendiente',
+    gananciaPerdida: null,
+    notas: '',
+    edgeInflado: !!vb.partidoIniciado,
+  };
+
+  const pendientes = JSON.parse(localStorage.getItem('jcahs_pendiente_registro') || '[]');
+  pendientes.push(registro);
+  localStorage.setItem('jcahs_pendiente_registro', JSON.stringify(pendientes));
+
+  window.open('historial.html', '_blank');
+
+  if (btn) {
+    const textoOriginal = btn.textContent;
+    btn.textContent = '✅ Enviado';
+    btn.disabled = true;
+    setTimeout(() => {
+      btn.textContent = textoOriginal;
+      btn.disabled = false;
+    }, 2000);
+  }
 }
 
 function mentorActualizarEstado(estado) {
