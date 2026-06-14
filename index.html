@@ -250,6 +250,109 @@ body {
   margin-left: auto;
 }
 
+/* ── ALERTAS — campanita y panel ──────────────────────────── */
+.btn-activar-alertas {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  border-radius: var(--radius);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .12s, color .12s;
+}
+.btn-activar-alertas:hover { background: var(--surface-3); color: var(--tertiary); }
+
+.campanita-wrap { position: relative; }
+.btn-campanita {
+  position: relative;
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 6px;
+  line-height: 1;
+  color: var(--text-2);
+}
+.btn-campanita:hover { color: var(--tertiary); }
+.campanita-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--error);
+  color: #fff;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.alertas-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 320px;
+  max-height: 400px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0,0,0,.3);
+  z-index: 100;
+}
+.alertas-panel-header {
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+.alertas-panel-list { padding: 6px; }
+.alertas-panel-empty {
+  padding: 24px 14px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-3);
+}
+.alerta-item {
+  padding: 10px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .12s;
+}
+.alerta-item:hover { background: var(--surface-2); }
+.alerta-item + .alerta-item { margin-top: 2px; }
+.alerta-partido {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.alerta-pick {
+  font-size: 12px;
+  color: var(--tertiary);
+  font-weight: 600;
+  margin-top: 2px;
+}
+.alerta-meta {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: var(--f-mono);
+}
+.alerta-tiempo { color: var(--tertiary); margin-left: auto; }
+
 /* ── CARDS ──────────────────────────────────────────────── */
 .card {
   background: var(--surface);
@@ -1081,6 +1184,19 @@ body {
           <span class="ticker-chg" id="tk-sol-c">--</span>
         </div>
       </div>
+      <button id="btn-activar-alertas" class="btn-activar-alertas" style="display:none" onclick="solicitarPermisoNotificaciones()" title="Recibe notificaciones cuando una apuesta esté lista">🔔 Activar alertas</button>
+      <div class="campanita-wrap">
+        <button id="btn-campanita" class="btn-campanita" onclick="toggleAlertasPanel()" title="Alertas de apuestas listas">
+          🔔
+          <span id="campanita-badge" class="campanita-badge" style="display:none">0</span>
+        </button>
+        <div id="alertas-panel" class="alertas-panel" style="display:none">
+          <div class="alertas-panel-header">🔔 Apuestas listas para apostar</div>
+          <div id="alertas-panel-list" class="alertas-panel-list">
+            <div class="alertas-panel-empty">Sin alertas activas</div>
+          </div>
+        </div>
+      </div>
       <span id="topbar-clock" class="topbar-clock">--:--:--</span>
     </header>
 
@@ -1691,6 +1807,7 @@ const STATE = {
   top100Filtro:    'todas',
   top100Busqueda:  '',
   valueBets:       [],
+  alertasListas:   [],
   oddsGames:       [],
   oddsLimitExceeded: false,
   oddsResetDate:    null,
@@ -4283,6 +4400,7 @@ async function cargarDeportes() {
   finalizarCargaOdds(STATE.modoFallback ? 'Football-Data (fallback)' : 'The Odds API');
   } finally {
     STATE.deportesCargando = false;
+    nuevoVerificarAlertas();
   }
 }
 
@@ -6189,7 +6307,7 @@ function badgeFuenteDE(vb, sufijo) {
 // usado por Decision Engine y Mentor para avisar cuando las odds pueden
 // estar desactualizadas porque el partido ya comenzó.
 function infoTiempoPartido(fechaIso) {
-  if (!fechaIso) return { fechaStr: '', iniciado: false, countdownStr: '' };
+  if (!fechaIso) return { fechaStr: '', iniciado: false, countdownStr: '', minutosRestantes: null };
   var d = new Date(fechaIso), now = new Date();
   var fechaStr = '';
   try {
@@ -6200,8 +6318,10 @@ function infoTiempoPartido(fechaIso) {
 
   var iniciado = d <= now;
   var countdownStr = '';
+  var minutosRestantes = null;
   if (!iniciado) {
     var diffMin = Math.round((d - now) / 60000);
+    minutosRestantes = diffMin;
     if (diffMin < 60) {
       countdownStr = 'Inicia en ' + diffMin + 'min';
     } else if (diffMin < 1440) {
@@ -6212,7 +6332,153 @@ function infoTiempoPartido(fechaIso) {
       countdownStr = 'Inicia en ' + dias + (dias === 1 ? ' día' : ' días');
     }
   }
-  return { fechaStr: fechaStr, iniciado: iniciado, countdownStr: countdownStr };
+  return { fechaStr: fechaStr, iniciado: iniciado, countdownStr: countdownStr, minutosRestantes: minutosRestantes };
+}
+
+// ─── SISTEMA DE ALERTAS — value bets listos para apostar pronto ──
+const ALERTAS_NOTIFICADAS_KEY = 'jcahs_alertas_notificadas';
+
+function cargarAlertasNotificadas() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(ALERTAS_NOTIFICADAS_KEY) || '[]'));
+  } catch (e) { return new Set(); }
+}
+
+function guardarAlertasNotificadas(set) {
+  try { localStorage.setItem(ALERTAS_NOTIFICADAS_KEY, JSON.stringify(Array.from(set))); } catch (e) {}
+}
+
+// Recorre las listas ya filtradas de Decision Engine y Mentor y construye
+// STATE.alertasListas con los value bets listos para apostar pronto
+// (score >= 70, partido no iniciado, countdown <= 60min).
+function nuevoVerificarAlertas() {
+  var candidatos = [];
+
+  (STATE.deApuestas || []).forEach(function(vb) {
+    if (vb && vb.partido && vb.pick) candidatos.push({ vb: vb, origen: 'decision-engine' });
+  });
+
+  ((STATE.mentor && STATE.mentor.sugerencias) || []).forEach(function(s) {
+    if (s && s.tipo === 'APUESTA' && s.seccion === 'deportes' && s.partido && s.pick) {
+      candidatos.push({ vb: s, origen: 'mentor' });
+    }
+  });
+
+  var vistos = new Set();
+  var alertas = [];
+
+  candidatos.forEach(function(c) {
+    var vb = c.vb;
+    var score = vb.score || 0;
+    if (score < 70) return;
+    if (vb.partidoIniciado) return;
+
+    var tiempo = infoTiempoPartido(vb.fecha);
+    if (tiempo.iniciado) return;
+    if (tiempo.minutosRestantes == null || tiempo.minutosRestantes > 60) return;
+
+    var clave = vb.partido + '|' + vb.pick;
+    if (vistos.has(clave)) return;
+    vistos.add(clave);
+
+    alertas.push({
+      clave: clave,
+      partido: vb.partido,
+      pick: vb.pick,
+      score: Math.round(score),
+      odd: vb.odd,
+      probReal: (vb.probReal != null) ? vb.probReal : vb.prob,
+      minutosRestantes: tiempo.minutosRestantes,
+      origen: c.origen,
+    });
+  });
+
+  alertas.sort(function(a, b) { return a.minutosRestantes - b.minutosRestantes; });
+  STATE.alertasListas = alertas;
+
+  notificarAlertasNuevas(alertas);
+  renderCampanitaAlertas();
+}
+
+function notificarAlertasNuevas(alertas) {
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+
+  var notificadas = cargarAlertasNotificadas();
+  var hayNuevas = false;
+
+  alertas.forEach(function(a) {
+    if (notificadas.has(a.clave)) return;
+    notificadas.add(a.clave);
+    hayNuevas = true;
+    try {
+      new Notification('JCAHS - Apuesta lista', {
+        body: a.partido + ' — ' + a.pick + ' (Score ' + a.score + ', inicia en ' + a.minutosRestantes + 'min)'
+      });
+    } catch (e) { console.log('Notification error:', e); }
+  });
+
+  if (hayNuevas) guardarAlertasNotificadas(notificadas);
+}
+
+function solicitarPermisoNotificaciones() {
+  if (typeof Notification === 'undefined') return;
+  Notification.requestPermission().then(function() {
+    actualizarBotonAlertas();
+    nuevoVerificarAlertas();
+  });
+}
+
+function actualizarBotonAlertas() {
+  var btn = qs('btn-activar-alertas');
+  if (!btn) return;
+  btn.style.display = (typeof Notification !== 'undefined' && Notification.permission === 'default') ? '' : 'none';
+}
+
+function toggleAlertasPanel() {
+  var panel = qs('alertas-panel');
+  if (!panel) return;
+  panel.style.display = (panel.style.display === 'none' || !panel.style.display) ? 'block' : 'none';
+}
+
+function irAAlerta(idx) {
+  var a = STATE.alertasListas[idx];
+  if (!a) return;
+  toggleAlertasPanel();
+  if (a.origen === 'mentor') {
+    abrirMentor();
+  } else {
+    ir('sec-de');
+  }
+}
+
+function renderCampanitaAlertas() {
+  var badge = qs('campanita-badge');
+  var lista = qs('alertas-panel-list');
+  if (!badge || !lista) return;
+
+  var n = STATE.alertasListas.length;
+  badge.style.display = n > 0 ? '' : 'none';
+  badge.textContent = n;
+
+  if (!n) {
+    lista.innerHTML = '<div class="alertas-panel-empty">Sin alertas activas</div>';
+    return;
+  }
+
+  lista.innerHTML = STATE.alertasListas.map(function(a, i) {
+    var probTxt = a.probReal != null ? Math.round(a.probReal) + '%' : '--';
+    var oddTxt = a.odd != null ? a.odd.toFixed(2) : '--';
+    return '<div class="alerta-item" onclick="irAAlerta(' + i + ')">' +
+      '<div class="alerta-partido">' + escHtml(a.partido) + '</div>' +
+      '<div class="alerta-pick">' + escHtml(a.pick) + '</div>' +
+      '<div class="alerta-meta">' +
+      '<span>Score ' + a.score + '</span>' +
+      '<span>Odd ' + oddTxt + '</span>' +
+      '<span>Prob ' + probTxt + '</span>' +
+      '<span class="alerta-tiempo">⏱ ' + a.minutosRestantes + 'min</span>' +
+      '</div>' +
+      '</div>';
+  }).join('');
 }
 
 function renderListaDE() {
@@ -6769,6 +7035,11 @@ async function init() {
 
   // Iniciar reloj
   iniciarReloj();
+
+  // Sistema de alertas — botón de permiso + chequeo inicial + recálculo periódico
+  actualizarBotonAlertas();
+  nuevoVerificarAlertas();
+  setInterval(nuevoVerificarAlertas, 90 * 1000);
 
   // Caché de odds (Capa 1) — mostrar datos previos mientras carga la fuente real
   cargarCacheOddsInicial();
