@@ -131,6 +131,7 @@ h2.section-title { font-size: 15px; font-weight: 800; margin: 24px 0 12px; color
 .resumen-card .valor.pos { color: var(--tertiary); }
 .resumen-card .valor.neg { color: var(--error); }
 .resumen-card .sub { color: var(--text-3); font-size: 11px; margin-top: 4px; }
+.resumen-card .sub.explicacion { margin-top: 6px; line-height: 1.4; }
 
 .desgloses {
   display: grid;
@@ -150,6 +151,9 @@ h2.section-title { font-size: 15px; font-weight: 800; margin: 24px 0 12px; color
 .desglose-box td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
 .desglose-box td.num { font-family: 'JetBrains Mono', monospace; text-align: right; }
 .desglose-box tbody tr:last-child td { border-bottom: none; }
+
+.explicacion { color: var(--text-3); font-size: 11px; line-height: 1.5; }
+.desglose-box .explicacion, .chart-box .explicacion { margin: 4px 0 10px; }
 
 .chart-box {
   background: var(--surface);
@@ -204,6 +208,7 @@ tr.pendiente select.resultado-select { color: var(--warning); }
 <div class="desgloses">
   <div class="desglose-box">
     <h3>Desglose por rango de Prob Real</h3>
+    <p class="explicacion">Esto muestra si el sistema acierta más cuando dice estar "muy seguro" (65-100%) que cuando dice estar "menos seguro" (35-64%). Si la calibración es correcta, el % de aciertos debería ser mayor en la fila de arriba.</p>
     <table>
       <thead><tr><th>Rango</th><th>n</th><th>Hit rate</th><th>ROI</th></tr></thead>
       <tbody id="tbodyProbReal"></tbody>
@@ -211,6 +216,7 @@ tr.pendiente select.resultado-select { color: var(--warning); }
   </div>
   <div class="desglose-box">
     <h3>Desglose por mercado</h3>
+    <p class="explicacion">Compara qué tipo de apuesta (Resultado del partido vs Total de goles) ha funcionado mejor hasta ahora.</p>
     <table>
       <thead><tr><th>Mercado</th><th>n</th><th>Hit rate</th><th>ROI</th></tr></thead>
       <tbody id="tbodyMercado"></tbody>
@@ -221,6 +227,7 @@ tr.pendiente select.resultado-select { color: var(--warning); }
 <div class="chart-box">
   <h3>ROI acumulado (registros con monto apostado, en orden por ID)</h3>
   <canvas id="chartROI" width="900" height="240"></canvas>
+  <p class="explicacion">Esta línea muestra cómo habría evolucionado tu dinero si hubieras apostado en cada predicción registrada, en el orden en que se hicieron.</p>
 </div>
 
 <h2 class="section-title">Detalle de registros (editable)</h2>
@@ -347,6 +354,23 @@ function filtrarDatos(data, incluirEdgeInflado) {
   return incluirEdgeInflado ? data : data.filter(r => !r.edgeInflado);
 }
 
+// Cuota efectiva: usa Cuota Real si el usuario la ingresó, sino Cuota Prog.
+function cuotaEfectiva(r) {
+  return (r.cuotaReal !== null && r.cuotaReal !== undefined) ? r.cuotaReal : r.cuotaPrograma;
+}
+
+// G/P calculado automáticamente a partir de cuotaEfectiva, montoApostado y resultado
+function gpCalculado(r) {
+  if (r.montoApostado === null || r.montoApostado === undefined) return null;
+  if (r.resultado === 'GANÓ') {
+    const cuota = cuotaEfectiva(r);
+    if (cuota === null || cuota === undefined) return null;
+    return r.montoApostado * (cuota - 1);
+  }
+  if (r.resultado === 'PERDIÓ') return -r.montoApostado;
+  return null;
+}
+
 // Hit rate sobre TODOS los registros con resultado GANÓ/PERDIÓ; ROI solo sobre los que tienen montoApostado no-null
 function calcularResumen(data) {
   const conResultado = data.filter(r => r.resultado === 'GANÓ' || r.resultado === 'PERDIÓ');
@@ -355,7 +379,7 @@ function calcularResumen(data) {
 
   const conMonto = data.filter(r => r.montoApostado !== null && r.montoApostado !== undefined);
   const totalApostado = conMonto.reduce((s, r) => s + r.montoApostado, 0);
-  const totalGP = conMonto.reduce((s, r) => s + (r.gananciaPerdida || 0), 0);
+  const totalGP = conMonto.reduce((s, r) => s + (gpCalculado(r) || 0), 0);
   const roi = totalApostado ? (totalGP / totalApostado * 100) : null;
 
   return {
@@ -384,23 +408,24 @@ function renderTabla() {
   const tbody = document.getElementById('tbodyHistorial');
   tbody.innerHTML = data.map(r => {
     const resultadoClass = r.resultado === 'GANÓ' ? 'ganó' : (r.resultado === 'PERDIÓ' ? 'perdió' : (r.resultado === 'pendiente' ? 'pendiente' : ''));
-    const gpClass = (r.gananciaPerdida === null || r.gananciaPerdida === undefined) ? '' : (r.gananciaPerdida >= 0 ? 'pos' : 'neg');
+    const gp = gpCalculado(r);
+    const gpClass = gp === null ? '' : (gp >= 0 ? 'pos' : 'neg');
     return '<tr class="' + resultadoClass + '">' +
       '<td>' + escHtml(r.id) + '</td>' +
-      '<td ' + ce(r.id, 'fecha', 'text') + '>' + escHtml(r.fecha) + '</td>' +
-      '<td ' + ce(r.id, 'partido', 'text') + '>' + escHtml(r.partido) + '</td>' +
-      '<td ' + ce(r.id, 'liga', 'text') + '>' + escHtml(r.liga) + '</td>' +
-      '<td ' + ce(r.id, 'mercado', 'text') + '>' + escHtml(r.mercado) + '</td>' +
-      '<td ' + ce(r.id, 'pick', 'text') + '>' + escHtml(r.pick) + '</td>' +
-      '<td class="num" ' + ce(r.id, 'cuotaPrograma', 'number') + '>' + fmtNum(r.cuotaPrograma, 2) + '</td>' +
+      '<td>' + escHtml(r.fecha) + '</td>' +
+      '<td>' + escHtml(r.partido) + '</td>' +
+      '<td>' + escHtml(r.liga) + '</td>' +
+      '<td>' + escHtml(r.mercado) + '</td>' +
+      '<td>' + escHtml(r.pick) + '</td>' +
+      '<td class="num">' + fmtNum(r.cuotaPrograma, 2) + '</td>' +
       '<td class="num" ' + ce(r.id, 'cuotaReal', 'number') + '>' + fmtNum(r.cuotaReal, 2) + '</td>' +
-      '<td class="num" ' + ce(r.id, 'probReal', 'number') + '>' + (r.probReal === null ? '—' : fmtNum(r.probReal, 0) + '%') + '</td>' +
-      '<td class="num" ' + ce(r.id, 'edge', 'number') + '>' + (r.edge === null ? '—' : fmtNum(r.edge, 1) + '%') + '</td>' +
+      '<td class="num">' + (r.probReal === null ? '—' : fmtNum(r.probReal, 0) + '%') + '</td>' +
+      '<td class="num">' + (r.edge === null ? '—' : fmtNum(r.edge, 1) + '%') + '</td>' +
       '<td class="num" ' + ce(r.id, 'montoApostado', 'number') + '>' + (r.montoApostado === null ? '—' : '$' + fmtNum(r.montoApostado, 2)) + '</td>' +
       '<td class="resultado">' + selectResultado(r) + '</td>' +
-      '<td class="ganancia ' + gpClass + ' num" ' + ce(r.id, 'gananciaPerdida', 'number') + '>' + (r.gananciaPerdida === null ? '—' : (r.gananciaPerdida >= 0 ? '+$' : '-$') + fmtNum(Math.abs(r.gananciaPerdida), 2)) + '</td>' +
-      '<td ' + ce(r.id, 'partidoId', 'text') + '>' + escHtml(r.partidoId) + '</td>' +
-      '<td class="notas" ' + ce(r.id, 'notas', 'text') + '>' + escHtml(r.notas) + '</td>' +
+      '<td class="ganancia ' + gpClass + ' num">' + (gp === null ? '—' : (gp >= 0 ? '+$' : '-$') + fmtNum(Math.abs(gp), 2)) + '</td>' +
+      '<td>' + escHtml(r.partidoId) + '</td>' +
+      '<td class="notas">' + escHtml(r.notas) + '</td>' +
       '<td class="edge-flag"><input type="checkbox" data-id="' + r.id + '" data-field="edgeInflado"' + (r.edgeInflado ? ' checked' : '') + '></td>' +
     '</tr>';
   }).join('');
@@ -421,19 +446,37 @@ function renderResumen() {
   const gpClass = r.totalGP >= 0 ? 'pos' : 'neg';
   const gpTxt = (r.totalGP >= 0 ? '+$' : '-$') + Math.abs(r.totalGP).toFixed(2);
 
+  const hitExplicacion = r.totalConResultado
+    ? 'De ' + r.totalConResultado + ' predicciones del sistema, ' + r.ganados + ' resultaron correctas.'
+    : 'Aún no hay predicciones con resultado registrado.';
+
+  let roiExplicacion;
+  if (r.totalApostado) {
+    const montoTxt = Math.abs(r.roi).toFixed(2);
+    roiExplicacion = r.roi >= 0
+      ? 'Por cada $100 apostados, se ganaron $' + montoTxt + ' extra (sobre las apuestas donde se registró un monto).'
+      : 'Por cada $100 apostados, se perdieron $' + montoTxt + ' (sobre las apuestas donde se registró un monto).';
+  } else {
+    roiExplicacion = 'Aún no hay apuestas con monto registrado para calcular el ROI.';
+  }
+
   document.getElementById('resumenGeneral').innerHTML =
     '<div class="resumen-card"><div class="label">Hit rate</div>' +
       '<div class="valor">' + hitRateTxt + '</div>' +
-      '<div class="sub">' + r.ganados + '/' + r.totalConResultado + ' (GANÓ/PERDIÓ)</div></div>' +
+      '<div class="sub">' + r.ganados + '/' + r.totalConResultado + ' (GANÓ/PERDIÓ)</div>' +
+      '<div class="sub explicacion">' + hitExplicacion + '</div></div>' +
     '<div class="resumen-card"><div class="label">ROI</div>' +
       '<div class="valor ' + roiClass + '">' + roiTxt + '</div>' +
-      '<div class="sub">sobre ' + r.n + ' apuestas con monto registrado</div></div>' +
+      '<div class="sub">sobre ' + r.n + ' apuestas con monto registrado</div>' +
+      '<div class="sub explicacion">' + roiExplicacion + '</div></div>' +
     '<div class="resumen-card"><div class="label">Total apostado</div>' +
       '<div class="valor">$' + r.totalApostado.toFixed(2) + '</div>' +
-      '<div class="sub">' + r.n + ' registros con monto</div></div>' +
+      '<div class="sub">' + r.n + ' registros con monto</div>' +
+      '<div class="sub explicacion">Dinero real puesto en juego.</div></div>' +
     '<div class="resumen-card"><div class="label">Ganancia/Pérdida neta</div>' +
       '<div class="valor ' + gpClass + '">' + gpTxt + '</div>' +
-      '<div class="sub">' + data.length + ' registros considerados</div></div>';
+      '<div class="sub">' + data.length + ' registros considerados</div>' +
+      '<div class="sub explicacion">Resultado final: cuánto se ganó o perdió en total.</div></div>';
 }
 
 const RANGOS_PROB = [
@@ -491,7 +534,7 @@ function renderGraficoROI() {
   let cumApostado = 0, cumGP = 0;
   const puntos = data.map(r => {
     cumApostado += r.montoApostado;
-    cumGP += (r.gananciaPerdida || 0);
+    cumGP += (gpCalculado(r) || 0);
     return { id: r.id, roi: cumApostado ? (cumGP / cumApostado * 100) : 0 };
   });
 
