@@ -3338,6 +3338,7 @@ function procesarMercadoOddsPapi(fixture, pinnacle, bet365, marketDef, ctx) {
       score:     Math.round(Math.min(edge * 5, 100)),
       fuente:    'OddsPapi',
       outcome:   mktKey + ':' + ok,
+      partidoIniciado: ctx.partidoIniciado,
     });
   });
   return resultados;
@@ -3547,13 +3548,15 @@ async function cargarDatosOddsPapi() {
     const valueBets = [];
 
     for (const fixture of fixtures) {
-      // Descartar fixtures cuyo partido ya inició (en vivo o terminado) —
-      // sus odds pre-partido quedan obsoletas. OddsPapi no expone un statusId
-      // fiable para esto (siempre devuelve 0, incluso en vivo), así que el
-      // único filtro confiable es comparar startTime con la hora actual.
-      // Aplica tanto al mercado 101 como a MERCADOS_ODDSPAPI_EXTRA (ambos
-      // se generan a partir de este mismo fixture más abajo).
-      if (new Date(fixture.startTime) <= new Date()) continue;
+      // Marcar fixtures cuyo partido ya inició (en vivo o terminado) — sus
+      // odds pre-partido pueden estar obsoletas. OddsPapi no expone un
+      // statusId fiable para esto (siempre devuelve 0, incluso en vivo), así
+      // que la marca se basa en comparar startTime con la hora actual. Se
+      // incluyen igual en STATE.valueBets (mismos filtros de edge/probReal/
+      // odd) pero con partidoIniciado=true para que el render muestre el
+      // aviso correspondiente. Aplica tanto al mercado 101 como a
+      // MERCADOS_ODDSPAPI_EXTRA (ambos se generan a partir de este fixture).
+      const partidoIniciado = new Date(fixture.startTime) <= new Date();
 
       const pinnacle = fixture.bookmakerOdds?.pinnacle;
       if (!pinnacle || !pinnacle.bookmakerIsActive) continue;
@@ -3624,11 +3627,12 @@ async function cargarDatosOddsPapi() {
           score:     Math.round(Math.min(edge * 5, 100)),
           fuente:    'OddsPapi',
           outcome,
+          partidoIniciado,
         });
       });
 
       // Mercados adicionales (BTTS, Over/Under, etc.) — extensible vía MERCADOS_ODDSPAPI_EXTRA
-      const ctxExtra = { homeName, awayName, liga: ligaMap[fixture.tournamentId] || 'Fútbol', esMundial };
+      const ctxExtra = { homeName, awayName, liga: ligaMap[fixture.tournamentId] || 'Fútbol', esMundial, partidoIniciado };
       MERCADOS_ODDSPAPI_EXTRA.forEach(marketDef => {
         valueBets.push(...procesarMercadoOddsPapi(fixture, pinnacle, bet365, marketDef, ctxExtra));
       });
