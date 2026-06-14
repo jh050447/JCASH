@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JCAHS — Historial de Validación</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #060f1a;
+  --surface:   #081425;
+  --surface-2: #0d1f35;
+  --border:    rgba(255,255,255,0.07);
+  --text:      #e2eefc;
+  --text-2:    #8ba4bd;
+  --text-3:    #4e6a88;
+  --tertiary:  #4edea3;
+  --tert-dim:  rgba(78,222,163,0.12);
+  --error:     #ffb4ab;
+  --err-dim:   rgba(255,180,171,0.12);
+  --warning:   #ffd966;
+  --radius:    10px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 24px;
+}
+h1 { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+.subtitle { color: var(--text-2); font-size: 13px; margin-bottom: 20px; }
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.toolbar button {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+.toolbar button:hover { background: var(--surface); border-color: var(--tertiary); }
+.toolbar .count { color: var(--text-2); font-size: 13px; margin-left: auto; }
+.toolbar input[type="file"] { display: none; }
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+thead th {
+  background: var(--surface-2);
+  color: var(--text-2);
+  text-align: left;
+  padding: 8px 10px;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+}
+tbody td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+tbody tr:hover { background: var(--surface); }
+tbody tr.ganó td.resultado { color: var(--tertiary); font-weight: 700; }
+tbody tr.perdió td.resultado { color: var(--error); font-weight: 700; }
+tbody tr.pendiente td.resultado { color: var(--warning); font-weight: 700; }
+td.notas { white-space: normal; max-width: 320px; color: var(--text-2); font-size: 11px; }
+td.num { font-family: 'JetBrains Mono', monospace; text-align: right; }
+td.ganancia.pos { color: var(--tertiary); font-family: 'JetBrains Mono', monospace; text-align: right; }
+td.ganancia.neg { color: var(--error); font-family: 'JetBrains Mono', monospace; text-align: right; }
+
+h2.section-title { font-size: 15px; font-weight: 800; margin: 24px 0 12px; color: var(--text); }
+
+.toggle-edge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--text-2);
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+.toggle-edge input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--tertiary); }
+
+.aviso-edge {
+  display: none;
+  background: var(--err-dim);
+  border: 1px solid var(--error);
+  color: var(--error);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  font-size: 12px;
+  margin-bottom: 16px;
+  font-weight: 600;
+}
+.aviso-edge.visible { display: block; }
+
+.resumen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.resumen-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.resumen-card .label { color: var(--text-2); font-size: 12px; margin-bottom: 6px; }
+.resumen-card .valor { font-size: 22px; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+.resumen-card .valor.pos { color: var(--tertiary); }
+.resumen-card .valor.neg { color: var(--error); }
+.resumen-card .sub { color: var(--text-3); font-size: 11px; margin-top: 4px; }
+
+.desgloses {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.desglose-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.desglose-box h3 { font-size: 13px; margin-bottom: 10px; color: var(--text-2); font-weight: 700; }
+.desglose-box table { width: 100%; font-size: 12px; border-collapse: collapse; }
+.desglose-box th { text-align: left; padding: 6px 8px; color: var(--text-3); font-weight: 700; border-bottom: 1px solid var(--border); }
+.desglose-box td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.desglose-box td.num { font-family: 'JetBrains Mono', monospace; text-align: right; }
+.desglose-box tbody tr:last-child td { border-bottom: none; }
+
+.chart-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 20px;
+}
+.chart-box h3 { font-size: 13px; margin-bottom: 10px; color: var(--text-2); font-weight: 700; }
+.chart-box canvas { max-width: 100%; }
+
+[contenteditable="true"] { cursor: text; border-radius: 4px; }
+[contenteditable="true"]:hover { background: var(--surface-2); }
+[contenteditable="true"]:focus { outline: 1px solid var(--tertiary); background: var(--surface-2); }
+td.edge-flag { text-align: center; }
+td.edge-flag input { width: 15px; height: 15px; cursor: pointer; accent-color: var(--warning); }
+select.resultado-select {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 700;
+  padding: 2px 4px;
+}
+tr.ganó select.resultado-select { color: var(--tertiary); }
+tr.perdió select.resultado-select { color: var(--error); }
+tr.pendiente select.resultado-select { color: var(--warning); }
+</style>
+</head>
+<body>
+
+<h1>📊 Historial de Validación</h1>
+<div class="subtitle">Registro independiente de apuestas para validar edge/probReal contra resultados reales — datos persistidos en localStorage, separado de index.html</div>
+
+<div class="toolbar">
+  <button id="btnExportar">⬇️ Exportar JSON</button>
+  <button id="btnImportar">⬆️ Importar JSON</button>
+  <input type="file" id="inputImportar" accept="application/json">
+  <span class="count" id="contador"></span>
+</div>
+
+<h2 class="section-title">Resumen General</h2>
+<label class="toggle-edge">
+  <input type="checkbox" id="chkEdgeInflado">
+  Incluir casos de edge inflado (n=3)
+</label>
+<div class="aviso-edge" id="avisoEdgeInflado">⚠️ Incluye 3 registros con edge inflado (ver notas)</div>
+<div class="resumen" id="resumenGeneral"></div>
+
+<div class="desgloses">
+  <div class="desglose-box">
+    <h3>Desglose por rango de Prob Real</h3>
+    <table>
+      <thead><tr><th>Rango</th><th>n</th><th>Hit rate</th><th>ROI</th></tr></thead>
+      <tbody id="tbodyProbReal"></tbody>
+    </table>
+  </div>
+  <div class="desglose-box">
+    <h3>Desglose por mercado</h3>
+    <table>
+      <thead><tr><th>Mercado</th><th>n</th><th>Hit rate</th><th>ROI</th></tr></thead>
+      <tbody id="tbodyMercado"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="chart-box">
+  <h3>ROI acumulado (registros con monto apostado, en orden por ID)</h3>
+  <canvas id="chartROI" width="900" height="240"></canvas>
+</div>
+
+<h2 class="section-title">Detalle de registros (editable)</h2>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Fecha</th>
+        <th>Partido</th>
+        <th>Liga</th>
+        <th>Mercado</th>
+        <th>Pick</th>
+        <th>Cuota Prog.</th>
+        <th>Cuota Real</th>
+        <th>Prob Real</th>
+        <th>Edge</th>
+        <th>Monto</th>
+        <th>Resultado</th>
+        <th>G/P</th>
+        <th>Partido ID</th>
+        <th>Notas</th>
+        <th>Edge⚠</th>
+      </tr>
+    </thead>
+    <tbody id="tbodyHistorial"></tbody>
+  </table>
+</div>
+
+<script>
+const STORAGE_KEY = 'jcahs_historial';
+
+const SEED_DATA = [
+  {"id":1,"edgeInflado":false,"fecha":"2026-06-13","partido":"Kings SC vs JIPPO","liga":"Kolmonen","mercado":"1X2","pick":"Kings SC gana el partido","cuotaPrograma":null,"cuotaReal":null,"probReal":null,"edge":36.9,"partidoId":"kings-sc-vs-jippo-20260613","montoApostado":null,"resultado":"GANÓ","gananciaPerdida":null,"notas":"Marcador: 6-2. Cuota desconocida (odd no registrada en captura original)."},
+  {"id":2,"edgeInflado":false,"fecha":"2026-06-13","partido":"Snohomish vs Ballard","liga":"USL League Two","mercado":"1X2","pick":"Gana Snohomish","cuotaPrograma":null,"cuotaReal":null,"probReal":null,"edge":58.8,"partidoId":"snohomish-vs-ballard-20260613","montoApostado":null,"resultado":"GANÓ","gananciaPerdida":null,"notas":"Marcador: 2-0. Cuota desconocida (odd no registrada en captura original)."},
+  {"id":3,"edgeInflado":false,"fecha":"2026-06-13","partido":"Eupa vs Masku","liga":"Kolmonen","mercado":"1X2","pick":"Eupa gana el partido","cuotaPrograma":1.73,"cuotaReal":null,"probReal":85,"edge":null,"partidoId":"eupa-vs-masku-20260613","montoApostado":10,"resultado":"GANÓ","gananciaPerdida":7.27,"notas":"Marcador: 5-1."},
+  {"id":4,"edgeInflado":false,"fecha":"2026-06-13","partido":"Union Mondsee vs DSG Union Perg","liga":"OÖ Liga","mercado":"1X2","pick":"DSG Union Perg gana el partido","cuotaPrograma":2.10,"cuotaReal":null,"probReal":64,"edge":null,"partidoId":"union-mondsee-vs-dsg-union-perg-20260613","montoApostado":10,"resultado":"PERDIÓ","gananciaPerdida":-10,"notas":"Marcador: 4-2 (ganó Union Mondsee)."},
+  {"id":5,"edgeInflado":false,"fecha":"2026-06-13","partido":"Mikkelin Pallo-Kissat vs Mikkelin Palloilijat 2","liga":"Kolmonen","mercado":"1X2","pick":"Mikkelin Pallo-Kissat gana el partido","cuotaPrograma":2.55,"cuotaReal":null,"probReal":null,"edge":null,"partidoId":"mikkelin-pallo-kissat-vs-mikkelin-palloilijat-2-20260613","montoApostado":10,"resultado":"GANÓ","gananciaPerdida":15.50,"notas":"Marcador: 2-1. Odd implícita (no registrada directamente)."},
+  {"id":6,"edgeInflado":false,"fecha":"2026-06-13","partido":"FC LeKi vs TPV/2","liga":"Kolmonen","mercado":"1X2","pick":"FC LeKi gana el partido","cuotaPrograma":2.70,"cuotaReal":null,"probReal":73,"edge":null,"partidoId":"fc-leki-vs-tpv-2-20260613","montoApostado":10,"resultado":"GANÓ","gananciaPerdida":17.00,"notas":"Marcador: 4-2."},
+  {"id":7,"edgeInflado":false,"fecha":"2026-06-13","partido":"Atlantis FC/2 vs MPS/Atletico Malmi","liga":"Kolmonen","mercado":"1X2","pick":"MPS/Atletico Malmi gana el partido","cuotaPrograma":1.50,"cuotaReal":null,"probReal":80,"edge":null,"partidoId":"atlantis-fc-2-vs-mps-atletico-malmi-20260613","montoApostado":10,"resultado":"GANÓ","gananciaPerdida":5.00,"notas":"Marcador: 1-6."},
+  {"id":8,"edgeInflado":true,"fecha":"2026-06-13","partido":"South Carolina United Bantams vs Hickory FC","liga":"USL League Two","mercado":"1X2","pick":"Hickory FC gana el partido","cuotaPrograma":2.60,"cuotaReal":null,"probReal":87,"edge":127.5,"partidoId":"south-carolina-united-bantams-vs-hickory-fc-20260613","montoApostado":9.96,"resultado":"GANÓ","gananciaPerdida":15.94,"notas":"Marcador: 0-5. Edge inflado — partido ya iniciado al momento de la consulta, odd pre-partido obsoleta. No representativo de condiciones normales de mercado."},
+  {"id":9,"edgeInflado":true,"fecha":"2026-06-13","partido":"Lorain County Leviathan FC vs Akron City FC","liga":"USL League Two","mercado":"1X2","pick":"Lorain County Leviathan FC gana el partido","cuotaPrograma":2.50,"cuotaReal":null,"probReal":65,"edge":85.7,"partidoId":"lorain-county-leviathan-fc-vs-akron-city-fc-20260613","montoApostado":7.14,"resultado":"GANÓ","gananciaPerdida":10.71,"notas":"Marcador: 4-1. Edge inflado — partido ya iniciado, misma situación que el registro #8 (South Carolina United Bantams vs Hickory FC)."},
+  {"id":10,"edgeInflado":true,"fecha":"2026-06-13","partido":"Charlottesville Blues vs Hill City FC","liga":"USL League Two","mercado":"Over/Under 2.5","pick":"Menos de 2.5 goles (-2.5)","cuotaPrograma":2.37,"cuotaReal":null,"probReal":70,"edge":66.3,"partidoId":"charlottesville-blues-vs-hill-city-fc-20260613","montoApostado":6.05,"resultado":"GANÓ","gananciaPerdida":8.34,"notas":"Marcador: 2-0 (2 goles totales, menor a 2.5). Edge inflado — partido ya iniciado, misma situación que el registro #8. Primer acierto del mercado Over/Under."},
+  {"id":11,"edgeInflado":false,"fecha":"2026-06-13","partido":"Milwaukee Torrent vs Gios Lions SC","liga":"NPSL","mercado":"1X2","pick":"Milwaukee Torrent gana el partido","cuotaPrograma":2.00,"cuotaReal":null,"probReal":72,"edge":43.5,"partidoId":"milwaukee-torrent-vs-gios-lions-sc-20260613","montoApostado":5.44,"resultado":"PERDIÓ","gananciaPerdida":-5.44,"notas":"Marcador: 1-1 (empate). Edge inflado — partido ya iniciado, misma situación que el registro #8."},
+  {"id":12,"edgeInflado":false,"fecha":"2026-06-13","partido":"Montgomery United FC vs SSA Swarm FC","liga":"USL League Two","mercado":"1X2","pick":"SSA Swarm FC gana el partido","cuotaPrograma":null,"cuotaReal":null,"probReal":null,"edge":null,"partidoId":"montgomery-united-fc-vs-ssa-swarm-fc-20260613","montoApostado":null,"resultado":"PERDIÓ","gananciaPerdida":null,"notas":"Marcador: 2-2 (empate). Cuota desconocida (odd no registrada en captura original). Nombre de equipo incierto entre fuentes (OddsPapi dice 'SSA Swarm FC', Sofascore muestra 'Southern SA Kings') — resultado no 100% confirmado."},
+  {"id":13,"edgeInflado":false,"fecha":"2026-06-13","partido":"South Carolina United Bantams vs Hickory FC","liga":"USL League Two","mercado":"Over/Under 2.5","pick":"Más de 2.5 goles (+2.5)","cuotaPrograma":1.57,"cuotaReal":null,"probReal":69,"edge":8.3,"partidoId":"south-carolina-united-bantams-vs-hickory-fc-20260613","montoApostado":1.83,"resultado":"GANÓ","gananciaPerdida":1.04,"notas":"Marcador: 0-5 (5 goles totales, mayor a 2.5). Mismo partido que el registro #8, mercado Over/Under adicional. Slider de sensibilidad probReal más bajo."},
+  {"id":14,"edgeInflado":false,"fecha":"2026-06-13","partido":"Montgomery United FC vs SSA Swarm FC","liga":"USL League Two","mercado":"Over/Under 2.5","pick":"Menos de 2.5 goles (-2.5)","cuotaPrograma":2.30,"cuotaReal":null,"probReal":49,"edge":12.9,"partidoId":"montgomery-united-fc-vs-ssa-swarm-fc-20260613","montoApostado":1.24,"resultado":"PERDIÓ","gananciaPerdida":-1.24,"notas":"Marcador: 2-2 (4 goles totales, mayor a 2.5). Mismo partido que el registro #12, mercado Over/Under adicional."},
+  {"id":15,"edgeInflado":false,"fecha":"2026-06-13","partido":"Charlottesville Blues vs Hill City FC","liga":"USL League Two","mercado":"1X2","pick":"Empate en el partido","cuotaPrograma":3.75,"cuotaReal":null,"probReal":39,"edge":47.0,"partidoId":"charlottesville-blues-vs-hill-city-fc-20260613","montoApostado":2.14,"resultado":"PERDIÓ","gananciaPerdida":-2.14,"notas":"Marcador: 2-0 (no fue empate). Mismo partido que el registro #10, mercado 1X2 adicional (apuesta a empate)."}
+];
+
+function cargarHistorial() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED_DATA));
+    return SEED_DATA.slice();
+  }
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error('Historial: JSON corrupto en localStorage, usando seed', e);
+    return SEED_DATA.slice();
+  }
+}
+
+function guardarHistorial(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+const PENDIENTES_KEY = 'jcahs_pendiente_registro';
+
+// Toma los registros encolados desde index.html (botón "Registrar"),
+// les asigna id correlativo y los agrega al historial principal.
+function procesarPendientes() {
+  const raw = localStorage.getItem(PENDIENTES_KEY);
+  if (!raw) return false;
+
+  let pendientes;
+  try {
+    pendientes = JSON.parse(raw);
+  } catch (e) {
+    console.error('Historial: jcahs_pendiente_registro corrupto, descartando', e);
+    localStorage.removeItem(PENDIENTES_KEY);
+    return false;
+  }
+
+  if (!Array.isArray(pendientes) || pendientes.length === 0) {
+    localStorage.removeItem(PENDIENTES_KEY);
+    return false;
+  }
+
+  const data = cargarHistorial();
+  let maxId = data.reduce((max, r) => Math.max(max, r.id), 0);
+  pendientes.forEach(p => {
+    maxId += 1;
+    data.push(Object.assign({}, p, { id: maxId }));
+  });
+
+  guardarHistorial(data);
+  localStorage.removeItem(PENDIENTES_KEY);
+  return true;
+}
+
+function escHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function fmtNum(v, decimales) {
+  return (v === null || v === undefined || v === '') ? '—' : Number(v).toFixed(decimales);
+}
+
+function parseEditedNumber(text) {
+  const limpio = text.replace(/[^0-9.\-]/g, '');
+  if (limpio === '' || limpio === '-') return null;
+  const num = parseFloat(limpio);
+  return isNaN(num) ? null : num;
+}
+
+// Excluye registros con edgeInflado:true salvo que incluirEdgeInflado sea true
+function filtrarDatos(data, incluirEdgeInflado) {
+  return incluirEdgeInflado ? data : data.filter(r => !r.edgeInflado);
+}
+
+// Hit rate sobre TODOS los registros con resultado GANÓ/PERDIÓ; ROI solo sobre los que tienen montoApostado no-null
+function calcularResumen(data) {
+  const conResultado = data.filter(r => r.resultado === 'GANÓ' || r.resultado === 'PERDIÓ');
+  const ganados = conResultado.filter(r => r.resultado === 'GANÓ').length;
+  const hitRate = conResultado.length ? (ganados / conResultado.length * 100) : null;
+
+  const conMonto = data.filter(r => r.montoApostado !== null && r.montoApostado !== undefined);
+  const totalApostado = conMonto.reduce((s, r) => s + r.montoApostado, 0);
+  const totalGP = conMonto.reduce((s, r) => s + (r.gananciaPerdida || 0), 0);
+  const roi = totalApostado ? (totalGP / totalApostado * 100) : null;
+
+  return {
+    hitRate, ganados, totalConResultado: conResultado.length,
+    roi, totalGP, totalApostado, n: conMonto.length
+  };
+}
+
+function ce(id, field, type) {
+  return 'contenteditable="true" data-id="' + id + '" data-field="' + field + '" data-type="' + type + '"';
+}
+
+function selectResultado(r) {
+  const opciones = [
+    { v: 'pendiente', t: '⏳ Pendiente' },
+    { v: 'GANÓ', t: 'GANÓ' },
+    { v: 'PERDIÓ', t: 'PERDIÓ' }
+  ];
+  return '<select class="resultado-select" data-id="' + r.id + '" data-field="resultado">' +
+    opciones.map(o => '<option value="' + o.v + '"' + (r.resultado === o.v ? ' selected' : '') + '>' + o.t + '</option>').join('') +
+  '</select>';
+}
+
+function renderTabla() {
+  const data = cargarHistorial();
+  const tbody = document.getElementById('tbodyHistorial');
+  tbody.innerHTML = data.map(r => {
+    const resultadoClass = r.resultado === 'GANÓ' ? 'ganó' : (r.resultado === 'PERDIÓ' ? 'perdió' : (r.resultado === 'pendiente' ? 'pendiente' : ''));
+    const gpClass = (r.gananciaPerdida === null || r.gananciaPerdida === undefined) ? '' : (r.gananciaPerdida >= 0 ? 'pos' : 'neg');
+    return '<tr class="' + resultadoClass + '">' +
+      '<td>' + escHtml(r.id) + '</td>' +
+      '<td ' + ce(r.id, 'fecha', 'text') + '>' + escHtml(r.fecha) + '</td>' +
+      '<td ' + ce(r.id, 'partido', 'text') + '>' + escHtml(r.partido) + '</td>' +
+      '<td ' + ce(r.id, 'liga', 'text') + '>' + escHtml(r.liga) + '</td>' +
+      '<td ' + ce(r.id, 'mercado', 'text') + '>' + escHtml(r.mercado) + '</td>' +
+      '<td ' + ce(r.id, 'pick', 'text') + '>' + escHtml(r.pick) + '</td>' +
+      '<td class="num" ' + ce(r.id, 'cuotaPrograma', 'number') + '>' + fmtNum(r.cuotaPrograma, 2) + '</td>' +
+      '<td class="num" ' + ce(r.id, 'cuotaReal', 'number') + '>' + fmtNum(r.cuotaReal, 2) + '</td>' +
+      '<td class="num" ' + ce(r.id, 'probReal', 'number') + '>' + (r.probReal === null ? '—' : fmtNum(r.probReal, 0) + '%') + '</td>' +
+      '<td class="num" ' + ce(r.id, 'edge', 'number') + '>' + (r.edge === null ? '—' : fmtNum(r.edge, 1) + '%') + '</td>' +
+      '<td class="num" ' + ce(r.id, 'montoApostado', 'number') + '>' + (r.montoApostado === null ? '—' : '$' + fmtNum(r.montoApostado, 2)) + '</td>' +
+      '<td class="resultado">' + selectResultado(r) + '</td>' +
+      '<td class="ganancia ' + gpClass + ' num" ' + ce(r.id, 'gananciaPerdida', 'number') + '>' + (r.gananciaPerdida === null ? '—' : (r.gananciaPerdida >= 0 ? '+$' : '-$') + fmtNum(Math.abs(r.gananciaPerdida), 2)) + '</td>' +
+      '<td ' + ce(r.id, 'partidoId', 'text') + '>' + escHtml(r.partidoId) + '</td>' +
+      '<td class="notas" ' + ce(r.id, 'notas', 'text') + '>' + escHtml(r.notas) + '</td>' +
+      '<td class="edge-flag"><input type="checkbox" data-id="' + r.id + '" data-field="edgeInflado"' + (r.edgeInflado ? ' checked' : '') + '></td>' +
+    '</tr>';
+  }).join('');
+
+  document.getElementById('contador').textContent = data.length + ' registro' + (data.length === 1 ? '' : 's');
+}
+
+function renderResumen() {
+  const incluir = document.getElementById('chkEdgeInflado').checked;
+  const data = filtrarDatos(cargarHistorial(), incluir);
+  const r = calcularResumen(data);
+
+  document.getElementById('avisoEdgeInflado').classList.toggle('visible', incluir);
+
+  const hitRateTxt = r.totalConResultado ? r.hitRate.toFixed(1) + '%' : '—';
+  const roiTxt = r.totalApostado ? (r.roi >= 0 ? '+' : '') + r.roi.toFixed(1) + '%' : '—';
+  const roiClass = r.roi === null ? '' : (r.roi >= 0 ? 'pos' : 'neg');
+  const gpClass = r.totalGP >= 0 ? 'pos' : 'neg';
+  const gpTxt = (r.totalGP >= 0 ? '+$' : '-$') + Math.abs(r.totalGP).toFixed(2);
+
+  document.getElementById('resumenGeneral').innerHTML =
+    '<div class="resumen-card"><div class="label">Hit rate</div>' +
+      '<div class="valor">' + hitRateTxt + '</div>' +
+      '<div class="sub">' + r.ganados + '/' + r.totalConResultado + ' (GANÓ/PERDIÓ)</div></div>' +
+    '<div class="resumen-card"><div class="label">ROI</div>' +
+      '<div class="valor ' + roiClass + '">' + roiTxt + '</div>' +
+      '<div class="sub">sobre ' + r.n + ' apuestas con monto registrado</div></div>' +
+    '<div class="resumen-card"><div class="label">Total apostado</div>' +
+      '<div class="valor">$' + r.totalApostado.toFixed(2) + '</div>' +
+      '<div class="sub">' + r.n + ' registros con monto</div></div>' +
+    '<div class="resumen-card"><div class="label">Ganancia/Pérdida neta</div>' +
+      '<div class="valor ' + gpClass + '">' + gpTxt + '</div>' +
+      '<div class="sub">' + data.length + ' registros considerados</div></div>';
+}
+
+const RANGOS_PROB = [
+  { label: '65-100%', test: v => v !== null && v >= 65 },
+  { label: '35-64%', test: v => v !== null && v >= 35 && v < 65 },
+  { label: '<35%', test: v => v !== null && v < 35 },
+  { label: 'Sin dato', test: v => v === null || v === undefined }
+];
+
+function filaDesglose(label, subset) {
+  const stats = calcularResumen(subset);
+  const hitTxt = stats.totalConResultado ? stats.hitRate.toFixed(1) + '% (' + stats.ganados + '/' + stats.totalConResultado + ')' : '—';
+  const roiTxt = stats.totalApostado ? (stats.roi >= 0 ? '+' : '') + stats.roi.toFixed(1) + '% (n=' + stats.n + ')' : '—';
+  return '<tr><td>' + escHtml(label) + '</td><td class="num">' + subset.length + '</td><td class="num">' + hitTxt + '</td><td class="num">' + roiTxt + '</td></tr>';
+}
+
+function renderDesgloseProbReal() {
+  const incluir = document.getElementById('chkEdgeInflado').checked;
+  const data = filtrarDatos(cargarHistorial(), incluir);
+
+  document.getElementById('tbodyProbReal').innerHTML = RANGOS_PROB
+    .map(rango => filaDesglose(rango.label, data.filter(r => rango.test(r.probReal))))
+    .join('');
+}
+
+function renderDesgloseMercado() {
+  const incluir = document.getElementById('chkEdgeInflado').checked;
+  const data = filtrarDatos(cargarHistorial(), incluir);
+  const mercados = [...new Set(data.map(r => r.mercado))];
+
+  document.getElementById('tbodyMercado').innerHTML = mercados
+    .map(m => filaDesglose(m, data.filter(r => r.mercado === m)))
+    .join('');
+}
+
+function renderGraficoROI() {
+  const incluir = document.getElementById('chkEdgeInflado').checked;
+  const data = filtrarDatos(cargarHistorial(), incluir)
+    .filter(r => r.montoApostado !== null && r.montoApostado !== undefined)
+    .slice()
+    .sort((a, b) => a.id - b.id);
+
+  const canvas = document.getElementById('chartROI');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  if (data.length === 0) {
+    ctx.fillStyle = '#8ba4bd';
+    ctx.font = '13px Inter';
+    ctx.fillText('Sin registros con monto apostado en este filtro.', 16, H / 2);
+    return;
+  }
+
+  let cumApostado = 0, cumGP = 0;
+  const puntos = data.map(r => {
+    cumApostado += r.montoApostado;
+    cumGP += (r.gananciaPerdida || 0);
+    return { id: r.id, roi: cumApostado ? (cumGP / cumApostado * 100) : 0 };
+  });
+
+  const margin = { top: 16, right: 20, bottom: 26, left: 50 };
+  const plotW = W - margin.left - margin.right;
+  const plotH = H - margin.top - margin.bottom;
+
+  const roiVals = puntos.map(p => p.roi);
+  let minROI = Math.min(0, ...roiVals);
+  let maxROI = Math.max(0, ...roiVals);
+  if (minROI === maxROI) { minROI -= 10; maxROI += 10; }
+  const pad = (maxROI - minROI) * 0.1;
+  minROI -= pad; maxROI += pad;
+
+  const xStep = puntos.length > 1 ? plotW / (puntos.length - 1) : 0;
+  const yScale = v => margin.top + plotH - ((v - minROI) / (maxROI - minROI)) * plotH;
+  const xScale = i => margin.left + i * xStep;
+
+  ctx.font = '11px JetBrains Mono';
+
+  // línea de referencia en 0%
+  const zeroY = yScale(0);
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(margin.left, zeroY);
+  ctx.lineTo(margin.left + plotW, zeroY);
+  ctx.stroke();
+
+  // etiquetas eje Y
+  ctx.fillStyle = '#8ba4bd';
+  ctx.fillText(maxROI.toFixed(0) + '%', 4, margin.top + 8);
+  ctx.fillText('0%', 4, zeroY + 4);
+  ctx.fillText(minROI.toFixed(0) + '%', 4, margin.top + plotH);
+
+  // línea de ROI acumulado
+  ctx.strokeStyle = '#4edea3';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  puntos.forEach((p, i) => {
+    const x = xScale(i), y = yScale(p.roi);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // puntos + etiquetas de ID en eje X
+  ctx.fillStyle = '#4edea3';
+  puntos.forEach((p, i) => {
+    const x = xScale(i), y = yScale(p.roi);
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.fillStyle = '#4e6a88';
+  puntos.forEach((p, i) => {
+    const x = xScale(i);
+    ctx.fillText('#' + p.id, x - 8, H - 8);
+  });
+}
+
+function renderTodo() {
+  renderTabla();
+  renderResumen();
+  renderDesgloseProbReal();
+  renderDesgloseMercado();
+  renderGraficoROI();
+}
+
+function exportarJSON() {
+  const data = cargarHistorial();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'jcahs_historial_' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importarJSON(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!Array.isArray(data)) throw new Error('El JSON debe ser un array de registros');
+      guardarHistorial(data);
+      renderTodo();
+      alert('Historial importado: ' + data.length + ' registros.');
+    } catch (err) {
+      alert('Error al importar JSON: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+document.getElementById('btnExportar').addEventListener('click', exportarJSON);
+document.getElementById('btnImportar').addEventListener('click', () => document.getElementById('inputImportar').click());
+document.getElementById('inputImportar').addEventListener('change', (e) => {
+  if (e.target.files[0]) importarJSON(e.target.files[0]);
+  e.target.value = '';
+});
+
+document.getElementById('chkEdgeInflado').addEventListener('change', renderTodo);
+
+// Edición inline: celdas contenteditable (texto y números)
+document.getElementById('tbodyHistorial').addEventListener('focusout', (e) => {
+  const el = e.target;
+  const field = el.getAttribute('data-field');
+  if (!field || el.getAttribute('contenteditable') !== 'true') return;
+
+  const id = Number(el.getAttribute('data-id'));
+  const type = el.getAttribute('data-type');
+  const data = cargarHistorial();
+  const rec = data.find(r => r.id === id);
+  if (!rec) return;
+
+  const texto = el.textContent.trim();
+  rec[field] = (type === 'number') ? parseEditedNumber(texto) : texto;
+
+  guardarHistorial(data);
+  renderTodo();
+});
+
+// Edición inline: select de resultado y checkbox de edge inflado
+document.getElementById('tbodyHistorial').addEventListener('change', (e) => {
+  const el = e.target;
+  const field = el.getAttribute('data-field');
+  if (!field) return;
+
+  const id = Number(el.getAttribute('data-id'));
+  const data = cargarHistorial();
+  const rec = data.find(r => r.id === id);
+  if (!rec) return;
+
+  rec[field] = (el.type === 'checkbox') ? el.checked : el.value;
+
+  guardarHistorial(data);
+  renderTodo();
+});
+
+window.addEventListener('focus', () => {
+  if (procesarPendientes()) renderTodo();
+});
+
+procesarPendientes();
+renderTodo();
+</script>
+</body>
+</html>
