@@ -184,6 +184,19 @@ select.resultado-select {
 tr.ganó select.resultado-select { color: var(--tertiary); }
 tr.perdió select.resultado-select { color: var(--error); }
 tr.pendiente select.resultado-select { color: var(--warning); }
+
+.btn-eliminar {
+  background: var(--err-dim);
+  border: 1px solid var(--error);
+  color: var(--error);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+.btn-eliminar:hover { background: var(--error); color: var(--bg); }
 </style>
 </head>
 <body>
@@ -252,6 +265,7 @@ tr.pendiente select.resultado-select { color: var(--warning); }
         <th>Partido ID</th>
         <th>Notas</th>
         <th>Edge⚠</th>
+        <th>Acción</th>
       </tr>
     </thead>
     <tbody id="tbodyHistorial"></tbody>
@@ -276,7 +290,8 @@ const SEED_DATA = [
   {"id":12,"edgeInflado":false,"fecha":"2026-06-13","partido":"Montgomery United FC vs SSA Swarm FC","liga":"USL League Two","mercado":"1X2","pick":"SSA Swarm FC gana el partido","cuotaPrograma":null,"cuotaReal":null,"probReal":null,"edge":null,"partidoId":"montgomery-united-fc-vs-ssa-swarm-fc-20260613","montoApostado":null,"resultado":"PERDIÓ","gananciaPerdida":null,"notas":"Marcador: 2-2 (empate). Cuota desconocida (odd no registrada en captura original). Nombre de equipo incierto entre fuentes (OddsPapi dice 'SSA Swarm FC', Sofascore muestra 'Southern SA Kings') — resultado no 100% confirmado."},
   {"id":13,"edgeInflado":false,"fecha":"2026-06-13","partido":"South Carolina United Bantams vs Hickory FC","liga":"USL League Two","mercado":"Over/Under 2.5","pick":"Más de 2.5 goles (+2.5)","cuotaPrograma":1.57,"cuotaReal":null,"probReal":69,"edge":8.3,"partidoId":"south-carolina-united-bantams-vs-hickory-fc-20260613","montoApostado":1.83,"resultado":"GANÓ","gananciaPerdida":1.04,"notas":"Marcador: 0-5 (5 goles totales, mayor a 2.5). Mismo partido que el registro #8, mercado Over/Under adicional. Slider de sensibilidad probReal más bajo."},
   {"id":14,"edgeInflado":false,"fecha":"2026-06-13","partido":"Montgomery United FC vs SSA Swarm FC","liga":"USL League Two","mercado":"Over/Under 2.5","pick":"Menos de 2.5 goles (-2.5)","cuotaPrograma":2.30,"cuotaReal":null,"probReal":49,"edge":12.9,"partidoId":"montgomery-united-fc-vs-ssa-swarm-fc-20260613","montoApostado":1.24,"resultado":"PERDIÓ","gananciaPerdida":-1.24,"notas":"Marcador: 2-2 (4 goles totales, mayor a 2.5). Mismo partido que el registro #12, mercado Over/Under adicional."},
-  {"id":15,"edgeInflado":false,"fecha":"2026-06-13","partido":"Charlottesville Blues vs Hill City FC","liga":"USL League Two","mercado":"1X2","pick":"Empate en el partido","cuotaPrograma":3.75,"cuotaReal":null,"probReal":39,"edge":47.0,"partidoId":"charlottesville-blues-vs-hill-city-fc-20260613","montoApostado":2.14,"resultado":"PERDIÓ","gananciaPerdida":-2.14,"notas":"Marcador: 2-0 (no fue empate). Mismo partido que el registro #10, mercado 1X2 adicional (apuesta a empate)."}
+  {"id":15,"edgeInflado":false,"fecha":"2026-06-13","partido":"Charlottesville Blues vs Hill City FC","liga":"USL League Two","mercado":"1X2","pick":"Empate en el partido","cuotaPrograma":3.75,"cuotaReal":null,"probReal":39,"edge":47.0,"partidoId":"charlottesville-blues-vs-hill-city-fc-20260613","montoApostado":2.14,"resultado":"PERDIÓ","gananciaPerdida":-2.14,"notas":"Marcador: 2-0 (no fue empate). Mismo partido que el registro #10, mercado 1X2 adicional (apuesta a empate)."},
+  {"id":16,"edgeInflado":false,"fecha":"2026-06-14","partido":"Gremio Atletico Sampaio RR vs Manaus FC AM","liga":"Brasileiro Serie D","mercado":"Over/Under 2.5","pick":"Más de 2.5 goles (+2.5)","cuotaPrograma":2.15,"cuotaReal":null,"probReal":58,"edge":24.8,"partidoId":"gremio-atletico-sampaio-rr-vs-manaus-fc-am-20260614","montoApostado":null,"resultado":"GANÓ","gananciaPerdida":null,"notas":"Marcador: 3-1 (4 goles totales, mayor a 2.5)."}
 ];
 
 function cargarHistorial() {
@@ -428,6 +443,7 @@ function renderTabla() {
       '<td>' + escHtml(r.partidoId) + '</td>' +
       '<td class="notas">' + escHtml(r.notas) + '</td>' +
       '<td class="edge-flag"><input type="checkbox" data-id="' + r.id + '" data-field="edgeInflado"' + (r.edgeInflado ? ' checked' : '') + '></td>' +
+      '<td><button class="btn-eliminar" data-id="' + r.id + '">🗑️ Eliminar</button></td>' +
     '</tr>';
   }).join('');
 
@@ -675,6 +691,19 @@ document.getElementById('tbodyHistorial').addEventListener('change', (e) => {
 
   rec[field] = (el.type === 'checkbox') ? el.checked : el.value;
 
+  guardarHistorial(data);
+  renderTodo();
+});
+
+// Eliminar registro individual
+document.getElementById('tbodyHistorial').addEventListener('click', (e) => {
+  const btn = e.target.closest('.btn-eliminar');
+  if (!btn) return;
+
+  if (!confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) return;
+
+  const id = Number(btn.getAttribute('data-id'));
+  const data = cargarHistorial().filter(r => r.id !== id);
   guardarHistorial(data);
   renderTodo();
 });
