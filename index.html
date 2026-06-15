@@ -6518,7 +6518,7 @@ function renderListaDE() {
         '<span style="color:#4a5568;font-size:10px">' + new Date(vb.fecha).toLocaleDateString('es-EC', {weekday:'short', day:'numeric', month:'short'}) + '</span>' +
         '</div>' +
         '<div style="font-size:11px;color:#ffd700;letter-spacing:0.05em;margin-bottom:6px;font-weight:700">⚡ MODO ALTERNATIVO — SIN ODDS</div>' +
-        '<div style="font-size:13px;color:var(--outline);margin-bottom:3px">' + escHtml(vb.liga || '') + '</div>' +
+        '<div style="font-size:14px;font-weight:600;color:#8ba4bd;margin-bottom:3px">' + escHtml(vb.liga || '') + '</div>' +
         '<div style="font-size:17px;font-weight:700">' + escHtml(vb.partido) + '</div>' +
         '<div style="font-size:14px;color:var(--text-2);margin-top:6px">🦅 FALCON puede analizar este partido →</div>' +
         '</div>';
@@ -6549,16 +6549,16 @@ function renderListaDE() {
     var tiempo = infoTiempoPartido(vb.fecha);
     var tiempoHtml = tiempo.iniciado
       ? '<div style="background:#ff444415;border:1px solid #ff444444;color:#ff4444;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:600;margin-bottom:8px;text-align:center">🔴 PARTIDO INICIADO — odds pueden estar desactualizadas</div>'
-      : (tiempo.countdownStr ? '<div style="color:#8892a4;font-size:11px;margin-bottom:8px">⏱️ ' + tiempo.countdownStr + '</div>' : '');
+      : (tiempo.countdownStr ? '<div style="color:#4edea3;font-size:14px;font-weight:700;margin-bottom:8px">⏰ ' + tiempo.countdownStr + '</div>' : '');
     return '<div onclick="mostrarDetalleDE(' + i + ')" style="cursor:pointer;background:var(--surface-2);border:1px solid rgba(144,144,151,0.12);border-radius:12px;padding:16px 18px;margin-bottom:12px;transition:border-color 0.15s" onmouseover="this.style.borderColor=\'' + scoreColor + '40\'" onmouseout="this.style.borderColor=\'rgba(144,144,151,0.12)\'">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
       badgeFuenteDE(vb) +
-      '<span style="color:#4a5568;font-size:10px">' + tiempo.fechaStr + '</span>' +
+      '<span style="color:#8ba4bd;font-size:13px">' + tiempo.fechaStr + '</span>' +
       '</div>' +
       tiempoHtml +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">' +
       '<div style="flex:1;min-width:0">' +
-      '<div style="font-size:13px;color:var(--outline);margin-bottom:3px">' + escHtml(vb.liga || '') + '</div>' +
+      '<div style="font-size:14px;font-weight:600;color:#8ba4bd;margin-bottom:3px">' + escHtml(vb.liga || '') + '</div>' +
       '<div style="font-size:17px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(vb.partido) + '</div>' +
       '<div style="font-size:16px;font-weight:600;color:' + scoreColor + ';margin-top:3px">' + escHtml(vb.pick) + '</div>' +
       '</div>' +
@@ -6626,7 +6626,7 @@ function mostrarDetalleDE(idx) {
       '<button onclick="volverListaDE()" style="background:none;border:none;color:var(--outline);font-size:16px;cursor:pointer;padding:0;margin-bottom:20px;display:flex;align-items:center;gap:6px">' +
       '<span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px">arrow_back</span> Volver</button>' +
       '<div style="background:var(--surface-2);border-radius:14px;padding:20px;margin-bottom:16px">' +
-      '<div style="font-size:13px;color:var(--outline);margin-bottom:4px">' + escHtml(vb.liga || 'Liga') + '</div>' +
+      '<div style="font-size:15px;font-weight:600;color:#8ba4bd;margin-bottom:4px">' + escHtml(vb.liga || 'Liga') + '</div>' +
       '<div style="margin-bottom:8px">' + fuenteBadge + '</div>' +
       '<div style="font-size:22px;font-weight:700;margin-bottom:8px">' + escHtml(vb.partido) + '</div>' +
       '<div style="font-size:14px;font-weight:600;color:#ffd700;background:#ffd70018;display:inline-block;padding:6px 14px;border-radius:8px">⚡ Sin odds disponibles — modo alternativo (Football-Data.org)</div>' +
@@ -6648,7 +6648,7 @@ function mostrarDetalleDE(idx) {
   var tiempo = infoTiempoPartido(vb.fecha);
   var tiempoHtml = tiempo.iniciado
     ? '<div style="background:#ff444415;border:1px solid #ff444444;color:#ff4444;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;margin-bottom:8px;text-align:center">🔴 PARTIDO INICIADO — odds pueden estar desactualizadas</div>'
-    : (tiempo.countdownStr ? '<div style="color:#8892a4;font-size:12px;margin-bottom:8px">⏱️ ' + tiempo.countdownStr + '</div>' : '');
+    : (tiempo.countdownStr ? '<div style="color:#4edea3;font-size:15px;font-weight:700;margin-bottom:8px">⏰ ' + tiempo.countdownStr + '</div>' : '');
 
   // Store as individual option so confirmarDecision() works
   STATE.decisionActual = {
@@ -6666,9 +6666,9 @@ function mostrarDetalleDE(idx) {
     '<span class="material-symbols-outlined" style="font-size:18px;vertical-align:-3px">arrow_back</span> Volver</button>' +
     // Partido + pick
     '<div style="background:var(--surface-2);border-radius:14px;padding:20px;margin-bottom:16px">' +
-    '<div style="font-size:13px;color:var(--outline);margin-bottom:4px">' + escHtml(vb.liga || 'Liga') + '</div>' +
+    '<div style="font-size:15px;font-weight:600;color:#8ba4bd;margin-bottom:4px">' + escHtml(vb.liga || 'Liga') + '</div>' +
     '<div style="margin-bottom:8px">' + fuenteBadge + '</div>' +
-    '<div style="color:#4a5568;font-size:12px;margin-bottom:8px">' + tiempo.fechaStr + '</div>' +
+    '<div style="color:#8ba4bd;font-size:13px;margin-bottom:8px">' + tiempo.fechaStr + '</div>' +
     tiempoHtml +
     '<div style="font-size:22px;font-weight:700;margin-bottom:8px">' + escHtml(vb.partido) + '</div>' +
     '<div style="font-size:20px;font-weight:700;color:' + scoreColor + ';background:' + scoreColor + '18;display:inline-block;padding:6px 14px;border-radius:8px">' + escHtml(vb.pick) + '</div>' +
@@ -9567,7 +9567,7 @@ function renderCardMentor(s, i) {
   const fechaStr = tiempo.fechaStr;
   const tiempoHtml = tiempo.iniciado
     ? '<div style="background:#ff444415;border:1px solid #ff444444;color:#ff4444;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;margin-bottom:12px;text-align:center">🔴 PARTIDO INICIADO — odds pueden estar desactualizadas</div>'
-    : (tiempo.countdownStr ? '<div style="color:#8892a4;font-size:12px;margin-bottom:12px">⏱️ ' + tiempo.countdownStr + '</div>' : '');
+    : (tiempo.countdownStr ? '<div style="color:#4edea3;font-size:15px;font-weight:700;margin-bottom:12px">⏰ ' + tiempo.countdownStr + '</div>' : '');
   let mercadoEcuabet = mercado;
   if      (/h2h|1X2|ganador/i.test(mercado))          mercadoEcuabet = '1X2 / Ganador del partido';
   else if (/total|over|under/i.test(mercado))          mercadoEcuabet = 'Total de goles';
@@ -9580,7 +9580,7 @@ function renderCardMentor(s, i) {
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
       <div style="width:14px;height:14px;border-radius:50%;background:${scoreColor}"></div>
       <span style="font-size:14px;font-weight:700;letter-spacing:0.05em;color:${scoreColor}">${s.calidad || 'REVISAR'}</span>
-      <span style="margin-left:auto;font-size:13px;color:var(--outline)">${fechaStr}</span>
+      <span style="margin-left:auto;font-size:13px;color:#8ba4bd">${fechaStr}</span>
     </div>
     ${tiempoHtml}
     ${scoreBarra}
