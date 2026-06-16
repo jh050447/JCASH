@@ -250,6 +250,19 @@ body {
   margin-left: auto;
 }
 
+/* ── HAMBURGUESA (oculta en desktop, visible en móvil) ── */
+.btn-hamburguesa {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 22px;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
 /* ── ALERTAS — campanita y panel ──────────────────────────── */
 .btn-activar-alertas {
   background: var(--surface-2);
@@ -1071,6 +1084,50 @@ body {
 .mentor-card-why { font-size: 14px; color: var(--text-3); line-height: 1.5; background: var(--surface-3); border-radius: var(--radius); padding: 10px 12px; }
 .mentor-card-actions { display: flex; gap: 8px; }
 .mentor-card-actions .btn { flex: 1; font-size: 14px; padding: 10px 12px; }
+
+/* ════════════════════════════════════════════════════════════
+   RESPONSIVE MÓVIL — max-width: 768px
+   Todos los cambios de layout/UI para pantallas estrechas.
+   NO modifica estilos base de desktop.
+   ════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* ── 1. SIDEBAR COMO DRAWER ─────────────────────────────── */
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    height: 100%;
+    z-index: 1100;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+    width: 80vw;
+    max-width: 280px;
+  }
+  .sidebar.mob-open { transform: translateX(0); }
+
+  #sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .55);
+    z-index: 1099;
+    display: none;
+  }
+  #sidebar-overlay.mob-open { display: block; }
+
+  .btn-hamburguesa { display: flex; }
+
+  /* ── 2. TEXTOS SUPERPUESTOS — sec-header wrapping ───────── */
+  .sec-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* ── 3. MENTOR FAB — padding para que no tape contenido ─── */
+  .spa-content { padding-bottom: 90px; }
+
+  /* ── 4. PANEL DE APIs — sidebar-footer más compacto ─────── */
+  .sidebar-footer { padding: 10px 6px; }
+}
 </style>
 </head>
 <body>
@@ -1159,12 +1216,14 @@ body {
       <div id="status-indicator" class="status-dot">Conectando...</div>
     </div>
   </aside>
+  <div id="sidebar-overlay" onclick="toggleMenuMovil()"></div>
 
   <!-- MAIN AREA -->
   <div class="main-area">
 
     <!-- TOPBAR -->
     <header class="topbar">
+      <button id="btn-hamburguesa" class="btn-hamburguesa" onclick="toggleMenuMovil()" aria-label="Menú">☰</button>
       <span id="topbar-title" class="topbar-title">Panel</span>
       <div class="topbar-sep"></div>
       <div class="topbar-ticker" id="topbar-ticker">
@@ -7081,8 +7140,10 @@ async function init() {
     renderPanel();
   }, CFG.refresh.senales);
 
-  // GSAP sidebar entrance
-  gsap.from('#sidebar', { x: -40, opacity: 0, duration: 0.6, ease: 'power3.out' });
+  // GSAP sidebar entrance (sólo en desktop — en móvil empieza oculto vía CSS)
+  if (window.innerWidth > 768) {
+    gsap.from('#sidebar', { x: -40, opacity: 0, duration: 0.6, ease: 'power3.out' });
+  }
   gsap.from('.topbar',  { y: -20, opacity: 0, duration: 0.5, ease: 'power3.out', delay: 0.2 });
   gsap.from('.seccion.active', { opacity: 0, y: 20, duration: 0.5, ease: 'power2.out', delay: 0.3 });
 }
@@ -9801,6 +9862,20 @@ function actualizarBadgeMentor() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+// ── MENÚ MÓVIL ──────────────────────────────────────────────
+function toggleMenuMovil() {
+  document.getElementById('sidebar').classList.toggle('mob-open');
+  document.getElementById('sidebar-overlay').classList.toggle('mob-open');
+}
+
+// Cierra el drawer al pulsar cualquier nav-link en móvil
+document.getElementById('sidebar').addEventListener('click', function(e) {
+  if (e.target.closest('.nav-link') && window.innerWidth <= 768) {
+    document.getElementById('sidebar').classList.remove('mob-open');
+    document.getElementById('sidebar-overlay').classList.remove('mob-open');
+  }
+});
 </script>
 </body>
 </html>
