@@ -3649,6 +3649,8 @@ async function resolverNombresOddsPapi(participantIds) {
 }
 
 async function cargarDatosOddsPapi() {
+  var esteEsRetry429 = _esRetry429;
+  _esRetry429 = false; // consumir inmediatamente — la próxima llamada no es retry por defecto
   if (STATE.oddsPapiCargando) {
     console.log('OddsPapi: ya en progreso, ignorando llamada duplicada');
     return false;
@@ -3687,7 +3689,7 @@ async function cargarDatosOddsPapi() {
 
     if (res.status === 429) {
       STATE.oddsPapi429Consecutivos = (STATE.oddsPapi429Consecutivos || 0) + 1;
-      var cupoAgotado429 = STATE.oddsPapiUsed >= 250 || STATE.oddsPapiRemaining <= 0 || STATE.oddsPapi429Consecutivos >= 2;
+      var cupoAgotado429 = esteEsRetry429 || STATE.oddsPapiUsed >= 250 || STATE.oddsPapiRemaining <= 0 || STATE.oddsPapi429Consecutivos >= 2;
       if (cupoAgotado429) {
         STATE.oddsPapiCupoAgotado = true;
         var hoyOp = new Date();
@@ -3739,7 +3741,7 @@ async function cargarDatosOddsPapi() {
         console.log('OddsPapi: fixtures recibidos (bet365):', fixturesBet365.length);
       } else if (resBet365.status === 429) {
         STATE.oddsPapi429Consecutivos = (STATE.oddsPapi429Consecutivos || 0) + 1;
-        var cupoAgotadoB = STATE.oddsPapiUsed >= 248 || STATE.oddsPapiRemaining <= 2 || STATE.oddsPapi429Consecutivos >= 2;
+        var cupoAgotadoB = esteEsRetry429 || STATE.oddsPapiUsed >= 248 || STATE.oddsPapiRemaining <= 2 || STATE.oddsPapi429Consecutivos >= 2;
         if (cupoAgotadoB) {
           STATE.oddsPapiCupoAgotado = true;
           var hoyB = new Date();
@@ -4775,6 +4777,7 @@ function actualizarMonitorQuota() {
 }
 
 var _timer429 = null;
+var _esRetry429 = false;
 
 function _fmt429(ms) {
   var s = Math.max(0, Math.ceil(ms / 1000));
@@ -4791,7 +4794,7 @@ function _iniciar429Timer() {
       actualizarMonitorOddsPapi();
       renderListaDE();
       if (STATE.mentor && STATE.mentor.paso === 2) renderMentor();
-      if (!STATE.oddsPapiCupoAgotado) cargarDatosOddsPapi();
+      if (!STATE.oddsPapiCupoAgotado) { _esRetry429 = true; cargarDatosOddsPapi(); }
       return;
     }
     var txt = _fmt429(restante);
