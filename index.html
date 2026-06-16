@@ -1887,6 +1887,7 @@ const STATE = {
   deSensibilidad:     parseInt(localStorage.getItem('jcahs_de_sensibilidad')) || 35,
   // ─── CONTROL DE LÍMITES DE API (Task K) ──────────────────
   oddsPapiLastCall:    parseInt(localStorage.getItem('jcahs_oddspapi_last_call')) || 0,
+  oddsPapi429Hasta:    null,
   oddsPapiCallsSesion: 0,
   theOddsApiUsedMes:   parseInt(localStorage.getItem('jcahs_theodds_used')) || 0,
   theOddsApiMesTs:     parseInt(localStorage.getItem('jcahs_theodds_mes_ts')) || Date.now(),
@@ -3662,6 +3663,17 @@ async function cargarDatosOddsPapi() {
       }
     }
 
+    if (res.status === 429) {
+      var retryAfter = res.headers.get('Retry-After');
+      var waitMs = retryAfter ? parseInt(retryAfter) * 1000 : 10 * 60 * 1000;
+      STATE.oddsPapi429Hasta = Date.now() + waitMs;
+      console.warn('OddsPapi 429 — bloqueado por', Math.ceil(waitMs / 60000), 'min');
+      _iniciar429Timer();
+      actualizarMonitorOddsPapi();
+      renderListaDE();
+      if (STATE.mentor && STATE.mentor.paso === 2) renderMentor();
+      return false;
+    }
     if (!res.ok) {
       console.error('OddsPapi error:', res.status);
       return false;
@@ -3692,6 +3704,15 @@ async function cargarDatosOddsPapi() {
       if (resBet365.ok) {
         fixturesBet365 = await resBet365.json();
         console.log('OddsPapi: fixtures recibidos (bet365):', fixturesBet365.length);
+      } else if (resBet365.status === 429) {
+        var retryAfterB = resBet365.headers.get('Retry-After');
+        var waitMsB = retryAfterB ? parseInt(retryAfterB) * 1000 : 10 * 60 * 1000;
+        if (!STATE.oddsPapi429Hasta || Date.now() + waitMsB > STATE.oddsPapi429Hasta) {
+          STATE.oddsPapi429Hasta = Date.now() + waitMsB;
+        }
+        console.warn('OddsPapi bet365 429 — bloqueado por', Math.ceil(waitMsB / 60000), 'min');
+        _iniciar429Timer();
+        actualizarMonitorOddsPapi();
       } else {
         console.error('OddsPapi error (bet365):', resBet365.status);
       }
@@ -4683,9 +4704,52 @@ function actualizarMonitorQuota() {
   } catch (e) {}
 }
 
+var _timer429 = null;
+
+function _fmt429(ms) {
+  var s = Math.max(0, Math.ceil(ms / 1000));
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
+
+function _iniciar429Timer() {
+  if (_timer429) clearInterval(_timer429);
+  _timer429 = setInterval(function() {
+    var restante = STATE.oddsPapi429Hasta ? STATE.oddsPapi429Hasta - Date.now() : 0;
+    if (restante <= 0) {
+      clearInterval(_timer429); _timer429 = null;
+      STATE.oddsPapi429Hasta = null;
+      actualizarMonitorOddsPapi();
+      renderListaDE();
+      if (STATE.mentor && STATE.mentor.paso === 2) renderMentor();
+      cargarDatosOddsPapi();
+      return;
+    }
+    var txt = _fmt429(restante);
+    var sp1 = document.getElementById('monitor-429-countdown');
+    if (sp1) sp1.textContent = txt;
+    var sp2 = document.getElementById('de-429-countdown');
+    if (sp2) sp2.textContent = txt;
+    var sp3 = document.getElementById('mentor-429-countdown');
+    if (sp3) sp3.textContent = txt;
+  }, 1000);
+}
+
 function actualizarMonitorOddsPapi() {
   const el = document.getElementById('monitor-quota-oddspapi');
   if (!el) return;
+
+  if (STATE.oddsPapi429Hasta && Date.now() < STATE.oddsPapi429Hasta) {
+    el.innerHTML =
+      '<div style="padding:8px 0">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+      '<span style="color:#8892a4;font-size:11px;letter-spacing:1px">⚡ ODDSPAPI</span>' +
+      '<span style="color:#ffd700;font-size:11px;font-weight:700">BLOQUEADO</span>' +
+      '</div>' +
+      '<div style="color:#ffd700;font-size:13px;font-weight:600">⏳ Próxima consulta en <span id="monitor-429-countdown">' +
+      _fmt429(STATE.oddsPapi429Hasta - Date.now()) + '</span></div>' +
+      '</div>';
+    return;
+  }
 
   const used = STATE.oddsPapiUsed || 0;
   const remaining = STATE.oddsPapiRemaining ?? 250;
@@ -6621,12 +6685,22 @@ function renderListaDE() {
   var apuestas = STATE.deApuestas || [];
 
   if (!apuestas.length) {
-    if (sub) sub.textContent = 'Sin apuestas con valor ahora';
-    lista.innerHTML = '<div style="background:rgba(255,180,171,0.08);border:1px solid rgba(255,180,171,0.2);border-radius:12px;padding:32px;text-align:center">' +
-      '<div style="font-size:32px;margin-bottom:10px">⏳</div>' +
-      '<div style="font-size:18px;font-weight:700;color:var(--error)">Sin apuestas con valor ahora</div>' +
-      '<div style="font-size:16px;color:var(--outline);margin-top:8px">El mercado está eficiente. Vuelve en 2-3 horas o actualiza cuando haya más partidos.</div>' +
-      '</div>';
+    if (STATE.oddsPapi429Hasta && Date.now() < STATE.oddsPapi429Hasta) {
+      if (sub) sub.textContent = '⏳ OddsPapi bloqueado — usando datos de respaldo';
+      lista.innerHTML = '<div style="background:rgba(255,215,0,0.06);border:1px solid rgba(255,215,0,0.2);border-radius:12px;padding:32px;text-align:center">' +
+        '<div style="font-size:32px;margin-bottom:10px">⏳</div>' +
+        '<div style="font-size:18px;font-weight:700;color:#ffd700;margin-bottom:8px">OddsPapi temporalmente bloqueado</div>' +
+        '<div style="font-size:15px;color:var(--text-2);line-height:1.6">Usando datos de respaldo mientras espera reconectarse.<br>Próxima consulta en <span id="de-429-countdown">' +
+        _fmt429(STATE.oddsPapi429Hasta - Date.now()) + '</span> min.</div>' +
+        '</div>';
+    } else {
+      if (sub) sub.textContent = 'Sin apuestas con valor ahora';
+      lista.innerHTML = '<div style="background:rgba(255,180,171,0.08);border:1px solid rgba(255,180,171,0.2);border-radius:12px;padding:32px;text-align:center">' +
+        '<div style="font-size:32px;margin-bottom:10px">⏳</div>' +
+        '<div style="font-size:18px;font-weight:700;color:var(--error)">Sin apuestas con valor ahora</div>' +
+        '<div style="font-size:16px;color:var(--outline);margin-top:8px">El mercado está eficiente. Vuelve en 2-3 horas o actualiza cuando haya más partidos.</div>' +
+        '</div>';
+    }
     return;
   }
 
@@ -9751,12 +9825,21 @@ function renderMentorPaso2() {
       </div>
     </div>`;
   } else if (mostradas === 0 && cryptoList.length === 0) {
-    resumenHtml = `
-    <div style="background:var(--surface-mid);border-radius:12px;padding:24px;margin-bottom:20px;text-align:center">
-      <div style="font-size:32px;margin-bottom:10px">✅</div>
-      <div style="font-size:18px;font-weight:700;margin-bottom:8px">Mercado eficiente ahora mismo</div>
-      <div style="font-size:16px;color:var(--text-3);line-height:1.6">No hay apuestas con ventaja real en este momento.<br>Vuelve a revisar en 2–3 horas.</div>
-    </div>`;
+    if (STATE.oddsPapi429Hasta && Date.now() < STATE.oddsPapi429Hasta) {
+      resumenHtml = `
+      <div style="background:var(--surface-mid);border-radius:12px;padding:24px;margin-bottom:20px;text-align:center">
+        <div style="font-size:32px;margin-bottom:10px">⏳</div>
+        <div style="font-size:18px;font-weight:700;margin-bottom:8px;color:#ffd700">OddsPapi temporalmente bloqueado</div>
+        <div style="font-size:16px;color:var(--text-3);line-height:1.6">Usando datos de respaldo mientras espera reconectarse.<br>Próxima consulta en <span id="mentor-429-countdown">${_fmt429(STATE.oddsPapi429Hasta - Date.now())}</span> min.</div>
+      </div>`;
+    } else {
+      resumenHtml = `
+      <div style="background:var(--surface-mid);border-radius:12px;padding:24px;margin-bottom:20px;text-align:center">
+        <div style="font-size:32px;margin-bottom:10px">✅</div>
+        <div style="font-size:18px;font-weight:700;margin-bottom:8px">Mercado eficiente ahora mismo</div>
+        <div style="font-size:16px;color:var(--text-3);line-height:1.6">No hay apuestas con ventaja real en este momento.<br>Vuelve a revisar en 2–3 horas.</div>
+      </div>`;
+    }
   } else {
     resumenHtml = `
     <div style="background:var(--surface-mid);border-radius:12px;padding:14px 18px;margin-bottom:16px;border-left:3px solid var(--tertiary)">
