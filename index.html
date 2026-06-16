@@ -1205,6 +1205,11 @@ body {
           <span style="color:#4a5568;font-size:11px">ODDS-API.IO — cargando...</span>
         </div>
       </div>
+      <div style="padding:0 12px;border-top:1px solid #1e2d45;margin-top:4px">
+        <div id="monitor-quota-tavily" style="min-height:40px;padding:6px 0">
+          <span style="color:#4a5568;font-size:11px">🔍 TAVILY — cargando...</span>
+        </div>
+      </div>
       <div class="sidebar-bk" id="sidebar-bk" onclick="editarBankroll()">
         <span>💰 <span class="bk-val" id="sidebar-bk-val">$200.00</span></span>
         <span class="bk-edit-icon">📝</span>
@@ -1913,6 +1918,15 @@ const STATE = {
   theOddsApiUsedMes:   parseInt(localStorage.getItem('jcahs_theodds_used')) || 0,
   theOddsApiMesTs:     parseInt(localStorage.getItem('jcahs_theodds_mes_ts')) || Date.now(),
   theOddsApiLastCall:  0,
+  oddsApiUsadoHoy: (function() {
+    var k = 'jcahs_theoddsapi_hoy_' + new Date().toISOString().slice(0,10);
+    return parseInt(localStorage.getItem(k)) || 0;
+  })(),
+  tavilyUsadoMes: (function() {
+    var h = new Date();
+    var k = 'jcahs_tavily_' + h.getFullYear() + '-' + String(h.getMonth() + 1).padStart(2,'0');
+    return parseInt(localStorage.getItem(k)) || 0;
+  })(),
   oddsApiIoLastCall:   0,
   tsdbCallsSesion:     0,
   coingeckoLastCall:        0,
@@ -4226,6 +4240,14 @@ async function cargarDeportes() {
     return;
   }
 
+  if ((STATE.oddsApiUsadoHoy || 0) >= 2) {
+    console.log('cargarDeportes: límite diario de The Odds API (2/día) alcanzado, usando fallback/caché');
+    await cargarPartidosFallback();
+    STATE.ultimaActualizacionDeportes = Date.now();
+    finalizarCargaOdds(STATE.modoFallback ? 'Football-Data (fallback)' : 'cache');
+    return;
+  }
+
   console.log('STEP 1: Starting');
   setHTML('dep-value-bets', '<div class="loading"><span class="spin">⌛</span> Buscando value bets...</div>');
   setHTML('dep-partidos',   '<div class="loading"><span class="spin">⌛</span> Cargando partidos...</div>');
@@ -4251,6 +4273,8 @@ async function cargarDeportes() {
 
   const results = await Promise.allSettled(calls);
   calls.forEach(() => registrarLlamada('theoddsapi'));
+  STATE.oddsApiUsadoHoy = (STATE.oddsApiUsadoHoy || 0) + 1;
+  localStorage.setItem('jcahs_theoddsapi_hoy_' + new Date().toISOString().slice(0,10), String(STATE.oddsApiUsadoHoy));
 
   let h2hData = null, totalsData = null, wcH2hData = null, wcTotalsData = null;
   let huboError401 = false;
@@ -4704,18 +4728,28 @@ function actualizarMonitorQuota() {
   }
 
   const total = 500;
-  const pct = Math.round((remaining / total) * 100);
-  const color = pct > 50 ? '#00ff88' : pct > 20 ? '#ffd700' : '#ff4444';
-  const estado = pct > 50 ? 'OK' : pct > 20 ? 'BAJO' : 'CRÍTICO';
+  const usedM = used ?? 0;
+  const usedPctM = Math.min(100, Math.round((usedM / total) * 100));
+  const color = usedM < 400 ? '#00ff88' : usedM <= 480 ? '#ffd700' : '#ff4444';
+  const estado = usedM < 400 ? 'OK' : usedM <= 480 ? 'BAJO' : 'CRÍTICO';
 
   // Fecha de reset mensual: 1 de cada mes
   const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   const hoy = new Date();
   const reset = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1);
   const diasHastaReset = Math.ceil((reset - hoy) / (1000 * 60 * 60 * 24));
-  const resetHtml = '<div style="color:#4a5568;font-size:10px;margin-top:4px">reset: 1 ' + meses[reset.getMonth()] + '</div>';
+  const resetStr = '1 ' + meses[reset.getMonth()];
 
-  // Botón "↺ forzar" — fuerza The Odds API ignorando su cooldown (consume llamada real)
+  // Diario
+  const usadoHoy = STATE.oddsApiUsadoHoy || 0;
+  const limDiario = 2;
+  const hoyAgotado = usadoHoy >= limDiario;
+  const hoyHtml = '<div style="color:#4a5568;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;margin-top:7px;margin-bottom:2px">HOY</div>' +
+    (hoyAgotado
+      ? '<div style="color:#ff4444;font-size:10px;font-weight:600">⛔ Límite diario alcanzado (' + usadoHoy + '/2)</div>'
+      : '<div style="color:#8892a4;font-size:10px">' + usadoHoy + '/' + limDiario + ' consultas usadas</div>');
+
+  // Botón "↺ forzar"
   const forzarHtml = htmlBotonForzar('theoddsapi', STATE.theOddsApiLastCall);
 
   if (remaining === 0) {
@@ -4724,15 +4758,15 @@ function actualizarMonitorQuota() {
       '<span style="color:#8892a4;font-size:11px;letter-spacing:1px">ODDS API</span>' +
       '<span style="color:#ff4444;font-size:11px;font-weight:700">CRÍTICO</span>' +
       '</div>' +
-      '<div style="background:#1a2540;border-radius:4px;height:5px;margin-bottom:5px">' +
+      '<div style="color:#4a5568;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">MENSUAL</div>' +
+      '<div style="background:#1a2540;border-radius:4px;height:5px;margin-bottom:4px">' +
       '<div style="background:#ff4444;width:100%;height:100%;border-radius:4px"></div>' +
       '</div>' +
       '<div style="display:flex;justify-content:space-between">' +
-      '<span style="color:#4a5568;font-size:10px">' + (used ?? 0) + ' usadas</span>' +
-      '<span style="color:#ff4444;font-size:11px;font-weight:600">' + remaining + '/' + total + ' restantes</span>' +
+      '<span style="color:#ff4444;font-size:10px;font-weight:600">' + usedM + '/' + total + '</span>' +
+      '<span style="color:#4a5568;font-size:10px">AGOTADA · reset en ' + diasHastaReset + 'd · ' + resetStr + '</span>' +
       '</div>' +
-      '<div style="color:#ff4444;font-size:10px;text-align:center;margin-top:4px">AGOTADA — reset en ' + diasHastaReset + ' días</div>' +
-      resetHtml +
+      hoyHtml +
       forzarHtml;
   } else {
     el.innerHTML =
@@ -4740,14 +4774,15 @@ function actualizarMonitorQuota() {
       '<span style="color:#8892a4;font-size:11px;letter-spacing:1px">ODDS API</span>' +
       '<span style="color:' + color + ';font-size:11px;font-weight:700">' + estado + '</span>' +
       '</div>' +
-      '<div style="background:#1a2540;border-radius:4px;height:5px;margin-bottom:5px">' +
-      '<div style="background:' + color + ';width:' + pct + '%;height:100%;border-radius:4px;transition:width 0.5s"></div>' +
+      '<div style="color:#4a5568;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">MENSUAL</div>' +
+      '<div style="background:#1a2540;border-radius:4px;height:5px;margin-bottom:4px">' +
+      '<div style="background:' + color + ';width:' + usedPctM + '%;height:100%;border-radius:4px;transition:width 0.5s"></div>' +
       '</div>' +
       '<div style="display:flex;justify-content:space-between">' +
-      '<span style="color:#4a5568;font-size:10px">' + (used ?? 0) + ' usadas</span>' +
-      '<span style="color:' + color + ';font-size:11px;font-weight:600">' + remaining + '/' + total + ' restantes</span>' +
+      '<span style="color:' + color + ';font-size:10px;font-weight:600">' + usedM + '/' + total + '</span>' +
+      '<span style="color:#4a5568;font-size:10px">' + remaining + ' restantes · reset ' + resetStr + '</span>' +
       '</div>' +
-      resetHtml +
+      hoyHtml +
       forzarHtml;
   }
 
@@ -5033,6 +5068,35 @@ function actualizarTodosMonitores() {
   actualizarMonitorQuota();
   actualizarMonitorOddsApiIo();
   actualizarMonitorOddsPapi();
+  actualizarMonitorTavily();
+}
+
+function actualizarMonitorTavily() {
+  const el = document.getElementById('monitor-quota-tavily');
+  if (!el) return;
+  const usado = STATE.tavilyUsadoMes || 0;
+  const total = 1000;
+  const pct = Math.min(100, Math.round((usado / total) * 100));
+  const color = usado < 800 ? '#00ff88' : usado <= 950 ? '#ffd700' : '#ff4444';
+  const estado = usado < 800 ? 'OK' : usado <= 950 ? 'BAJO' : 'CRÍTICO';
+  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const hoy = new Date();
+  const reset = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1);
+  const resetStr = '1 ' + meses[reset.getMonth()];
+  el.innerHTML =
+    '<div style="padding:8px 0">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+    '<span style="color:#8892a4;font-size:11px;letter-spacing:1px">🔍 TAVILY</span>' +
+    '<span style="color:' + color + ';font-size:11px;font-weight:700">' + estado + '</span>' +
+    '</div>' +
+    '<div style="background:#1a2540;border-radius:4px;height:5px;margin-bottom:4px">' +
+    '<div style="background:' + color + ';width:' + pct + '%;height:100%;border-radius:4px;transition:width 0.5s"></div>' +
+    '</div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:center">' +
+    '<span style="color:' + color + ';font-size:10px;font-weight:600">' + usado + '/' + total + '</span>' +
+    '<span style="color:#4a5568;font-size:10px">búsquedas · reset ' + resetStr + '</span>' +
+    '</div>' +
+    '</div>';
 }
 
 // ─── CONTROL DE LÍMITES DE API — checkApiLimit / registrarLlamada ──
@@ -6322,6 +6386,7 @@ const TAVILY_URL = 'https://jcahs-proxy.jh050447.workers.dev/?url=' +
   encodeURIComponent('https://api.tavily.com/search') + '&api=tavily';
 
 async function buscarTavily(query) {
+  if ((STATE.tavilyUsadoMes || 0) >= 1000) return null;
   try {
     var response = await fetch(TAVILY_URL, {
       method: 'POST',
@@ -6334,10 +6399,22 @@ async function buscarTavily(query) {
       })
     });
     var data = await response.json();
-    if (data.answer) return data.answer;
-    return (data.results || []).slice(0, 3)
-      .map(function(r) { return r.title + ': ' + r.content; })
-      .join('\n\n') || 'Sin resultados';
+    var resultado = null;
+    if (data.answer) {
+      resultado = data.answer;
+    } else {
+      resultado = (data.results || []).slice(0, 3)
+        .map(function(r) { return r.title + ': ' + r.content; })
+        .join('\n\n') || null;
+    }
+    if (resultado) {
+      var h = new Date();
+      var kMes = 'jcahs_tavily_' + h.getFullYear() + '-' + String(h.getMonth() + 1).padStart(2,'0');
+      STATE.tavilyUsadoMes = (STATE.tavilyUsadoMes || 0) + 1;
+      localStorage.setItem(kMes, String(STATE.tavilyUsadoMes));
+      actualizarMonitorTavily();
+    }
+    return resultado || 'Sin resultados';
   } catch(e) {
     console.error('Tavily error:', e);
     return null;
@@ -6425,8 +6502,11 @@ async function consultarAsesor(asesorId, pregunta) {
     ];
   }
 
+  var webAgotada = (STATE.tavilyUsadoMes || 0) >= 1000;
   var infoWeb = '';
-  if (busquedas.length > 0) {
+  if (webAgotada) {
+    infoWeb = '[AVISO: Búsquedas web agotadas este mes (1000/1000). Inicia tu respuesta indicando: "Búsquedas web agotadas este mes. El análisis continúa sin contexto web en tiempo real." Luego continúa con la información disponible.]';
+  } else if (busquedas.length > 0) {
     var resultados = await Promise.allSettled(busquedas.map(function(q) { return buscarTavily(q); }));
     infoWeb = resultados
       .map(function(r, i) { return (r.status === 'fulfilled' && r.value) ? ('🔍 ' + busquedas[i] + ':\n' + r.value) : null; })
