@@ -1889,6 +1889,21 @@ const STATE = {
   // ─── CONTROL DE LÍMITES DE API (Task K) ──────────────────
   oddsPapiLastCall:    parseInt(localStorage.getItem('jcahs_oddspapi_last_call')) || 0,
   oddsPapi429Hasta:    null,
+  oddsPapi429Consecutivos: 0,
+  oddsPapiCupoAgotado: (function() {
+    if (localStorage.getItem('jcahs_oddspapi_cupo_agotado') !== 'true') return false;
+    var savedMes = localStorage.getItem('jcahs_oddspapi_cupo_mes') || '';
+    var hoy = new Date();
+    var mesActual = hoy.getFullYear() + '-' + hoy.getMonth();
+    if (savedMes !== mesActual) {
+      localStorage.removeItem('jcahs_oddspapi_cupo_agotado');
+      localStorage.removeItem('jcahs_oddspapi_cupo_mes');
+      localStorage.setItem('oddsPapiUsed', '0');
+      localStorage.setItem('oddsPapiRemaining', '250');
+      return false;
+    }
+    return true;
+  })(),
   oddsPapiCallsSesion: 0,
   theOddsApiUsedMes:   parseInt(localStorage.getItem('jcahs_theodds_used')) || 0,
   theOddsApiMesTs:     parseInt(localStorage.getItem('jcahs_theodds_mes_ts')) || Date.now(),
@@ -3671,10 +3686,21 @@ async function cargarDatosOddsPapi() {
     }
 
     if (res.status === 429) {
+      STATE.oddsPapi429Consecutivos = (STATE.oddsPapi429Consecutivos || 0) + 1;
+      var cupoAgotado429 = STATE.oddsPapiUsed >= 250 || STATE.oddsPapiRemaining <= 0 || STATE.oddsPapi429Consecutivos >= 2;
+      if (cupoAgotado429) {
+        STATE.oddsPapiCupoAgotado = true;
+        var hoyOp = new Date();
+        localStorage.setItem('jcahs_oddspapi_cupo_agotado', 'true');
+        localStorage.setItem('jcahs_oddspapi_cupo_mes', hoyOp.getFullYear() + '-' + hoyOp.getMonth());
+        console.warn('OddsPapi 429 — cupo mensual agotado (usado:', STATE.oddsPapiUsed, ')');
+        actualizarMonitorOddsPapi();
+        return false;
+      }
       var retryAfter = res.headers.get('Retry-After');
       var waitMs = retryAfter ? parseInt(retryAfter) * 1000 : 10 * 60 * 1000;
       STATE.oddsPapi429Hasta = Date.now() + waitMs;
-      console.warn('OddsPapi 429 — bloqueado por', Math.ceil(waitMs / 60000), 'min');
+      console.warn('OddsPapi 429 — rate limit temporal, bloqueado por', Math.ceil(waitMs / 60000), 'min');
       _iniciar429Timer();
       actualizarMonitorOddsPapi();
       renderListaDE();
@@ -3712,14 +3738,25 @@ async function cargarDatosOddsPapi() {
         fixturesBet365 = await resBet365.json();
         console.log('OddsPapi: fixtures recibidos (bet365):', fixturesBet365.length);
       } else if (resBet365.status === 429) {
-        var retryAfterB = resBet365.headers.get('Retry-After');
-        var waitMsB = retryAfterB ? parseInt(retryAfterB) * 1000 : 10 * 60 * 1000;
-        if (!STATE.oddsPapi429Hasta || Date.now() + waitMsB > STATE.oddsPapi429Hasta) {
-          STATE.oddsPapi429Hasta = Date.now() + waitMsB;
+        STATE.oddsPapi429Consecutivos = (STATE.oddsPapi429Consecutivos || 0) + 1;
+        var cupoAgotadoB = STATE.oddsPapiUsed >= 248 || STATE.oddsPapiRemaining <= 2 || STATE.oddsPapi429Consecutivos >= 2;
+        if (cupoAgotadoB) {
+          STATE.oddsPapiCupoAgotado = true;
+          var hoyB = new Date();
+          localStorage.setItem('jcahs_oddspapi_cupo_agotado', 'true');
+          localStorage.setItem('jcahs_oddspapi_cupo_mes', hoyB.getFullYear() + '-' + hoyB.getMonth());
+          console.warn('OddsPapi bet365 429 — cupo mensual agotado');
+          actualizarMonitorOddsPapi();
+        } else {
+          var retryAfterB = resBet365.headers.get('Retry-After');
+          var waitMsB = retryAfterB ? parseInt(retryAfterB) * 1000 : 10 * 60 * 1000;
+          if (!STATE.oddsPapi429Hasta || Date.now() + waitMsB > STATE.oddsPapi429Hasta) {
+            STATE.oddsPapi429Hasta = Date.now() + waitMsB;
+          }
+          console.warn('OddsPapi bet365 429 — rate limit temporal');
+          _iniciar429Timer();
+          actualizarMonitorOddsPapi();
         }
-        console.warn('OddsPapi bet365 429 — bloqueado por', Math.ceil(waitMsB / 60000), 'min');
-        _iniciar429Timer();
-        actualizarMonitorOddsPapi();
       } else {
         console.error('OddsPapi error (bet365):', resBet365.status);
       }
@@ -3861,6 +3898,8 @@ async function cargarDatosOddsPapi() {
     STATE.embudo.conEdgePositivo  = valueBets.length;
     STATE.embudo.fuente           = 'OddsPapi';
     STATE.embudo.timestamp        = Date.now();
+
+    STATE.oddsPapi429Consecutivos = 0; // reset — carga exitosa
 
     console.log('OddsPapi: STATE.valueBets final:', valueBets.length);
     return true;
@@ -4150,25 +4189,29 @@ async function cargarDeportes() {
   }
 
   // ── INTENTO 1: OddsPapi (fuente principal) ──────────────────
-  console.log('cargarDeportes: intentando OddsPapi...');
-  const oddspapiOk = await cargarDatosOddsPapi();
+  if (STATE.oddsPapiCupoAgotado) {
+    console.log('cargarDeportes: OddsPapi omitido — cupo mensual agotado');
+  } else {
+    console.log('cargarDeportes: intentando OddsPapi...');
+    const oddspapiOk = await cargarDatosOddsPapi();
 
-  if (oddspapiOk && STATE.valueBets?.length > 0) {
-    console.log('cargarDeportes: OddsPapi exitoso', STATE.valueBets.length, 'bets');
-    mentorActualizarEstado('ready');
-    ejecutarDecisionEngine();
-    setText('dep-sub', `${STATE.valueBets.length} value bets · OddsPapi (Pinnacle) · ${ts()}`);
-    setHTML('dep-value-bets', `<div class="loading">📡 ${STATE.valueBets.length} value bets vía OddsPapi — ver detalle en Decision Engine</div>`);
-    setHTML('dep-partidos', `<div class="loading">📡 Partidos vía OddsPapi (Pinnacle) · ${ts()}</div>`);
-    document.querySelectorAll('.aviso-fallback').forEach(el => el.remove());
-    if (typeof renderMentor === 'function') renderMentor();
-    if (typeof renderListaDE === 'function') renderListaDE();
-    guardarCacheOdds('OddsPapi (Pinnacle)');
-    return; // No necesitamos odds-api.io ni The Odds API
+    if (oddspapiOk && STATE.valueBets?.length > 0) {
+      console.log('cargarDeportes: OddsPapi exitoso', STATE.valueBets.length, 'bets');
+      mentorActualizarEstado('ready');
+      ejecutarDecisionEngine();
+      setText('dep-sub', `${STATE.valueBets.length} value bets · OddsPapi (Pinnacle) · ${ts()}`);
+      setHTML('dep-value-bets', `<div class="loading">📡 ${STATE.valueBets.length} value bets vía OddsPapi — ver detalle en Decision Engine</div>`);
+      setHTML('dep-partidos', `<div class="loading">📡 Partidos vía OddsPapi (Pinnacle) · ${ts()}</div>`);
+      document.querySelectorAll('.aviso-fallback').forEach(el => el.remove());
+      if (typeof renderMentor === 'function') renderMentor();
+      if (typeof renderListaDE === 'function') renderListaDE();
+      guardarCacheOdds('OddsPapi (Pinnacle)');
+      return; // No necesitamos odds-api.io ni The Odds API
+    }
   }
 
-  // ── INTENTO 2: odds-api.io (fuente secundaria) ──────────────
-  console.log('cargarDeportes: OddsPapi falló, intentando odds-api.io...');
+  // ── INTENTO 2: odds-api.io (fuente secundaria / principal cuando cupo OddsPapi agotado) ──
+  console.log('cargarDeportes: intentando odds-api.io...');
   const oddsapioOk = await cargarDatosOddsApiIo();
 
   if (oddsapioOk && STATE.valueBets?.length > 0) {
@@ -4748,7 +4791,7 @@ function _iniciar429Timer() {
       actualizarMonitorOddsPapi();
       renderListaDE();
       if (STATE.mentor && STATE.mentor.paso === 2) renderMentor();
-      cargarDatosOddsPapi();
+      if (!STATE.oddsPapiCupoAgotado) cargarDatosOddsPapi();
       return;
     }
     var txt = _fmt429(restante);
@@ -4764,6 +4807,23 @@ function _iniciar429Timer() {
 function actualizarMonitorOddsPapi() {
   const el = document.getElementById('monitor-quota-oddspapi');
   if (!el) return;
+
+  if (STATE.oddsPapiCupoAgotado) {
+    var mesesOp = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    var hoyM = new Date();
+    var resetM = new Date(hoyM.getFullYear(), hoyM.getMonth() + 1, 1);
+    var resetStrM = '1 ' + mesesOp[resetM.getMonth()];
+    el.innerHTML =
+      '<div style="padding:8px 0">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
+      '<span style="color:#8892a4;font-size:11px;letter-spacing:1px">⚡ ODDSPAPI</span>' +
+      '<span style="color:#ff4444;font-size:11px;font-weight:700">SIN CUPO</span>' +
+      '</div>' +
+      '<div style="color:#ff5c5c;font-size:12px;font-weight:600;margin-bottom:3px">📵 Cupo mensual agotado</div>' +
+      '<div style="color:#4a5568;font-size:10px">Reset: ' + resetStrM + ' · usando odds-api.io</div>' +
+      '</div>';
+    return;
+  }
 
   if (STATE.oddsPapi429Hasta && Date.now() < STATE.oddsPapi429Hasta) {
     el.innerHTML =
