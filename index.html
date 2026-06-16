@@ -3853,15 +3853,17 @@ async function cargarDatosOddsApiIo() {
     registrarUsoOddsApiIo(1);
 
     const dataEventos = await resEventos.json();
-    const eventos = Array.isArray(dataEventos) ? dataEventos : (dataEventos.data || dataEventos.events || []);
+    const todosEventos = Array.isArray(dataEventos) ? dataEventos : (dataEventos.data || dataEventos.events || []);
+    // Filtrar solo eventos pendientes — settled/cancelled devuelven 400 en /odds
+    const eventos = todosEventos.filter(ev => ev.status === 'pending');
     if (!eventos.length) {
-      console.log('odds-api.io: sin eventos');
+      console.log('odds-api.io: sin eventos pendientes (total recibidos:', todosEventos.length, ')');
       return false;
     }
 
     // Limitar a los primeros 10 eventos — plan gratuito: 100 peticiones/hora
     const eventosLimitados = eventos.slice(0, 10);
-    console.log('odds-api.io: eventos recibidos:', eventos.length, '- usando', eventosLimitados.length);
+    console.log('odds-api.io: total:', todosEventos.length, '- pendientes:', eventos.length, '- usando', eventosLimitados.length);
 
     // Parsear eventos al formato que usa el sistema (mismo esquema que STATE.valueBets)
     const valueBets = [];
@@ -3879,7 +3881,7 @@ async function cargarDatosOddsApiIo() {
       // PASO 2: odds del evento
       let oddsEv;
       try {
-        const urlOdds = `${CFG.ODDSAPIIO_BASE}/odds?eventId=${eventId}`;
+        const urlOdds = `${CFG.ODDSAPIIO_BASE}/odds?eventId=${eventId}&bookmakers=Bet365`;
         const resOdds = await fetchSeguro(proxyUrl(urlOdds) + '&api=oddsapio', 8000);
         if (!resOdds.ok) {
           console.error('odds-api.io error (odds):', eventId, resOdds.status);
@@ -3899,13 +3901,26 @@ async function cargarDatosOddsApiIo() {
       const awayName = ev.away || ev.away_team || ev.awayTeam || oddsEv.away || oddsEv.away_team;
       if (!homeName || !awayName) continue;
 
-      // Normalizar lista de bookmakers (objeto o array según la respuesta)
+      // Normalizar lista de bookmakers
+      // Formato actual odds-api.io: { "Bet365": [ { name:"ML", odds:[{home,draw,away}] }, ... ] }
       const bms = oddsEv.bookmakers;
       let lista = [];
       if (Array.isArray(bms)) {
-        lista = bms.map(b => ({ nombre: b.name || b.title || b.bookmaker, odds: b.odds || b.ML?.odds || b.markets?.ML?.odds }));
+        // Formato legacy: array de objetos bookmaker
+        lista = bms.map(b => {
+          const mlMkt = Array.isArray(b.markets) ? b.markets.find(m => m.name === 'ML') : null;
+          const oddsArr = b.odds || mlMkt?.odds;
+          const odds = Array.isArray(oddsArr) ? oddsArr[0] : oddsArr;
+          return { nombre: b.name || b.title || b.bookmaker, odds };
+        });
       } else if (bms && typeof bms === 'object') {
-        lista = Object.entries(bms).map(([nombre, b]) => ({ nombre, odds: b.odds || b.ML?.odds || b.markets?.ML?.odds }));
+        // Formato actual: objeto { NombreBK: [mercados] }
+        lista = Object.entries(bms).map(([nombre, markets]) => {
+          const mlMkt = Array.isArray(markets) ? markets.find(m => m.name === 'ML') : null;
+          const oddsArr = mlMkt?.odds;
+          const odds = Array.isArray(oddsArr) ? oddsArr[0] : oddsArr;
+          return { nombre, odds };
+        });
       }
       lista = lista.filter(b => b.odds && b.odds.home && b.odds.draw && b.odds.away);
       if (!lista.length) continue;
@@ -3951,7 +3966,7 @@ async function cargarDatosOddsApiIo() {
         valueBets.push({
           gameId:    eventId,
           partido:   homeName + ' vs ' + awayName,
-          liga:      ev.league || ev.competition || oddsEv.league || 'Fútbol',
+          liga:      ev.league?.name || ev.competition || oddsEv.league?.name || 'Fútbol',
           fecha:     ev.date || ev.commence_time || oddsEv.date,
           esMundial: false,
           mercado:   traducirMercado('h2h'),
