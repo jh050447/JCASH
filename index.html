@@ -6373,8 +6373,26 @@ function ejecutarDecisionEngine() {
 
 // Badge "📡 <fuente>" — usa vb.fuente si está definido, si no un genérico
 function badgeFuenteDE(vb, sufijo) {
-  var nombre = vb.fuente || 'Odds';
-  return '<span style="background:#00ff8815;border:1px solid #00ff8844;color:#00ff88;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600">📡 ' + escHtml(nombre) + (sufijo || '') + '</span>';
+  var fuente = vb.fuente || 'Odds';
+  var bkInfo, bg, border, color;
+  if (fuente === 'OddsPapi') {
+    bkInfo = 'Pinnacle vs Bet365';
+    bg = '#00ff8815'; border = '#00ff8844'; color = '#00ff88';
+  } else if (fuente === 'odds-api.io') {
+    bkInfo = 'Bet365 vs Bet365';
+    bg = '#ffd70015'; border = '#ffd70044'; color = '#ffd700';
+  } else if (fuente === 'The Odds API') {
+    bkInfo = 'Pinnacle vs Bet365';
+    bg = '#00ff8815'; border = '#00ff8844'; color = '#00ff88';
+  } else {
+    bkInfo = null;
+    bg = '#00ff8815'; border = '#00ff8844'; color = '#00ff88';
+  }
+  var label = '📡 ' + escHtml(fuente)
+    + (bkInfo ? ' · ' + bkInfo : '')
+    + (fuente === 'odds-api.io' ? ' ⚠️' : '')
+    + (sufijo || '');
+  return '<span style="background:' + bg + ';border:1px solid ' + border + ';color:' + color + ';padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600">' + label + '</span>';
 }
 
 // Info de tiempo de un partido (hora Ecuador, si ya inició, countdown) —
@@ -9660,6 +9678,7 @@ function renderCardMentor(s, i) {
     </div>
     ${tiempoHtml}
     ${scoreBarra}
+    <div style="margin-bottom:10px">${badgeFuenteDE(s)}</div>
     <div style="font-size:18px;font-weight:700;margin-bottom:4px">${s.partido}</div>
     <div style="font-size:22px;font-weight:700;color:#4edea3;line-height:1.3;margin-bottom:4px">${pick}</div>
     <div style="font-size:15px;color:var(--text-3);margin-bottom:16px">${traducirPickClaro(s.pick, s.mercado, local, visit)}</div>
