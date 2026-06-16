@@ -1442,6 +1442,7 @@ body {
           <input type="range" id="de-sensibilidad" min="12" max="50" step="1" value="35" oninput="cambiarSensibilidadDE(this.value)" style="flex:1;min-width:120px">
           <span id="de-sensibilidad-valor" style="font-size:14px;font-weight:700;font-family:var(--font-mono);color:#00ff88;min-width:42px;text-align:right">35%</span>
         </div>
+        <div id="de-embudo"></div>
         <div id="de-lista"></div>
         <div id="de-detalle" style="display:none"></div>
       </section>
@@ -1902,6 +1903,12 @@ const STATE = {
   oddsPapiCargando:  false,
   ultimaActualizacionDeportes: null,
   modoFallback:    false,
+  embudo: {
+    eventosRecibidos: 0, conOddsValidas: 0, conEdgePositivo: 0,
+    conEdgeMinimo: 0, conProbReal: 0, conScore: 0, mostrando: 0,
+    edgeMinThreshold: 4, probMinThreshold: 35, scoreMinThreshold: 50,
+    fuente: null, timestamp: null,
+  },
   deportesCargando: false,
   ohlc:            { BTC:[], ETH:[], SOL:[], XRP:[] },
   senalesCripto:   {},
@@ -3746,6 +3753,7 @@ async function cargarDatosOddsPapi() {
 
     // Parsear fixtures al formato que usa el sistema (mismo esquema que STATE.valueBets)
     const valueBets = [];
+    let conOddsValidasOp = 0;
 
     for (const fixture of fixtures) {
       // Marcar fixtures cuyo partido ya inició (en vivo o terminado) — sus
@@ -3768,6 +3776,8 @@ async function cargarDatosOddsPapi() {
       const oddDrawPinnacle = mercado1X2Pinnacle.outcomes['102']?.players?.['0']?.price;
       const oddAwayPinnacle = mercado1X2Pinnacle.outcomes['103']?.players?.['0']?.price;
       if (!oddHomePinnacle || !oddDrawPinnacle || !oddAwayPinnacle) continue;
+
+      conOddsValidasOp++;
 
       const homeName = nombresMap[fixture.participant1Id] || `Equipo ${fixture.participant1Id}`;
       const awayName = nombresMap[fixture.participant2Id] || `Equipo ${fixture.participant2Id}`;
@@ -3845,6 +3855,13 @@ async function cargarDatosOddsPapi() {
     STATE.modoFallback = false;
     STATE.ultimaActualizacionDeportes = Date.now();
 
+    // Embudo: contadores de etapas tempranas (DE completará los demás)
+    STATE.embudo.eventosRecibidos = fixtures.length;
+    STATE.embudo.conOddsValidas   = conOddsValidasOp;
+    STATE.embudo.conEdgePositivo  = valueBets.length;
+    STATE.embudo.fuente           = 'OddsPapi';
+    STATE.embudo.timestamp        = Date.now();
+
     console.log('OddsPapi: STATE.valueBets final:', valueBets.length);
     return true;
 
@@ -3888,6 +3905,7 @@ async function cargarDatosOddsApiIo() {
 
     // Parsear eventos al formato que usa el sistema (mismo esquema que STATE.valueBets)
     const valueBets = [];
+    let conOddsValidasIo = 0;
 
     for (const ev of eventosLimitados) {
       const eventId = ev.id || ev.eventId;
@@ -3945,6 +3963,8 @@ async function cargarDatosOddsApiIo() {
       }
       lista = lista.filter(b => b.odds && b.odds.home && b.odds.draw && b.odds.away);
       if (!lista.length) continue;
+
+      conOddsValidasIo++;
 
       // Pinnacle como referencia "sharp" para de-vig; si no existe, usar la primera
       const sharp = lista.find(b => /pinnacle/i.test(b.nombre)) || lista[0];
@@ -4012,6 +4032,13 @@ async function cargarDatosOddsApiIo() {
     STATE.oddsGames = [];
     STATE.modoFallback = false;
     STATE.ultimaActualizacionDeportes = Date.now();
+
+    // Embudo: contadores de etapas tempranas
+    STATE.embudo.eventosRecibidos = todosEventos.length;
+    STATE.embudo.conOddsValidas   = conOddsValidasIo;
+    STATE.embudo.conEdgePositivo  = valueBets.length;
+    STATE.embudo.fuente           = 'odds-api.io';
+    STATE.embudo.timestamp        = Date.now();
 
     console.log('odds-api.io: STATE.valueBets final:', valueBets.length);
     return valueBets.length > 0;
@@ -6365,6 +6392,16 @@ function ejecutarDecisionEngine() {
     );
   });
 
+  // Contar etapas del embudo de filtrado
+  var _edgeMin = 4, _oddMin = 1.40, _oddMax = 8.0, _scoreMin = 50;
+  var _conEdgeMinimo = 0, _conProbReal = 0;
+  STATE.valueBets.forEach(function(vb) {
+    if (vb.edge >= _edgeMin) {
+      _conEdgeMinimo++;
+      if (vb.probReal >= probMin && vb.odd >= _oddMin && vb.odd <= _oddMax) _conProbReal++;
+    }
+  });
+
   var filtradas = STATE.valueBets
     .filter(function(vb) {
       return vb.edge >= 4 && vb.probReal >= probMin && vb.odd >= 1.40 && vb.odd <= 8.0;
@@ -6376,6 +6413,15 @@ function ejecutarDecisionEngine() {
     .sort(function(a, b) { return b.score - a.score; });
 
   STATE.deApuestas = filtradas.slice(0, 8);
+
+  // Actualizar embudo con contadores del DE
+  STATE.embudo.conEdgeMinimo      = _conEdgeMinimo;
+  STATE.embudo.conProbReal        = _conProbReal;
+  STATE.embudo.conScore           = filtradas.length;
+  STATE.embudo.mostrando          = STATE.deApuestas.length;
+  STATE.embudo.edgeMinThreshold   = _edgeMin;
+  STATE.embudo.probMinThreshold   = probMin;
+  STATE.embudo.scoreMinThreshold  = _scoreMin;
 
   if (!filtradas.length) {
     STATE.decisionActual = null;
@@ -6431,6 +6477,86 @@ function ejecutarDecisionEngine() {
   });
   STATE.decisionActual = opciones[0] || null;
   STATE.todasOpciones = opciones;
+}
+
+// ── Embudo de filtrado ────────────────────────────────────────
+var _embudoAbierto = false;
+
+function toggleEmbudoDE() { _embudoAbierto = !_embudoAbierto; renderEmbudoDE(); }
+
+function renderEmbudoDE() {
+  var el = document.getElementById('de-embudo');
+  if (!el) return;
+  var e = STATE.embudo;
+  if (!e || !e.timestamp) { el.innerHTML = ''; return; }
+
+  var minAgo = Math.floor((Date.now() - e.timestamp) / 60000);
+  var updateStr = minAgo === 0 ? 'hace menos de 1 min' : ('hace ' + minAgo + ' min');
+
+  var pasos = [
+    { label: 'Eventos recibidos',                            n: e.eventosRecibidos },
+    { label: 'Con odds válidas',                             n: e.conOddsValidas },
+    { label: 'Con edge positivo (>0%)',                      n: e.conEdgePositivo },
+    { label: 'Con edge ≥' + e.edgeMinThreshold + '%',  n: e.conEdgeMinimo },
+    { label: 'Con probReal ≥' + e.probMinThreshold + '%', n: e.conProbReal },
+    { label: 'Con score ≥' + e.scoreMinThreshold,       n: e.conScore },
+  ];
+
+  // Cuello de botella: primer paso (desde edge positivo) con n === 0
+  var cuello = null;
+  for (var ci = 2; ci < pasos.length; ci++) {
+    if (pasos[ci].n === 0) { cuello = pasos[ci]; break; }
+  }
+
+  var resumenLinea = e.mostrando > 0
+    ? '<span style="color:#4edea3;font-weight:600">✅ ' + e.mostrando + ' apuesta' + (e.mostrando !== 1 ? 's' : '') + '</span>'
+    : '<span style="color:#ff5c5c;font-weight:600">❌ Sin apuestas' + (cuello ? ' · cuello: "' + cuello.label + '"' : '') + '</span>';
+
+  var headerHtml =
+    '<div onclick="toggleEmbudoDE()" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:9px 14px;user-select:none">' +
+    '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+    '<span style="font-size:11px;font-weight:700;color:var(--text-2);letter-spacing:.5px">🔍 EMBUDO DE FILTRADO</span>' +
+    resumenLinea +
+    '</div>' +
+    '<span style="font-size:11px;color:var(--text-3)">' + (_embudoAbierto ? '▲' : '▼') + '</span>' +
+    '</div>';
+
+  if (!_embudoAbierto) {
+    el.innerHTML = '<div style="background:var(--surface-2);border:1px solid rgba(144,144,151,0.12);border-radius:10px;margin-bottom:12px">' + headerHtml + '</div>';
+    return;
+  }
+
+  var filasHtml = pasos.map(function(p, idx) {
+    var esBottleneck = !!(cuello && p.label === cuello.label);
+    var numColor = p.n === 0 ? '#ff5c5c' : p.n <= 3 ? '#ffd700' : '#4edea3';
+    var labelColor = esBottleneck ? '#ff5c5c' : 'var(--text-2)';
+    return (
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;' +
+      (idx < pasos.length - 1 ? 'border-bottom:1px solid rgba(255,255,255,0.04)' : '') + '">' +
+      '<span style="font-size:12px;color:' + labelColor + '">' + (esBottleneck ? '⚠️ ' : '') + p.label + '</span>' +
+      '<span style="font-size:13px;font-weight:700;font-family:var(--f-mono);color:' + numColor + '">' + p.n.toLocaleString() + '</span>' +
+      '</div>'
+    );
+  }).join('');
+
+  var footerHtml = e.mostrando > 0
+    ? '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center">' +
+      '<span style="font-size:13px;font-weight:700;color:#4edea3">✅ Mostrando</span>' +
+      '<span style="font-size:14px;font-weight:800;font-family:var(--f-mono);color:#4edea3">' + e.mostrando + ' apuesta' + (e.mostrando !== 1 ? 's' : '') + '</span>' +
+      '</div>'
+    : '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08)">' +
+      '<div style="font-size:13px;color:#ff5c5c;font-weight:700;margin-bottom:4px">❌ Ninguna apuesta cumple todos los filtros ahora.</div>' +
+      (cuello ? '<div style="font-size:12px;color:var(--text-3)">El cuello de botella es: "' + cuello.label + ': 0"</div>' : '') +
+      '</div>';
+
+  el.innerHTML =
+    '<div style="background:var(--surface-2);border:1px solid rgba(144,144,151,0.12);border-radius:10px;margin-bottom:12px">' +
+    headerHtml +
+    '<div style="padding:10px 14px 12px;border-top:1px solid rgba(144,144,151,0.08)">' +
+    '<div style="font-size:11px;color:var(--text-3);margin-bottom:10px">📡 Última actualización: ' + updateStr + (e.fuente ? ' · ' + e.fuente : '') + '</div>' +
+    filasHtml +
+    footerHtml +
+    '</div></div>';
 }
 
 // ── Vista A — Lista de apuestas ───────────────────────────────
@@ -6638,6 +6764,7 @@ function renderCampanitaAlertas() {
 }
 
 function renderListaDE() {
+  renderEmbudoDE();
   var lista = document.getElementById('de-lista');
   var detalle = document.getElementById('de-detalle');
   if (!lista) return;
