@@ -1905,6 +1905,11 @@ const STATE = {
     return true;
   })(),
   oddsPapiCallsSesion: 0,
+  oddsPapiHorasConsulta: JSON.parse(localStorage.getItem('jcahs_oddspapi_schedule') || 'null') || [8, 12, 17],
+  oddsPapiUsadoHoy: (function() {
+    var k = 'jcahs_oddspapi_hoy_' + new Date().toISOString().slice(0,10);
+    return parseInt(localStorage.getItem(k)) || 0;
+  })(),
   theOddsApiUsedMes:   parseInt(localStorage.getItem('jcahs_theodds_used')) || 0,
   theOddsApiMesTs:     parseInt(localStorage.getItem('jcahs_theodds_mes_ts')) || Date.now(),
   theOddsApiLastCall:  0,
@@ -3777,6 +3782,10 @@ async function cargarDatosOddsPapi() {
     STATE.oddsPapiRemaining = Math.max(0, 250 - STATE.oddsPapiUsed);
     localStorage.setItem('oddsPapiUsed', STATE.oddsPapiUsed);
     localStorage.setItem('oddsPapiRemaining', STATE.oddsPapiRemaining);
+    // Contador diario (3 llamadas por consulta: torneos + pinnacle + bet365)
+    STATE.oddsPapiUsadoHoy = (STATE.oddsPapiUsadoHoy || 0) + 3;
+    var _opHoyKey = 'jcahs_oddspapi_hoy_' + new Date().toISOString().slice(0,10);
+    localStorage.setItem(_opHoyKey, String(STATE.oddsPapiUsadoHoy));
     registrarLlamada('oddspapi');
     actualizarTodosMonitores();
 
@@ -4175,44 +4184,20 @@ async function cargarDeportes() {
   STATE.deportesCargando = true;
 
   try {
-  // Cache de 10 minutos — no quemar quota innecesariamente
+  // Cache de 30 minutos para navegación — OddsPapi usa scheduler propio (horas fijas)
   const cacheCheck = Date.now();
-  const CACHE_MS = 10 * 60 * 1000; // 10 minutos
+  const CACHE_MS = 30 * 60 * 1000;
   if (
-    STATE.valueBets &&
-    STATE.valueBets.length > 0 &&
+    STATE.valueBets?.length > 0 &&
     STATE.ultimaActualizacionDeportes &&
     (cacheCheck - STATE.ultimaActualizacionDeportes) < CACHE_MS
   ) {
-    console.log('cargarDeportes: usando cache, faltan',
-      Math.round((CACHE_MS - (cacheCheck - STATE.ultimaActualizacionDeportes)) / 60000),
-      'minutos para refresh');
+    console.log('cargarDeportes: datos recientes (< 30 min), reutilizando');
     return;
   }
 
-  // ── INTENTO 1: OddsPapi (fuente principal) ──────────────────
-  if (STATE.oddsPapiCupoAgotado) {
-    console.log('cargarDeportes: OddsPapi omitido — cupo mensual agotado');
-  } else {
-    console.log('cargarDeportes: intentando OddsPapi...');
-    const oddspapiOk = await cargarDatosOddsPapi();
-
-    if (oddspapiOk && STATE.valueBets?.length > 0) {
-      console.log('cargarDeportes: OddsPapi exitoso', STATE.valueBets.length, 'bets');
-      mentorActualizarEstado('ready');
-      ejecutarDecisionEngine();
-      setText('dep-sub', `${STATE.valueBets.length} value bets · OddsPapi (Pinnacle) · ${ts()}`);
-      setHTML('dep-value-bets', `<div class="loading">📡 ${STATE.valueBets.length} value bets vía OddsPapi — ver detalle en Decision Engine</div>`);
-      setHTML('dep-partidos', `<div class="loading">📡 Partidos vía OddsPapi (Pinnacle) · ${ts()}</div>`);
-      document.querySelectorAll('.aviso-fallback').forEach(el => el.remove());
-      if (typeof renderMentor === 'function') renderMentor();
-      if (typeof renderListaDE === 'function') renderListaDE();
-      guardarCacheOdds('OddsPapi (Pinnacle)');
-      return; // No necesitamos odds-api.io ni The Odds API
-    }
-  }
-
-  // ── INTENTO 2: odds-api.io (fuente secundaria / principal cuando cupo OddsPapi agotado) ──
+  // OddsPapi gestionado por scheduler en init() — no se llama desde navegación
+  // ── INTENTO 1: odds-api.io (fuente principal para navegación) ──────────────
   console.log('cargarDeportes: intentando odds-api.io...');
   const oddsapioOk = await cargarDatosOddsApiIo();
 
@@ -4807,6 +4792,58 @@ function _iniciar429Timer() {
   }, 1000);
 }
 
+// ─── SCHEDULER ODDSPAPI ─────────────────────────────────────────────────────
+function _opHoraGuayaquil() {
+  try {
+    var s = new Date().toLocaleTimeString('es-EC', { timeZone: 'America/Guayaquil', hour: '2-digit', hour12: false });
+    var h = parseInt(s.split(':')[0]);
+    return isNaN(h) ? new Date().getHours() : h;
+  } catch(e) { return new Date().getHours(); }
+}
+
+function _opProximaConsulta() {
+  var horas = (STATE.oddsPapiHorasConsulta || [8, 12, 17]).slice().sort(function(a,b){return a-b;});
+  var horaActual = _opHoraGuayaquil();
+  var minActual;
+  try {
+    var sp = new Date().toLocaleTimeString('es-EC', { timeZone: 'America/Guayaquil', hour: '2-digit', minute: '2-digit', hour12: false });
+    minActual = parseInt(sp.split(':')[1]) || 0;
+  } catch(e) { minActual = new Date().getMinutes(); }
+  var proxHora = null;
+  for (var i = 0; i < horas.length; i++) {
+    if (horas[i] > horaActual || (horas[i] === horaActual && minActual < 55)) {
+      proxHora = horas[i];
+      break;
+    }
+  }
+  var esHoy = proxHora !== null;
+  if (!esHoy) proxHora = horas[0];
+  var ahoraGye = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Guayaquil' }));
+  var target = new Date(ahoraGye);
+  target.setHours(proxHora, 0, 0, 0);
+  if (!esHoy) target.setDate(target.getDate() + 1);
+  return { hora: proxHora, esHoy: esHoy, msHasta: Math.max(0, target - ahoraGye) };
+}
+
+async function _checkOddsPapiSchedule() {
+  if (STATE.oddsPapiCupoAgotado) return;
+  if (STATE.oddsPapiCargando) return;
+  var horas = STATE.oddsPapiHorasConsulta || [8, 12, 17];
+  var horaActual = _opHoraGuayaquil();
+  if (!horas.includes(horaActual)) return;
+  var ultimaMs = STATE.oddsPapiLastCall || 0;
+  if (Date.now() - ultimaMs < 55 * 60 * 1000) return;
+  console.log('[OddsPapi scheduler] consulta programada — hora Guayaquil:', horaActual + ':00');
+  const ok = await cargarDatosOddsPapi();
+  if (ok && STATE.valueBets?.length > 0) {
+    ejecutarDecisionEngine();
+    if (typeof renderMentor === 'function') renderMentor();
+    if (typeof renderListaDE === 'function') renderListaDE();
+    guardarCacheOdds('OddsPapi (Pinnacle)');
+    actualizarTodosMonitores();
+  }
+}
+
 function actualizarMonitorOddsPapi() {
   const el = document.getElementById('monitor-quota-oddspapi');
   if (!el) return;
@@ -4841,69 +4878,89 @@ function actualizarMonitorOddsPapi() {
     return;
   }
 
+  // ── Termómetro mensual ──────────────────────────────────────
   const used = STATE.oddsPapiUsed || 0;
   const remaining = STATE.oddsPapiRemaining ?? 250;
   const total = 250;
-  const pct = Math.round((remaining / total) * 100);
-  const color = pct > 50 ? '#00ff88' : pct > 20 ? '#ffd700' : '#ff4444';
-  const estado = pct > 50 ? 'OK' : pct > 20 ? 'BAJO' : 'CRÍTICO';
+  const usedPct = Math.min(100, Math.round((used / total) * 100));
+  const colorMes = used < 200 ? '#00ff88' : used <= 240 ? '#ffd700' : '#ff4444';
+  const estadoMes = used < 200 ? 'OK' : used <= 240 ? 'BAJO' : 'CRÍTICO';
 
-  const nombres = CFG.ODDSPAPI_TOURNAMENTS?.activosNombres || [];
-  const torneosHtml = nombres.length > 0
-    ? `<div style="color:#4a5568; font-size:10px; margin-top:4px; line-height:1.5;">
-        ${nombres.slice(0,3).map(n => `• ${n}`).join('<br>')}
-        ${nombres.length > 3 ? `<br>• +${nombres.length - 3} más` : ''}
-       </div>`
-    : '';
+  var mesesOp = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  var hoyM2 = new Date();
+  var resetM2 = new Date(hoyM2.getFullYear(), hoyM2.getMonth() + 1, 1);
+  var resetStrM2 = '1 ' + mesesOp[resetM2.getMonth()];
 
-  const mundialActivo = CFG.ODDSPAPI_TOURNAMENTS?.mundialActivo;
-  const mundialHtml = `
-    <div style="margin-top:6px; padding-top:6px; border-top:1px solid #1e2d45;">
-        <span style="color:#4a5568; font-size:10px;">🏆 Mundial 2026: </span>
-        <span style="color:${mundialActivo ? '#00ff88' : '#ffd700'}; font-size:10px; font-weight:600;">
-            ${mundialActivo ? 'ACTIVO' : 'En espera de odds...'}
-        </span>
-    </div>
-  `;
+  const barMensual =
+    '<div style="background:#1a2540;border-radius:4px;height:6px;margin:4px 0 3px">' +
+    '<div style="background:' + colorMes + ';width:' + usedPct + '%;height:100%;border-radius:4px;transition:width 0.5s"></div>' +
+    '</div>';
 
-  // Gate de 10 minutos entre llamadas (apiRateControl.oddspapi)
-  const minMs = CFG.apiRateControl.oddspapi.minMinutosEntreLlamadas * 60 * 1000;
-  const esperaMs = minMs - (Date.now() - (STATE.oddsPapiLastCall || 0));
-  const gateHtml = esperaMs > 0
-    ? '<div style="color:#4a5568;font-size:10px;margin-top:4px">próxima consulta disponible en ' + Math.ceil(esperaMs / 60000) + 'm</div>'
-    : '';
+  // ── Termómetro diario ───────────────────────────────────────
+  const usadoHoy = STATE.oddsPapiUsadoHoy || 0;
+  const limiteDiario = (STATE.oddsPapiHorasConsulta || [8,12,17]).length * 3;
+  const diarPct = Math.min(100, limiteDiario > 0 ? Math.round((usadoHoy / limiteDiario) * 100) : 0);
+  const colorDia = usadoHoy < limiteDiario ? '#00ff88' : '#ff4444';
+  const restantesDia = Math.max(0, limiteDiario - usadoHoy);
 
-  // Reset mensual — solo cuando la quota está baja
-  const resetHtml = pct <= 20 ? htmlResetMensual() : '';
+  const barDiario =
+    '<div style="background:#1a2540;border-radius:4px;height:6px;margin:4px 0 3px">' +
+    '<div style="background:' + colorDia + ';width:' + diarPct + '%;height:100%;border-radius:4px;transition:width 0.5s"></div>' +
+    '</div>';
 
-  // Última actualización — hace cuántos minutos fue la última llamada real
+  // ── Próxima consulta ────────────────────────────────────────
+  var proxInfo = _opProximaConsulta();
+  var proxHoraStr = String(proxInfo.hora).padStart(2,'0') + ':00';
+  var proxLabel = proxInfo.esHoy ? 'Próxima consulta: ' + proxHoraStr : 'Próxima: mañana ' + proxHoraStr;
+  var msHasta = proxInfo.msHasta;
+  var hHasta = Math.floor(msHasta / 3600000);
+  var mHasta = Math.floor((msHasta % 3600000) / 60000);
+  var enStr = hHasta > 0 ? 'en ' + hHasta + 'h ' + mHasta + 'min' : 'en ' + mHasta + 'min';
+
+  // ── Última actualización ────────────────────────────────────
   const ultimaHtml = STATE.oddsPapiLastCall
-    ? '<div style="color:#4a5568;font-size:10px;margin-top:4px">última actualización: hace ' +
+    ? '<div style="color:#4a5568;font-size:10px;margin-top:2px">últ. actualización: hace ' +
       Math.floor((Date.now() - STATE.oddsPapiLastCall) / 60000) + ' min</div>'
-    : '<div style="color:#4a5568;font-size:10px;margin-top:4px">sin actualizaciones aún</div>';
+    : '';
 
-  // Botón "↺ forzar" — fuerza OddsPapi ignorando su cooldown (consume llamada real)
-  const forzarHtml = htmlBotonForzar('oddspapi', STATE.oddsPapiLastCall);
+  // ── Botón forzar (con confirmación) ────────────────────────
+  const ahora = Date.now();
+  const deshabilitadoHasta = STATE.forzarBotonHasta?.['oddspapi'] || 0;
+  let forzarHtml = '';
+  if (ahora < deshabilitadoHasta) {
+    forzarHtml = '<button disabled style="margin-top:6px;background:transparent;border:1px solid #2d3b56;color:#4a5568;font-size:10px;padding:2px 8px;border-radius:4px;cursor:not-allowed">Actualizando...</button>';
+  } else if (ahora - (STATE.oddsPapiLastCall || 0) >= FORZAR_COOLDOWN_MS) {
+    forzarHtml = '<button onclick="if(!confirm(\'⚠️ Esto consume 3 de tus 250 llamadas mensuales.\\n¿Confirmar?\'))return;forzarApiSidebar(\'oddspapi\')" style="margin-top:6px;background:transparent;border:1px solid #2d3b56;color:#8892a4;font-size:10px;padding:2px 8px;border-radius:4px;cursor:pointer" title="Forzar actualización fuera del horario programado">↺ forzar</button>';
+  }
 
   el.innerHTML =
     '<div style="padding:8px 0">' +
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
+    // Header
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
     '<span style="color:#8892a4;font-size:11px;letter-spacing:1px">⚡ ODDSPAPI</span>' +
-    '<span style="color:' + color + ';font-size:11px;font-weight:700">' + estado + '</span>' +
+    '<span style="color:' + colorMes + ';font-size:11px;font-weight:700">' + estadoMes + '</span>' +
     '</div>' +
-    '<div style="background:#1a2540;border-radius:4px;height:5px;margin-bottom:5px">' +
-    '<div style="background:' + color + ';width:' + pct + '%;height:100%;border-radius:4px;transition:width 0.5s"></div>' +
+    // Mensual
+    '<div style="color:#4a5568;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">MENSUAL</div>' +
+    barMensual +
+    '<div style="display:flex;justify-content:space-between;align-items:center">' +
+    '<span style="color:' + colorMes + ';font-size:10px;font-weight:600">' + used + '/250</span>' +
+    '<span style="color:#4a5568;font-size:10px">' + remaining + ' restantes · reset ' + resetStrM2 + '</span>' +
     '</div>' +
-    '<div style="display:flex;justify-content:space-between">' +
-    '<span style="color:#4a5568;font-size:10px">' + used + ' usadas</span>' +
-    '<span style="color:' + color + ';font-size:11px;font-weight:600">' + remaining + '/250 restantes</span>' +
+    // Diario
+    '<div style="color:#4a5568;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;margin:8px 0 2px">HOY</div>' +
+    barDiario +
+    '<div style="display:flex;justify-content:space-between;align-items:center">' +
+    '<span style="color:' + colorDia + ';font-size:10px;font-weight:600">' + usadoHoy + '/' + limiteDiario + '</span>' +
+    '<span style="color:#4a5568;font-size:10px">' + restantesDia + ' restantes hoy</span>' +
     '</div>' +
-    gateHtml +
+    // Próxima consulta
+    '<div style="margin-top:8px;padding-top:6px;border-top:1px solid #1e2d45">' +
+    '<div style="color:#8892a4;font-size:10px">' + proxLabel + '</div>' +
+    '<div style="color:#4a5568;font-size:10px">(' + enStr + ')</div>' +
     ultimaHtml +
-    resetHtml +
+    '</div>' +
     forzarHtml +
-    torneosHtml +
-    mundialHtml +
     '</div>';
 }
 
@@ -7485,6 +7542,10 @@ async function init() {
   actualizarBotonAlertas();
   nuevoVerificarAlertas();
   setInterval(nuevoVerificarAlertas, 90 * 1000);
+
+  // Scheduler OddsPapi — consultas en horas fijas [8, 12, 17] (Guayaquil)
+  _checkOddsPapiSchedule(); // chequeo inmediato al arrancar
+  setInterval(_checkOddsPapiSchedule, 60 * 1000);
 
   // Caché de odds (Capa 1) — mostrar datos previos mientras carga la fuente real
   cargarCacheOddsInicial();
