@@ -6556,24 +6556,74 @@ function renderEmbudoDE() {
   var minAgo = Math.floor((Date.now() - e.timestamp) / 60000);
   var updateStr = minAgo === 0 ? 'hace menos de 1 min' : ('hace ' + minAgo + ' min');
 
+  // Fuente + contexto de precisión
+  var fuente = e.fuente || '';
+  var esOddsApiIo = fuente === 'odds-api.io';
+  var bkRef = (fuente === 'OddsPapi') ? 'Pinnacle' : 'Bet365';
+  var fuenteDetalle, fuenteColor;
+  if (fuente === 'OddsPapi') {
+    fuenteDetalle = 'Pinnacle vs Bet365 — alta precisión';
+    fuenteColor = '#4edea3';
+  } else if (esOddsApiIo) {
+    fuenteDetalle = 'Bet365 vs Bet365 ⚠️ — edge menos preciso' + (STATE.oddsPapiCupoAgotado ? ' (OddsPapi agotado)' : '');
+    fuenteColor = '#ffd700';
+  } else {
+    fuenteDetalle = fuente;
+    fuenteColor = 'var(--text-3)';
+  }
+
+  // Pasos con etiquetas amigables + explicación por defecto + explicación de cuello
   var pasos = [
-    { label: 'Eventos recibidos',                            n: e.eventosRecibidos },
-    { label: 'Con odds válidas',                             n: e.conOddsValidas },
-    { label: 'Con edge positivo (>0%)',                      n: e.conEdgePositivo },
-    { label: 'Con edge ≥' + e.edgeMinThreshold + '%',  n: e.conEdgeMinimo },
-    { label: 'Con probReal ≥' + e.probMinThreshold + '%', n: e.conProbReal },
-    { label: 'Con score ≥' + e.scoreMinThreshold,       n: e.conScore },
+    {
+      label: 'Partidos disponibles hoy',
+      n: e.eventosRecibidos,
+      desc: 'De todos los partidos de fútbol que la API tiene en este momento',
+      descCuello: 'La API no devolvió ningún partido. Puede ser un problema de conexión.',
+    },
+    {
+      label: 'Con cuotas disponibles (' + bkRef + ')',
+      n: e.conOddsValidas,
+      desc: bkRef + ' solo cubre ciertos partidos — el resto se descarta automáticamente',
+      descCuello: bkRef + ' no tiene cuotas para ninguno de los ' + e.eventosRecibidos.toLocaleString() + ' partidos ahora mismo.' +
+        (STATE.oddsPapiCupoAgotado ? ' Con OddsPapi (Pinnacle) tendríamos más cobertura.' : ' Prueba en otro horario.'),
+    },
+    {
+      label: 'Con ventaja matemática (edge >0%)',
+      n: e.conEdgePositivo,
+      desc: 'Las cuotas ofrecidas son más altas de lo que el mercado de referencia indica',
+      descCuello: 'Ninguno de los ' + e.conOddsValidas + ' partidos disponibles muestra una cuota más alta de lo que debería según ' + bkRef + '.' +
+        (esOddsApiIo ? ' Con Bet365 como única referencia, el edge calculado es menos preciso.' : ''),
+    },
+    {
+      label: 'Con ventaja suficiente (edge ≥' + e.edgeMinThreshold + '%)',
+      n: e.conEdgeMinimo,
+      desc: 'Filtro mínimo de calidad — edges pequeños no compensan el riesgo',
+      descCuello: 'Los ' + e.conEdgePositivo + ' partidos con alguna ventaja no superan el mínimo de ' + e.edgeMinThreshold + '%. El mercado está muy eficiente ahora.',
+    },
+    {
+      label: 'Con probabilidad aceptable (≥' + e.probMinThreshold + '%)',
+      n: e.conProbReal,
+      desc: 'Apostamos solo cuando la probabilidad real supera el umbral de sensibilidad',
+      descCuello: 'Los partidos con edge suficiente tienen probabilidad real demasiado baja — cuotas muy altas implican alta varianza.',
+    },
+    {
+      label: 'Con puntuación del sistema (≥' + e.scoreMinThreshold + ')',
+      n: e.conScore,
+      desc: 'Score compuesto: combina edge, probabilidad y cuota en un número único',
+      descCuello: 'Los partidos superan los filtros anteriores pero no alcanzan el score mínimo de ' + e.scoreMinThreshold + '.',
+    },
   ];
 
-  // Cuello de botella: primer paso (desde edge positivo) con n === 0
-  var cuello = null;
-  for (var ci = 2; ci < pasos.length; ci++) {
-    if (pasos[ci].n === 0) { cuello = pasos[ci]; break; }
+  // Cuello de botella: primer paso con n === 0 (empezando desde "con cuotas", idx 1)
+  var cuelloIdx = -1;
+  for (var ci = 1; ci < pasos.length; ci++) {
+    if (pasos[ci].n === 0) { cuelloIdx = ci; break; }
   }
+  var cuello = cuelloIdx >= 0 ? pasos[cuelloIdx] : null;
 
   var resumenLinea = e.mostrando > 0
     ? '<span style="color:#4edea3;font-weight:600">✅ ' + e.mostrando + ' apuesta' + (e.mostrando !== 1 ? 's' : '') + '</span>'
-    : '<span style="color:#ff5c5c;font-weight:600">❌ Sin apuestas' + (cuello ? ' · cuello: "' + cuello.label + '"' : '') + '</span>';
+    : '<span style="color:#ff5c5c;font-weight:600">❌ Sin apuestas' + (cuello ? ' — cuello: ' + cuello.label : '') + '</span>';
 
   var headerHtml =
     '<div onclick="toggleEmbudoDE()" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:9px 14px;user-select:none">' +
@@ -6589,34 +6639,73 @@ function renderEmbudoDE() {
     return;
   }
 
+  // Meta: actualización + fuente
+  var metaHtml =
+    '<div style="margin-bottom:12px">' +
+    '<div style="font-size:11px;color:var(--text-3)">📡 Última actualización: ' + updateStr + (fuente ? ' · ' + fuente : '') + '</div>' +
+    '<div style="font-size:11px;font-weight:600;color:' + fuenteColor + ';margin-top:2px">Fuente actual: ' + fuenteDetalle + '</div>' +
+    '</div>';
+
+  // Filas
   var filasHtml = pasos.map(function(p, idx) {
-    var esBottleneck = !!(cuello && p.label === cuello.label);
+    var esBottleneck = idx === cuelloIdx;
     var numColor = p.n === 0 ? '#ff5c5c' : p.n <= 3 ? '#ffd700' : '#4edea3';
-    var labelColor = esBottleneck ? '#ff5c5c' : 'var(--text-2)';
+    var labelColor = esBottleneck ? '#ffd700' : (p.n === 0 ? '#ff5c5c' : 'var(--text-2)');
+    var desc = (esBottleneck && p.descCuello) ? p.descCuello : p.desc;
+    var bb = idx < pasos.length - 1 ? 'border-bottom:1px solid rgba(255,255,255,0.04);' : '';
     return (
-      '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;' +
-      (idx < pasos.length - 1 ? 'border-bottom:1px solid rgba(255,255,255,0.04)' : '') + '">' +
-      '<span style="font-size:12px;color:' + labelColor + '">' + (esBottleneck ? '⚠️ ' : '') + p.label + '</span>' +
+      '<div style="padding:8px 0;' + bb + '">' +
+      '<div style="display:flex;justify-content:space-between;align-items:baseline">' +
+      '<span style="font-size:12px;font-weight:600;color:' + labelColor + '">' + (esBottleneck ? '⚠️ ' : '') + p.label + '</span>' +
       '<span style="font-size:13px;font-weight:700;font-family:var(--f-mono);color:' + numColor + '">' + p.n.toLocaleString() + '</span>' +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--text-3);margin-top:3px;line-height:1.45">' + desc + '</div>' +
       '</div>'
     );
   }).join('');
 
-  var footerHtml = e.mostrando > 0
-    ? '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center">' +
-      '<span style="font-size:13px;font-weight:700;color:#4edea3">✅ Mostrando</span>' +
-      '<span style="font-size:14px;font-weight:800;font-family:var(--f-mono);color:#4edea3">' + e.mostrando + ' apuesta' + (e.mostrando !== 1 ? 's' : '') + '</span>' +
-      '</div>'
-    : '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08)">' +
-      '<div style="font-size:13px;color:#ff5c5c;font-weight:700;margin-bottom:4px">❌ Ninguna apuesta cumple todos los filtros ahora.</div>' +
-      (cuello ? '<div style="font-size:12px;color:var(--text-3)">El cuello de botella es: "' + cuello.label + ': 0"</div>' : '') +
+  // Footer contextual
+  var footerHtml;
+  if (e.mostrando > 0) {
+    footerHtml =
+      '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08)">' +
+      '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">' +
+      '<span style="font-size:13px;font-weight:700;color:#4edea3">✅ Apuestas encontradas</span>' +
+      '<span style="font-size:14px;font-weight:800;font-family:var(--f-mono);color:#4edea3">' + e.mostrando + '</span>' +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--text-3)">Revisa las tarjetas abajo — ordenadas por puntuación.</div>' +
       '</div>';
+  } else {
+    var problema = '';
+    if (cuelloIdx === 1) {
+      problema = 'De ' + e.eventosRecibidos.toLocaleString() + ' partidos, ninguno tiene cuotas de ' + bkRef + ' disponibles ahora mismo.';
+    } else if (cuelloIdx === 2) {
+      problema = 'De ' + e.eventosRecibidos.toLocaleString() + ' partidos, solo ' + e.conOddsValidas.toLocaleString() + ' tienen cuotas de ' + bkRef + ', y ninguno muestra ventaja sobre la casa.';
+    } else if (cuelloIdx === 3) {
+      problema = 'De ' + e.conEdgePositivo + ' partidos con alguna ventaja, ninguno supera el umbral mínimo del ' + e.edgeMinThreshold + '%.';
+    } else if (cuelloIdx === 4) {
+      problema = 'Hay partidos con edge suficiente, pero con probabilidad real menor al ' + e.probMinThreshold + '% — demasiada varianza.';
+    } else if (cuelloIdx === 5) {
+      problema = 'Hay partidos que superan los filtros, pero ninguno alcanza el score mínimo de ' + e.scoreMinThreshold + '.';
+    } else {
+      problema = 'Ninguna apuesta cumple todos los filtros en este momento.';
+    }
+    var sugerencia = STATE.oddsPapiCupoAgotado && esOddsApiIo
+      ? 'Cuando OddsPapi se recupere (1 jul) habrá cobertura de Pinnacle y más partidos con edge real.'
+      : (cuelloIdx <= 2 ? 'Prueba más tarde — hay más partidos en ciertas horas del día.' : 'El mercado está eficiente ahora. Vuelve en 2–3 horas.');
+    footerHtml =
+      '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08)">' +
+      '<div style="font-size:13px;color:#ff5c5c;font-weight:700;margin-bottom:5px">❌ Sin apuestas ahora</div>' +
+      '<div style="font-size:12px;color:var(--text-3);line-height:1.5;margin-bottom:4px">' + problema + '</div>' +
+      '<div style="font-size:11px;color:var(--text-3);opacity:0.75">' + sugerencia + '</div>' +
+      '</div>';
+  }
 
   el.innerHTML =
     '<div style="background:var(--surface-2);border:1px solid rgba(144,144,151,0.12);border-radius:10px;margin-bottom:12px">' +
     headerHtml +
     '<div style="padding:10px 14px 12px;border-top:1px solid rgba(144,144,151,0.08)">' +
-    '<div style="font-size:11px;color:var(--text-3);margin-bottom:10px">📡 Última actualización: ' + updateStr + (e.fuente ? ' · ' + e.fuente : '') + '</div>' +
+    metaHtml +
     filasHtml +
     footerHtml +
     '</div></div>';
