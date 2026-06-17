@@ -564,7 +564,7 @@ select.input { cursor: pointer; }
         <div class="sec-header">
           <div>
             <div class="sec-title">Panel Cripto</div>
-            <div class="sec-sub" id="panel-fuente">Fuente: Binance + CoinGecko</div>
+            <div class="sec-sub" id="panel-fuente">Fuente: Kraken OHLC + CoinGecko</div>
           </div>
           <button class="btn btn-ghost btn-sm" onclick="recargarDatos(true)">↺ Actualizar</button>
         </div>
@@ -772,11 +772,11 @@ select.input { cursor: pointer; }
 const PROXY = 'https://jcahs-proxy.jh050447.workers.dev';
 
 const STATE = {
-  precios: {},            // { BTC: { usd, usd_24h_change }, ETH: {...} }
-  fng: null,              // { value, value_classification }
+  precios: {},            // { BTC: { usd, change24h }, ETH: {...} }
+  fng: null,              // { value, label }
   ohlc: {
-    BTCUSDT: { '4h': [], '1d': [] },
-    ETHUSDT: { '4h': [], '1d': [] }
+    BTC: { '4h': [], '1d': [] },
+    ETH: { '4h': [], '1d': [] }
   },
   capitalCrypto: parseFloat(localStorage.getItem('jcahs_crypto_capital')) || 200,
   cargando: false,
@@ -934,23 +934,29 @@ async function cargarFearGreed() {
   }
 }
 
-// ── CARGAR KLINES (Binance) ───────────────────────────────
-async function cargarKlines(symbol, interval, limit) {
+// ── CARGAR KLINES (Kraken) ────────────────────────────────
+// Pairs: XBTUSD (BTC), ETHUSD (ETH)
+// Intervals: 240=4h, 1440=1d
+// Response: {error:[], result: { XXBTZUSD: [[time_s, o, h, l, c, vwap, vol, count], ...], last: N }}
+async function cargarKlines(krakenPair, interval) {
   try {
-    const url = 'https://api.binance.com/api/v3/klines?symbol=' + symbol +
-                '&interval=' + interval + '&limit=' + limit;
+    const url = 'https://api.kraken.com/0/public/OHLC?pair=' + krakenPair + '&interval=' + interval;
     const data = await proxyGet(url);
-    if (!Array.isArray(data)) throw new Error('Respuesta inválida');
-    return data.map(k => ({
-      t: k[0],
+    if (data.error && data.error.length > 0) throw new Error(data.error[0]);
+    const pairKey = Object.keys(data.result).find(k => k !== 'last');
+    if (!pairKey) throw new Error('Par no encontrado en respuesta');
+    const candles = data.result[pairKey];
+    // Excluir la última vela (está en curso, incompleta)
+    return candles.slice(0, -1).map(k => ({
+      t: k[0] * 1000,           // segundos → ms
       o: parseFloat(k[1]),
       h: parseFloat(k[2]),
       l: parseFloat(k[3]),
       c: parseFloat(k[4]),
-      v: parseFloat(k[5])
+      v: parseFloat(k[6])       // k[5]=vwap, k[6]=volume
     }));
   } catch (e) {
-    console.warn('cargarKlines ' + symbol + ' ' + interval + ':', e.message);
+    console.warn('cargarKlines Kraken ' + krakenPair + ' ' + interval + ':', e.message);
     return [];
   }
 }
@@ -1032,9 +1038,8 @@ function calcVolumeSignal(vols) {
 
 // ── CALCULAR SCORE ────────────────────────────────────────
 function calcScore(sym) {
-  const symbol = sym + 'USDT';
-  const k4h = STATE.ohlc[symbol]?.['4h'] || [];
-  const k1d = STATE.ohlc[symbol]?.['1d'] || [];
+  const k4h = STATE.ohlc[sym]?.['4h'] || [];
+  const k1d = STATE.ohlc[sym]?.['1d'] || [];
   const precio = STATE.precios[sym]?.usd || null;
   const fng = STATE.fng?.value || 50;
 
@@ -1132,7 +1137,7 @@ function calcScore(sym) {
   else scoreColor = 'var(--error)';
 
   return {
-    sym, symbol, score, senal, senalClass, scoreColor,
+    sym, score, senal, senalClass, scoreColor,
     rsi4h, macd4h, volSig, ema20_1d, ema50_1d, ema200_1d,
     precio, razones, razonesFail,
     rsiColor: rsi4h < 30 ? 'var(--tertiary)' : rsi4h > 70 ? 'var(--error)' : 'var(--warning)'
@@ -1590,18 +1595,18 @@ async function recargarDatos(forzar) {
     // Paralelo: precios + FNG
     await Promise.all([cargarPrecios(), cargarFearGreed()]);
 
-    // Klines Binance — 4H (100 velas) y 1D (200 velas)
+    // Klines Kraken — 4H y 1D (Binance geo-bloqueado desde Cloudflare)
     const [btc4h, btc1d, eth4h, eth1d] = await Promise.all([
-      cargarKlines('BTCUSDT', '4h', 100),
-      cargarKlines('BTCUSDT', '1d', 200),
-      cargarKlines('ETHUSDT', '4h', 100),
-      cargarKlines('ETHUSDT', '1d', 200)
+      cargarKlines('XBTUSD', 240),
+      cargarKlines('XBTUSD', 1440),
+      cargarKlines('ETHUSD', 240),
+      cargarKlines('ETHUSD', 1440)
     ]);
 
-    if (btc4h.length > 0) STATE.ohlc.BTCUSDT['4h'] = btc4h;
-    if (btc1d.length > 0) STATE.ohlc.BTCUSDT['1d'] = btc1d;
-    if (eth4h.length > 0) STATE.ohlc.ETHUSDT['4h'] = eth4h;
-    if (eth1d.length > 0) STATE.ohlc.ETHUSDT['1d'] = eth1d;
+    if (btc4h.length > 0) STATE.ohlc.BTC['4h'] = btc4h;
+    if (btc1d.length > 0) STATE.ohlc.BTC['1d'] = btc1d;
+    if (eth4h.length > 0) STATE.ohlc.ETH['4h'] = eth4h;
+    if (eth1d.length > 0) STATE.ohlc.ETH['1d'] = eth1d;
 
     STATE.ultimaActualizacion = new Date();
     const h = STATE.ultimaActualizacion;
