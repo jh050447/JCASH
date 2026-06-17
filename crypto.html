@@ -350,6 +350,49 @@ select.input { cursor: pointer; }
 .trade-col-label { font-size:10px; color:var(--text-3); text-transform:uppercase; letter-spacing:.5px; }
 .trade-col-val { font-family:var(--f-mono); font-size:14px; font-weight:700; }
 
+/* ── EXCHANGE TABS ───────────────────────────────────────── */
+.exch-tabs { display:flex; gap:4px; margin:8px 0 6px; flex-wrap:wrap; }
+.exch-tab {
+  padding:3px 9px; border-radius:20px; font-size:11px; font-weight:600;
+  cursor:pointer; border:1px solid var(--border); background:transparent;
+  color:var(--text-3); transition:background .12s, color .12s, border-color .12s;
+  font-family:var(--f-ui);
+}
+.exch-tab:hover { background:var(--surface-2); color:var(--text); }
+.exch-tab.active { background:var(--tert-dim); color:var(--tertiary); border-color:rgba(78,222,163,0.3); }
+
+/* ── OP BOX EN CARD ──────────────────────────────────────── */
+.op-box {
+  margin-top:10px; padding:10px 12px; background:var(--surface-2);
+  border:1px solid var(--border); border-radius:var(--radius);
+}
+.op-box-title { font-size:10px; font-weight:600; color:var(--text-3); letter-spacing:.8px; text-transform:uppercase; margin-bottom:8px; }
+.op-box-row { display:flex; gap:8px; align-items:center; }
+.op-box-inp { flex:1; background:var(--surface-3); border:1px solid var(--border); border-radius:6px; color:var(--text); font-family:var(--f-mono); font-size:12px; padding:5px 8px; outline:none; min-width:0; }
+.op-box-inp:focus { border-color:var(--tertiary); }
+.op-box-btn { padding:5px 11px; border-radius:6px; font-size:12px; font-weight:600; border:none; cursor:pointer; background:var(--tertiary); color:#060f1a; white-space:nowrap; flex-shrink:0; }
+.op-box-btn:hover { opacity:.88; }
+
+/* ── POR QUÉ (explicaciones) ─────────────────────────────── */
+.por-que {
+  margin-top:8px; font-size:11px; color:var(--text-3);
+  border-top:1px solid var(--border); padding-top:8px; line-height:1.6;
+}
+.por-que b { color:var(--text-2); }
+
+/* ── TOP 100 ─────────────────────────────────────────────── */
+.top100-toggle {
+  display:flex; align-items:center; gap:8px; cursor:pointer;
+  padding:12px 0 0; color:var(--text-2); font-size:13px; font-weight:600;
+  border-top:1px solid var(--border); margin-top:6px; user-select:none;
+}
+.top100-toggle:hover { color:var(--tertiary); }
+.top100-arrow { font-size:10px; margin-left:auto; transition:transform .2s; }
+.top100-toggle.open .top100-arrow { transform:rotate(180deg); }
+.top100-wrap { display:none; margin-top:10px; }
+.top100-wrap.open { display:block; }
+.top100-table-wrap { overflow-x:auto; max-height:440px; overflow-y:auto; scrollbar-width:thin; }
+
 /* ── POSICIONES TABLE ────────────────────────────────────── */
 .tabla { width:100%; border-collapse:collapse; }
 .tabla th { font-size:11px; font-weight:600; color:var(--text-3); letter-spacing:1px; text-transform:uppercase; text-align:left; padding:9px 10px; border-bottom:1px solid var(--border); }
@@ -480,6 +523,7 @@ select.input { cursor: pointer; }
   .form-row { grid-template-columns: 1fr; }
 
   .scanner-trade-row { grid-template-columns: 1fr; gap:8px; }
+  #ticker-sol, #ticker-xrp { display:none; }
 }
 </style>
 </head>
@@ -539,6 +583,16 @@ select.input { cursor: pointer; }
           <span class="ticker-price" id="ticker-eth-price">—</span>
           <span class="ticker-chg" id="ticker-eth-chg">—</span>
         </div>
+        <div class="ticker-item" id="ticker-sol">
+          <span class="ticker-sym">SOL</span>
+          <span class="ticker-price" id="ticker-sol-price">—</span>
+          <span class="ticker-chg" id="ticker-sol-chg">—</span>
+        </div>
+        <div class="ticker-item" id="ticker-xrp">
+          <span class="ticker-sym">XRP</span>
+          <span class="ticker-price" id="ticker-xrp-price">—</span>
+          <span class="ticker-chg" id="ticker-xrp-chg">—</span>
+        </div>
       </div>
 
       <!-- Capital editable -->
@@ -593,13 +647,19 @@ select.input { cursor: pointer; }
           </div>
         </div>
 
-        <!-- Crypto Cards BTC + ETH -->
-        <div class="grid-2" style="margin-bottom:16px;" id="crypto-cards">
+        <!-- Crypto Cards BTC / ETH / SOL / XRP -->
+        <div class="grid-4" style="margin-bottom:16px;" id="crypto-cards">
           <div class="crypto-coin-card" id="card-btc">
             <div style="text-align:center;padding:30px;color:var(--text-3);">Cargando BTC...</div>
           </div>
           <div class="crypto-coin-card" id="card-eth">
             <div style="text-align:center;padding:30px;color:var(--text-3);">Cargando ETH...</div>
+          </div>
+          <div class="crypto-coin-card" id="card-sol">
+            <div style="text-align:center;padding:30px;color:var(--text-3);">Cargando SOL...</div>
+          </div>
+          <div class="crypto-coin-card" id="card-xrp">
+            <div style="text-align:center;padding:30px;color:var(--text-3);">Cargando XRP...</div>
           </div>
         </div>
 
@@ -614,6 +674,22 @@ select.input { cursor: pointer; }
           </div>
         </div>
 
+        <!-- Top 100 colapsable -->
+        <div class="card">
+          <div class="top100-toggle" id="top100-toggle" onclick="toggleTop100()">
+            <span>🏆 Top 100 Criptomonedas por Market Cap</span>
+            <span class="top100-arrow" id="top100-arrow">▼</span>
+          </div>
+          <div class="top100-wrap" id="top100-wrap">
+            <div style="margin-bottom:10px;">
+              <input type="text" class="input" id="top100-filter" placeholder="🔍 Buscar moneda..." oninput="filtrarTop100()">
+            </div>
+            <div class="top100-table-wrap" id="top100-table-wrap">
+              <div class="empty-state">Desplegando...</div>
+            </div>
+          </div>
+        </div>
+
       </section>
 
       <!-- ══════════ SCANNER ══════════ -->
@@ -622,7 +698,7 @@ select.input { cursor: pointer; }
         <div class="sec-header">
           <div>
             <div class="sec-title">Scanner de Oportunidades</div>
-            <div class="sec-sub">Análisis técnico BTC/ETH — 4H + 1D</div>
+            <div class="sec-sub">Análisis técnico BTC/ETH/SOL/XRP — 4H + 1D</div>
           </div>
           <button class="btn btn-ghost btn-sm" onclick="recargarDatos(true)">↺ Actualizar</button>
         </div>
@@ -772,15 +848,28 @@ select.input { cursor: pointer; }
 const PROXY = 'https://jcahs-proxy.jh050447.workers.dev';
 
 const STATE = {
-  precios: {},            // { BTC: { usd, change24h }, ETH: {...} }
-  fng: null,              // { value, label }
+  precios: {},
+  fng: null,
   ohlc: {
     BTC: { '4h': [], '1d': [] },
-    ETH: { '4h': [], '1d': [] }
+    ETH: { '4h': [], '1d': [] },
+    SOL: { '4h': [], '1d': [] },
+    XRP: { '4h': [], '1d': [] }
   },
   capitalCrypto: parseFloat(localStorage.getItem('jcahs_crypto_capital')) || 200,
+  exchSelected: {},
+  top100: null,
   cargando: false,
   ultimaActualizacion: null
+};
+
+const NOMBRES = { BTC:'Bitcoin', ETH:'Ethereum', SOL:'Solana', XRP:'XRP' };
+const COIN_COLOR = { BTC:'#F7931A', ETH:'#627EEA', SOL:'#9945FF', XRP:'#00AAE4' };
+const EXCHANGES = {
+  binance: { nombre:'Binance', spot:0.001,  futuros:0.0004 },
+  bybit:   { nombre:'Bybit',   spot:0.001,  futuros:0.0006 },
+  kucoin:  { nombre:'KuCoin',  spot:0.001,  futuros:0.0006 },
+  kraken:  { nombre:'Kraken',  spot:0.0016, futuros:0.0005 }
 };
 
 // ── HELPERS ───────────────────────────────────────────────
@@ -888,14 +977,12 @@ async function proxyGet(url) {
 async function cargarPrecios() {
   try {
     const data = await proxyGet(
-      'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true'
+      'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,ripple&vs_currencies=usd&include_24hr_change=true'
     );
-    if (data.bitcoin) {
-      STATE.precios.BTC = { usd: data.bitcoin.usd, change24h: data.bitcoin.usd_24h_change };
-    }
-    if (data.ethereum) {
-      STATE.precios.ETH = { usd: data.ethereum.usd, change24h: data.ethereum.usd_24h_change };
-    }
+    if (data.bitcoin)  STATE.precios.BTC = { usd: data.bitcoin.usd,  change24h: data.bitcoin.usd_24h_change };
+    if (data.ethereum) STATE.precios.ETH = { usd: data.ethereum.usd, change24h: data.ethereum.usd_24h_change };
+    if (data.solana)   STATE.precios.SOL = { usd: data.solana.usd,   change24h: data.solana.usd_24h_change };
+    if (data.ripple)   STATE.precios.XRP = { usd: data.ripple.usd,   change24h: data.ripple.usd_24h_change };
     actualizarTicker();
   } catch (e) {
     console.warn('cargarPrecios error:', e.message);
@@ -903,20 +990,14 @@ async function cargarPrecios() {
 }
 
 function actualizarTicker() {
-  const btc = STATE.precios.BTC;
-  const eth = STATE.precios.ETH;
-  if (btc) {
-    qs('ticker-btc-price').textContent = fmtPrecio(btc.usd);
-    const chgEl = qs('ticker-btc-chg');
-    chgEl.textContent = fmtPct(btc.change24h);
-    chgEl.className = 'ticker-chg ' + (btc.change24h >= 0 ? 'pos' : 'neg');
-  }
-  if (eth) {
-    qs('ticker-eth-price').textContent = fmtPrecio(eth.usd);
-    const chgEl = qs('ticker-eth-chg');
-    chgEl.textContent = fmtPct(eth.change24h);
-    chgEl.className = 'ticker-chg ' + (eth.change24h >= 0 ? 'pos' : 'neg');
-  }
+  [['BTC','btc'], ['ETH','eth'], ['SOL','sol'], ['XRP','xrp']].forEach(([sym, id]) => {
+    const p = STATE.precios[sym];
+    if (!p) return;
+    qs('ticker-' + id + '-price').textContent = fmtPrecio(p.usd);
+    const chgEl = qs('ticker-' + id + '-chg');
+    chgEl.textContent = fmtPct(p.change24h);
+    chgEl.className = 'ticker-chg ' + (p.change24h >= 0 ? 'pos' : 'neg');
+  });
 }
 
 // ── CARGAR FEAR & GREED ───────────────────────────────────
@@ -1034,6 +1115,26 @@ function calcVolumeSignal(vols) {
   const recent = vols[vols.length - 1];
   const avg = vols.slice(-21, -1).reduce((a, b) => a + b, 0) / Math.min(20, vols.length - 1);
   return { ratio: recent / avg, alto: recent > avg * 1.2 };
+}
+
+function calcKelly(prob, odd, fraccion) {
+  fraccion = fraccion || 0.25;
+  if (!prob || !odd || odd <= 1) return 0;
+  const b = odd - 1;
+  const k = (prob * b - (1 - prob)) / b;
+  return Math.max(0, k * fraccion);
+}
+
+function calcOperacion(entrada, salida, stake, pos) {
+  if (!entrada || !salida || !stake) return null;
+  const variacion = (salida - entrada) / entrada;
+  const pnl = pos === 'SHORT' ? -(stake * variacion) : (stake * variacion);
+  return { variacion, pnl };
+}
+
+function generarExplicaciones(datos) {
+  if (!datos || datos.razones.length === 0) return '';
+  return datos.razones.slice(0, 2).map(r => r.txt).join('. ');
 }
 
 // ── CALCULAR SCORE ────────────────────────────────────────
@@ -1185,9 +1286,11 @@ function renderPanel() {
   pnlMesEl.style.color = pnlMes >= 0 ? 'var(--tertiary)' : 'var(--error)';
   qs('kpi-pnl-mes-ops').textContent = opsMes.length + ' op' + (opsMes.length !== 1 ? 's' : '') + ' cerradas';
 
-  // Cards BTC / ETH
+  // Cards BTC / ETH / SOL / XRP
   renderCoinCard('BTC', 'card-btc');
   renderCoinCard('ETH', 'card-eth');
+  renderCoinCard('SOL', 'card-sol');
+  renderCoinCard('XRP', 'card-xrp');
 
   renderUltimasOps();
 }
@@ -1203,42 +1306,55 @@ function renderCoinCard(sym, elId) {
   }
 
   const rsiW = datos.rsi4h != null ? Math.min(100, datos.rsi4h) : 50;
+  const coinColor = COIN_COLOR[sym] || 'var(--tertiary)';
+  const nombre = NOMBRES[sym] || sym;
+  const exchActual = STATE.exchSelected[sym] || 'binance';
 
   // EMA tendencia
   let emaTxt = '—', emaColor = 'var(--text-3)';
   if (datos.ema20_1d && datos.ema50_1d) {
-    if (datos.ema20_1d > datos.ema50_1d) {
-      emaTxt = 'Alcista (EMA20 > EMA50)'; emaColor = 'var(--tertiary)';
-    } else {
-      emaTxt = 'Bajista (EMA20 < EMA50)'; emaColor = 'var(--error)';
-    }
+    if (datos.ema20_1d > datos.ema50_1d) { emaTxt = 'Alcista (EMA20>50)'; emaColor = 'var(--tertiary)'; }
+    else { emaTxt = 'Bajista (EMA20<50)'; emaColor = 'var(--error)'; }
   }
 
   // MACD estado
   let macdTxt = '—', macdColor = 'var(--text-3)';
   if (datos.macd4h) {
-    if (datos.macd4h.cruce_alcista) { macdTxt = '↑ Cruce alcista'; macdColor = 'var(--tertiary)'; }
+    if (datos.macd4h.cruce_alcista)      { macdTxt = '↑ Cruce alcista'; macdColor = 'var(--tertiary)'; }
     else if (datos.macd4h.cruce_bajista) { macdTxt = '↓ Cruce bajista'; macdColor = 'var(--error)'; }
-    else if (datos.macd4h.macd > 0) { macdTxt = 'Positivo (' + fmt(datos.macd4h.macd, 0) + ')'; macdColor = 'var(--tertiary)'; }
-    else { macdTxt = 'Negativo (' + fmt(datos.macd4h.macd, 0) + ')'; macdColor = 'var(--error)'; }
+    else if (datos.macd4h.macd > 0)      { macdTxt = '+' + fmt(datos.macd4h.macd, 0); macdColor = 'var(--tertiary)'; }
+    else                                 { macdTxt = fmt(datos.macd4h.macd, 0); macdColor = 'var(--error)'; }
   }
 
-  // Volumen
   const volTxt = datos.volSig.alto
     ? 'Alto (' + fmt(datos.volSig.ratio, 1) + 'x)'
     : 'Normal (' + fmt(datos.volSig.ratio, 1) + 'x)';
   const volColor = datos.volSig.alto ? 'var(--tertiary)' : 'var(--text-2)';
 
+  // Exchange tabs
+  const exchTabsHtml = Object.entries(EXCHANGES).map(([id, ex]) =>
+    `<button class="exch-tab${id === exchActual ? ' active' : ''}" onclick="selExchange('${sym}','${id}')">${ex.nombre}</button>`
+  ).join('');
+
+  // Kelly suggerido (prob = score/100, odd = 2 como por defecto)
+  const kellyCapital = calcKelly(datos.score / 100, 2, 0.25) * STATE.capitalCrypto;
+  const kellyFmt = '$' + fmt(kellyCapital, 2);
+
+  // Explicaciones
+  const explTxt = generarExplicaciones(datos);
+
   el.innerHTML = `
     <div class="coin-header">
       <div>
-        <div class="coin-sym">${sym}</div>
-        <div class="coin-name">${sym === 'BTC' ? 'Bitcoin' : 'Ethereum'}</div>
+        <div class="coin-sym" style="color:${coinColor}">${sym}</div>
+        <div class="coin-name">${nombre}</div>
       </div>
       <span class="badge ${datos.senalClass}">${datos.senal}</span>
     </div>
     <div class="coin-price ${precio.change24h >= 0 ? 'pos' : 'neg'}">${fmtPrecio(precio.usd)}</div>
     <div class="coin-chg ${precio.change24h >= 0 ? 'pos' : 'neg'}">${fmtPct(precio.change24h)}</div>
+
+    <div class="exch-tabs" id="etabs-${sym}">${exchTabsHtml}</div>
 
     <div class="coin-metrics">
       <div class="metric-row">
@@ -1267,13 +1383,23 @@ function renderCoinCard(sym, elId) {
     <div class="coin-score-row">
       <span class="score-label">Score</span>
       <span class="score-val" style="color:${datos.scoreColor}">${datos.score}<span style="font-size:14px;color:var(--text-3)">/100</span></span>
+    </div>
+
+    ${explTxt ? `<div class="por-que"><b>¿Por qué?</b> ${explTxt}</div>` : ''}
+
+    <div class="op-box">
+      <div class="op-box-title">Abrir operación</div>
+      <div class="op-box-row">
+        <input type="number" class="op-box-inp" id="opbox-${sym}" placeholder="Capital $" step="any" min="0" value="${fmt(kellyCapital, 2)}">
+        <button class="op-box-btn" onclick="abrirDesdeCard('${sym}')">📋 LONG</button>
+      </div>
     </div>`;
 }
 
 // ── RENDER SCANNER ────────────────────────────────────────
 function renderScanner() {
   const el = qs('scanner-content');
-  const monedas = ['BTC', 'ETH'];
+  const monedas = ['BTC', 'ETH', 'SOL', 'XRP'];
   const cards = monedas.map(sym => calcScore(sym)).filter(d => d !== null);
 
   if (cards.length === 0) {
@@ -1502,11 +1628,9 @@ function onMonedaChange() {
 
 function usarPrecioActual() {
   const mon = qs('op-moneda').value;
-  let precio = null;
-  if (mon === 'BTC' && STATE.precios.BTC) precio = STATE.precios.BTC.usd;
-  if (mon === 'ETH' && STATE.precios.ETH) precio = STATE.precios.ETH.usd;
-  if (precio) {
-    qs('op-entrada').value = precio.toFixed(2);
+  const p = STATE.precios[mon];
+  if (p) {
+    qs('op-entrada').value = p.usd.toFixed(p.usd < 1 ? 6 : p.usd < 100 ? 4 : 2);
     actualizarPnlPreview();
   } else {
     alert('Precio actual no disponible para ' + mon + '. Esperando datos...');
@@ -1582,6 +1706,102 @@ function confirmarOp() {
   if (qs('sec-posiciones').classList.contains('active')) renderPosiciones();
 }
 
+// ── EXCHANGE SELECTOR ────────────────────────────────────
+function selExchange(sym, exchId) {
+  STATE.exchSelected[sym] = exchId;
+  try { localStorage.setItem('jcahs_crypto_exchange', JSON.stringify(STATE.exchSelected)); } catch {}
+  // Re-render solo los tabs sin redibujar toda la card
+  const wrap = qs('etabs-' + sym);
+  if (wrap) {
+    wrap.querySelectorAll('.exch-tab').forEach(btn => {
+      const id = btn.getAttribute('onclick').match(/'([^']+)'$/)?.[1];
+      btn.classList.toggle('active', id === exchId);
+    });
+  }
+}
+
+// ── ABRIR MODAL DESDE CARD ────────────────────────────────
+function abrirDesdeCard(sym) {
+  const datos = calcScore(sym);
+  const precio = STATE.precios[sym];
+  const stakeInp = qs('opbox-' + sym);
+  const stake = stakeInp ? parseFloat(stakeInp.value) || 0 : 0;
+  const exchId = STATE.exchSelected[sym] || 'binance';
+  abrirModalRegistrar({
+    moneda: sym,
+    entrada: precio ? precio.usd : '',
+    posicion: 'LONG',
+    stake: stake > 0 ? stake : '',
+    exchange: EXCHANGES[exchId]?.nombre || 'Binance'
+  });
+}
+
+// ── TOP 100 ───────────────────────────────────────────────
+async function cargarTop100() {
+  const wrap = qs('top100-table-wrap');
+  wrap.innerHTML = '<div class="empty-state">Cargando Top 100...</div>';
+  try {
+    const data = await proxyGet(
+      'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false'
+    );
+    if (!Array.isArray(data)) throw new Error('Respuesta inesperada');
+    STATE.top100 = data;
+    renderTop100(data);
+  } catch (e) {
+    wrap.innerHTML = '<div class="empty-state" style="color:var(--error)">Error al cargar Top 100: ' + e.message + '</div>';
+    console.warn('cargarTop100:', e.message);
+  }
+}
+
+function renderTop100(coins) {
+  const wrap = qs('top100-table-wrap');
+  if (!coins || coins.length === 0) {
+    wrap.innerHTML = '<div class="empty-state">Sin datos</div>';
+    return;
+  }
+  let html = '<table class="tabla"><thead><tr>';
+  html += '<th>#</th><th>Moneda</th><th>Precio</th><th>24h %</th><th>Market Cap</th>';
+  html += '</tr></thead><tbody>';
+  coins.forEach((c, i) => {
+    const chg = c.price_change_percentage_24h || 0;
+    const chgColor = chg >= 0 ? 'var(--tertiary)' : 'var(--error)';
+    const mc = c.market_cap >= 1e9
+      ? '$' + fmt(c.market_cap / 1e9, 2) + 'B'
+      : '$' + fmt(c.market_cap / 1e6, 0) + 'M';
+    html += `<tr>
+      <td style="color:var(--text-3);font-family:var(--f-mono);font-size:12px">${i + 1}</td>
+      <td>
+        <span style="font-family:var(--f-mono);font-weight:700">${c.symbol.toUpperCase()}</span>
+        <span style="font-size:11px;color:var(--text-3);margin-left:4px">${c.name}</span>
+      </td>
+      <td style="font-family:var(--f-mono)">${fmtPrecio(c.current_price)}</td>
+      <td style="font-family:var(--f-mono);font-weight:600;color:${chgColor}">${(chg >= 0 ? '+' : '') + fmt(chg, 2)}%</td>
+      <td style="font-family:var(--f-mono);font-size:12px;color:var(--text-2)">${mc}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function toggleTop100() {
+  const toggle = qs('top100-toggle');
+  const wrap = qs('top100-wrap');
+  const isOpen = wrap.classList.contains('open');
+  wrap.classList.toggle('open', !isOpen);
+  toggle.classList.toggle('open', !isOpen);
+  if (!isOpen && STATE.top100 === null) cargarTop100();
+  else if (!isOpen && STATE.top100) renderTop100(STATE.top100);
+}
+
+function filtrarTop100() {
+  if (!STATE.top100) return;
+  const q = (qs('top100-filter').value || '').toLowerCase().trim();
+  const filtrado = q
+    ? STATE.top100.filter(c => c.symbol.toLowerCase().includes(q) || c.name.toLowerCase().includes(q))
+    : STATE.top100;
+  renderTop100(filtrado);
+}
+
 // ── CARGAR DATOS ──────────────────────────────────────────
 async function recargarDatos(forzar) {
   if (STATE.cargando && !forzar) return;
@@ -1595,18 +1815,26 @@ async function recargarDatos(forzar) {
     // Paralelo: precios + FNG
     await Promise.all([cargarPrecios(), cargarFearGreed()]);
 
-    // Klines Kraken — 4H y 1D (Binance geo-bloqueado desde Cloudflare)
-    const [btc4h, btc1d, eth4h, eth1d] = await Promise.all([
-      cargarKlines('XBTUSD', 240),
-      cargarKlines('XBTUSD', 1440),
-      cargarKlines('ETHUSD', 240),
-      cargarKlines('ETHUSD', 1440)
+    // Klines Kraken — 4H y 1D para las 4 monedas
+    const [btc4h, btc1d, eth4h, eth1d, sol4h, sol1d, xrp4h, xrp1d] = await Promise.all([
+      cargarKlines('XBTUSD',  240),
+      cargarKlines('XBTUSD',  1440),
+      cargarKlines('ETHUSD',  240),
+      cargarKlines('ETHUSD',  1440),
+      cargarKlines('SOLUSD',  240),
+      cargarKlines('SOLUSD',  1440),
+      cargarKlines('XXRPZUSD', 240),
+      cargarKlines('XXRPZUSD', 1440)
     ]);
 
     if (btc4h.length > 0) STATE.ohlc.BTC['4h'] = btc4h;
     if (btc1d.length > 0) STATE.ohlc.BTC['1d'] = btc1d;
     if (eth4h.length > 0) STATE.ohlc.ETH['4h'] = eth4h;
     if (eth1d.length > 0) STATE.ohlc.ETH['1d'] = eth1d;
+    if (sol4h.length > 0) STATE.ohlc.SOL['4h'] = sol4h;
+    if (sol1d.length > 0) STATE.ohlc.SOL['1d'] = sol1d;
+    if (xrp4h.length > 0) STATE.ohlc.XRP['4h'] = xrp4h;
+    if (xrp1d.length > 0) STATE.ohlc.XRP['1d'] = xrp1d;
 
     STATE.ultimaActualizacion = new Date();
     const h = STATE.ultimaActualizacion;
@@ -1634,6 +1862,11 @@ function init() {
   // Reloj
   actualizarReloj();
   setInterval(actualizarReloj, 1000);
+
+  // Exchange seleccionado por moneda
+  try {
+    STATE.exchSelected = JSON.parse(localStorage.getItem('jcahs_crypto_exchange') || '{}');
+  } catch { STATE.exchSelected = {}; }
 
   // Capital inicial
   qs('capital-val').textContent = '$' + fmt(STATE.capitalCrypto, 0);
