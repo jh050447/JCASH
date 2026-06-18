@@ -393,6 +393,48 @@ select.input { cursor: pointer; }
 .top100-wrap.open { display:block; }
 .top100-table-wrap { overflow-x:auto; max-height:440px; overflow-y:auto; scrollbar-width:thin; }
 
+/* ── CAMPANITA CRYPTO ────────────────────────────────────── */
+.campanita-wrap { position:relative; }
+.btn-campanita { position:relative; background:transparent; border:none; font-size:18px; cursor:pointer; padding:4px 6px; line-height:1; color:var(--text-2); }
+.btn-campanita:hover { color:var(--tertiary); }
+.campanita-badge { position:absolute; top:-2px; right:-2px; min-width:16px; height:16px; padding:0 4px; border-radius:8px; background:var(--error); color:#fff; font-family:var(--f-mono); font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+.alertas-panel { position:absolute; top:calc(100% + 8px); right:0; width:300px; max-height:380px; overflow-y:auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:0 8px 24px rgba(0,0,0,.3); z-index:200; }
+.alertas-panel-header { padding:12px 14px; font-size:13px; font-weight:700; color:var(--text); border-bottom:1px solid var(--border); }
+.alertas-panel-list { padding:6px; }
+.alertas-panel-empty { padding:24px 14px; text-align:center; font-size:13px; color:var(--text-3); }
+.alerta-item { padding:10px; border-radius:8px; cursor:pointer; transition:background .12s; }
+.alerta-item:hover { background:var(--surface-2); }
+.alerta-item + .alerta-item { margin-top:2px; }
+.alerta-partido { font-size:13px; font-weight:700; color:var(--text); }
+.alerta-pick { font-size:12px; color:var(--tertiary); font-weight:600; margin-top:2px; }
+.alerta-meta { display:flex; gap:10px; margin-top:4px; font-size:11px; color:var(--text-3); font-family:var(--f-mono); }
+.alerta-tiempo { color:var(--tertiary); margin-left:auto; }
+.btn-activar-alertas { background:var(--surface-2); border:1px solid var(--border); color:var(--text-2); border-radius:var(--radius); padding:6px 12px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; transition:background .12s, color .12s; }
+.btn-activar-alertas:hover { background:var(--surface-3); color:var(--tertiary); }
+
+/* ── SATOSHI CHAT ────────────────────────────────────────── */
+.satoshi-ctx-btn { display:flex; align-items:center; gap:6px; cursor:pointer; padding:6px 0 10px; font-size:12px; color:var(--text-3); border:none; background:none; user-select:none; width:100%; }
+.satoshi-ctx-btn:hover { color:var(--tertiary); }
+.satoshi-ctx-panel { background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px; margin-bottom:12px; font-family:var(--f-mono); font-size:11px; line-height:1.8; color:var(--text-2); white-space:pre-wrap; display:none; }
+.satoshi-ctx-panel.show { display:block; }
+.satoshi-quick-btns { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+.satoshi-quick-btn { padding:7px 13px; border-radius:20px; background:var(--surface-3); border:1px solid rgba(78,222,163,0.2); color:var(--text-2); font-size:12px; cursor:pointer; transition:all .12s; }
+.satoshi-quick-btn:hover { background:rgba(78,222,163,0.15); color:var(--tertiary); border-color:var(--tertiary); }
+.satoshi-chat-area { overflow-y:auto; margin-bottom:12px; min-height:220px; max-height:380px; display:flex; flex-direction:column; gap:8px; scrollbar-width:thin; }
+.satoshi-input-row { display:flex; gap:10px; }
+.satoshi-input-row .input { flex:1; }
+
+/* ── HISTORIAL SEÑALES ───────────────────────────────────── */
+.hs-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px; }
+.hs-stat { background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); padding:12px; text-align:center; }
+.hs-stat-val { font-family:var(--f-mono); font-size:20px; font-weight:700; color:var(--text); }
+.hs-stat-label { font-size:11px; color:var(--text-3); margin-top:3px; text-transform:uppercase; letter-spacing:.5px; }
+.hs-filter-row { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; align-items:center; }
+.hs-filter-btn { padding:5px 13px; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid var(--border); background:transparent; color:var(--text-3); transition:all .12s; }
+.hs-filter-btn:hover, .hs-filter-btn.active { background:var(--tert-dim); color:var(--tertiary); border-color:rgba(78,222,163,0.3); }
+.hs-table-wrap { overflow-x:auto; }
+.hs-canvas-wrap { margin-top:14px; }
+
 /* ── POSICIONES TABLE ────────────────────────────────────── */
 .tabla { width:100%; border-collapse:collapse; }
 .tabla th { font-size:11px; font-weight:600; color:var(--text-3); letter-spacing:1px; text-transform:uppercase; text-align:left; padding:9px 10px; border-bottom:1px solid var(--border); }
@@ -524,6 +566,8 @@ select.input { cursor: pointer; }
 
   .scanner-trade-row { grid-template-columns: 1fr; gap:8px; }
   #ticker-sol, #ticker-xrp { display:none; }
+  .hs-stats { grid-template-columns:repeat(2,1fr); }
+  .satoshi-chat-area { max-height:260px; }
 }
 </style>
 </head>
@@ -550,6 +594,9 @@ select.input { cursor: pointer; }
     </a>
     <a class="nav-link" id="nl-sec-satoshi" onclick="ir('sec-satoshi')">
       <span class="nav-icon">🤖</span> SATOSHI
+    </a>
+    <a class="nav-link" id="nl-sec-historial-crypto" onclick="ir('sec-historial-crypto')">
+      <span class="nav-icon">📊</span> Historial Señales
     </a>
 
     <div class="sidebar-footer">
@@ -605,6 +652,19 @@ select.input { cursor: pointer; }
         <input type="number" id="capital-input" class="capital-input" min="0" step="10"
                onkeydown="onCapitalKey(event)" onblur="guardarCapital()">
         <button class="btn btn-primary btn-sm" onclick="guardarCapital()">✓</button>
+      </div>
+
+      <button id="btn-activar-alertas-crypto" class="btn-activar-alertas" style="display:none" onclick="solicitarPermisoCrypto()">🔔 Activar alertas</button>
+      <div class="campanita-wrap">
+        <button id="btn-campanita-crypto" class="btn-campanita" onclick="toggleAlertasCryptoPan()" title="Alertas crypto">
+          🔔<span id="campanita-badge-crypto" class="campanita-badge" style="display:none">0</span>
+        </button>
+        <div id="alertas-panel-crypto" class="alertas-panel" style="display:none">
+          <div class="alertas-panel-header">🔔 Alertas Crypto</div>
+          <div class="alertas-panel-list" id="alertas-panel-list-crypto">
+            <div class="alertas-panel-empty">Sin alertas activas</div>
+          </div>
+        </div>
       </div>
 
       <div class="topbar-clock" id="topbar-clock">—</div>
@@ -730,11 +790,87 @@ select.input { cursor: pointer; }
 
       <!-- ══════════ SATOSHI ══════════ -->
       <section class="seccion" id="sec-satoshi">
-        <div class="satoshi-placeholder">
-          <div class="icon">🤖</div>
-          <h3>SATOSHI — Próximamente</h3>
-          <p>El asesor IA de crypto llegará en Fase 2.<br>Por ahora consulta a SATOSHI desde el <a href="index.html" style="color:var(--tertiary)">dashboard principal</a>.</p>
+
+        <div class="sec-header">
+          <div>
+            <div class="sec-title">🤖 SATOSHI</div>
+            <div class="sec-sub">Asesor crypto con datos reales del momento</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="limpiarChatSATOSHI()">🗑 Limpiar chat</button>
         </div>
+
+        <div class="card">
+          <button class="satoshi-ctx-btn" onclick="toggleCtxSATOSHI()">
+            <span>📊 Ver datos actuales que SATOSHI conoce</span>
+            <span id="satoshi-ctx-arrow" style="margin-left:auto;font-size:10px">▼</span>
+          </button>
+          <div class="satoshi-ctx-panel" id="satoshi-ctx-panel"></div>
+
+          <div class="satoshi-quick-btns">
+            <button class="satoshi-quick-btn" onclick="consultarSATOSHI('¿Hay alguna señal de entrada ahora mismo en BTC, ETH, SOL o XRP?')">⚡ ¿Hay señal ahora?</button>
+            <button class="satoshi-quick-btn" onclick="consultarSATOSHI('Analiza mis posiciones abiertas y dime si debería cerrar alguna.')">💼 Analiza mis posiciones</button>
+            <button class="satoshi-quick-btn" onclick="consultarSATOSHI('¿Es buen momento para hacer DCA en BTC considerando el Fear and Greed actual?')">📈 ¿Es momento de DCA?</button>
+          </div>
+
+          <div class="satoshi-chat-area" id="ia-chat-satoshi">
+            <div data-welcome style="text-align:center;padding:20px 0;color:var(--text-3);font-size:13px;">
+              ₿ SATOSHI listo — haz una pregunta o usa los botones rápidos arriba.
+            </div>
+          </div>
+
+          <div class="satoshi-input-row">
+            <input class="input" id="satoshi-input" placeholder="Pregunta a SATOSHI..."
+                   onkeydown="if(event.key==='Enter')consultarSATOSHI()">
+            <button class="btn btn-primary" onclick="consultarSATOSHI()" style="flex-shrink:0">Enviar</button>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ══════════ HISTORIAL SEÑALES ══════════ -->
+      <section class="seccion" id="sec-historial-crypto">
+
+        <div class="sec-header">
+          <div>
+            <div class="sec-title">📊 Historial de Señales</div>
+            <div class="sec-sub" id="hs-sub">Validación del sistema antes de capital real</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="ir('sec-scanner')">↗ Al Scanner</button>
+        </div>
+
+        <div class="hs-stats">
+          <div class="hs-stat"><div class="hs-stat-val" id="hs-total">0</div><div class="hs-stat-label">Señales</div></div>
+          <div class="hs-stat"><div class="hs-stat-val" id="hs-hitrate">—</div><div class="hs-stat-label">Hit Rate</div></div>
+          <div class="hs-stat"><div class="hs-stat-val" id="hs-roi">—</div><div class="hs-stat-label">ROI Prom.</div></div>
+          <div class="hs-stat">
+            <div class="hs-stat-val" id="hs-pnl">$0</div>
+            <div class="hs-stat-label">P&amp;L Total</div>
+          </div>
+        </div>
+
+        <div class="hs-filter-row">
+          <button class="hs-filter-btn active" id="hf-all" onclick="setHsFilter('all')">Todas</button>
+          <button class="hs-filter-btn" id="hf-BTC" onclick="setHsFilter('BTC')">BTC</button>
+          <button class="hs-filter-btn" id="hf-ETH" onclick="setHsFilter('ETH')">ETH</button>
+          <button class="hs-filter-btn" id="hf-SOL" onclick="setHsFilter('SOL')">SOL</button>
+          <button class="hs-filter-btn" id="hf-XRP" onclick="setHsFilter('XRP')">XRP</button>
+          <label style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-3);cursor:pointer;">
+            <input type="checkbox" id="hs-inc-edge" onchange="renderHistorialSenales()">
+            Incluir edge inflado
+          </label>
+        </div>
+
+        <div class="card" style="padding:0">
+          <div class="hs-table-wrap" id="hs-table-wrap">
+            <div class="empty-state">Sin señales registradas todavía.<br>Ve al Scanner y registra señales cuando el score sea &gt; 50.</div>
+          </div>
+        </div>
+
+        <div class="card hs-canvas-wrap" id="hs-canvas-card" style="display:none">
+          <div class="card-title">P&amp;L Acumulado</div>
+          <canvas id="canvas-pnl" style="width:100%;height:180px;display:block;"></canvas>
+        </div>
+
       </section>
 
     </main>
@@ -840,12 +976,46 @@ select.input { cursor: pointer; }
   </div>
 </div>
 
+<!-- MODAL REGISTRAR SEÑAL -->
+<div class="modal-overlay" id="modal-senal">
+  <div class="modal-box">
+    <div class="modal-title">📋 Registrar Señal del Scanner</div>
+    <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:16px;font-family:var(--f-mono);font-size:12px;line-height:1.8;white-space:pre-wrap;" id="senal-datos-preview">Cargando datos...</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="label">SL sugerido (%)</label>
+        <input type="number" id="senal-sl-pct" class="input" value="5" min="1" max="30" step="0.5">
+      </div>
+      <div class="form-group">
+        <label class="label">TP sugerido (%)</label>
+        <input type="number" id="senal-tp-pct" class="input" value="10" min="1" max="100" step="0.5">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="label">Notas</label>
+      <input type="text" id="senal-notas" class="input" placeholder="Contexto adicional...">
+    </div>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--text-2);">
+        <input type="checkbox" id="senal-edge-inflado">
+        Edge inflado (excluir de estadísticas limpias)
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="qs('modal-senal').classList.remove('show')">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarSenal()">💾 Guardar Señal</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════════════════════
 //  JCAHS CRYPTO — Core JavaScript
 // ═══════════════════════════════════════════════════════════
 
 const PROXY = 'https://jcahs-proxy.jh050447.workers.dev';
+const GROQ_URL = PROXY + '/?url=' + encodeURIComponent('https://api.groq.com/openai/v1/chat/completions') + '&api=groq';
+const TAVILY_URL = PROXY + '/?url=' + encodeURIComponent('https://api.tavily.com/search') + '&api=tavily';
 
 const STATE = {
   precios: {},
@@ -859,6 +1029,13 @@ const STATE = {
   capitalCrypto: parseFloat(localStorage.getItem('jcahs_crypto_capital')) || 200,
   exchSelected: {},
   top100: null,
+  satoshiChat: [],
+  alertasCrypto: [],
+  tavilyUsadoMes: (function() {
+    const h = new Date();
+    const k = 'jcahs_tavily_' + h.getFullYear() + '-' + String(h.getMonth() + 1).padStart(2, '0');
+    return parseInt(localStorage.getItem(k)) || 0;
+  })(),
   cargando: false,
   ultimaActualizacion: null
 };
@@ -917,6 +1094,7 @@ function ir(sec) {
   if (sec === 'sec-scanner') renderScanner();
   if (sec === 'sec-posiciones') renderPosiciones();
   if (sec === 'sec-panel') renderUltimasOps();
+  if (sec === 'sec-historial-crypto') renderHistorialSenales();
 }
 
 function toggleMenuMovil(forzar) {
@@ -1467,10 +1645,13 @@ function renderScanner() {
         </div>
       </div>
 
-      <button class="btn btn-primary" style="width:100%"
-        onclick="abrirModalRegistrar({moneda:'${c.sym}',entrada:${entrada.toFixed(2)},posicion:'LONG',stake:${kelly.toFixed(2)}})">
-        📋 Registrar operación
-      </button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary" style="flex:1"
+          onclick="abrirModalRegistrar({moneda:'${c.sym}',entrada:${entrada.toFixed(2)},posicion:'LONG',stake:${kelly.toFixed(2)}})">
+          📋 Operación
+        </button>
+        ${c.score > 50 ? `<button class="btn btn-ghost" style="flex:1" onclick="abrirModalSenal('${c.sym}')">📊 Registrar señal</button>` : ''}
+      </div>
     </div>`;
   });
 
@@ -1847,6 +2028,7 @@ async function recargarDatos(forzar) {
     renderPanel();
     const scannerActivo = qs('sec-scanner').classList.contains('active');
     if (scannerActivo) renderScanner();
+    verificarAlertasCrypto();
 
   } catch (e) {
     console.error('recargarDatos error:', e);
@@ -1889,10 +2071,613 @@ function init() {
   // Cargar datos
   recargarDatos(true);
 
+  // Restaurar chat SATOSHI guardado
+  try { STATE.satoshiChat = JSON.parse(localStorage.getItem('jcahs_satoshi_chat') || '[]'); } catch { STATE.satoshiChat = []; }
+  if (STATE.satoshiChat.length > 0) {
+    const chat = qs('ia-chat-satoshi');
+    if (chat) {
+      chat.innerHTML = '';
+      STATE.satoshiChat.slice(-6).forEach(m => {
+        if (m.role === 'user' || m.role === 'assistant') agregarMensajeSATOSHI(m.role, m.content);
+      });
+    }
+  }
+
+  // Alertas: actualizar botón + check cada 5 min
+  actualizarBotonAlertasCrypto();
+  setInterval(() => {
+    if (STATE.ohlc.BTC['4h'].length > 0) verificarAlertasCrypto();
+  }, 5 * 60 * 1000);
+
   // Refresh cada 5 min (precios) — klines cada 30 min sería suficiente pero simplificamos
   setInterval(() => cargarPrecios().then(actualizarTicker), 5 * 60 * 1000);
   setInterval(() => recargarDatos(true), 30 * 60 * 1000);
 }
+
+// ── HTML ESCAPE ───────────────────────────────────────────
+function escHtml(t) { const d = document.createElement('div'); d.appendChild(document.createTextNode(t || '')); return d.innerHTML; }
+
+// ═══════════════════════════════════════════════════════════
+//  SATOSHI — IA ASESOR CRYPTO
+// ═══════════════════════════════════════════════════════════
+
+function construirContextoSATOSHI() {
+  const monedas = ['BTC', 'ETH', 'SOL', 'XRP'];
+  const lineas = monedas.map(sym => {
+    const d = calcScore(sym);
+    const p = STATE.precios[sym];
+    if (!d || !p) return sym + ': sin datos';
+    return sym + ': ' + fmtPrecio(p.usd) +
+      ' | RSI 4H: ' + (d.rsi4h != null ? fmt(d.rsi4h, 1) : '—') +
+      ' | EMA20: ' + (d.ema20_1d ? '$' + fmt(d.ema20_1d, 0) : '—') +
+      ' | EMA50: ' + (d.ema50_1d ? '$' + fmt(d.ema50_1d, 0) : '—') +
+      ' | MACD: ' + (d.macd4h ? (d.macd4h.macd >= 0 ? '+' : '') + fmt(d.macd4h.macd, 0) : '—') +
+      ' | Score: ' + d.score + '/100 | Señal: ' + d.senal;
+  }).join('\n');
+
+  const ops = leerOps();
+  const hoy = hoyISO(), mes = mesActual();
+  const pnlHoy = ops.filter(o => o.tipo === 'crypto' && o.fecha === hoy && o.pnl != null).reduce((s, o) => s + o.pnl, 0);
+  const pnlMes = ops.filter(o => o.tipo === 'crypto' && o.fecha?.startsWith(mes) && o.pnl != null).reduce((s, o) => s + o.pnl, 0);
+  const posAbiertas = ops.filter(o => o.tipo === 'crypto' && o.resultado === 'pendiente');
+  const posStr = posAbiertas.length > 0
+    ? posAbiertas.map(o => o.moneda + ' ' + o.mercado + ' entrada=$' + o.entrada + ' stake=$' + fmt(o.stake, 2)).join(', ')
+    : 'ninguna';
+
+  return 'MERCADO CRYPTO (' + new Date().toLocaleString('es-EC', { dateStyle: 'short', timeStyle: 'short' }) + '):\n' +
+    lineas + '\n\n' +
+    'Fear & Greed: ' + (STATE.fng?.value ?? '—') + ' (' + (STATE.fng?.label ?? '—') + ')\n' +
+    'Capital disponible: $' + fmt(STATE.capitalCrypto, 2) + '\n' +
+    'Posiciones abiertas: ' + posStr + '\n' +
+    'P&L hoy: $' + fmt(pnlHoy, 2) + ' | P&L mes: $' + fmt(pnlMes, 2) + '\n\n' +
+    'REGLAS DE RIESGO:\n' +
+    '- Máximo 2% del capital por operación\n' +
+    '- Stop loss siempre antes de entrar\n' +
+    '- Si pierdes 10% en un mes → parar';
+}
+
+async function buscarTavilyCrypto(query) {
+  if ((STATE.tavilyUsadoMes || 0) >= 1000) return null;
+  try {
+    const r = await fetch(TAVILY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, search_depth: 'basic', max_results: 5, include_answer: true })
+    });
+    const data = await r.json();
+    const resultado = data.answer ||
+      (data.results || []).slice(0, 3).map(x => x.title + ': ' + x.content).join('\n\n') || null;
+    if (resultado) {
+      const h = new Date();
+      const kMes = 'jcahs_tavily_' + h.getFullYear() + '-' + String(h.getMonth() + 1).padStart(2, '0');
+      STATE.tavilyUsadoMes = (STATE.tavilyUsadoMes || 0) + 1;
+      localStorage.setItem(kMes, String(STATE.tavilyUsadoMes));
+    }
+    return resultado || 'Sin resultados';
+  } catch(e) {
+    console.warn('Tavily error:', e);
+    return null;
+  }
+}
+
+function agregarMensajeSATOSHI(role, texto, badge) {
+  const chat = qs('ia-chat-satoshi');
+  if (!chat) return;
+  const welcome = chat.querySelector('[data-welcome]');
+  if (welcome) welcome.remove();
+  const msg = document.createElement('div');
+  msg.style.cssText = 'display:flex;justify-content:' + (role === 'user' ? 'flex-end' : 'flex-start');
+  const bubble = document.createElement('div');
+  bubble.style.cssText = 'max-width:82%;padding:10px 14px;border-radius:' +
+    (role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px') +
+    ';background:' + (role === 'user' ? 'rgba(78,222,163,0.12)' : role === 'error' ? 'rgba(255,100,100,0.1)' : 'var(--surface-3)') +
+    ';font-size:14px;line-height:1.6;color:var(--text);white-space:pre-wrap;border:1px solid ' +
+    (role === 'user' ? 'rgba(78,222,163,0.25)' : role === 'error' ? 'rgba(255,100,100,0.3)' : 'rgba(144,144,151,0.08)');
+  bubble.textContent = texto;
+  if (badge && role === 'assistant') {
+    const b = document.createElement('div');
+    b.style.cssText = 'font-size:12px;color:var(--tertiary);margin-top:6px;padding-top:6px;border-top:1px solid rgba(78,222,163,0.2)';
+    b.textContent = badge;
+    bubble.appendChild(b);
+  }
+  msg.appendChild(bubble);
+  chat.appendChild(msg);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function mostrarEscribiendoSATOSHI() {
+  const chat = qs('ia-chat-satoshi');
+  if (!chat) return;
+  const div = document.createElement('div');
+  div.id = 'typing-satoshi';
+  div.style.cssText = 'display:flex;gap:4px;padding:10px;align-items:center';
+  div.innerHTML = '<div style="width:8px;height:8px;border-radius:50%;background:var(--tertiary);animation:pulse .6s infinite"></div>' +
+    '<div style="width:8px;height:8px;border-radius:50%;background:var(--tertiary);animation:pulse .6s .2s infinite"></div>' +
+    '<div style="width:8px;height:8px;border-radius:50%;background:var(--tertiary);animation:pulse .6s .4s infinite"></div>' +
+    '<span style="font-size:13px;color:var(--text-3);margin-left:8px">SATOSHI analizando...</span>';
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function ocultarEscribiendoSATOSHI() {
+  const el = qs('typing-satoshi');
+  if (el) el.remove();
+}
+
+function toggleCtxSATOSHI() {
+  const panel = qs('satoshi-ctx-panel');
+  const arrow = qs('satoshi-ctx-arrow');
+  const isOpen = panel.classList.contains('show');
+  if (!isOpen) panel.textContent = construirContextoSATOSHI();
+  arrow.textContent = isOpen ? '▼' : '▲';
+  panel.classList.toggle('show', !isOpen);
+}
+
+async function consultarSATOSHI(preguntaDirecta) {
+  const input = qs('satoshi-input');
+  const pregunta = preguntaDirecta || (input ? input.value.trim() : '');
+  if (!pregunta) return;
+  if (input && !preguntaDirecta) input.value = '';
+
+  if (!STATE.satoshiChat) STATE.satoshiChat = [];
+  STATE.satoshiChat.push({ role: 'user', content: pregunta });
+  agregarMensajeSATOSHI('user', pregunta);
+  mostrarEscribiendoSATOSHI();
+
+  // Tavily web search
+  const webAgotada = (STATE.tavilyUsadoMes || 0) >= 1000;
+  let infoWeb = '';
+  if (webAgotada) {
+    infoWeb = '[AVISO: búsquedas web agotadas este mes. Indica: "Búsquedas web agotadas." y continúa con datos locales.]';
+  } else {
+    const coinMentioned = ['BTC', 'ETH', 'SOL', 'XRP', 'bitcoin', 'ethereum', 'solana', 'ripple']
+      .find(c => pregunta.toLowerCase().includes(c.toLowerCase())) || 'Bitcoin';
+    const queries = [
+      coinMentioned + ' crypto price news today 2026',
+      'crypto market analysis sentiment today 2026'
+    ];
+    const resultados = await Promise.allSettled(queries.map(q => buscarTavilyCrypto(q)));
+    infoWeb = resultados
+      .map((r, i) => (r.status === 'fulfilled' && r.value) ? ('🔍 ' + queries[i] + ':\n' + r.value) : null)
+      .filter(Boolean).join('\n\n---\n\n');
+  }
+
+  const ctx = construirContextoSATOSHI();
+  const systemPrompt = 'Eres SATOSHI, asesor experto en crypto trading de JCAHS. Tienes acceso a búsqueda web en tiempo real.\n\n' +
+    'CONTEXTO ACTUAL:\n' + ctx + '\n\n' +
+    'CUANDO ANALICES:\nCombina los indicadores técnicos del contexto con las noticias para dar una recomendación concreta.\n\n' +
+    'RESPONDE CON ESTE FORMATO:\n\n' +
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+    '₿ Análisis — [Moneda o tema]\n' +
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+    '📰 NOTICIAS RELEVANTES:\n1. [Noticia]\n2. [Segunda si existe]\n\n' +
+    '📊 ANÁLISIS TÉCNICO:\nRSI: [dato] → [interpretación]\nTendencia: ALCISTA / BAJISTA / LATERAL\nScore: [X]/100\n\n' +
+    '🎯 DECISIÓN:\nAcción: COMPRAR / VENDER / ESPERAR\nStop loss: $X,XXX (-X%)\nObjetivo: $X,XXX (+X%)\n\n' +
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+    'Responde en español. Máximo 300 palabras.' +
+    (infoWeb ? '\n\n=== INFORMACIÓN WEB ACTUAL ===\n' + infoWeb + '\n=== FIN ===\n\nUsa esta información para respuestas precisas y actualizadas.' : '');
+
+  try {
+    const messages = [{ role: 'system', content: systemPrompt }].concat(STATE.satoshiChat.slice(-10));
+    const r = await fetch(GROQ_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages, max_tokens: 1500, temperature: 0.7 })
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error.message);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const texto = data.choices?.[0]?.message?.content || 'Sin respuesta';
+    STATE.satoshiChat.push({ role: 'assistant', content: texto });
+    if (STATE.satoshiChat.length > 20) STATE.satoshiChat = STATE.satoshiChat.slice(-20);
+    try { localStorage.setItem('jcahs_satoshi_chat', JSON.stringify(STATE.satoshiChat)); } catch {}
+    ocultarEscribiendoSATOSHI();
+    const badge = (infoWeb && !webAgotada) ? '🔍 Verificado en internet — ' + new Date().toLocaleTimeString('es-EC') : null;
+    agregarMensajeSATOSHI('assistant', texto, badge);
+  } catch(e) {
+    console.error('Groq error:', e);
+    ocultarEscribiendoSATOSHI();
+    agregarMensajeSATOSHI('error', 'Error al consultar SATOSHI: ' + e.message);
+  }
+}
+
+function limpiarChatSATOSHI() {
+  STATE.satoshiChat = [];
+  try { localStorage.removeItem('jcahs_satoshi_chat'); } catch {}
+  const chat = qs('ia-chat-satoshi');
+  if (chat) chat.innerHTML = '<div data-welcome style="text-align:center;padding:20px 0;color:var(--text-3);font-size:13px;">₿ SATOSHI listo — haz una pregunta o usa los botones rápidos arriba.</div>';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ALERTAS CRYPTO
+// ═══════════════════════════════════════════════════════════
+
+function verificarAlertasCrypto() {
+  const monedas = ['BTC', 'ETH', 'SOL', 'XRP'];
+  const ahora = Date.now();
+  let notificadas = {};
+  try { notificadas = JSON.parse(localStorage.getItem('jcahs_crypto_alertas_notificadas') || '{}'); } catch {}
+  // Limpiar entradas expiradas (> 60 min)
+  Object.keys(notificadas).forEach(k => { if (ahora - notificadas[k] > 3600000) delete notificadas[k]; });
+
+  const nuevas = [];
+  const fng = STATE.fng?.value;
+
+  // Condición C: F&G global (una sola vez)
+  if (fng != null && fng < 20 && !notificadas['GLOBAL_fngExtreme']) {
+    nuevas.push({ sym: 'GLOBAL', tipo: 'fngExtreme', titulo: '😱 Miedo extremo', desc: 'Fear & Greed = ' + fng + ' — zona DCA', rsi: null, score: null, ts: ahora });
+    notificadas['GLOBAL_fngExtreme'] = ahora;
+  }
+
+  monedas.forEach(sym => {
+    const d = calcScore(sym);
+    if (!d) return;
+    const p = STATE.precios[sym];
+
+    // Condición A: score >= 70
+    const keyA = sym + '_scoreAlto';
+    if (d.score >= 70 && !notificadas[keyA]) {
+      nuevas.push({ sym, tipo: 'scoreAlto', titulo: '⚡ Señal fuerte', desc: sym + ' Score ' + d.score + '/100', rsi: d.rsi4h, score: d.score, precio: p?.usd, ts: ahora });
+      notificadas[keyA] = ahora;
+    }
+
+    // Condición B: RSI < 30
+    const keyB = sym + '_rsiSob';
+    if (d.rsi4h !== null && d.rsi4h < 30 && !notificadas[keyB]) {
+      nuevas.push({ sym, tipo: 'rsiSob', titulo: '📉 RSI sobrevendido', desc: sym + ' RSI=' + fmt(d.rsi4h, 1), rsi: d.rsi4h, score: d.score, precio: p?.usd, ts: ahora });
+      notificadas[keyB] = ahora;
+    }
+  });
+
+  if (nuevas.length > 0) {
+    STATE.alertasCrypto = (STATE.alertasCrypto || []).concat(nuevas).slice(-20);
+    try { localStorage.setItem('jcahs_crypto_alertas_notificadas', JSON.stringify(notificadas)); } catch {}
+    notificarAlertasCrypto(nuevas);
+    renderCampanitaCrypto();
+  }
+}
+
+function notificarAlertasCrypto(nuevas) {
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+  nuevas.forEach(a => {
+    try { new Notification('JCAHS Crypto', { body: a.titulo + ': ' + a.desc }); } catch {}
+  });
+}
+
+function renderCampanitaCrypto() {
+  const badge = qs('campanita-badge-crypto');
+  const lista = qs('alertas-panel-list-crypto');
+  if (!badge || !lista) return;
+  const alertas = STATE.alertasCrypto || [];
+  const n = alertas.length;
+  badge.style.display = n > 0 ? '' : 'none';
+  badge.textContent = n;
+  if (!n) { lista.innerHTML = '<div class="alertas-panel-empty">Sin alertas activas</div>'; return; }
+  lista.innerHTML = alertas.slice().reverse().map((a, i) => {
+    const hace = _tiempoHace(a.ts);
+    return '<div class="alerta-item" onclick="irAAlertaCrypto()">' +
+      '<div class="alerta-partido">' + escHtml(a.titulo) + '</div>' +
+      '<div class="alerta-pick">' + escHtml(a.desc) + '</div>' +
+      '<div class="alerta-meta">' +
+      (a.rsi != null ? '<span>RSI ' + fmt(a.rsi, 1) + '</span>' : '') +
+      (a.score != null ? '<span>Score ' + a.score + '</span>' : '') +
+      '<span class="alerta-tiempo">' + hace + '</span>' +
+      '</div></div>';
+  }).join('');
+}
+
+function _tiempoHace(ts) {
+  const min = Math.floor((Date.now() - ts) / 60000);
+  if (min < 1) return 'ahora';
+  if (min < 60) return min + 'min';
+  return Math.floor(min / 60) + 'h';
+}
+
+function toggleAlertasCryptoPan() {
+  const panel = qs('alertas-panel-crypto');
+  if (!panel) return;
+  const visible = panel.style.display !== 'none';
+  panel.style.display = visible ? 'none' : '';
+  if (!visible) renderCampanitaCrypto();
+}
+
+function solicitarPermisoCrypto() {
+  if (typeof Notification === 'undefined') { alert('Tu navegador no soporta notificaciones.'); return; }
+  Notification.requestPermission().then(() => actualizarBotonAlertasCrypto());
+}
+
+function actualizarBotonAlertasCrypto() {
+  const btn = qs('btn-activar-alertas-crypto');
+  if (!btn) return;
+  btn.style.display = (typeof Notification !== 'undefined' && Notification.permission !== 'granted') ? '' : 'none';
+}
+
+function irAAlertaCrypto() {
+  toggleAlertasCryptoPan();
+  ir('sec-scanner');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  HISTORIAL DE SEÑALES
+// ═══════════════════════════════════════════════════════════
+
+let _hsFilter = 'all';
+let _modalSenalData = null;
+
+function leerHistorialSenales() {
+  try { return JSON.parse(localStorage.getItem('jcahs_crypto_historial') || '[]'); } catch { return []; }
+}
+function guardarHistorialSenales(lista) {
+  localStorage.setItem('jcahs_crypto_historial', JSON.stringify(lista));
+}
+
+function abrirModalSenal(sym) {
+  const d = calcScore(sym);
+  const p = STATE.precios[sym];
+  if (!d || !p) { alert('Datos no disponibles para ' + sym + '. Espera que carguen los klines.'); return; }
+
+  const kelly = calcKelly(d.score / 100, 2, 0.25) * STATE.capitalCrypto;
+  _modalSenalData = {
+    moneda: sym, precioEntrada: p.usd,
+    rsi4h: d.rsi4h, ema20: d.ema20_1d, ema50: d.ema50_1d,
+    macd: d.macd4h?.macd ?? null, score: d.score, senal: d.senal,
+    fearGreed: STATE.fng?.value ?? null, capitalSugerido: kelly
+  };
+
+  const preview = qs('senal-datos-preview');
+  if (preview) {
+    preview.textContent = [
+      'Moneda:        ' + sym + ' (' + (NOMBRES[sym] || sym) + ')',
+      'Precio entrada:' + fmtPrecio(p.usd),
+      'RSI 4H:        ' + (d.rsi4h != null ? fmt(d.rsi4h, 1) : '—'),
+      'EMA20/50 1D:   ' + (d.ema20_1d ? '$' + fmt(d.ema20_1d, 0) : '—') + ' / ' + (d.ema50_1d ? '$' + fmt(d.ema50_1d, 0) : '—'),
+      'MACD 4H:       ' + (d.macd4h ? (d.macd4h.macd >= 0 ? '+' : '') + fmt(d.macd4h.macd, 0) : '—'),
+      'Score:         ' + d.score + '/100 — Señal: ' + d.senal,
+      'Fear & Greed:  ' + (STATE.fng?.value ?? '—'),
+      'Capital Kelly: $' + fmt(kelly, 2)
+    ].join('\n');
+  }
+  if (qs('senal-notas')) qs('senal-notas').value = '';
+  if (qs('senal-edge-inflado')) qs('senal-edge-inflado').checked = false;
+  qs('modal-senal').classList.add('show');
+}
+
+function confirmarSenal() {
+  if (!_modalSenalData) return;
+  const slPct = (parseFloat(qs('senal-sl-pct')?.value) || 5) / 100;
+  const tpPct = (parseFloat(qs('senal-tp-pct')?.value) || 10) / 100;
+  const entrada = _modalSenalData.precioEntrada;
+
+  const senal = {
+    id: Date.now(),
+    fecha: hoyISO(),
+    moneda: _modalSenalData.moneda,
+    timeframe: '4H',
+    precioEntrada: entrada,
+    rsi4h: _modalSenalData.rsi4h,
+    ema20: _modalSenalData.ema20,
+    ema50: _modalSenalData.ema50,
+    macd: _modalSenalData.macd,
+    score: _modalSenalData.score,
+    senal: _modalSenalData.senal,
+    fearGreed: _modalSenalData.fearGreed,
+    slSugerido: entrada > 0 ? entrada * (1 - slPct) : null,
+    tpSugerido: entrada > 0 ? entrada * (1 + tpPct) : null,
+    capitalSugerido: _modalSenalData.capitalSugerido,
+    resultado: 'pendiente',
+    precioSalida: null, pnlReal: null,
+    notas: qs('senal-notas')?.value.trim() || '',
+    edgeInflado: qs('senal-edge-inflado')?.checked || false
+  };
+
+  const lista = leerHistorialSenales();
+  lista.push(senal);
+  guardarHistorialSenales(lista);
+  qs('modal-senal').classList.remove('show');
+
+  // Toast
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--tert-dim);border:1px solid var(--tertiary);color:var(--tertiary);padding:10px 16px;border-radius:var(--radius);font-size:13px;font-weight:600;z-index:9999;pointer-events:none;';
+  toast.textContent = '✓ Señal ' + senal.moneda + ' registrada';
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+
+  if (qs('sec-historial-crypto')?.classList.contains('active')) renderHistorialSenales();
+}
+
+function setHsFilter(f) {
+  _hsFilter = f;
+  document.querySelectorAll('.hs-filter-btn').forEach(b => b.classList.remove('active'));
+  const btn = qs('hf-' + f);
+  if (btn) btn.classList.add('active');
+  renderHistorialSenales();
+}
+
+function renderHistorialSenales() {
+  const incEdge = qs('hs-inc-edge')?.checked;
+  let senales = leerHistorialSenales();
+  if (!incEdge) senales = senales.filter(s => !s.edgeInflado);
+  if (_hsFilter !== 'all') senales = senales.filter(s => s.moneda === _hsFilter);
+  senales.sort((a, b) => (b.id || 0) - (a.id || 0));
+
+  const resueltas = senales.filter(s => s.resultado !== 'pendiente');
+  const ganadoras = resueltas.filter(s => s.resultado === 'ganó');
+  const hitRate = resueltas.length > 0 ? ganadoras.length / resueltas.length * 100 : null;
+  const pnlTotal = resueltas.reduce((s, x) => s + (x.pnlReal || 0), 0);
+  const roiArr = resueltas.filter(s => s.capitalSugerido > 0).map(s => (s.pnlReal || 0) / s.capitalSugerido * 100);
+  const roiProm = roiArr.length > 0 ? roiArr.reduce((a, b) => a + b, 0) / roiArr.length : null;
+
+  if (qs('hs-total'))   qs('hs-total').textContent   = senales.length;
+  if (qs('hs-hitrate')) qs('hs-hitrate').textContent = hitRate !== null ? fmt(hitRate, 1) + '%' : '—';
+  if (qs('hs-roi'))     qs('hs-roi').textContent     = roiProm !== null ? (roiProm >= 0 ? '+' : '') + fmt(roiProm, 1) + '%' : '—';
+  if (qs('hs-pnl')) {
+    const el = qs('hs-pnl');
+    el.textContent = (pnlTotal >= 0 ? '+$' : '-$') + fmt(Math.abs(pnlTotal), 2);
+    el.style.color = pnlTotal >= 0 ? 'var(--tertiary)' : 'var(--error)';
+  }
+  if (qs('hs-sub')) {
+    qs('hs-sub').textContent = senales.length + ' señales registradas' + (resueltas.length > 0 ? ' · ' + resueltas.length + ' resueltas' : '');
+  }
+
+  const wrap = qs('hs-table-wrap');
+  if (!wrap) return;
+
+  if (senales.length === 0) {
+    wrap.innerHTML = '<div class="empty-state">Sin señales registradas' + (_hsFilter !== 'all' ? ' para ' + _hsFilter : '') + '.<br>Ve al Scanner y usa "📋 Registrar señal" cuando score &gt; 50.</div>';
+    const cc = qs('hs-canvas-card');
+    if (cc) cc.style.display = 'none';
+    return;
+  }
+
+  let html = '<table class="tabla"><thead><tr>' +
+    '<th>Fecha</th><th>Moneda</th><th>Entrada</th><th>RSI</th><th>Score</th>' +
+    '<th>Señal</th><th>F&amp;G</th><th>TP</th><th>SL</th><th>Resultado</th><th>P&amp;L</th><th></th>' +
+    '</tr></thead><tbody>';
+
+  senales.forEach(s => {
+    const coinColor = COIN_COLOR[s.moneda] || 'var(--text)';
+    const resBadge = s.resultado === 'ganó' ? 'badge-green' : s.resultado === 'perdió' ? 'badge-red' : 'badge-gray';
+    const pnlTxt = s.pnlReal != null ? ((s.pnlReal >= 0 ? '+$' : '-$') + fmt(Math.abs(s.pnlReal), 2)) : '—';
+    const pnlColor = (s.pnlReal || 0) >= 0 ? 'var(--tertiary)' : 'var(--error)';
+    const rsiColor = s.rsi4h < 30 ? 'var(--tertiary)' : s.rsi4h > 70 ? 'var(--error)' : 'var(--text-2)';
+    const scoreClass = s.score >= 60 ? 'badge-green' : s.score <= 25 ? 'badge-red' : 'badge-warn';
+    html += '<tr>' +
+      '<td style="font-family:var(--f-mono);font-size:12px;color:var(--text-3)">' + escHtml(s.fecha || '—') + '</td>' +
+      '<td><b style="font-family:var(--f-mono);color:' + coinColor + '">' + escHtml(s.moneda) + '</b>' + (s.edgeInflado ? ' <span style="font-size:10px;color:var(--warning)">⚠</span>' : '') + '</td>' +
+      '<td style="font-family:var(--f-mono);font-size:13px">' + (s.precioEntrada ? fmtPrecio(s.precioEntrada) : '—') + '</td>' +
+      '<td style="font-family:var(--f-mono);font-size:13px;color:' + rsiColor + '">' + (s.rsi4h != null ? fmt(s.rsi4h, 1) : '—') + '</td>' +
+      '<td style="font-family:var(--f-mono);font-size:13px;font-weight:700">' + (s.score || '—') + '</td>' +
+      '<td><span class="badge ' + scoreClass + '">' + escHtml(s.senal || '—') + '</span></td>' +
+      '<td style="font-family:var(--f-mono);font-size:12px">' + (s.fearGreed ?? '—') + '</td>' +
+      '<td style="font-family:var(--f-mono);font-size:12px;color:var(--tertiary)">' + (s.tpSugerido ? fmtPrecio(s.tpSugerido) : '—') + '</td>' +
+      '<td style="font-family:var(--f-mono);font-size:12px;color:var(--error)">' + (s.slSugerido ? fmtPrecio(s.slSugerido) : '—') + '</td>' +
+      '<td><span class="badge ' + resBadge + '">' + escHtml(s.resultado) + '</span></td>' +
+      '<td style="font-family:var(--f-mono);font-size:13px;font-weight:700;color:' + pnlColor + '">' + pnlTxt + '</td>' +
+      '<td>' + (s.resultado === 'pendiente'
+        ? '<button class="btn btn-ghost btn-sm" onclick="cerrarSenal(' + s.id + ')">Cerrar</button>'
+        : '<button class="btn btn-ghost btn-sm" style="font-size:11px;opacity:.6" onclick="editarSenal(' + s.id + ')">✎</button>') +
+      '</td></tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+
+  // Canvas P&L
+  const cc = qs('hs-canvas-card');
+  const resOrder = leerHistorialSenales()
+    .filter(s => !(!qs('hs-inc-edge')?.checked && s.edgeInflado))
+    .filter(s => _hsFilter === 'all' || s.moneda === _hsFilter)
+    .filter(s => s.resultado !== 'pendiente' && s.pnlReal != null)
+    .sort((a, b) => a.id - b.id);
+  if (cc) {
+    cc.style.display = resOrder.length >= 2 ? '' : 'none';
+    if (resOrder.length >= 2) requestAnimationFrame(() => renderCanvasPnL(resOrder));
+  }
+}
+
+function renderCanvasPnL(resueltas) {
+  const canvas = qs('canvas-pnl');
+  if (!canvas) return;
+  const W = canvas.offsetWidth || 500;
+  const H = 160;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const acum = [];
+  let sum = 0;
+  resueltas.forEach(s => { sum += (s.pnlReal || 0); acum.push(sum); });
+
+  const minV = Math.min(0, ...acum), maxV = Math.max(0, ...acum);
+  const range = maxV - minV || 1;
+  const pad = { top: 20, bottom: 28, left: 46, right: 16 };
+  const w = W - pad.left - pad.right, h = H - pad.top - pad.bottom;
+  const toX = i => pad.left + (i / Math.max(1, acum.length - 1)) * w;
+  const toY = v => pad.top + (1 - (v - minV) / range) * h;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Zero line
+  const zy = toY(0);
+  ctx.setLineDash([4, 4]); ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad.left, zy); ctx.lineTo(W - pad.right, zy); ctx.stroke();
+  ctx.setLineDash([]);
+
+  const isPos = acum[acum.length - 1] >= 0;
+  const lineColor = isPos ? '#4edea3' : '#ffb4ab';
+
+  // Area fill
+  const grad = ctx.createLinearGradient(0, pad.top, 0, H - pad.bottom);
+  grad.addColorStop(0, isPos ? 'rgba(78,222,163,0.22)' : 'rgba(255,180,171,0.22)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.beginPath();
+  ctx.moveTo(toX(0), zy);
+  acum.forEach((v, i) => ctx.lineTo(toX(i), toY(v)));
+  ctx.lineTo(toX(acum.length - 1), zy);
+  ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  acum.forEach((v, i) => i === 0 ? ctx.moveTo(toX(0), toY(v)) : ctx.lineTo(toX(i), toY(v)));
+  ctx.strokeStyle = lineColor; ctx.lineWidth = 2; ctx.stroke();
+
+  // Labels
+  ctx.fillStyle = 'rgba(139,164,189,0.8)';
+  ctx.font = '11px Inter, sans-serif'; ctx.textAlign = 'right';
+  ctx.fillText('$' + fmt(maxV, 0), pad.left - 4, pad.top + 4);
+  ctx.fillText('$' + fmt(minV, 0), pad.left - 4, H - pad.bottom);
+
+  // Last dot + value
+  const lx = toX(acum.length - 1), ly = toY(acum[acum.length - 1]);
+  ctx.fillStyle = lineColor;
+  ctx.beginPath(); ctx.arc(lx, ly, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.font = 'bold 11px Inter, sans-serif';
+  const lastV = acum[acum.length - 1];
+  ctx.fillText((lastV >= 0 ? '+$' : '-$') + fmt(Math.abs(lastV), 2), lx - 4, ly - 10);
+}
+
+function cerrarSenal(id) {
+  const lista = leerHistorialSenales();
+  const s = lista.find(x => x.id === id);
+  if (!s) return;
+  const salidaStr = prompt('Precio de salida ($):');
+  if (salidaStr === null) return;
+  const salida = parseFloat(salidaStr);
+  if (isNaN(salida) || salida <= 0) { alert('Precio inválido'); return; }
+  const variacion = s.precioEntrada > 0 ? (salida - s.precioEntrada) / s.precioEntrada : 0;
+  s.precioSalida = salida;
+  s.pnlReal = (s.capitalSugerido || 0) * variacion;
+  s.resultado = s.pnlReal >= 0 ? 'ganó' : 'perdió';
+  const notasExtra = prompt('Notas (opcional, Enter para omitir):');
+  if (notasExtra !== null && notasExtra.trim()) s.notas = notasExtra.trim();
+  guardarHistorialSenales(lista);
+  renderHistorialSenales();
+}
+
+function editarSenal(id) {
+  const lista = leerHistorialSenales();
+  const s = lista.find(x => x.id === id);
+  if (!s) return;
+  const pnlStr = prompt('P&L real ($, puede ser negativo):', s.pnlReal != null ? fmt(s.pnlReal, 2) : '');
+  if (pnlStr === null) return;
+  const pnl = parseFloat(pnlStr);
+  if (!isNaN(pnl)) { s.pnlReal = pnl; s.resultado = pnl >= 0 ? 'ganó' : 'perdió'; }
+  guardarHistorialSenales(lista);
+  renderHistorialSenales();
+}
+
+// Close alert panel on outside click
+document.addEventListener('click', function(e) {
+  const wrap = qs('btn-campanita-crypto')?.closest('.campanita-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    const panel = qs('alertas-panel-crypto');
+    if (panel) panel.style.display = 'none';
+  }
+});
+
+// Close modal-senal on outside click
+qs('modal-senal')?.addEventListener('click', function(e) {
+  if (e.target === this) this.classList.remove('show');
+});
 
 document.addEventListener('DOMContentLoaded', init);
 </script>
