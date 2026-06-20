@@ -1703,9 +1703,13 @@ function renderEstrategias() {
         '6. Monto sugerido: <b style="color:var(--tertiary)">$' + fmt(kelly, 2) + '</b> (' + fmt(kelly / STATE.capitalCrypto * 100, 1) + '% de $' + fmt(STATE.capitalCrypto, 2) + ')<br>' +
         '7. Registra en Historial de Señales' +
         '</div>' +
-        '<div style="display:flex;gap:8px;">' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
         '<button class="btn btn-primary btn-sm" onclick="abrirModalSenal(\'' + m.sym + '\')">📋 Registrar señal</button>' +
         '<button class="btn btn-ghost btn-sm" onclick="ir(\'sec-scanner\')">Ver en Scanner →</button>' +
+        '</div>' +
+        '<div style="display:flex;gap:5px;margin-top:7px;">' +
+        '<a href="https://www.binance.com/es/trade/' + m.sym + '_USDT" target="_blank" rel="noopener" style="flex:1;text-align:center;background:#F0B90B;color:#000;border-radius:6px;font-size:11px;font-weight:700;padding:5px 4px;text-decoration:none;">🟡 Binance</a>' +
+        '<a href="https://www.kucoin.com/es/trade/' + m.sym + '-USDT" target="_blank" rel="noopener" style="flex:1;text-align:center;background:#23AF91;color:#fff;border-radius:6px;font-size:11px;font-weight:700;padding:5px 4px;text-decoration:none;">🟢 KuCoin</a>' +
         '</div>';
       if (e.swing.candidatas.length > 1) {
         body += '<div style="margin-top:10px;font-size:12px;color:var(--text-3);">También con señal: ' +
@@ -1789,8 +1793,12 @@ function renderEstrategias() {
         '6. Monto: <b style="color:var(--tertiary)">$' + fmt(kelly, 2) + '</b><br>' +
         '7. Si llega a +8%: mueve SL a punto de entrada' +
         '</div>' +
-        '<div style="display:flex;gap:8px;">' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
         '<button class="btn btn-primary btn-sm" onclick="abrirModalRegistrar({moneda:\'' + c.sym + '\',posicion:\'LONG\',stake:' + kelly.toFixed(2) + '})">📋 Registrar operación</button>' +
+        '</div>' +
+        '<div style="display:flex;gap:5px;margin-top:7px;">' +
+        '<a href="https://www.binance.com/es/trade/' + c.sym + '_USDT" target="_blank" rel="noopener" style="flex:1;text-align:center;background:#F0B90B;color:#000;border-radius:6px;font-size:11px;font-weight:700;padding:5px 4px;text-decoration:none;">🟡 Binance</a>' +
+        '<a href="https://www.kucoin.com/es/trade/' + c.sym + '-USDT" target="_blank" rel="noopener" style="flex:1;text-align:center;background:#23AF91;color:#fff;border-radius:6px;font-size:11px;font-weight:700;padding:5px 4px;text-decoration:none;">🟢 KuCoin</a>' +
         '</div>';
     } else {
       body = '<div style="font-size:13px;color:var(--text-3);padding-bottom:8px;">EMA20 debe cruzar EMA50 al alza en las últimas 3 velas 1D de BTC o ETH para activarse.</div>';
@@ -1954,6 +1962,12 @@ function renderCoinCard(sym, elId) {
       <div class="op-box-row">
         <input type="number" class="op-box-inp" id="opbox-${sym}" placeholder="Capital $" step="any" min="0" value="${fmt(kellyCapital, 2)}">
         <button class="op-box-btn" onclick="abrirDesdeCard('${sym}')">📋 LONG</button>
+      </div>
+      <div style="display:flex;gap:5px;margin-top:7px;">
+        <a href="https://www.binance.com/es/trade/${sym}_USDT" target="_blank" rel="noopener"
+           style="flex:1;text-align:center;background:#F0B90B;color:#000;border-radius:6px;font-size:11px;font-weight:700;padding:5px 4px;text-decoration:none;">🟡 Binance</a>
+        <a href="https://www.kucoin.com/es/trade/${sym}-USDT" target="_blank" rel="noopener"
+           style="flex:1;text-align:center;background:#23AF91;color:#fff;border-radius:6px;font-size:11px;font-weight:700;padding:5px 4px;text-decoration:none;">🟢 KuCoin</a>
       </div>
     </div>`;
 }
