@@ -1029,6 +1029,7 @@ const STATE = {
   capitalCrypto: parseFloat(localStorage.getItem('jcahs_crypto_capital')) || 200,
   exchSelected: {},
   top100: null,
+  preciosTimestamp: null,
   satoshiChat: [],
   alertasCrypto: [],
   tavilyUsadoMes: (function() {
@@ -1151,20 +1152,87 @@ async function proxyGet(url) {
   return r.json();
 }
 
-// ── CARGAR PRECIOS (CoinGecko) ────────────────────────────
-async function cargarPrecios() {
-  try {
-    const data = await proxyGet(
-      'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,ripple&vs_currencies=usd&include_24hr_change=true'
-    );
-    if (data.bitcoin)  STATE.precios.BTC = { usd: data.bitcoin.usd,  change24h: data.bitcoin.usd_24h_change };
-    if (data.ethereum) STATE.precios.ETH = { usd: data.ethereum.usd, change24h: data.ethereum.usd_24h_change };
-    if (data.solana)   STATE.precios.SOL = { usd: data.solana.usd,   change24h: data.solana.usd_24h_change };
-    if (data.ripple)   STATE.precios.XRP = { usd: data.ripple.usd,   change24h: data.ripple.usd_24h_change };
+// ── CARGAR PRECIOS ────────────────────────────────────────
+// Cascada: 1° Kraken Ticker  2° CoinGecko  3° precios en memoria
+const _KRAKEN_TICKER_MAP = {
+  XXBTZUSD: 'BTC', XBTUSD: 'BTC',
+  XETHZUSD: 'ETH',
+  SOLUSD:   'SOL',
+  XXRPZUSD: 'XRP', XRPZUSD: 'XRP'
+};
+
+async function cargarPreciosKraken() {
+  const url = 'https://api.kraken.com/0/public/Ticker?pair=XBTUSD,XETHZUSD,SOLUSD,XXRPZUSD';
+  const data = await proxyGet(url);
+  if (data.error && data.error.length > 0) throw new Error(data.error[0]);
+  if (!data.result) throw new Error('Sin resultado Kraken Ticker');
+  let n = 0;
+  Object.entries(data.result).forEach(([key, v]) => {
+    const sym = _KRAKEN_TICKER_MAP[key];
+    if (!sym) return;
+    const precio = parseFloat(v.c[0]);
+    if (isNaN(precio) || precio <= 0) return;
+    STATE.precios[sym] = { usd: precio, change24h: STATE.precios[sym]?.change24h || 0 };
+    n++;
+  });
+  if (n < 2) throw new Error('Respuesta Kraken incompleta (' + n + ' pares)');
+}
+
+async function cargarPreciosCoinGecko() {
+  const data = await proxyGet(
+    'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,ripple&vs_currencies=usd&include_24hr_change=true'
+  );
+  if (data.bitcoin)  STATE.precios.BTC = { usd: data.bitcoin.usd,  change24h: data.bitcoin.usd_24h_change };
+  if (data.ethereum) STATE.precios.ETH = { usd: data.ethereum.usd, change24h: data.ethereum.usd_24h_change };
+  if (data.solana)   STATE.precios.SOL = { usd: data.solana.usd,   change24h: data.solana.usd_24h_change };
+  if (data.ripple)   STATE.precios.XRP = { usd: data.ripple.usd,   change24h: data.ripple.usd_24h_change };
+}
+
+async function cargarPrecios(forzar) {
+  // Caché 3 min (omitir si forzar=true)
+  if (!forzar && STATE.preciosTimestamp && Date.now() - STATE.preciosTimestamp < 180000) {
     actualizarTicker();
-  } catch (e) {
-    console.warn('cargarPrecios error:', e.message);
+    return;
   }
+
+  let fuente = null;
+
+  try {
+    await cargarPreciosKraken();
+    fuente = 'kraken';
+  } catch (eK) {
+    console.warn('Kraken Ticker falló, usando CoinGecko:', eK.message);
+    try {
+      await cargarPreciosCoinGecko();
+      fuente = 'coingecko';
+    } catch (eC) {
+      console.warn('CoinGecko también falló:', eC.message);
+      if (STATE.preciosTimestamp) {
+        const min = Math.round((Date.now() - STATE.preciosTimestamp) / 60000);
+        const el = qs('panel-fuente');
+        if (el) el.textContent = '⚠️ Precios sin actualizar — última hace ' + min + 'min';
+      }
+      actualizarTicker();
+      return;
+    }
+  }
+
+  STATE.preciosTimestamp = Date.now();
+
+  // Recalcular change24h desde velas 1D (más preciso que APIs externas)
+  ['BTC', 'ETH', 'SOL', 'XRP'].forEach(sym => {
+    if (STATE.precios[sym]) {
+      const ch = calcChange24h(sym);
+      if (ch !== 0) STATE.precios[sym].change24h = ch;
+    }
+  });
+
+  const el = qs('panel-fuente');
+  if (el) el.textContent = fuente === 'kraken'
+    ? 'Fuente: Kraken (OHLC + Precios)'
+    : 'Fuente: Kraken OHLC + CoinGecko (precios)';
+
+  actualizarTicker();
 }
 
 function actualizarTicker() {
@@ -1293,6 +1361,15 @@ function calcVolumeSignal(vols) {
   const recent = vols[vols.length - 1];
   const avg = vols.slice(-21, -1).reduce((a, b) => a + b, 0) / Math.min(20, vols.length - 1);
   return { ratio: recent / avg, alto: recent > avg * 1.2 };
+}
+
+function calcChange24h(sym) {
+  const k1d = STATE.ohlc[sym]?.['1d'] || [];
+  if (k1d.length < 1) return 0;
+  const prevClose = k1d[k1d.length - 1].c;
+  const current = STATE.precios[sym]?.usd;
+  if (!prevClose || !current) return 0;
+  return (current - prevClose) / prevClose * 100;
 }
 
 function calcKelly(prob, odd, fraccion) {
@@ -1994,7 +2071,7 @@ async function recargarDatos(forzar) {
 
   try {
     // Paralelo: precios + FNG
-    await Promise.all([cargarPrecios(), cargarFearGreed()]);
+    await Promise.all([cargarPrecios(forzar), cargarFearGreed()]);
 
     // Klines Kraken — 4H y 1D para las 4 monedas
     const [btc4h, btc1d, eth4h, eth1d, sol4h, sol1d, xrp4h, xrp1d] = await Promise.all([
@@ -2016,6 +2093,15 @@ async function recargarDatos(forzar) {
     if (sol1d.length > 0) STATE.ohlc.SOL['1d'] = sol1d;
     if (xrp4h.length > 0) STATE.ohlc.XRP['4h'] = xrp4h;
     if (xrp1d.length > 0) STATE.ohlc.XRP['1d'] = xrp1d;
+
+    // Recalcular change24h ahora que klines están disponibles
+    ['BTC', 'ETH', 'SOL', 'XRP'].forEach(sym => {
+      if (STATE.precios[sym]) {
+        const ch = calcChange24h(sym);
+        if (ch !== 0) STATE.precios[sym].change24h = ch;
+      }
+    });
+    actualizarTicker();
 
     STATE.ultimaActualizacion = new Date();
     const h = STATE.ultimaActualizacion;
@@ -2090,7 +2176,7 @@ function init() {
   }, 5 * 60 * 1000);
 
   // Refresh cada 5 min (precios) — klines cada 30 min sería suficiente pero simplificamos
-  setInterval(() => cargarPrecios().then(actualizarTicker), 5 * 60 * 1000);
+  setInterval(cargarPrecios, 5 * 60 * 1000);
   setInterval(() => recargarDatos(true), 30 * 60 * 1000);
 }
 
