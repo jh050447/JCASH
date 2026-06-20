@@ -624,6 +624,9 @@ select.input { cursor: pointer; }
     <a class="nav-link" id="nl-sec-scanner" onclick="ir('sec-scanner')">
       <span class="nav-icon">🔍</span> Scanner
     </a>
+    <a class="nav-link" id="nl-sec-small-cap" onclick="ir('sec-small-cap')">
+      <span class="nav-icon">🔍</span> Small Cap
+    </a>
     <a class="nav-link" id="nl-sec-posiciones" onclick="ir('sec-posiciones')">
       <span class="nav-icon">💼</span> Posiciones
     </a>
@@ -820,6 +823,33 @@ select.input { cursor: pointer; }
 
         <div id="scanner-content">
           <div class="empty-state">Cargando análisis técnico...</div>
+        </div>
+
+      </section>
+
+      <!-- ══════════ SMALL CAP SCANNER ══════════ -->
+      <section class="seccion" id="sec-small-cap">
+
+        <div class="sec-header">
+          <div>
+            <div class="sec-title">🔍 Scanner Small Cap</div>
+            <div class="sec-sub" id="sc-sub">Tokens con market cap $1M–$50M y alta liquidez</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="scanearSmallCap()">🔍 Buscar</button>
+        </div>
+
+        <!-- Aviso fijo -->
+        <div style="background:var(--warn-dim);border:1px solid rgba(255,217,102,0.25);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--warning);line-height:1.6;">
+          ⚠️ Esta tabla filtra por métricas cuantitativas. Antes de invertir verifica manualmente:
+          tokens del team bloqueados, GitHub activo, auditoría publicada y revenue real.
+          Usa el botón SATOSHI para análisis rápido de cada proyecto.
+        </div>
+
+        <!-- Tabla de resultados -->
+        <div class="card" style="padding:0;" id="sc-card">
+          <div id="sc-content" style="padding:20px">
+            <div class="empty-state">Haz clic en "Buscar" para escanear tokens con market cap $1M–$50M.<br>Cache 30 minutos por búsqueda.</div>
+          </div>
         </div>
 
       </section>
@@ -1093,6 +1123,9 @@ const STATE = {
   changes24h: {},
   exchSelected: {},
   top100: null,
+  smallCapData: null,
+  smallCapTimestamp: null,
+  smallCapOffset: 0,
   preciosTimestamp: null,
   satoshiChat: [],
   alertasCrypto: [],
@@ -1166,6 +1199,7 @@ function ir(sec) {
   if (sec === 'sec-posiciones') renderPosiciones();
   if (sec === 'sec-panel') renderUltimasOps();
   if (sec === 'sec-historial-crypto') renderHistorialSenales();
+  if (sec === 'sec-small-cap' && STATE.smallCapData) renderSmallCapTabla(STATE.smallCapData, STATE.smallCapOffset || 0);
 }
 
 function toggleMenuMovil(forzar) {
@@ -3112,6 +3146,131 @@ function editarSenal(id) {
   if (!isNaN(pnl)) { s.pnlReal = pnl; s.resultado = pnl >= 0 ? 'ganó' : 'perdió'; }
   guardarHistorialSenales(lista);
   renderHistorialSenales();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SCANNER SMALL CAP
+// ═══════════════════════════════════════════════════════════
+
+function _scScore(c) {
+  const volCap = c.market_cap > 0 ? c.total_volume / c.market_cap : 0;
+  const chg7  = c.price_change_percentage_7d_in_currency || 0;
+  const chg30 = c.price_change_percentage_30d_in_currency || 0;
+  let score = 0;
+  // Liquidez (vol/cap)
+  if (volCap > 0.20) score += 30;
+  else if (volCap > 0.10) score += 20;
+  // Volumen absoluto
+  if (c.total_volume > 2e6) score += 20;
+  else if (c.total_volume > 1e6) score += 15;
+  else if (c.total_volume > 5e5) score += 10;
+  // Market cap sweet spot
+  if (c.market_cap < 20e6)   score += 20;
+  else if (c.market_cap < 50e6) score += 10;
+  // Momentum
+  if (chg7 > 5)    score += 15;
+  else if (chg7 > 0) score += 5;
+  if (chg30 > 10)  score += 15;
+  else if (chg30 > 0) score += 5;
+  // Penalización
+  if (chg7 < -20) score -= 20;
+  return Math.max(0, Math.min(100, score));
+}
+
+function _scFiltrar(coins) {
+  return coins.filter(c =>
+    c.market_cap > 1e6 &&
+    c.market_cap < 50e6 &&
+    c.total_volume > 5e5 &&
+    (c.market_cap > 0 ? c.total_volume / c.market_cap : 0) > 0.10 &&
+    c.current_price > 0.0001
+  ).map(c => ({ ...c, _score: _scScore(c) }))
+   .sort((a, b) => b._score - a._score);
+}
+
+async function scanearSmallCap() {
+  const CACHE_MS = 30 * 60 * 1000;
+  if (STATE.smallCapTimestamp && Date.now() - STATE.smallCapTimestamp < CACHE_MS && STATE.smallCapData) {
+    ir('sec-small-cap');
+    return;
+  }
+  const el = qs('sc-content');
+  const sub = qs('sc-sub');
+  if (el) el.innerHTML = '<div class="empty-state">Cargando páginas 1 y 2 de CoinGecko...</div>';
+  ir('sec-small-cap');
+
+  try {
+    const base = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&sparkline=false&price_change_percentage=7d,30d&per_page=250&page=';
+    const [r1, r2] = await Promise.all([proxyGet(base + '1'), proxyGet(base + '2')]);
+    const all = [...(Array.isArray(r1) ? r1 : []), ...(Array.isArray(r2) ? r2 : [])];
+    const filtrados = _scFiltrar(all);
+    STATE.smallCapData = filtrados;
+    STATE.smallCapTimestamp = Date.now();
+    STATE.smallCapOffset = 0;
+    if (sub) sub.textContent = filtrados.length + ' tokens encontrados ($1M–$50M, vol/cap>10%) — cache 30min';
+    renderSmallCapTabla(filtrados, 0);
+  } catch(e) {
+    if (el) el.innerHTML = '<div class="empty-state" style="color:var(--error)">Error al cargar: ' + e.message + '</div>';
+    console.warn('scanearSmallCap:', e);
+  }
+}
+
+function renderSmallCapTabla(coins, offset) {
+  const el = qs('sc-content');
+  if (!el) return;
+  offset = offset || 0;
+  if (!coins || coins.length === 0) {
+    el.innerHTML = '<div style="padding:20px"><div class="empty-state">Sin tokens que cumplan los filtros.</div></div>';
+    return;
+  }
+
+  const pagina = coins.slice(offset, offset + 20);
+  const fmtM = v => v >= 1e6 ? '$' + fmt(v / 1e6, 2) + 'M' : '$' + fmt(v / 1e3, 0) + 'K';
+
+  let html = '<div style="overflow-x:auto"><table class="tabla"><thead><tr>' +
+    '<th>Token</th><th>Market Cap</th><th>Vol 24h</th><th>Vol/Cap%</th>' +
+    '<th>Precio</th><th>7d%</th><th>30d%</th><th>Score</th><th></th>' +
+    '</tr></thead><tbody>';
+
+  pagina.forEach(c => {
+    const volCap = c.market_cap > 0 ? c.total_volume / c.market_cap * 100 : 0;
+    const vcColor = volCap > 20 ? 'var(--tertiary)' : volCap > 10 ? 'var(--warning)' : 'var(--text-3)';
+    const chg7  = c.price_change_percentage_7d_in_currency || 0;
+    const chg30 = c.price_change_percentage_30d_in_currency || 0;
+    const score = c._score;
+    const scoreColor = score >= 60 ? 'var(--tertiary)' : score >= 35 ? 'var(--warning)' : 'var(--error)';
+    const satoshiMsg = 'Analiza el proyecto ' + escHtml(c.name) + ' (' + escHtml(c.symbol.toUpperCase()) + '): ¿tiene GitHub activo en los últimos 30 días, auditoría de smart contract verificada, revenue real del protocolo y tokenomics saludables (vesting del team bloqueado)? Market cap: ' + fmtM(c.market_cap) + ' | Volumen 24h: ' + fmtM(c.total_volume) + ' | Vol/Cap ratio: ' + fmt(volCap, 1) + '%';
+    html += '<tr>' +
+      '<td><b style="font-family:var(--f-mono)">' + escHtml(c.symbol.toUpperCase()) + '</b><br><span style="font-size:11px;color:var(--text-3)">' + escHtml(c.name) + '</span></td>' +
+      '<td style="font-family:var(--f-mono);font-size:12px">' + fmtM(c.market_cap) + '</td>' +
+      '<td style="font-family:var(--f-mono);font-size:12px">' + fmtM(c.total_volume) + '</td>' +
+      '<td style="font-family:var(--f-mono);font-size:13px;font-weight:700;color:' + vcColor + '">' + fmt(volCap, 1) + '%</td>' +
+      '<td style="font-family:var(--f-mono);font-size:13px">' + fmtPrecio(c.current_price) + '</td>' +
+      '<td style="font-family:var(--f-mono);font-size:12px;color:' + (chg7 >= 0 ? 'var(--tertiary)' : 'var(--error)') + '">' + (chg7 >= 0 ? '+' : '') + fmt(chg7, 1) + '%</td>' +
+      '<td style="font-family:var(--f-mono);font-size:12px;color:' + (chg30 >= 0 ? 'var(--tertiary)' : 'var(--error)') + '">' + (chg30 >= 0 ? '+' : '') + fmt(chg30, 1) + '%</td>' +
+      '<td style="font-family:var(--f-mono);font-size:14px;font-weight:700;color:' + scoreColor + '">' + score + '</td>' +
+      '<td><button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="scConsultarSATOSHI(' + JSON.stringify(satoshiMsg) + ')">🤖 SATOSHI</button></td>' +
+      '</tr>';
+  });
+  html += '</tbody></table></div>';
+
+  // Navegación páginas
+  const hayMas = offset + 20 < coins.length;
+  const hayAtras = offset > 0;
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-top:1px solid var(--border);">' +
+    '<span style="font-size:12px;color:var(--text-3)">' + (offset + 1) + '–' + Math.min(offset + 20, coins.length) + ' de ' + coins.length + ' tokens</span>' +
+    '<div style="display:flex;gap:8px;">' +
+    (hayAtras ? '<button class="btn btn-ghost btn-sm" onclick="renderSmallCapTabla(STATE.smallCapData,' + (offset - 20) + ')">← Anteriores</button>' : '') +
+    (hayMas ? '<button class="btn btn-ghost btn-sm" onclick="renderSmallCapTabla(STATE.smallCapData,' + (offset + 20) + ')">Ver 20 más →</button>' : '') +
+    '</div></div>';
+
+  el.innerHTML = html;
+  STATE.smallCapOffset = offset;
+}
+
+function scConsultarSATOSHI(mensaje) {
+  ir('sec-satoshi');
+  setTimeout(() => consultarSATOSHI(mensaje), 150);
 }
 
 // Close alert panel on outside click
