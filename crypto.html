@@ -1090,6 +1090,7 @@ const STATE = {
     LINK: { '4h': [], '1d': [] }
   },
   capitalCrypto: parseFloat(localStorage.getItem('jcahs_crypto_capital')) || 200,
+  changes24h: {},
   exchSelected: {},
   top100: null,
   preciosTimestamp: null,
@@ -1245,7 +1246,8 @@ async function cargarPreciosKraken() {
     if (!sym) return;
     const precio = parseFloat(v.c[0]);
     if (isNaN(precio) || precio <= 0) return;
-    STATE.precios[sym] = { usd: precio, change24h: STATE.precios[sym]?.change24h || 0 };
+    STATE.precios[sym] = precio;
+    STATE.changes24h[sym] = STATE.changes24h[sym] || 0;
     n++;
   });
   if (n < 2) throw new Error('Respuesta Kraken incompleta (' + n + ' pares)');
@@ -1260,7 +1262,7 @@ async function cargarPreciosCoinGecko() {
     cardano: 'ADA', 'avalanche-2': 'AVAX', polkadot: 'DOT', chainlink: 'LINK'
   };
   Object.entries(map).forEach(([id, sym]) => {
-    if (data[id]) STATE.precios[sym] = { usd: data[id].usd, change24h: data[id].usd_24h_change };
+    if (data[id]) { STATE.precios[sym] = data[id].usd; STATE.changes24h[sym] = data[id].usd_24h_change; }
   });
 }
 
@@ -1296,10 +1298,10 @@ async function cargarPrecios(forzar) {
   STATE.preciosTimestamp = Date.now();
 
   // Recalcular change24h desde velas 1D (más preciso que APIs externas)
-  ['BTC', 'ETH', 'SOL', 'XRP'].forEach(sym => {
+  ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'AVAX', 'DOT', 'LINK'].forEach(sym => {
     if (STATE.precios[sym]) {
       const ch = calcChange24h(sym);
-      if (ch !== 0) STATE.precios[sym].change24h = ch;
+      if (ch !== 0) STATE.changes24h[sym] = ch;
     }
   });
 
@@ -1315,10 +1317,11 @@ function actualizarTicker() {
   [['BTC','btc'], ['ETH','eth'], ['SOL','sol'], ['XRP','xrp']].forEach(([sym, id]) => {
     const p = STATE.precios[sym];
     if (!p) return;
-    qs('ticker-' + id + '-price').textContent = fmtPrecio(p.usd);
+    qs('ticker-' + id + '-price').textContent = fmtPrecio(p);
     const chgEl = qs('ticker-' + id + '-chg');
-    chgEl.textContent = fmtPct(p.change24h);
-    chgEl.className = 'ticker-chg ' + (p.change24h >= 0 ? 'pos' : 'neg');
+    const chg = STATE.changes24h[sym] || 0;
+    chgEl.textContent = fmtPct(chg);
+    chgEl.className = 'ticker-chg ' + (chg >= 0 ? 'pos' : 'neg');
   });
 }
 
@@ -1443,7 +1446,7 @@ function calcChange24h(sym) {
   const k1d = STATE.ohlc[sym]?.['1d'] || [];
   if (k1d.length < 1) return 0;
   const prevClose = k1d[k1d.length - 1].c;
-  const current = STATE.precios[sym]?.usd;
+  const current = STATE.precios[sym];
   if (!prevClose || !current) return 0;
   return (current - prevClose) / prevClose * 100;
 }
@@ -1472,7 +1475,7 @@ function generarExplicaciones(datos) {
 function calcScore(sym) {
   const k4h = STATE.ohlc[sym]?.['4h'] || [];
   const k1d = STATE.ohlc[sym]?.['1d'] || [];
-  const precio = STATE.precios[sym]?.usd || null;
+  const precio = STATE.precios[sym] || null;
   const fng = STATE.fng?.value || 50;
 
   if (k4h.length < 20) return null;
@@ -1629,7 +1632,7 @@ function calcEstrategias() {
   const fng = STATE.fng?.value ?? null;
   const btcD = calcScore('BTC');
   const rsiSem = calcRsiSemanal('BTC');
-  const btcPrecio = STATE.precios.BTC?.usd ?? null;
+  const btcPrecio = STATE.precios.BTC ?? null;
   const ema200 = btcD?.ema200_1d ?? null;
   const cFng  = fng !== null   ? fng < 20                        : null;
   const cRsiW = rsiSem !== null ? rsiSem < 40                    : null;
@@ -1770,7 +1773,7 @@ function renderEstrategias() {
       const c = e.trend.cruce;
       const exchId = STATE.exchSelected[c.sym] || 'binance';
       const exchNombre = EXCHANGES[exchId]?.nombre || 'Binance';
-      const precio = STATE.precios[c.sym]?.usd;
+      const precio = STATE.precios[c.sym];
       const kelly = calcKelly(0.65, 2, 0.25) * STATE.capitalCrypto;
       const sl = precio ? precio * 0.93 : null;
       const tp = precio ? precio * 1.15 : null;
@@ -1910,8 +1913,8 @@ function renderCoinCard(sym, elId) {
       </div>
       <span class="badge ${datos.senalClass}">${datos.senal}</span>
     </div>
-    <div class="coin-price ${precio.change24h >= 0 ? 'pos' : 'neg'}">${fmtPrecio(precio.usd)}</div>
-    <div class="coin-chg ${precio.change24h >= 0 ? 'pos' : 'neg'}">${fmtPct(precio.change24h)}</div>
+    <div class="coin-price ${(STATE.changes24h[sym]||0) >= 0 ? 'pos' : 'neg'}">${fmtPrecio(precio)}</div>
+    <div class="coin-chg ${(STATE.changes24h[sym]||0) >= 0 ? 'pos' : 'neg'}">${fmtPct(STATE.changes24h[sym]||0)}</div>
 
     <div class="exch-tabs" id="etabs-${sym}">${exchTabsHtml}</div>
 
@@ -2192,7 +2195,7 @@ function usarPrecioActual() {
   const mon = qs('op-moneda').value;
   const p = STATE.precios[mon];
   if (p) {
-    qs('op-entrada').value = p.usd.toFixed(p.usd < 1 ? 6 : p.usd < 100 ? 4 : 2);
+    qs('op-entrada').value = p.toFixed(p < 1 ? 6 : p < 100 ? 4 : 2);
     actualizarPnlPreview();
   } else {
     alert('Precio actual no disponible para ' + mon + '. Esperando datos...');
@@ -2291,7 +2294,7 @@ function abrirDesdeCard(sym) {
   const exchId = STATE.exchSelected[sym] || 'binance';
   abrirModalRegistrar({
     moneda: sym,
-    entrada: precio ? precio.usd : '',
+    entrada: precio ?? '',
     posicion: 'LONG',
     stake: stake > 0 ? stake : '',
     exchange: EXCHANGES[exchId]?.nombre || 'Binance'
@@ -2441,10 +2444,10 @@ async function recargarDatos(forzar) {
     if (link1d.length > 0) STATE.ohlc.LINK['1d'] = link1d;
 
     // Recalcular change24h ahora que klines están disponibles
-    ['BTC', 'ETH', 'SOL', 'XRP'].forEach(sym => {
+    ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'AVAX', 'DOT', 'LINK'].forEach(sym => {
       if (STATE.precios[sym]) {
         const ch = calcChange24h(sym);
-        if (ch !== 0) STATE.precios[sym].change24h = ch;
+        if (ch !== 0) STATE.changes24h[sym] = ch;
       }
     });
     actualizarTicker();
@@ -2539,7 +2542,7 @@ function construirContextoSATOSHI() {
     const d = calcScore(sym);
     const p = STATE.precios[sym];
     if (!d || !p) return sym + ': sin datos';
-    return sym + ': ' + fmtPrecio(p.usd) +
+    return sym + ': ' + fmtPrecio(p) +
       ' | RSI 4H: ' + (d.rsi4h != null ? fmt(d.rsi4h, 1) : '—') +
       ' | EMA20: ' + (d.ema20_1d ? '$' + fmt(d.ema20_1d, 0) : '—') +
       ' | EMA50: ' + (d.ema50_1d ? '$' + fmt(d.ema50_1d, 0) : '—') +
@@ -2749,14 +2752,14 @@ function verificarAlertasCrypto() {
     // Condición A: score >= 70
     const keyA = sym + '_scoreAlto';
     if (d.score >= 70 && !notificadas[keyA]) {
-      nuevas.push({ sym, tipo: 'scoreAlto', titulo: '⚡ Señal fuerte', desc: sym + ' Score ' + d.score + '/100', rsi: d.rsi4h, score: d.score, precio: p?.usd, ts: ahora });
+      nuevas.push({ sym, tipo: 'scoreAlto', titulo: '⚡ Señal fuerte', desc: sym + ' Score ' + d.score + '/100', rsi: d.rsi4h, score: d.score, precio: p, ts: ahora });
       notificadas[keyA] = ahora;
     }
 
     // Condición B: RSI < 30
     const keyB = sym + '_rsiSob';
     if (d.rsi4h !== null && d.rsi4h < 30 && !notificadas[keyB]) {
-      nuevas.push({ sym, tipo: 'rsiSob', titulo: '📉 RSI sobrevendido', desc: sym + ' RSI=' + fmt(d.rsi4h, 1), rsi: d.rsi4h, score: d.score, precio: p?.usd, ts: ahora });
+      nuevas.push({ sym, tipo: 'rsiSob', titulo: '📉 RSI sobrevendido', desc: sym + ' RSI=' + fmt(d.rsi4h, 1), rsi: d.rsi4h, score: d.score, precio: p, ts: ahora });
       notificadas[keyB] = ahora;
     }
   });
@@ -2850,7 +2853,7 @@ function abrirModalSenal(sym) {
 
   const kelly = calcKelly(d.score / 100, 2, 0.25) * STATE.capitalCrypto;
   _modalSenalData = {
-    moneda: sym, precioEntrada: p.usd,
+    moneda: sym, precioEntrada: p,
     rsi4h: d.rsi4h, ema20: d.ema20_1d, ema50: d.ema50_1d,
     macd: d.macd4h?.macd ?? null, score: d.score, senal: d.senal,
     fearGreed: STATE.fng?.value ?? null, capitalSugerido: kelly
@@ -2860,7 +2863,7 @@ function abrirModalSenal(sym) {
   if (preview) {
     preview.textContent = [
       'Moneda:        ' + sym + ' (' + (NOMBRES[sym] || sym) + ')',
-      'Precio entrada:' + fmtPrecio(p.usd),
+      'Precio entrada:' + fmtPrecio(p),
       'RSI 4H:        ' + (d.rsi4h != null ? fmt(d.rsi4h, 1) : '—'),
       'EMA20/50 1D:   ' + (d.ema20_1d ? '$' + fmt(d.ema20_1d, 0) : '—') + ' / ' + (d.ema50_1d ? '$' + fmt(d.ema50_1d, 0) : '—'),
       'MACD 4H:       ' + (d.macd4h ? (d.macd4h.macd >= 0 ? '+' : '') + fmt(d.macd4h.macd, 0) : '—'),
