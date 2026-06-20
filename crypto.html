@@ -443,6 +443,33 @@ select.input { cursor: pointer; }
 .hs-table-wrap { overflow-x:auto; }
 .hs-canvas-wrap { margin-top:14px; }
 
+/* ── ESTRATEGIAS ACTIVAS ─────────────────────────────────── */
+.estr-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); margin-bottom:10px; overflow:hidden; transition:border-color .2s; }
+.estr-card.activa { border-color:rgba(78,222,163,0.35); }
+.estr-card.parcial { border-color:rgba(255,217,102,0.35); }
+.estr-header { display:flex; align-items:center; padding:13px 18px; cursor:pointer; user-select:none; gap:12px; }
+.estr-header:hover { background:rgba(255,255,255,0.02); }
+.estr-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+.estr-dot.activa  { background:var(--tertiary); animation:pulse 1.5s infinite; }
+.estr-dot.inactiva{ background:var(--text-3); }
+.estr-dot.parcial { background:var(--warning); }
+.estr-title { font-size:14px; font-weight:700; color:var(--text); flex:1; }
+.estr-badge { font-size:11px; font-weight:700; padding:3px 10px; border-radius:12px; letter-spacing:.4px; }
+.estr-badge.activa   { background:var(--tert-dim); color:var(--tertiary); }
+.estr-badge.inactiva { background:rgba(255,255,255,0.06); color:var(--text-3); }
+.estr-badge.parcial  { background:var(--warn-dim); color:var(--warning); }
+.estr-arrow { font-size:10px; color:var(--text-3); transition:transform .2s; margin-left:4px; }
+.estr-card.open .estr-arrow { transform:rotate(180deg); }
+.estr-body { display:none; padding:0 18px 16px; }
+.estr-card.open .estr-body { display:block; }
+.estr-instrucciones { background:var(--surface-2); border-radius:var(--radius); padding:12px 14px; font-size:13px; line-height:2; color:var(--text-2); margin-bottom:10px; border:1px solid var(--border); }
+.estr-instrucciones b { color:var(--text); }
+.estr-cond-row { display:flex; align-items:center; gap:8px; font-size:13px; padding:5px 0; border-bottom:1px solid var(--border); }
+.estr-cond-row:last-child { border-bottom:none; }
+.estr-cond-label { color:var(--text-2); flex:1; }
+.estr-cond-val { font-family:var(--f-mono); font-size:12px; }
+.estr-hint { font-size:12px; color:var(--text-3); background:var(--surface-2); border-radius:var(--radius); padding:10px 12px; margin-top:6px; }
+
 /* ── POSICIONES TABLE ────────────────────────────────────── */
 .tabla { width:100%; border-collapse:collapse; }
 .tabla th { font-size:11px; font-weight:600; color:var(--text-3); letter-spacing:1px; text-transform:uppercase; text-align:left; padding:9px 10px; border-bottom:1px solid var(--border); }
@@ -689,6 +716,13 @@ select.input { cursor: pointer; }
             <div class="sec-sub" id="panel-fuente">Fuente: Kraken OHLC + CoinGecko</div>
           </div>
           <button class="btn btn-ghost btn-sm" onclick="recargarDatos(true)">↺ Actualizar</button>
+        </div>
+
+        <!-- Estrategias Activas -->
+        <div id="sec-estrategias" style="margin-bottom:16px;">
+          <div id="estr-swing"></div>
+          <div id="estr-dca"></div>
+          <div id="estr-trend"></div>
         </div>
 
         <!-- KPIs -->
@@ -1542,8 +1576,237 @@ function calcScore(sym) {
   };
 }
 
+// ═══════════════════════════════════════════════════════════
+//  ESTRATEGIAS ACTIVAS
+// ═══════════════════════════════════════════════════════════
+
+function calcRsiSemanal(sym) {
+  const k1d = STATE.ohlc[sym]?.['1d'] || [];
+  if (k1d.length < 14 * 7) return null; // need ~14 weeks
+  const weeklyCloses = [];
+  for (let i = k1d.length - 1; i >= 0; i -= 7) weeklyCloses.unshift(k1d[i].c);
+  if (weeklyCloses.length < 15) return null;
+  return calcRSI(weeklyCloses, 14);
+}
+
+function detectarCruceEMAReciente(sym) {
+  const k1d = STATE.ohlc[sym]?.['1d'] || [];
+  if (k1d.length < 55) return null;
+  const closes = k1d.map(k => k.c);
+  const ema20arr = calcEMAArray(closes, 20);
+  const ema50arr = calcEMAArray(closes, 50);
+  const n = closes.length;
+  for (let i = n - 1; i >= Math.max(1, n - 3); i--) {
+    const p20 = ema20arr[i - 1], p50 = ema50arr[i - 1];
+    const c20 = ema20arr[i],     c50 = ema50arr[i];
+    if (p20 !== null && p50 !== null && c20 !== null && c50 !== null) {
+      if (p20 <= p50 && c20 > c50) {
+        return { sym, ema20: c20, ema50: c50, velasAtras: n - 1 - i, horasAtras: (n - 1 - i) * 24 };
+      }
+    }
+  }
+  return null;
+}
+
+function calcEstrategias() {
+  const monedas8 = ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'AVAX', 'DOT', 'LINK'];
+
+  // ── SWING: RSI 4H < 35 Y score >= 60
+  const swingCandidatas = [];
+  let swingProximaRsi = Infinity, swingProximaSym = null, swingProximaVal = null;
+  monedas8.forEach(sym => {
+    const d = calcScore(sym);
+    if (!d || d.rsi4h === null) return;
+    if (d.rsi4h < 35 && d.score >= 60) {
+      swingCandidatas.push({ sym, rsi: d.rsi4h, score: d.score, precio: d.precio });
+    } else {
+      const dist = d.rsi4h - 35;
+      if (dist < swingProximaRsi) { swingProximaRsi = dist; swingProximaSym = sym; swingProximaVal = d.rsi4h; }
+    }
+  });
+
+  // ── DCA: F&G < 20, RSI semanal BTC < 40, precio BTC < EMA200 1D
+  const fng = STATE.fng?.value ?? null;
+  const btcD = calcScore('BTC');
+  const rsiSem = calcRsiSemanal('BTC');
+  const btcPrecio = STATE.precios.BTC?.usd ?? null;
+  const ema200 = btcD?.ema200_1d ?? null;
+  const cFng  = fng !== null   ? fng < 20                        : null;
+  const cRsiW = rsiSem !== null ? rsiSem < 40                    : null;
+  const cEma  = (ema200 && btcPrecio) ? btcPrecio < ema200      : null;
+  const dcaCondiciones = [
+    { nombre: 'Fear & Greed < 20',         activa: cFng,
+      valor: fng !== null ? 'F&G = ' + fng : 'sin datos' },
+    { nombre: 'RSI semanal BTC < 40',      activa: cRsiW,
+      valor: rsiSem !== null ? 'RSI-W = ' + fmt(rsiSem, 1) : 'sin datos' },
+    { nombre: 'BTC bajo EMA200 diaria',    activa: cEma,
+      valor: (ema200 && btcPrecio) ? '$' + fmt(btcPrecio,0) + (btcPrecio < ema200 ? ' < ' : ' > ') + 'EMA200 $' + fmt(ema200,0) : 'sin datos' }
+  ];
+  const dcaActivas = dcaCondiciones.filter(c => c.activa === true).length;
+
+  // ── TENDENCIA: cruce EMA20 > EMA50 reciente en BTC o ETH
+  let tendenciaCruce = null;
+  let tendenciaEma20BTC = btcD?.ema20_1d, tendenciaEma50BTC = btcD?.ema50_1d;
+  for (const sym of ['BTC', 'ETH']) {
+    const cruce = detectarCruceEMAReciente(sym);
+    if (cruce) { tendenciaCruce = cruce; break; }
+  }
+
+  return {
+    swing: { activa: swingCandidatas.length > 0, candidatas: swingCandidatas,
+      masProxima: swingProximaSym ? { sym: swingProximaSym, rsi: swingProximaVal, distancia: swingProximaRsi } : null },
+    dca: { activa: dcaActivas === 3, condiciones: dcaCondiciones, numActivas: dcaActivas },
+    trend: { activa: !!tendenciaCruce, cruce: tendenciaCruce, ema20BTC: tendenciaEma20BTC, ema50BTC: tendenciaEma50BTC }
+  };
+}
+
+function toggleEstr(el) { el.closest('.estr-card').classList.toggle('open'); }
+
+function _estrCard(titulo, emoji, estado, badge, body, abierta) {
+  return '<div class="estr-card ' + estado + (abierta ? ' open' : '') + '">' +
+    '<div class="estr-header" onclick="toggleEstr(this)">' +
+    '<span class="estr-dot ' + estado + '"></span>' +
+    '<span class="estr-title">' + emoji + ' ' + escHtml(titulo) + '</span>' +
+    '<span class="estr-badge ' + estado + '">' + escHtml(badge) + '</span>' +
+    '<span class="estr-arrow">▼</span>' +
+    '</div>' +
+    '<div class="estr-body">' + body + '</div>' +
+    '</div>';
+}
+
+function renderEstrategias() {
+  const e = calcEstrategias();
+
+  // ── SWING ──
+  (function() {
+    const el = qs('estr-swing');
+    if (!el) return;
+    let body = '', estado = 'inactiva', badge = 'INACTIVA', abierta = false;
+    if (e.swing.activa) {
+      estado = 'activa'; badge = 'ACTIVA'; abierta = true;
+      const m = e.swing.candidatas[0];
+      const exchId = STATE.exchSelected[m.sym] || 'binance';
+      const exchNombre = EXCHANGES[exchId]?.nombre || 'Binance';
+      const kelly = calcKelly(m.score / 100, 2, 0.25) * STATE.capitalCrypto;
+      const sl = m.precio ? m.precio * 0.95 : null;
+      const tp = m.precio ? m.precio * 1.10 : null;
+      body = '<div class="estr-instrucciones">' +
+        '<b>🎯 ' + m.sym + ' — RSI ' + fmt(m.rsi, 1) + ' · Score ' + m.score + '/100</b><br>' +
+        '1. Ve a <b>' + escHtml(exchNombre) + '</b><br>' +
+        '2. Compra <b>' + m.sym + '</b> en SPOT<br>' +
+        '3. Precio entrada: <b>' + fmtPrecio(m.precio) + '</b><br>' +
+        '4. Stop Loss: <b style="color:var(--error)">' + (sl ? fmtPrecio(sl) : '—') + '</b> (−5%)<br>' +
+        '5. Take Profit: <b style="color:var(--tertiary)">' + (tp ? fmtPrecio(tp) : '—') + '</b> (+10%)<br>' +
+        '6. Monto sugerido: <b style="color:var(--tertiary)">$' + fmt(kelly, 2) + '</b> (' + fmt(kelly / STATE.capitalCrypto * 100, 1) + '% de $' + fmt(STATE.capitalCrypto, 2) + ')<br>' +
+        '7. Registra en Historial de Señales' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;">' +
+        '<button class="btn btn-primary btn-sm" onclick="abrirModalSenal(\'' + m.sym + '\')">📋 Registrar señal</button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="ir(\'sec-scanner\')">Ver en Scanner →</button>' +
+        '</div>';
+      if (e.swing.candidatas.length > 1) {
+        body += '<div style="margin-top:10px;font-size:12px;color:var(--text-3);">También con señal: ' +
+          e.swing.candidatas.slice(1).map(x => x.sym + ' (RSI ' + fmt(x.rsi,1) + ')').join(', ') + '</div>';
+      }
+    } else {
+      body = '<div style="font-size:13px;color:var(--text-3);padding-bottom:8px;">Sin monedas en zona de entrada swing. Esperar RSI &lt; 35 y Score ≥ 60 en cualquiera de las 8 monedas.</div>';
+      if (e.swing.masProxima) {
+        body += '<div class="estr-hint"><b>' + e.swing.masProxima.sym + '</b> más cercano: RSI = <b style="font-family:var(--f-mono)">' + fmt(e.swing.masProxima.rsi, 1) + '</b>' +
+          ' <span style="color:var(--text-3)">(faltan ' + fmt(e.swing.masProxima.distancia, 1) + ' puntos para señal)</span></div>';
+      }
+    }
+    el.innerHTML = _estrCard('Swing Trading', '🔄', estado, badge, body, abierta);
+  })();
+
+  // ── DCA ──
+  (function() {
+    const el = qs('estr-dca');
+    if (!el) return;
+    const n = e.dca.numActivas;
+    const estado = e.dca.activa ? 'activa' : n > 0 ? 'parcial' : 'inactiva';
+    const badge = e.dca.activa ? 'ACTIVA' : n > 0 ? n + '/3 COND.' : 'INACTIVA';
+    const abierta = n > 0;
+    let body = '';
+    if (e.dca.activa) {
+      const cap = STATE.capitalCrypto;
+      body = '<div class="estr-instrucciones">' +
+        '<b>🚨 ZONA DCA — Las 3 condiciones están activas</b><br>' +
+        'Este es un momento histórico de compra.<br>' +
+        '1. Compra BTC por <b style="color:var(--tertiary)">$' + fmt(cap * 0.30, 2) + '</b> (30% del capital)<br>' +
+        '2. Compra ETH por <b style="color:var(--tertiary)">$' + fmt(cap * 0.20, 2) + '</b> (20% del capital)<br>' +
+        '3. Guarda en wallet — horizonte 12-24 meses<br>' +
+        '4. NO uses stop loss en DCA' +
+        '</div>';
+    }
+    // Semáforo de condiciones (siempre visible cuando el body está abierto)
+    body += '<div style="margin-bottom:8px;">';
+    e.dca.condiciones.forEach(c => {
+      const icon = c.activa === true ? '✅' : c.activa === false ? '❌' : '⏳';
+      const valColor = c.activa === true ? 'var(--tertiary)' : c.activa === false ? 'var(--error)' : 'var(--text-3)';
+      body += '<div class="estr-cond-row">' +
+        '<span style="font-size:14px">' + icon + '</span>' +
+        '<span class="estr-cond-label">' + escHtml(c.nombre) + '</span>' +
+        '<span class="estr-cond-val" style="color:' + valColor + '">' + escHtml(c.valor) + '</span>' +
+        '</div>';
+    });
+    body += '</div>';
+    if (!e.dca.activa) {
+      body += '<div class="estr-hint">' + (n === 0
+        ? 'Mercado no está en zona de pánico extremo. DCA no recomendado ahora.'
+        : 'Faltan ' + (3 - n) + ' condición' + (3 - n > 1 ? 'es' : '') + ' para activar DCA completo.') + '</div>';
+    }
+    el.innerHTML = _estrCard('DCA Inteligente', '📊', estado, badge, body, abierta);
+  })();
+
+  // ── TENDENCIA ──
+  (function() {
+    const el = qs('estr-trend');
+    if (!el) return;
+    const estado = e.trend.activa ? 'activa' : 'inactiva';
+    const badge = e.trend.activa ? 'ACTIVA' : 'INACTIVA';
+    const abierta = e.trend.activa;
+    let body = '';
+    if (e.trend.activa && e.trend.cruce) {
+      const c = e.trend.cruce;
+      const exchId = STATE.exchSelected[c.sym] || 'binance';
+      const exchNombre = EXCHANGES[exchId]?.nombre || 'Binance';
+      const precio = STATE.precios[c.sym]?.usd;
+      const kelly = calcKelly(0.65, 2, 0.25) * STATE.capitalCrypto;
+      const sl = precio ? precio * 0.93 : null;
+      const tp = precio ? precio * 1.15 : null;
+      body = '<div class="estr-instrucciones">' +
+        '<b>📈 TENDENCIA ALCISTA CONFIRMADA en ' + c.sym + '</b><br>' +
+        'Cruce EMA20 &gt; EMA50 hace <b>' + c.velasAtras + ' velas</b>' + (c.velasAtras === 0 ? ' (vela actual)' : ' (~' + c.horasAtras + 'h)') + '<br>' +
+        'EMA20: <b style="font-family:var(--f-mono)">' + (c.ema20 ? '$'+fmt(c.ema20,0) : '—') + '</b> · EMA50: <b style="font-family:var(--f-mono)">' + (c.ema50 ? '$'+fmt(c.ema50,0) : '—') + '</b><br><br>' +
+        '1. Ve a <b>' + escHtml(exchNombre) + '</b><br>' +
+        '2. Abre LONG en <b>' + c.sym + '</b><br>' +
+        '3. Precio entrada: <b>' + fmtPrecio(precio) + '</b><br>' +
+        '4. Stop Loss: <b style="color:var(--error)">' + (sl ? fmtPrecio(sl) : '—') + '</b> (−7%)<br>' +
+        '5. Take Profit: <b style="color:var(--tertiary)">' + (tp ? fmtPrecio(tp) : '—') + '</b> (+15%)<br>' +
+        '6. Monto: <b style="color:var(--tertiary)">$' + fmt(kelly, 2) + '</b><br>' +
+        '7. Si llega a +8%: mueve SL a punto de entrada' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;">' +
+        '<button class="btn btn-primary btn-sm" onclick="abrirModalRegistrar({moneda:\'' + c.sym + '\',posicion:\'LONG\',stake:' + kelly.toFixed(2) + '})">📋 Registrar operación</button>' +
+        '</div>';
+    } else {
+      body = '<div style="font-size:13px;color:var(--text-3);padding-bottom:8px;">EMA20 debe cruzar EMA50 al alza en las últimas 3 velas 1D de BTC o ETH para activarse.</div>';
+      if (e.trend.ema20BTC && e.trend.ema50BTC) {
+        const diff = (e.trend.ema20BTC - e.trend.ema50BTC) / e.trend.ema50BTC * 100;
+        const col = diff >= 0 ? 'var(--tertiary)' : 'var(--error)';
+        body += '<div class="estr-hint">BTC: EMA20 <b style="font-family:var(--f-mono);color:' + col + '">$' + fmt(e.trend.ema20BTC,0) + '</b> ' +
+          (diff >= 0 ? '&gt;' : '&lt;') + ' EMA50 <b style="font-family:var(--f-mono)">$' + fmt(e.trend.ema50BTC,0) + '</b>' +
+          ' <span style="color:var(--text-3)">(' + (diff >= 0 ? '+' : '') + fmt(diff,2) + '%)</span></div>';
+      }
+    }
+    el.innerHTML = _estrCard('Seguimiento de Tendencia', '📈', estado, badge, body, abierta);
+  })();
+}
+
 // ── RENDER PANEL ──────────────────────────────────────────
 function renderPanel() {
+  renderEstrategias();
+
   // Capital
   qs('capital-val').textContent = '$' + fmt(STATE.capitalCrypto, 0);
   qs('kpi-capital').textContent = '$' + fmt(STATE.capitalCrypto, 2);
