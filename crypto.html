@@ -220,6 +220,9 @@ body {
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
 @media (max-width: 1100px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } }
+/* Cards de monedas: 4 cols → 2 cols en pantallas medianas → 1 col móvil */
+@media (max-width: 1400px) { #crypto-cards { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 768px)  { #crypto-cards { grid-template-columns: 1fr; } }
 
 /* ── SEC HEADER ──────────────────────────────────────────── */
 .sec-header {
@@ -392,6 +395,11 @@ select.input { cursor: pointer; }
 .top100-wrap { display:none; margin-top:10px; }
 .top100-wrap.open { display:block; }
 .top100-table-wrap { overflow-x:auto; max-height:440px; overflow-y:auto; scrollbar-width:thin; }
+.extremos-panel { background:var(--surface-2); border:1px solid rgba(255,217,102,0.2); border-radius:var(--radius); padding:12px 14px; margin-bottom:10px; }
+.extremos-header { font-size:11px; font-weight:600; color:var(--warning); letter-spacing:1px; text-transform:uppercase; margin-bottom:8px; }
+.extremo-row { font-size:12px; font-family:var(--f-mono); display:flex; gap:8px; align-items:baseline; padding:2px 0; }
+.extremo-chg { font-weight:700; }
+.extremo-nota { color:var(--text-3); font-size:11px; }
 
 /* ── CAMPANITA CRYPTO ────────────────────────────────────── */
 .campanita-wrap { position:relative; }
@@ -707,7 +715,7 @@ select.input { cursor: pointer; }
           </div>
         </div>
 
-        <!-- Crypto Cards BTC / ETH / SOL / XRP -->
+        <!-- Crypto Cards — 8 monedas con OHLC real -->
         <div class="grid-4" style="margin-bottom:16px;" id="crypto-cards">
           <div class="crypto-coin-card" id="card-btc">
             <div style="text-align:center;padding:30px;color:var(--text-3);">Cargando BTC...</div>
@@ -720,6 +728,18 @@ select.input { cursor: pointer; }
           </div>
           <div class="crypto-coin-card" id="card-xrp">
             <div style="text-align:center;padding:30px;color:var(--text-3);">Cargando XRP...</div>
+          </div>
+          <div class="crypto-coin-card" id="card-ada">
+            <div style="text-align:center;padding:30px;color:var(--text-3);">Cargando ADA...</div>
+          </div>
+          <div class="crypto-coin-card" id="card-avax">
+            <div style="text-align:center;padding:30px;color:var(--text-3);">Cargando AVAX...</div>
+          </div>
+          <div class="crypto-coin-card" id="card-dot">
+            <div style="text-align:center;padding:30px;color:var(--text-3);">Cargando DOT...</div>
+          </div>
+          <div class="crypto-coin-card" id="card-link">
+            <div style="text-align:center;padding:30px;color:var(--text-3);">Cargando LINK...</div>
           </div>
         </div>
 
@@ -736,6 +756,7 @@ select.input { cursor: pointer; }
 
         <!-- Top 100 colapsable -->
         <div class="card">
+          <div id="top100-extremos"></div>
           <div class="top100-toggle" id="top100-toggle" onclick="toggleTop100()">
             <span>🏆 Top 100 Criptomonedas por Market Cap</span>
             <span class="top100-arrow" id="top100-arrow">▼</span>
@@ -758,7 +779,7 @@ select.input { cursor: pointer; }
         <div class="sec-header">
           <div>
             <div class="sec-title">Scanner de Oportunidades</div>
-            <div class="sec-sub">Análisis técnico BTC/ETH/SOL/XRP — 4H + 1D</div>
+            <div class="sec-sub">Análisis técnico 8 monedas — 4H + 1D</div>
           </div>
           <button class="btn btn-ghost btn-sm" onclick="recargarDatos(true)">↺ Actualizar</button>
         </div>
@@ -895,6 +916,10 @@ select.input { cursor: pointer; }
           <option value="ETH">ETH</option>
           <option value="SOL">SOL</option>
           <option value="XRP">XRP</option>
+          <option value="ADA">ADA</option>
+          <option value="AVAX">AVAX</option>
+          <option value="DOT">DOT</option>
+          <option value="LINK">LINK</option>
           <option value="OTRA">Otra</option>
         </select>
       </div>
@@ -1021,10 +1046,14 @@ const STATE = {
   precios: {},
   fng: null,
   ohlc: {
-    BTC: { '4h': [], '1d': [] },
-    ETH: { '4h': [], '1d': [] },
-    SOL: { '4h': [], '1d': [] },
-    XRP: { '4h': [], '1d': [] }
+    BTC:  { '4h': [], '1d': [] },
+    ETH:  { '4h': [], '1d': [] },
+    SOL:  { '4h': [], '1d': [] },
+    XRP:  { '4h': [], '1d': [] },
+    ADA:  { '4h': [], '1d': [] },
+    AVAX: { '4h': [], '1d': [] },
+    DOT:  { '4h': [], '1d': [] },
+    LINK: { '4h': [], '1d': [] }
   },
   capitalCrypto: parseFloat(localStorage.getItem('jcahs_crypto_capital')) || 200,
   exchSelected: {},
@@ -1041,8 +1070,14 @@ const STATE = {
   ultimaActualizacion: null
 };
 
-const NOMBRES = { BTC:'Bitcoin', ETH:'Ethereum', SOL:'Solana', XRP:'XRP' };
-const COIN_COLOR = { BTC:'#F7931A', ETH:'#627EEA', SOL:'#9945FF', XRP:'#00AAE4' };
+const NOMBRES = {
+  BTC:'Bitcoin', ETH:'Ethereum', SOL:'Solana', XRP:'XRP',
+  ADA:'Cardano', AVAX:'Avalanche', DOT:'Polkadot', LINK:'Chainlink'
+};
+const COIN_COLOR = {
+  BTC:'#F7931A', ETH:'#627EEA', SOL:'#9945FF', XRP:'#00AAE4',
+  ADA:'#0033AD', AVAX:'#E84142', DOT:'#E6007A', LINK:'#2A5ADA'
+};
 const EXCHANGES = {
   binance: { nombre:'Binance', spot:0.001,  futuros:0.0004 },
   bybit:   { nombre:'Bybit',   spot:0.001,  futuros:0.0006 },
@@ -1158,11 +1193,15 @@ const _KRAKEN_TICKER_MAP = {
   XXBTZUSD: 'BTC', XBTUSD: 'BTC',
   XETHZUSD: 'ETH',
   SOLUSD:   'SOL',
-  XXRPZUSD: 'XRP', XRPZUSD: 'XRP'
+  XXRPZUSD: 'XRP', XRPZUSD: 'XRP',
+  ADAUSD:   'ADA',
+  AVAXUSD:  'AVAX',
+  DOTUSD:   'DOT',
+  LINKUSD:  'LINK'
 };
 
 async function cargarPreciosKraken() {
-  const url = 'https://api.kraken.com/0/public/Ticker?pair=XBTUSD,XETHZUSD,SOLUSD,XXRPZUSD';
+  const url = 'https://api.kraken.com/0/public/Ticker?pair=XBTUSD,XETHZUSD,SOLUSD,XXRPZUSD,ADAUSD,AVAXUSD,DOTUSD,LINKUSD';
   const data = await proxyGet(url);
   if (data.error && data.error.length > 0) throw new Error(data.error[0]);
   if (!data.result) throw new Error('Sin resultado Kraken Ticker');
@@ -1180,12 +1219,15 @@ async function cargarPreciosKraken() {
 
 async function cargarPreciosCoinGecko() {
   const data = await proxyGet(
-    'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,ripple&vs_currencies=usd&include_24hr_change=true'
+    'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,ripple,cardano,avalanche-2,polkadot,chainlink&vs_currencies=usd&include_24hr_change=true'
   );
-  if (data.bitcoin)  STATE.precios.BTC = { usd: data.bitcoin.usd,  change24h: data.bitcoin.usd_24h_change };
-  if (data.ethereum) STATE.precios.ETH = { usd: data.ethereum.usd, change24h: data.ethereum.usd_24h_change };
-  if (data.solana)   STATE.precios.SOL = { usd: data.solana.usd,   change24h: data.solana.usd_24h_change };
-  if (data.ripple)   STATE.precios.XRP = { usd: data.ripple.usd,   change24h: data.ripple.usd_24h_change };
+  const map = {
+    bitcoin: 'BTC', ethereum: 'ETH', solana: 'SOL', ripple: 'XRP',
+    cardano: 'ADA', 'avalanche-2': 'AVAX', polkadot: 'DOT', chainlink: 'LINK'
+  };
+  Object.entries(map).forEach(([id, sym]) => {
+    if (data[id]) STATE.precios[sym] = { usd: data[id].usd, change24h: data[id].usd_24h_change };
+  });
 }
 
 async function cargarPrecios(forzar) {
@@ -1541,11 +1583,10 @@ function renderPanel() {
   pnlMesEl.style.color = pnlMes >= 0 ? 'var(--tertiary)' : 'var(--error)';
   qs('kpi-pnl-mes-ops').textContent = opsMes.length + ' op' + (opsMes.length !== 1 ? 's' : '') + ' cerradas';
 
-  // Cards BTC / ETH / SOL / XRP
-  renderCoinCard('BTC', 'card-btc');
-  renderCoinCard('ETH', 'card-eth');
-  renderCoinCard('SOL', 'card-sol');
-  renderCoinCard('XRP', 'card-xrp');
+  // Cards — 8 monedas con OHLC real
+  ['BTC','ETH','SOL','XRP','ADA','AVAX','DOT','LINK'].forEach(sym => {
+    renderCoinCard(sym, 'card-' + sym.toLowerCase());
+  });
 
   renderUltimasOps();
 }
@@ -1654,7 +1695,7 @@ function renderCoinCard(sym, elId) {
 // ── RENDER SCANNER ────────────────────────────────────────
 function renderScanner() {
   const el = qs('scanner-content');
-  const monedas = ['BTC', 'ETH', 'SOL', 'XRP'];
+  const monedas = ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'AVAX', 'DOT', 'LINK'];
   const cards = monedas.map(sym => calcScore(sym)).filter(d => d !== null);
 
   if (cards.length === 0) {
@@ -1994,7 +2035,37 @@ function abrirDesdeCard(sym) {
   });
 }
 
-// ── TOP 100 ───────────────────────────────────────────────
+// ── TOP 100 + MOVIMIENTOS EXTREMOS ────────────────────────
+function renderMovimientosExtremos() {
+  const el = qs('top100-extremos');
+  if (!el || !STATE.top100 || STATE.top100.length === 0) {
+    if (el) el.innerHTML = '';
+    return;
+  }
+  const umbral = 10;
+  const extremos = STATE.top100
+    .filter(c => Math.abs(c.price_change_percentage_24h || 0) >= umbral)
+    .sort((a, b) => Math.abs(b.price_change_percentage_24h) - Math.abs(a.price_change_percentage_24h))
+    .slice(0, 10);
+
+  if (extremos.length === 0) { el.innerHTML = ''; return; }
+
+  let html = '<div class="extremos-panel">';
+  html += '<div class="extremos-header">🚨 Movimientos extremos hoy (&gt;10%)</div>';
+  extremos.forEach(c => {
+    const chg = c.price_change_percentage_24h || 0;
+    const color = chg >= 0 ? 'var(--tertiary)' : 'var(--error)';
+    const icon = chg >= 0 ? '📈' : '📉';
+    const tipo = chg >= 0 ? 'posible sobrecompra' : 'posible sobreventa';
+    html += '<div class="extremo-row">' +
+      '<span class="extremo-chg" style="color:' + color + '">' + icon + ' ' + escHtml(c.symbol.toUpperCase()) + ' ' + (chg >= 0 ? '+' : '') + fmt(chg, 1) + '% hoy</span>' +
+      '<span class="extremo-nota">— ' + tipo + ', revisar en exchange</span>' +
+      '</div>';
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
 async function cargarTop100() {
   const wrap = qs('top100-table-wrap');
   wrap.innerHTML = '<div class="empty-state">Cargando Top 100...</div>';
@@ -2005,6 +2076,7 @@ async function cargarTop100() {
     if (!Array.isArray(data)) throw new Error('Respuesta inesperada');
     STATE.top100 = data;
     renderTop100(data);
+    renderMovimientosExtremos();
   } catch (e) {
     wrap.innerHTML = '<div class="empty-state" style="color:var(--error)">Error al cargar Top 100: ' + e.message + '</div>';
     console.warn('cargarTop100:', e.message);
@@ -2048,7 +2120,7 @@ function toggleTop100() {
   wrap.classList.toggle('open', !isOpen);
   toggle.classList.toggle('open', !isOpen);
   if (!isOpen && STATE.top100 === null) cargarTop100();
-  else if (!isOpen && STATE.top100) renderTop100(STATE.top100);
+  else if (!isOpen && STATE.top100) { renderTop100(STATE.top100); renderMovimientosExtremos(); }
 }
 
 function filtrarTop100() {
@@ -2073,16 +2145,19 @@ async function recargarDatos(forzar) {
     // Paralelo: precios + FNG
     await Promise.all([cargarPrecios(forzar), cargarFearGreed()]);
 
-    // Klines Kraken — 4H y 1D para las 4 monedas
-    const [btc4h, btc1d, eth4h, eth1d, sol4h, sol1d, xrp4h, xrp1d] = await Promise.all([
-      cargarKlines('XBTUSD',  240),
-      cargarKlines('XBTUSD',  1440),
-      cargarKlines('ETHUSD',  240),
-      cargarKlines('ETHUSD',  1440),
-      cargarKlines('SOLUSD',  240),
-      cargarKlines('SOLUSD',  1440),
-      cargarKlines('XXRPZUSD', 240),
-      cargarKlines('XXRPZUSD', 1440)
+    // Klines Kraken — 4H y 1D para las 8 monedas
+    const [
+      btc4h, btc1d, eth4h, eth1d, sol4h, sol1d, xrp4h, xrp1d,
+      ada4h, ada1d, avax4h, avax1d, dot4h, dot1d, link4h, link1d
+    ] = await Promise.all([
+      cargarKlines('XBTUSD',  240),  cargarKlines('XBTUSD',  1440),
+      cargarKlines('ETHUSD',  240),  cargarKlines('ETHUSD',  1440),
+      cargarKlines('SOLUSD',  240),  cargarKlines('SOLUSD',  1440),
+      cargarKlines('XXRPZUSD', 240), cargarKlines('XXRPZUSD', 1440),
+      cargarKlines('ADAUSD',  240),  cargarKlines('ADAUSD',  1440),
+      cargarKlines('AVAXUSD', 240),  cargarKlines('AVAXUSD', 1440),
+      cargarKlines('DOTUSD',  240),  cargarKlines('DOTUSD',  1440),
+      cargarKlines('LINKUSD', 240),  cargarKlines('LINKUSD', 1440)
     ]);
 
     if (btc4h.length > 0) STATE.ohlc.BTC['4h'] = btc4h;
@@ -2093,6 +2168,14 @@ async function recargarDatos(forzar) {
     if (sol1d.length > 0) STATE.ohlc.SOL['1d'] = sol1d;
     if (xrp4h.length > 0) STATE.ohlc.XRP['4h'] = xrp4h;
     if (xrp1d.length > 0) STATE.ohlc.XRP['1d'] = xrp1d;
+    if (ada4h.length > 0) STATE.ohlc.ADA['4h'] = ada4h;
+    if (ada1d.length > 0) STATE.ohlc.ADA['1d'] = ada1d;
+    if (avax4h.length > 0) STATE.ohlc.AVAX['4h'] = avax4h;
+    if (avax1d.length > 0) STATE.ohlc.AVAX['1d'] = avax1d;
+    if (dot4h.length > 0) STATE.ohlc.DOT['4h'] = dot4h;
+    if (dot1d.length > 0) STATE.ohlc.DOT['1d'] = dot1d;
+    if (link4h.length > 0) STATE.ohlc.LINK['4h'] = link4h;
+    if (link1d.length > 0) STATE.ohlc.LINK['1d'] = link1d;
 
     // Recalcular change24h ahora que klines están disponibles
     ['BTC', 'ETH', 'SOL', 'XRP'].forEach(sym => {
@@ -2188,7 +2271,7 @@ function escHtml(t) { const d = document.createElement('div'); d.appendChild(doc
 // ═══════════════════════════════════════════════════════════
 
 function construirContextoSATOSHI() {
-  const monedas = ['BTC', 'ETH', 'SOL', 'XRP'];
+  const monedas = ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'AVAX', 'DOT', 'LINK'];
   const lineas = monedas.map(sym => {
     const d = calcScore(sym);
     const p = STATE.precios[sym];
@@ -2379,7 +2462,7 @@ function limpiarChatSATOSHI() {
 // ═══════════════════════════════════════════════════════════
 
 function verificarAlertasCrypto() {
-  const monedas = ['BTC', 'ETH', 'SOL', 'XRP'];
+  const monedas = ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'AVAX', 'DOT', 'LINK'];
   const ahora = Date.now();
   let notificadas = {};
   try { notificadas = JSON.parse(localStorage.getItem('jcahs_crypto_alertas_notificadas') || '{}'); } catch {}
