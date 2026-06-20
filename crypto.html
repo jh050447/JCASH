@@ -636,6 +636,9 @@ select.input { cursor: pointer; }
     <a class="nav-link" id="nl-sec-historial-crypto" onclick="ir('sec-historial-crypto')">
       <span class="nav-icon">📊</span> Historial Señales
     </a>
+    <a class="nav-link" id="nl-sec-dca" onclick="ir('sec-dca')">
+      <span class="nav-icon">💎</span> DCA Hold
+    </a>
 
     <div class="sidebar-footer">
       <a href="index.html" class="link-volver">← Volver a JCAHS</a>
@@ -958,7 +961,98 @@ select.input { cursor: pointer; }
 
       </section>
 
+      <!-- ══════════ DCA HOLD ══════════ -->
+      <section class="seccion" id="sec-dca">
+
+        <div class="sec-header">
+          <div>
+            <div class="sec-title">💎 DCA Hold</div>
+            <div class="sec-sub">Acumulación de largo plazo — BTC y ETH</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="abrirModalDca()">➕ Registrar compra</button>
+        </div>
+
+        <!-- Estado DCA (semáforo de condiciones) -->
+        <div id="dca-estado" style="margin-bottom:14px;"></div>
+
+        <!-- Configuración -->
+        <div class="card" style="margin-bottom:14px;">
+          <div class="card-title">Configuración DCA</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+            <div>
+              <label class="label">Monto mensual ($)</label>
+              <input type="number" id="dca-mensual" class="input" min="0" step="10" value="50" oninput="guardarConfigDca()">
+            </div>
+            <div>
+              <label class="label">% BTC</label>
+              <input type="number" id="dca-pct-btc" class="input" min="0" max="100" step="5" value="70" oninput="guardarConfigDca(); calcPctEth()">
+            </div>
+            <div>
+              <label class="label">% ETH</label>
+              <input type="number" id="dca-pct-eth" class="input" min="0" max="100" step="5" value="30" readonly style="opacity:.6;">
+            </div>
+          </div>
+        </div>
+
+        <!-- Resumen del portafolio -->
+        <div id="dca-resumen" style="margin-bottom:14px;"></div>
+
+        <!-- Historial de compras -->
+        <div class="card" style="padding:0;">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-size:11px;font-weight:600;color:var(--text-3);letter-spacing:1px;text-transform:uppercase;">Historial de compras DCA</div>
+          <div id="dca-historial-wrap" style="overflow-x:auto;">
+            <div class="empty-state" style="padding:24px;">Sin compras registradas todavía.</div>
+          </div>
+        </div>
+
+        <!-- Canvas valor en tiempo -->
+        <div class="card hs-canvas-wrap" id="dca-canvas-card" style="display:none;margin-top:14px;">
+          <div class="card-title">Valor del portafolio DCA</div>
+          <canvas id="canvas-dca" style="width:100%;height:160px;display:block;"></canvas>
+        </div>
+
+      </section>
+
     </main>
+  </div>
+</div>
+
+<!-- MODAL REGISTRAR COMPRA DCA -->
+<div class="modal-overlay" id="modal-dca">
+  <div class="modal-box">
+    <div class="modal-title">💎 Registrar Compra DCA</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="label">Moneda</label>
+        <select id="dca-moneda" class="input">
+          <option value="BTC">BTC — Bitcoin</option>
+          <option value="ETH">ETH — Ethereum</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="label">Monto invertido ($)</label>
+        <input type="number" id="dca-monto" class="input" min="0" step="any" placeholder="0.00">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="label">Precio de compra ($)</label>
+        <input type="number" id="dca-precio" class="input" min="0" step="any" placeholder="precio actual">
+        <button class="btn btn-ghost btn-sm" style="margin-top:4px;width:100%;" onclick="dcaUsarPrecioActual()">Usar precio actual</button>
+      </div>
+      <div class="form-group">
+        <label class="label">Fecha</label>
+        <input type="date" id="dca-fecha" class="input">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="label">Notas (opcional)</label>
+      <input type="text" id="dca-notas" class="input" placeholder="Compra programada mensual...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="qs('modal-dca').classList.remove('show')">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarCompraDca()">💾 Guardar</button>
+    </div>
   </div>
 </div>
 
@@ -1200,6 +1294,7 @@ function ir(sec) {
   if (sec === 'sec-panel') renderUltimasOps();
   if (sec === 'sec-historial-crypto') renderHistorialSenales();
   if (sec === 'sec-small-cap' && STATE.smallCapData) renderSmallCapTabla(STATE.smallCapData, STATE.smallCapOffset || 0);
+  if (sec === 'sec-dca') renderDca();
 }
 
 function toggleMenuMovil(forzar) {
@@ -3149,6 +3244,243 @@ function editarSenal(id) {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  DCA HOLD — ACUMULACIÓN LARGO PLAZO
+// ═══════════════════════════════════════════════════════════
+
+const DCA_CFG_KEY  = 'jcahs_dca_config';
+const DCA_HIST_KEY = 'jcahs_dca_historial';
+
+function leerConfigDca() {
+  try { return JSON.parse(localStorage.getItem(DCA_CFG_KEY) || '{}'); } catch { return {}; }
+}
+function leerHistorialDca() {
+  try { return JSON.parse(localStorage.getItem(DCA_HIST_KEY) || '[]'); } catch { return []; }
+}
+function guardarHistorialDca(lista) { localStorage.setItem(DCA_HIST_KEY, JSON.stringify(lista)); }
+
+function guardarConfigDca() {
+  const mensual = parseFloat(qs('dca-mensual')?.value) || 50;
+  const pctBtc  = Math.min(100, Math.max(0, parseFloat(qs('dca-pct-btc')?.value) || 70));
+  localStorage.setItem(DCA_CFG_KEY, JSON.stringify({ mensual, pctBtc }));
+}
+
+function calcPctEth() {
+  const pctBtc = parseFloat(qs('dca-pct-btc')?.value) || 70;
+  const ethEl = qs('dca-pct-eth');
+  if (ethEl) ethEl.value = Math.max(0, 100 - pctBtc);
+}
+
+function abrirModalDca() {
+  const mon = qs('dca-moneda'); if (mon) mon.value = 'BTC';
+  const fechaEl = qs('dca-fecha'); if (fechaEl) fechaEl.value = hoyISO();
+  const precioEl = qs('dca-precio'); if (precioEl) precioEl.value = '';
+  const montoEl = qs('dca-monto'); if (montoEl) montoEl.value = '';
+  const notasEl = qs('dca-notas'); if (notasEl) notasEl.value = '';
+  qs('modal-dca').classList.add('show');
+}
+
+function dcaUsarPrecioActual() {
+  const mon = qs('dca-moneda')?.value || 'BTC';
+  const p = STATE.precios[mon];
+  if (p) { const el = qs('dca-precio'); if (el) el.value = p.toFixed(p < 1 ? 6 : p < 100 ? 4 : 2); }
+  else alert('Precio de ' + mon + ' no disponible aún.');
+}
+
+function confirmarCompraDca() {
+  const moneda = qs('dca-moneda')?.value;
+  const monto  = parseFloat(qs('dca-monto')?.value);
+  const precio = parseFloat(qs('dca-precio')?.value);
+  const fecha  = qs('dca-fecha')?.value || hoyISO();
+  if (!moneda || isNaN(monto) || monto <= 0) { alert('Ingresa el monto invertido'); return; }
+  if (isNaN(precio) || precio <= 0) { alert('Ingresa el precio de compra'); return; }
+
+  const compra = {
+    id: Date.now(), fecha, moneda, monto,
+    precio, tokens: monto / precio,
+    notas: qs('dca-notas')?.value.trim() || ''
+  };
+  const lista = leerHistorialDca();
+  lista.push(compra);
+  guardarHistorialDca(lista);
+  qs('modal-dca').classList.remove('show');
+  renderDca();
+}
+
+function renderDca() {
+  // Cargar config e inicializar inputs
+  const cfg = leerConfigDca();
+  const mensualEl = qs('dca-mensual'), pctBtcEl = qs('dca-pct-btc'), pctEthEl = qs('dca-pct-eth');
+  if (mensualEl) mensualEl.value = cfg.mensual || 50;
+  if (pctBtcEl)  pctBtcEl.value  = cfg.pctBtc  || 70;
+  if (pctEthEl)  pctEthEl.value  = 100 - (cfg.pctBtc || 70);
+
+  // Semáforo DCA (reutiliza calcEstrategias)
+  const e = calcEstrategias();
+  const n = e.dca.numActivas;
+  const bgColor = e.dca.activa ? 'rgba(78,222,163,0.08)' : n > 0 ? 'rgba(255,217,102,0.08)' : 'rgba(255,255,255,0.04)';
+  const bdColor = e.dca.activa ? 'rgba(78,222,163,0.3)' : n > 0 ? 'rgba(255,217,102,0.3)' : 'var(--border)';
+  const banner = e.dca.activa
+    ? '<div style="color:var(--tertiary);font-weight:700;margin-bottom:8px;">🚨 ZONA DCA ACTIVA — Condiciones históricamente favorables para acumular</div>'
+    : n > 0 ? '<div style="color:var(--warning);font-weight:600;margin-bottom:8px;">' + n + '/3 condiciones activas — vigilar</div>'
+    : '<div style="color:var(--text-3);margin-bottom:8px;">Mercado no está en zona de acumulación óptima</div>';
+  let condHtml = '';
+  e.dca.condiciones.forEach(c => {
+    const icon = c.activa === true ? '✅' : c.activa === false ? '❌' : '⏳';
+    const col  = c.activa === true ? 'var(--tertiary)' : c.activa === false ? 'var(--error)' : 'var(--text-3)';
+    condHtml += '<div style="display:flex;gap:8px;align-items:center;padding:4px 0;font-size:13px;">' +
+      '<span>' + icon + '</span><span style="flex:1;color:var(--text-2)">' + escHtml(c.nombre) + '</span>' +
+      '<span style="font-family:var(--f-mono);font-size:12px;color:' + col + '">' + escHtml(c.valor) + '</span></div>';
+  });
+  const estadoEl = qs('dca-estado');
+  if (estadoEl) estadoEl.innerHTML = '<div style="background:' + bgColor + ';border:1px solid ' + bdColor + ';border-radius:var(--radius-lg);padding:14px 16px;">' + banner + condHtml + '</div>';
+
+  // Resumen portafolio
+  const hist = leerHistorialDca();
+  const resEl = qs('dca-resumen');
+  if (resEl) {
+    if (hist.length === 0) { resEl.innerHTML = ''; }
+    else {
+      const precioBtc = STATE.precios.BTC || 0;
+      const precioEth = STATE.precios.ETH || 0;
+      const stats = { BTC: { inv: 0, tok: 0 }, ETH: { inv: 0, tok: 0 } };
+      hist.forEach(c => { if (stats[c.moneda]) { stats[c.moneda].inv += c.monto; stats[c.moneda].tok += c.tokens; } });
+      let html = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:0;">';
+      const coins = [{ sym: 'BTC', p: precioBtc }, { sym: 'ETH', p: precioEth }];
+      const totInv = stats.BTC.inv + stats.ETH.inv;
+      let totVal = 0;
+      coins.forEach(({ sym, p }) => {
+        const s = stats[sym]; if (!s.tok) return;
+        const avgPrecio = s.tok > 0 ? s.inv / s.tok : 0;
+        const valorAct = s.tok * p;
+        const pnl = valorAct - s.inv;
+        const pnlPct = s.inv > 0 ? pnl / s.inv * 100 : 0;
+        totVal += valorAct;
+        const pnlCol = pnl >= 0 ? 'var(--tertiary)' : 'var(--error)';
+        html += '<div class="card" style="padding:14px;">' +
+          '<div style="font-family:var(--f-mono);font-size:16px;font-weight:700;color:' + (sym === 'BTC' ? '#F7931A' : '#627EEA') + '">' + sym + '</div>' +
+          '<div style="font-size:12px;color:var(--text-3);margin-top:4px;">Invertido: <b style="color:var(--text)">$' + fmt(s.inv, 2) + '</b></div>' +
+          '<div style="font-size:12px;color:var(--text-3);">Tokens: <b style="color:var(--text);font-family:var(--f-mono);">' + fmt(s.tok, 6) + '</b></div>' +
+          '<div style="font-size:12px;color:var(--text-3);">Precio prom: <b style="color:var(--text);font-family:var(--f-mono);">' + fmtPrecio(avgPrecio) + '</b></div>' +
+          '<div style="font-size:12px;color:var(--text-3);">Valor actual: <b style="color:var(--text)">$' + fmt(valorAct, 2) + '</b></div>' +
+          '<div style="font-size:13px;font-weight:700;color:' + pnlCol + ';margin-top:4px;">' + (pnl >= 0 ? '+$' : '-$') + fmt(Math.abs(pnl), 2) + ' (' + (pnlPct >= 0 ? '+' : '') + fmt(pnlPct, 1) + '%)</div>' +
+          '</div>';
+      });
+      const totPnl = totVal - totInv;
+      const totPnlPct = totInv > 0 ? totPnl / totInv * 100 : 0;
+      html += '<div class="card" style="padding:14px;">' +
+        '<div style="font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Total DCA</div>' +
+        '<div style="font-size:12px;color:var(--text-3);">Invertido: <b style="color:var(--text)">$' + fmt(totInv, 2) + '</b></div>' +
+        '<div style="font-size:12px;color:var(--text-3);">Valor: <b style="color:var(--text)">$' + fmt(totVal, 2) + '</b></div>' +
+        '<div style="font-size:16px;font-weight:700;color:' + (totPnl >= 0 ? 'var(--tertiary)' : 'var(--error)') + ';margin-top:6px;">' +
+        (totPnl >= 0 ? '+$' : '-$') + fmt(Math.abs(totPnl), 2) + '</div>' +
+        '<div style="font-size:12px;color:' + (totPnlPct >= 0 ? 'var(--tertiary)' : 'var(--error)') + '">' + (totPnlPct >= 0 ? '+' : '') + fmt(totPnlPct, 1) + '%</div>' +
+        '</div></div>';
+      resEl.innerHTML = html;
+    }
+  }
+
+  // Historial tabla
+  const wrapEl = qs('dca-historial-wrap');
+  if (wrapEl) {
+    if (hist.length === 0) {
+      wrapEl.innerHTML = '<div class="empty-state" style="padding:24px;">Sin compras registradas todavía.</div>';
+    } else {
+      const sorted = [...hist].sort((a, b) => (b.id || 0) - (a.id || 0));
+      let tbl = '<table class="tabla"><thead><tr><th>Fecha</th><th>Moneda</th><th>Monto</th><th>Precio</th><th>Tokens</th><th>Notas</th><th></th></tr></thead><tbody>';
+      sorted.forEach(c => {
+        const color = c.moneda === 'BTC' ? '#F7931A' : '#627EEA';
+        tbl += '<tr>' +
+          '<td style="font-family:var(--f-mono);font-size:12px;color:var(--text-3)">' + escHtml(c.fecha) + '</td>' +
+          '<td><b style="font-family:var(--f-mono);color:' + color + '">' + escHtml(c.moneda) + '</b></td>' +
+          '<td style="font-family:var(--f-mono)">$' + fmt(c.monto, 2) + '</td>' +
+          '<td style="font-family:var(--f-mono);font-size:12px">' + fmtPrecio(c.precio) + '</td>' +
+          '<td style="font-family:var(--f-mono);font-size:12px">' + fmt(c.tokens, 8) + '</td>' +
+          '<td style="font-size:12px;color:var(--text-3)">' + escHtml(c.notas || '') + '</td>' +
+          '<td><button class="btn btn-ghost btn-sm" style="font-size:11px;opacity:.6" onclick="eliminarCompraDca(' + c.id + ')">✕</button></td>' +
+          '</tr>';
+      });
+      tbl += '</tbody></table>';
+      wrapEl.innerHTML = tbl;
+    }
+  }
+
+  // Canvas valor en tiempo
+  const canvasCard = qs('dca-canvas-card');
+  if (canvasCard) {
+    const comprasCon = hist.filter(c => (c.moneda === 'BTC' || c.moneda === 'ETH') && c.tokens > 0).sort((a,b) => a.id - b.id);
+    canvasCard.style.display = comprasCon.length >= 2 ? '' : 'none';
+    if (comprasCon.length >= 2) requestAnimationFrame(() => renderCanvasDca(comprasCon));
+  }
+}
+
+function eliminarCompraDca(id) {
+  if (!confirm('¿Eliminar esta compra DCA?')) return;
+  const lista = leerHistorialDca().filter(c => c.id !== id);
+  guardarHistorialDca(lista);
+  renderDca();
+}
+
+function renderCanvasDca(compras) {
+  const canvas = qs('canvas-dca');
+  if (!canvas) return;
+  const W = canvas.offsetWidth || 500, H = 160;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d'); if (!ctx) return;
+  const precioBtc = STATE.precios.BTC || 0, precioEth = STATE.precios.ETH || 0;
+
+  // Acumular valor a lo largo del tiempo
+  let btcTok = 0, ethTok = 0, totalInv = 0;
+  const puntos = compras.map(c => {
+    totalInv += c.monto;
+    if (c.moneda === 'BTC') btcTok += c.tokens;
+    if (c.moneda === 'ETH') ethTok += c.tokens;
+    const valorActual = btcTok * precioBtc + ethTok * precioEth;
+    return { inv: totalInv, val: valorActual };
+  });
+
+  const minV = Math.min(...puntos.map(p => p.inv), ...puntos.map(p => p.val));
+  const maxV = Math.max(...puntos.map(p => p.inv), ...puntos.map(p => p.val));
+  const range = maxV - minV || 1;
+  const pad = { top: 16, bottom: 24, left: 46, right: 16 };
+  const w = W - pad.left - pad.right, h = H - pad.top - pad.bottom;
+  const toX = i => pad.left + (i / Math.max(1, puntos.length - 1)) * w;
+  const toY = v => pad.top + (1 - (v - minV) / range) * h;
+
+  ctx.clearRect(0, 0, W, H);
+  const lastPnl = puntos[puntos.length - 1];
+  const isPos = lastPnl.val >= lastPnl.inv;
+
+  // Línea de inversión (dashed)
+  ctx.setLineDash([4, 4]); ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  puntos.forEach((p, i) => i === 0 ? ctx.moveTo(toX(0), toY(p.inv)) : ctx.lineTo(toX(i), toY(p.inv)));
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // Área valor actual
+  const lineColor = isPos ? '#4edea3' : '#ffb4ab';
+  const grad = ctx.createLinearGradient(0, pad.top, 0, H - pad.bottom);
+  grad.addColorStop(0, isPos ? 'rgba(78,222,163,0.22)' : 'rgba(255,180,171,0.22)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.beginPath();
+  puntos.forEach((p, i) => i === 0 ? ctx.moveTo(toX(0), toY(p.val)) : ctx.lineTo(toX(i), toY(p.val)));
+  ctx.lineTo(toX(puntos.length - 1), H - pad.bottom);
+  ctx.lineTo(toX(0), H - pad.bottom);
+  ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
+  ctx.beginPath();
+  puntos.forEach((p, i) => i === 0 ? ctx.moveTo(toX(0), toY(p.val)) : ctx.lineTo(toX(i), toY(p.val)));
+  ctx.strokeStyle = lineColor; ctx.lineWidth = 2; ctx.stroke();
+
+  ctx.fillStyle = 'rgba(139,164,189,0.8)'; ctx.font = '11px Inter, sans-serif'; ctx.textAlign = 'right';
+  ctx.fillText('$' + fmt(maxV, 0), pad.left - 4, pad.top + 4);
+  ctx.fillText('$' + fmt(minV, 0), pad.left - 4, H - pad.bottom);
+  ctx.fillStyle = lineColor; ctx.font = 'bold 11px Inter, sans-serif';
+  const lv = puntos[puntos.length - 1].val;
+  ctx.fillText('$' + fmt(lv, 2), W - pad.right, toY(lv) - 8);
+}
+
+// Close modal-dca on outside click
+
+// ═══════════════════════════════════════════════════════════
 //  SCANNER SMALL CAP
 // ═══════════════════════════════════════════════════════════
 
@@ -3282,8 +3614,11 @@ document.addEventListener('click', function(e) {
   }
 });
 
-// Close modal-senal on outside click
+// Close modals on outside click
 qs('modal-senal')?.addEventListener('click', function(e) {
+  if (e.target === this) this.classList.remove('show');
+});
+qs('modal-dca')?.addEventListener('click', function(e) {
   if (e.target === this) this.classList.remove('show');
 });
 
