@@ -443,6 +443,12 @@ select.input { cursor: pointer; }
 .hs-table-wrap { overflow-x:auto; }
 .hs-canvas-wrap { margin-top:14px; }
 
+/* ── CHART DE VELAS ─────────────────────────────────────── */
+.chart-toggle { width:100%;background:none;border:none;cursor:pointer;color:var(--text-3);font-size:12px;padding:5px 0 0;text-align:left;transition:color .12s; }
+.chart-toggle:hover { color:var(--tertiary); }
+.chart-wrap { display:none;margin-top:8px;border-radius:6px;overflow:hidden;background:var(--surface-3); }
+.chart-wrap.open { display:block; }
+
 /* ── ESTRATEGIAS ACTIVAS ─────────────────────────────────── */
 .estr-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); margin-bottom:10px; overflow:hidden; transition:border-color .2s; }
 .estr-card.activa { border-color:rgba(78,222,163,0.35); }
@@ -638,6 +644,12 @@ select.input { cursor: pointer; }
     </a>
     <a class="nav-link" id="nl-sec-dca" onclick="ir('sec-dca')">
       <span class="nav-icon">💎</span> DCA Hold
+    </a>
+    <a class="nav-link" id="nl-sec-backtest" onclick="ir('sec-backtest')">
+      <span class="nav-icon">🔬</span> Backtesting
+    </a>
+    <a class="nav-link" id="nl-sec-watchlist" onclick="ir('sec-watchlist')">
+      <span class="nav-icon">⭐</span> Watchlist
     </a>
 
     <div class="sidebar-footer">
@@ -1015,6 +1027,78 @@ select.input { cursor: pointer; }
 
       </section>
 
+      <!-- ══════════ BACKTESTING ══════════ -->
+      <section class="seccion" id="sec-backtest">
+        <div class="sec-header">
+          <div>
+            <div class="sec-title">🔬 Backtesting</div>
+            <div class="sec-sub">Simula estrategias sobre datos históricos de Kraken</div>
+          </div>
+        </div>
+
+        <div style="background:var(--warn-dim);border:1px solid rgba(255,217,102,0.25);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--warning);line-height:1.6;">
+          ⚠️ El backtesting usa datos históricos. Los resultados pasados no garantizan resultados futuros. Úsalo para entender el comportamiento de la estrategia, no como garantía de rentabilidad.
+        </div>
+
+        <div class="card" style="margin-bottom:14px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end;">
+            <div>
+              <label class="label">Moneda</label>
+              <select id="bt-sym" class="input">
+                <option>BTC</option><option>ETH</option><option>SOL</option><option>XRP</option>
+                <option>ADA</option><option>AVAX</option><option>DOT</option><option>LINK</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">Estrategia</label>
+              <select id="bt-strat" class="input">
+                <option value="swing_rsi">Swing RSI (RSI&lt;30 → RSI&gt;65)</option>
+                <option value="dca">DCA mensual (cada 30 velas)</option>
+                <option value="divergencia">Divergencia alcista</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">Timeframe</label>
+              <select id="bt-tf" class="input">
+                <option value="4h">4H</option>
+                <option value="1d">1D</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" onclick="ejecutarBacktest()">▶ Ejecutar</button>
+          </div>
+        </div>
+
+        <div id="bt-results">
+          <div class="empty-state">Configura los parámetros y haz clic en "Ejecutar".</div>
+        </div>
+      </section>
+
+      <!-- ══════════ WATCHLIST ══════════ -->
+      <section class="seccion" id="sec-watchlist">
+        <div class="sec-header">
+          <div>
+            <div class="sec-title">⭐ Watchlist</div>
+            <div class="sec-sub" id="wl-sub">Monitorea tokens adicionales de Kraken</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:14px;">
+          <div style="display:flex;gap:10px;align-items:flex-end;">
+            <div style="flex:1;">
+              <label class="label">Agregar token (símbolo Kraken, ej: DOGE)</label>
+              <input type="text" id="wl-input" class="input" placeholder="DOGE, MATIC, ATOM..." style="text-transform:uppercase;"
+                     onkeydown="if(event.key==='Enter')agregarWatchlist()">
+            </div>
+            <button class="btn btn-primary" onclick="agregarWatchlist()">➕ Agregar</button>
+          </div>
+          <div style="font-size:11px;color:var(--text-3);margin-top:6px;">Máximo 10 tokens · usa el símbolo exacto de Kraken · abre nueva pestaña para verificar pares</div>
+        </div>
+
+        <div id="wl-content">
+          <div class="empty-state">Añade tokens para monitorearlos con los mismos indicadores que las 8 monedas fijas.</div>
+        </div>
+      </section>
+
     </main>
   </div>
 </div>
@@ -1222,6 +1306,7 @@ const STATE = {
   smallCapData: null,
   smallCapTimestamp: null,
   smallCapOffset: 0,
+  watchlistCoins: [],
   preciosTimestamp: null,
   satoshiChat: [],
   alertasCrypto: [],
@@ -1297,6 +1382,8 @@ function ir(sec) {
   if (sec === 'sec-historial-crypto') renderHistorialSenales();
   if (sec === 'sec-small-cap' && STATE.smallCapData) renderSmallCapTabla(STATE.smallCapData, STATE.smallCapOffset || 0);
   if (sec === 'sec-dca') renderDca();
+  if (sec === 'sec-watchlist') renderWatchlist();
+  if (sec === 'sec-backtest') qs('bt-results').innerHTML = '<div class="empty-state">Configura los parámetros y haz clic en "Ejecutar".</div>';
 }
 
 function toggleMenuMovil(forzar) {
@@ -1520,6 +1607,27 @@ function calcRSI(closes, period) {
   return 100 - (100 / (1 + avgG / avgL));
 }
 
+function calcRSIArray(closes, period) {
+  period = period || 14;
+  const out = new Array(closes.length).fill(null);
+  if (closes.length < period + 1) return out;
+  let gains = 0, losses = 0;
+  for (let i = 1; i <= period; i++) {
+    const d = closes[i] - closes[i - 1];
+    if (d >= 0) gains += d; else losses -= d;
+  }
+  let avgG = gains / period, avgL = losses / period;
+  out[period] = avgL === 0 ? 100 : 100 - 100 / (1 + avgG / avgL);
+  for (let i = period + 1; i < closes.length; i++) {
+    const d = closes[i] - closes[i - 1];
+    const g = d >= 0 ? d : 0, l = d < 0 ? -d : 0;
+    avgG = (avgG * (period - 1) + g) / period;
+    avgL = (avgL * (period - 1) + l) / period;
+    out[i] = avgL === 0 ? 100 : 100 - 100 / (1 + avgG / avgL);
+  }
+  return out;
+}
+
 function calcEMA(closes, period) {
   if (closes.length < period) return null;
   const k = 2 / (period + 1);
@@ -1617,6 +1725,91 @@ function calcDivergenciaAlcista(sym, tf) {
     };
   }
   return noDiv;
+}
+
+// ── BOLLINGER BANDS ──────────────────────────────────────
+function calcBollingerBands(closes, period, mult) {
+  period = period || 20; mult = mult || 2;
+  if (closes.length < period) return null;
+  const slice = closes.slice(-period);
+  const media = slice.reduce((a, b) => a + b, 0) / period;
+  const std = Math.sqrt(slice.reduce((s, v) => s + (v - media) ** 2, 0) / period);
+  const superior = media + mult * std;
+  const inferior = media - mult * std;
+  const precio = closes[closes.length - 1];
+  let posicion;
+  if (precio <= inferior * 1.005) posicion = 'inferior';
+  else if (precio >= superior * 0.995) posicion = 'superior';
+  else posicion = 'medio';
+  return { superior, media, inferior, ancho: (superior - inferior) / media, posicion };
+}
+
+// ── STOCHASTIC RSI ────────────────────────────────────────
+function calcStochasticRSI(closes, rsiP, stochP, kS) {
+  rsiP = rsiP || 14; stochP = stochP || 14; kS = kS || 3;
+  if (closes.length < rsiP + stochP + kS * 2) return null;
+  const rsiArr = calcRSIArray(closes, rsiP);
+
+  // Stochastic values over stochP window
+  const stochArr = [];
+  for (let i = rsiP + stochP - 1; i < rsiArr.length; i++) {
+    const win = rsiArr.slice(i - stochP + 1, i + 1).filter(v => v !== null);
+    if (win.length < stochP) { stochArr.push(null); continue; }
+    const mn = Math.min(...win), mx = Math.max(...win);
+    stochArr.push(mx === mn ? 50 : (rsiArr[i] - mn) / (mx - mn) * 100);
+  }
+
+  // %K = SMA(kS) of stoch
+  const kArr = [];
+  for (let i = kS - 1; i < stochArr.length; i++) {
+    const win = stochArr.slice(i - kS + 1, i + 1).filter(v => v !== null);
+    kArr.push(win.length >= kS ? win.reduce((a, b) => a + b, 0) / kS : null);
+  }
+  // %D = SMA(kS) of K
+  const dArr = [];
+  for (let i = kS - 1; i < kArr.length; i++) {
+    const win = kArr.slice(i - kS + 1, i + 1).filter(v => v !== null);
+    dArr.push(win.length >= kS ? win.reduce((a, b) => a + b, 0) / kS : null);
+  }
+
+  const k = kArr.filter(v => v !== null).at(-1);
+  const d = dArr.filter(v => v !== null).at(-1);
+  const prevK = kArr.filter(v => v !== null).at(-2);
+  const prevD = dArr.filter(v => v !== null).at(-2);
+  if (k == null || d == null) return null;
+
+  const cruceSobreD = prevK != null && prevD != null && prevK < prevD && k > d && k < 20 && d < 20;
+  const zona = k < 20 ? 'sobrevendido' : k > 80 ? 'sobrecomprado' : 'neutral';
+  return { k, d, zona, cruceSobreD };
+}
+
+// ── SOPORTES Y RESISTENCIAS ───────────────────────────────
+function calcSoportesResistencias(sym, tf) {
+  const candles = (STATE.ohlc[sym]?.[tf] || []).slice(-200);
+  const empty = { soportes: [], resistencias: [] };
+  if (candles.length < 10) return empty;
+  const N = candles.length;
+  const pivLow = [], pivHigh = [];
+
+  for (let i = 2; i < N - 2; i++) {
+    const lo = candles[i].l;
+    if (lo < candles[i-1].l && lo < candles[i-2].l && lo < candles[i+1].l && lo < candles[i+2].l) pivLow.push(lo);
+    const hi = candles[i].h;
+    if (hi > candles[i-1].h && hi > candles[i-2].h && hi > candles[i+1].h && hi > candles[i+2].h) pivHigh.push(hi);
+  }
+
+  function agrupar(pivots, tipo) {
+    const sorted = [...pivots].sort((a, b) => a - b);
+    const zonas = [];
+    sorted.forEach(p => {
+      const ex = zonas.find(z => Math.abs(z.precio - p) / z.precio < 0.015);
+      if (ex) { ex.toques++; ex.precio = (ex.precio * (ex.toques - 1) + p) / ex.toques; }
+      else zonas.push({ precio: p, toques: 1, tipo });
+    });
+    return zonas.sort((a, b) => b.toques - a.toques).slice(0, 3);
+  }
+
+  return { soportes: agrupar(pivLow, 'soporte'), resistencias: agrupar(pivHigh, 'resistencia') };
 }
 
 function calcChange24h(sym) {
@@ -1734,6 +1927,43 @@ function calcScore(sym) {
     razonesFail.push('F&G ' + fng + ' (neutral)');
   }
 
+  // Bollinger Bands 4H
+  const bb4h = calcBollingerBands(closes4h, 20, 2);
+  if (bb4h) {
+    if (bb4h.posicion === 'inferior' && rsi4h !== null && rsi4h < 45) {
+      score += 20;
+      razones.push({ txt: 'Precio en banda inferior de Bollinger con RSI bajo — doble sobreventa', key: 'bb_inf' });
+    } else if (bb4h.posicion === 'superior') {
+      score -= 15;
+      razonesFail.push('Banda superior de Bollinger (sobrecompra)');
+    }
+  }
+
+  // Stochastic RSI 4H
+  const stoch4h = calcStochasticRSI(closes4h);
+  if (stoch4h) {
+    if (stoch4h.cruceSobreD) {
+      score += 25;
+      razones.push({ txt: 'Stoch RSI: K cruza sobre D en zona sobrevendida (K=' + fmt(stoch4h.k,0) + ', D=' + fmt(stoch4h.d,0) + ')', key: 'stoch_cross' });
+    } else if (stoch4h.zona === 'sobrevendido') {
+      score += 15;
+      razones.push({ txt: 'Stoch RSI sobrevendido (K=' + fmt(stoch4h.k,0) + ', D=' + fmt(stoch4h.d,0) + ')', key: 'stoch_sob' });
+    } else if (stoch4h.zona === 'sobrecomprado') {
+      score -= 10;
+      razonesFail.push('Stoch RSI sobrecomprado (K=' + fmt(stoch4h.k,0) + ')');
+    }
+  }
+
+  // Soportes y Resistencias 4H
+  const sr = calcSoportesResistencias(sym, '4h');
+  let nearSoporte = null, nearResist = null;
+  if (precio) {
+    nearSoporte = sr.soportes.find(s => Math.abs(precio - s.precio) / precio < 0.02 && s.toques >= 3) || null;
+    nearResist  = sr.resistencias.find(r => Math.abs(precio - r.precio) / precio < 0.02) || null;
+    if (nearSoporte) { score += 20; razones.push({ txt: 'Soporte fuerte cercano: $' + fmt(nearSoporte.precio, 0) + ' (' + nearSoporte.toques + ' toques)', key: 'soporte' }); }
+    if (nearResist)  { score -= 10; razonesFail.push('Resistencia cercana: $' + fmt(nearResist.precio, 0) + ' (' + nearResist.toques + ' toques)'); }
+  }
+
   // Divergencia alcista 4H (+25) y 1D (+35, más significativa)
   const div4h = calcDivergenciaAlcista(sym, '4h');
   const div1d = calcDivergenciaAlcista(sym, '1d');
@@ -1763,7 +1993,7 @@ function calcScore(sym) {
   return {
     sym, score, senal, senalClass, scoreColor,
     rsi4h, macd4h, volSig, ema20_1d, ema50_1d, ema200_1d,
-    precio, razones, razonesFail, div4h, div1d,
+    precio, razones, razonesFail, div4h, div1d, bb4h, stoch4h, sr, nearSoporte, nearResist,
     rsiColor: rsi4h < 30 ? 'var(--tertiary)' : rsi4h > 70 ? 'var(--error)' : 'var(--warning)'
   };
 }
@@ -1811,7 +2041,7 @@ function calcEstrategias() {
     if (!d || d.rsi4h === null) return;
     const tieneDiv = !!(d.div4h?.detectada || d.div1d?.detectada);
     if ((d.rsi4h < 35 && d.score >= 60) || (tieneDiv && d.score >= 50)) {
-      swingCandidatas.push({ sym, rsi: d.rsi4h, score: d.score, precio: d.precio, div4h: d.div4h, div1d: d.div1d });
+      swingCandidatas.push({ sym, rsi: d.rsi4h, score: d.score, precio: d.precio, div4h: d.div4h, div1d: d.div1d, nearSoporte: d.nearSoporte, nearResist: d.nearResist });
     } else {
       const dist = d.rsi4h - 35;
       if (dist < swingProximaRsi) { swingProximaRsi = dist; swingProximaSym = sym; swingProximaVal = d.rsi4h; }
@@ -1892,6 +2122,8 @@ function renderEstrategias() {
         '3. Precio entrada: <b>' + fmtPrecio(m.precio) + '</b><br>' +
         '4. Stop Loss: <b style="color:var(--error)">' + (sl ? fmtPrecio(sl) : '—') + '</b> (−5%)' +
         (tieneDiv ? ' <span style="font-size:11px;color:var(--text-3)">— o el mínimo reciente (más preciso con divergencia)</span>' : '') + '<br>' +
+        (m.nearSoporte ? '   ✅ <b>Soporte fuerte cerca</b>: $' + fmt(m.nearSoporte.precio,0) + ' (' + m.nearSoporte.toques + ' toques) — confirma entrada<br>' : '') +
+        (m.nearResist  ? '   ⚠ Resistencia cercana: $' + fmt(m.nearResist.precio,0) + ' — cuidado con el recorrido<br>' : '') +
         '5. Take Profit: <b style="color:var(--tertiary)">' + (tp ? fmtPrecio(tp) : '—') + '</b> (+10%)<br>' +
         '6. Monto sugerido: <b style="color:var(--tertiary)">$' + fmt(kelly, 2) + '</b> (' + fmt(kelly / STATE.capitalCrypto * 100, 1) + '% de $' + fmt(STATE.capitalCrypto, 2) + ')<br>' +
         '7. Registra en Historial de Señales' +
@@ -2142,6 +2374,25 @@ function renderCoinCard(sym, elId) {
         <span class="metric-label">Volumen 4H</span>
         <span class="metric-val" style="color:${volColor}">${volTxt}</span>
       </div>
+      ${datos.bb4h ? `<div class="metric-row">
+        <span class="metric-label">Bollinger 20</span>
+        <span class="metric-val" style="color:${datos.bb4h.posicion==='inferior'?'var(--tertiary)':datos.bb4h.posicion==='superior'?'var(--error)':'var(--text-2)'}">
+          ${datos.bb4h.posicion==='inferior'?'↓ Banda inf ('+fmtPrecio(datos.bb4h.inferior)+')':datos.bb4h.posicion==='superior'?'↑ Banda sup ('+fmtPrecio(datos.bb4h.superior)+')':'→ Zona media'}
+        </span>
+      </div>` : ''}
+      ${datos.stoch4h ? `<div class="metric-row">
+        <span class="metric-label">Stoch RSI</span>
+        <span class="metric-val" style="color:${datos.stoch4h.zona==='sobrevendido'?'var(--tertiary)':datos.stoch4h.zona==='sobrecomprado'?'var(--error)':'var(--text-2)'}">
+          K:${fmt(datos.stoch4h.k,0)} D:${fmt(datos.stoch4h.d,0)} — ${datos.stoch4h.zona==='sobrevendido'?'Sobrevendido':datos.stoch4h.zona==='sobrecomprado'?'Sobrecomprado':'Neutral'}${datos.stoch4h.cruceSobreD?' ✚':''}
+        </span>
+      </div>` : ''}
+      ${datos.nearSoporte ? `<div class="metric-row">
+        <span class="metric-label">Soporte</span>
+        <span class="metric-val" style="color:var(--tertiary)">← aquí · $${fmt(datos.nearSoporte.precio,0)} (${datos.nearSoporte.toques} toques)</span>
+      </div>` : (datos.sr?.soportes?.length ? `<div class="metric-row">
+        <span class="metric-label">Soporte próx.</span>
+        <span class="metric-val" style="color:var(--text-3)">$${fmt(datos.sr.soportes[0].precio,0)} (${datos.sr.soportes[0].toques} toques)</span>
+      </div>` : '')}
     </div>
 
     <div class="coin-score-row">
@@ -2151,6 +2402,11 @@ function renderCoinCard(sym, elId) {
 
     ${explTxt ? `<div class="por-que"><b>¿Por qué?</b> ${explTxt}</div>` : ''}
     ${(datos.div4h?.detectada || datos.div1d?.detectada) ? '<div style="margin-top:6px;font-size:11px;color:var(--text-3);line-height:1.5;padding:6px 8px;background:var(--surface-2);border-radius:6px;border-left:2px solid rgba(255,217,102,0.35);">⚠ La divergencia reduce falsas señales pero no las elimina. En tendencia bajista fuerte el precio puede seguir cayendo. Stop loss obligatorio.</div>' : ''}
+
+    <button class="chart-toggle" onclick="toggleCandleChart('${sym}',this)">📈 Ver gráfico 4H ▼</button>
+    <div class="chart-wrap" id="chart-${sym}">
+      <canvas id="cv-${sym}" style="width:100%;height:200px;display:block;" onclick="event.stopPropagation()"></canvas>
+    </div>
 
     <div class="op-box">
       <div class="op-box-title">Abrir operación</div>
@@ -2694,6 +2950,12 @@ function init() {
     STATE.exchSelected = JSON.parse(localStorage.getItem('jcahs_crypto_exchange') || '{}');
   } catch { STATE.exchSelected = {}; }
 
+  // Watchlist — cargar coins guardadas
+  _wlLoad();
+  STATE.watchlistCoins.forEach(c => {
+    if (!STATE.ohlc[c.sym]) STATE.ohlc[c.sym] = { '4h': [], '1d': [] };
+  });
+
   // Capital inicial
   qs('capital-val').textContent = '$' + fmt(STATE.capitalCrypto, 0);
   qs('kpi-capital').textContent = '$' + fmt(STATE.capitalCrypto, 2);
@@ -2937,7 +3199,7 @@ function limpiarChatSATOSHI() {
 // ═══════════════════════════════════════════════════════════
 
 function verificarAlertasCrypto() {
-  const monedas = ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'AVAX', 'DOT', 'LINK'];
+  const monedas = ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'AVAX', 'DOT', 'LINK', ...STATE.watchlistCoins.map(c => c.sym)];
   const ahora = Date.now();
   let notificadas = {};
   try { notificadas = JSON.parse(localStorage.getItem('jcahs_crypto_alertas_notificadas') || '{}'); } catch {}
@@ -3335,6 +3597,250 @@ function editarSenal(id) {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  BACKTESTING
+// ═══════════════════════════════════════════════════════════
+
+function ejecutarBacktest() {
+  const sym    = qs('bt-sym')?.value || 'BTC';
+  const strat  = qs('bt-strat')?.value || 'swing_rsi';
+  const tf     = qs('bt-tf')?.value || '4h';
+  const candles = STATE.ohlc[sym]?.[tf] || [];
+  const el = qs('bt-results');
+  if (!el) return;
+  if (candles.length < 50) { el.innerHTML = '<div class="empty-state" style="color:var(--warning)">Datos insuficientes para ' + sym + ' ' + tf.toUpperCase() + '. Actualiza los datos primero.</div>'; return; }
+
+  const closes = candles.map(k => k.c);
+  const rsiArr = calcRSIArray(closes, 14);
+  const N = closes.length;
+  const capitalInicial = 200;
+  let capital = capitalInicial;
+  let maxCap = capitalInicial, minCap = capitalInicial;
+  const ops = [];
+  const equity = [capitalInicial];
+  let posicion = null;
+
+  for (let i = 20; i < N; i++) {
+    const rsi = rsiArr[i], precio = closes[i];
+
+    if (strat === 'swing_rsi') {
+      if (!posicion && rsi !== null && rsi < 30) {
+        posicion = { entrada: precio, stake: capital * 0.02, idx: i };
+      } else if (posicion) {
+        const var_ = (precio - posicion.entrada) / posicion.entrada;
+        if ((rsi !== null && rsi > 65) || var_ < -0.05) {
+          const pnl = posicion.stake * var_;
+          capital += pnl;
+          ops.push({ entrada: posicion.entrada, salida: precio, pnl, pct: var_ * 100, dur: i - posicion.idx });
+          posicion = null;
+        }
+      }
+    } else if (strat === 'dca') {
+      if ((i - 20) % 30 === 0) {
+        const stake = 10;
+        capital -= stake;
+        ops.push({ entrada: precio, salida: null, pnl: null, pct: null, dur: 0, tipo: 'dca' });
+      }
+    } else if (strat === 'divergencia') {
+      if (!posicion) {
+        const div = { detectada: false };
+        if (i >= 30) {
+          const sl = closes.slice(0, i + 1);
+          const rDiv = calcRSI(sl.slice(-20, -10), 14);
+          const rDivRec = calcRSI(sl.slice(-10), 14);
+          const minPrev = Math.min(...sl.slice(-20, -10));
+          const minRec  = Math.min(...sl.slice(-10));
+          if (minRec < minPrev && rDivRec !== null && rDiv !== null && rDivRec > rDiv && rDivRec < 45 && (rDivRec - rDiv) > 3) {
+            div.detectada = true;
+          }
+        }
+        if (div.detectada) posicion = { entrada: precio, stake: capital * 0.02, idx: i };
+      } else {
+        const var_ = (precio - posicion.entrada) / posicion.entrada;
+        if (var_ > 0.10 || var_ < -0.05) {
+          const pnl = posicion.stake * var_;
+          capital += pnl;
+          ops.push({ entrada: posicion.entrada, salida: precio, pnl, pct: var_ * 100, dur: i - posicion.idx });
+          posicion = null;
+        }
+      }
+    }
+
+    maxCap = Math.max(maxCap, capital);
+    minCap = Math.min(minCap, capital);
+    if (i % Math.max(1, Math.floor(N / 100)) === 0) equity.push(capital);
+  }
+  if (posicion) {
+    const p = closes[N-1], var_ = (p - posicion.entrada) / posicion.entrada;
+    const pnl = posicion.stake * var_;
+    capital += pnl;
+    ops.push({ entrada: posicion.entrada, salida: p, pnl, pct: var_ * 100, dur: N - 1 - posicion.idx });
+  }
+  equity.push(capital);
+
+  const cerradas = strat === 'dca' ? [] : ops.filter(o => o.salida);
+  const ganadoras = cerradas.filter(o => o.pnl > 0);
+  const winRate = cerradas.length > 0 ? ganadoras.length / cerradas.length * 100 : 0;
+  const totalRoi = (capital - capitalInicial) / capitalInicial * 100;
+  const avgRoi = cerradas.length > 0 ? cerradas.reduce((s,o)=>s+o.pct,0)/cerradas.length : 0;
+  const drawdown = maxCap > 0 ? (maxCap - minCap) / maxCap * 100 : 0;
+  const buyHold = (closes[N-1] - closes[20]) / closes[20] * 100;
+  const mejor = cerradas.length ? cerradas.reduce((b,o)=>o.pct>b.pct?o:b, cerradas[0]) : null;
+  const peor  = cerradas.length ? cerradas.reduce((w,o)=>o.pct<w.pct?o:w, cerradas[0]) : null;
+
+  const roiColor = totalRoi >= 0 ? 'var(--tertiary)' : 'var(--error)';
+  const bhColor  = buyHold >= 0  ? 'var(--tertiary)' : 'var(--error)';
+
+  el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">' +
+    _btStat(cerradas.length, 'Ops simuladas') +
+    _btStat(fmt(winRate,1)+'%', 'Win rate') +
+    _btStat((totalRoi>=0?'+':'')+fmt(totalRoi,1)+'%', 'ROI total', roiColor) +
+    _btStat(fmt(drawdown,1)+'%', 'Max drawdown') +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">' +
+    '<div class="card" style="padding:12px;"><div class="card-title">Esta estrategia</div><div style="font-family:var(--f-mono);font-size:22px;font-weight:700;color:'+roiColor+'">'+(totalRoi>=0?'+':'')+fmt(totalRoi,1)+'%</div><div style="font-size:12px;color:var(--text-3);">$'+fmt(capitalInicial,0)+' → $'+fmt(capital,2)+'</div></div>' +
+    '<div class="card" style="padding:12px;"><div class="card-title">Buy &amp; Hold (mismo período)</div><div style="font-family:var(--f-mono);font-size:22px;font-weight:700;color:'+bhColor+'">'+(buyHold>=0?'+':'')+fmt(buyHold,1)+'%</div><div style="font-size:12px;color:var(--text-3);">Sin operar, solo mantener</div></div>' +
+    '</div>' +
+    (mejor ? '<div style="font-size:12px;color:var(--text-3);margin-bottom:8px;">Mejor op: <b style="color:var(--tertiary)">+'+fmt(mejor.pct,1)+'%</b> · Peor: <b style="color:var(--error)">'+fmt(peor.pct,1)+'%</b> · Prom: '+(avgRoi>=0?'+':'')+fmt(avgRoi,1)+'%</div>' : '') +
+    '<div class="card" style="padding:14px;"><div class="card-title">Equity Curve — Capital simulado</div><canvas id="canvas-backtest" style="width:100%;height:140px;display:block;"></canvas></div>';
+
+  requestAnimationFrame(() => {
+    const cv = qs('canvas-backtest'); if (!cv) return;
+    const W = cv.offsetWidth || 500, H = 140;
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d'); if (!ctx) return;
+    const mn = Math.min(...equity), mx = Math.max(...equity), rng = mx - mn || 1;
+    const px = i => 4 + i / (equity.length-1) * (W-8);
+    const py = v => 10 + (1-(v-mn)/rng)*(H-20);
+    const isPos = equity[equity.length-1] >= capitalInicial;
+    const grad = ctx.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0, isPos?'rgba(78,222,163,0.2)':'rgba(255,100,100,0.2)');
+    grad.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.beginPath(); ctx.moveTo(px(0),py(capitalInicial));
+    equity.forEach((v,i)=>i===0?ctx.moveTo(px(0),py(v)):ctx.lineTo(px(i),py(v)));
+    ctx.lineTo(px(equity.length-1),H); ctx.lineTo(px(0),H); ctx.closePath();
+    ctx.fillStyle=grad; ctx.fill();
+    ctx.beginPath(); equity.forEach((v,i)=>i===0?ctx.moveTo(px(0),py(v)):ctx.lineTo(px(i),py(v)));
+    ctx.strokeStyle=isPos?'#4edea3':'#ff6464'; ctx.lineWidth=2; ctx.stroke();
+    const zy=py(capitalInicial); ctx.setLineDash([4,4]); ctx.strokeStyle='rgba(255,255,255,0.15)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(4,zy); ctx.lineTo(W-4,zy); ctx.stroke(); ctx.setLineDash([]);
+    ctx.font='10px JetBrains Mono,monospace'; ctx.textAlign='right';
+    ctx.fillStyle='rgba(139,164,189,0.7)'; ctx.fillText('$'+fmt(mx,0),W-4,14);
+    ctx.fillText('$'+fmt(capitalInicial,0),W-4,zy-2);
+  });
+}
+
+function _btStat(val, label, color) {
+  return '<div class="hs-stat"><div class="hs-stat-val" style="color:'+(color||'var(--text)')+'">'+escHtml(String(val))+'</div><div class="hs-stat-label">'+escHtml(label)+'</div></div>';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  WATCHLIST
+// ═══════════════════════════════════════════════════════════
+
+function _wlLoad() {
+  try { STATE.watchlistCoins = JSON.parse(localStorage.getItem('jcahs_watchlist') || '[]'); } catch { STATE.watchlistCoins = []; }
+}
+function _wlSave() {
+  localStorage.setItem('jcahs_watchlist', JSON.stringify(STATE.watchlistCoins.map(c => ({ sym: c.sym, pair: c.pair }))));
+}
+
+async function agregarWatchlist() {
+  const inp = qs('wl-input');
+  if (!inp) return;
+  const raw = inp.value.trim().toUpperCase().replace(/USD$/,'').replace(/USDT$/,'');
+  if (!raw) { alert('Ingresa un símbolo'); return; }
+  if (STATE.watchlistCoins.length >= 10) { alert('Máximo 10 tokens en watchlist'); return; }
+  if (STATE.watchlistCoins.find(c => c.sym === raw)) { alert(raw + ' ya está en la watchlist'); return; }
+
+  const pair = raw + 'USD';
+  const subEl = qs('wl-sub');
+  if (subEl) subEl.textContent = 'Verificando ' + pair + ' en Kraken...';
+
+  try {
+    const data = await proxyGet('https://api.kraken.com/0/public/Ticker?pair=' + pair);
+    if (data.error && data.error.length > 0) throw new Error(data.error[0]);
+    const resultKey = Object.keys(data.result || {})[0];
+    if (!resultKey) throw new Error('Par no encontrado');
+
+    const precio = parseFloat(data.result[resultKey].c[0]);
+    STATE.precios[raw] = precio;
+    STATE.changes24h[raw] = 0;
+    if (!STATE.ohlc[raw]) STATE.ohlc[raw] = { '4h': [], '1d': [] };
+    STATE.watchlistCoins.push({ sym: raw, pair });
+    _wlSave();
+    inp.value = '';
+
+    // Load klines in background
+    Promise.all([cargarKlines(pair, 240), cargarKlines(pair, 1440)]).then(([k4h, k1d]) => {
+      if (k4h.length > 0) STATE.ohlc[raw]['4h'] = k4h;
+      if (k1d.length > 0) STATE.ohlc[raw]['1d'] = k1d;
+      const ch = calcChange24h(raw); if (ch !== 0) STATE.changes24h[raw] = ch;
+      if (qs('sec-watchlist')?.classList.contains('active')) renderWatchlist();
+    });
+
+    if (subEl) subEl.textContent = STATE.watchlistCoins.length + ' tokens en watchlist';
+    renderWatchlist();
+  } catch(e) {
+    if (subEl) subEl.textContent = 'Error: ' + e.message;
+    alert('No se pudo agregar ' + pair + ': ' + e.message);
+  }
+}
+
+function eliminarWatchlist(sym) {
+  STATE.watchlistCoins = STATE.watchlistCoins.filter(c => c.sym !== sym);
+  delete STATE.ohlc[sym];
+  delete STATE.precios[sym];
+  delete STATE.changes24h[sym];
+  _wlSave();
+  renderWatchlist();
+}
+
+function renderWatchlist() {
+  const el = qs('wl-content');
+  if (!el) return;
+  const sub = qs('wl-sub');
+  if (sub) sub.textContent = STATE.watchlistCoins.length + '/10 tokens · klines 4H + 1D de Kraken';
+
+  if (STATE.watchlistCoins.length === 0) {
+    el.innerHTML = '<div class="empty-state">Sin tokens en watchlist. Agrega cualquier par disponible en Kraken (ej: DOGE, MATIC, ATOM).</div>';
+    return;
+  }
+
+  // Render a mini-card for each watchlist coin (simpler than full renderCoinCard)
+  let html = '<div class="grid-4" style="margin-bottom:12px;">';
+  STATE.watchlistCoins.forEach(c => {
+    const { sym } = c;
+    const d = STATE.ohlc[sym]?.['4h']?.length >= 20 ? calcScore(sym) : null;
+    const p = STATE.precios[sym];
+    const color = COIN_COLOR[sym] || 'var(--tertiary)';
+    if (!d || !p) {
+      html += '<div class="crypto-coin-card" style="padding:14px;">' +
+        '<div style="font-family:var(--f-mono);font-weight:700;color:' + color + '">' + escHtml(sym) + '</div>' +
+        '<div style="font-size:12px;color:var(--text-3);margin:4px 0;">' + fmtPrecio(p || 0) + '</div>' +
+        '<div style="font-size:11px;color:var(--text-3);">Cargando indicadores...</div>' +
+        '<button class="btn btn-ghost btn-sm" style="margin-top:8px;font-size:11px;" onclick="eliminarWatchlist(\'' + escHtml(sym) + '\')">🗑 Eliminar</button></div>';
+    } else {
+      const ch = STATE.changes24h[sym] || 0;
+      html += '<div class="crypto-coin-card" style="padding:14px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">' +
+        '<div><div style="font-family:var(--f-mono);font-weight:700;color:' + color + '">' + escHtml(sym) + '</div>' +
+        '<div style="font-size:11px;color:var(--text-3);">' + escHtml(NOMBRES[sym] || sym) + '</div></div>' +
+        '<span class="badge ' + d.senalClass + '">' + d.senal + '</span></div>' +
+        '<div style="font-family:var(--f-mono);font-size:18px;font-weight:700;' + (ch >= 0 ? 'color:var(--tertiary)' : 'color:var(--error)') + '">' + fmtPrecio(p) + '</div>' +
+        '<div style="font-family:var(--f-mono);font-size:12px;' + (ch >= 0 ? 'color:var(--tertiary)' : 'color:var(--error)') + ';">' + (ch >= 0 ? '+' : '') + fmt(ch, 2) + '%</div>' +
+        '<div style="font-size:12px;color:var(--text-3);margin-top:6px;">RSI: <b>' + (d.rsi4h != null ? fmt(d.rsi4h,1) : '—') + '</b> · Score: <b style="color:' + d.scoreColor + '">' + d.score + '/100</b></div>' +
+        (d.stoch4h ? '<div style="font-size:11px;color:var(--text-3);">StochRSI: K=' + fmt(d.stoch4h.k,0) + ' D=' + fmt(d.stoch4h.d,0) + ' · ' + d.stoch4h.zona + '</div>' : '') +
+        '<div style="display:flex;gap:6px;margin-top:8px;">' +
+        '<button class="btn btn-primary btn-sm" style="flex:1;font-size:11px;" onclick="abrirModalRegistrar({moneda:\'' + escHtml(sym) + '\',posicion:\'LONG\'})">📋</button>' +
+        '<button class="btn btn-ghost btn-sm" style="font-size:11px;" onclick="eliminarWatchlist(\'' + escHtml(sym) + '\')">🗑</button>' +
+        '</div></div>';
+    }
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════
 //  DCA HOLD — ACUMULACIÓN LARGO PLAZO
 // ═══════════════════════════════════════════════════════════
 
@@ -3694,6 +4200,114 @@ function renderSmallCapTabla(coins, offset) {
 function scConsultarSATOSHI(mensaje) {
   ir('sec-satoshi');
   setTimeout(() => consultarSATOSHI(mensaje), 150);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  GRÁFICO DE VELAS (Canvas nativo)
+// ═══════════════════════════════════════════════════════════
+
+function toggleCandleChart(sym, btn) {
+  const wrap = qs('chart-' + sym);
+  if (!wrap) return;
+  const isOpen = wrap.classList.contains('open');
+  wrap.classList.toggle('open', !isOpen);
+  btn.textContent = isOpen ? '📈 Ver gráfico 4H ▼' : '📉 Ocultar gráfico ▲';
+  if (!isOpen) requestAnimationFrame(() => renderCandleChart(sym, 'cv-' + sym));
+}
+
+function renderCandleChart(sym, cvId) {
+  const canvas = qs(cvId);
+  if (!canvas) return;
+  const candles = (STATE.ohlc[sym]?.['4h'] || []).slice(-50);
+  if (candles.length < 5) { canvas.style.background = 'transparent'; return; }
+
+  const W = canvas.offsetWidth || 400, H = 200;
+  const Hmain = 155, Hvol = 30, sep = 4;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d'); if (!ctx) return;
+
+  const closes = candles.map(k => k.c);
+  const N = candles.length;
+  const pad = { l: 6, r: 50, t: 6, b: 4 };
+  const drawW = W - pad.l - pad.r;
+  const cStep = drawW / N;
+  const candleW = Math.max(1, cStep * 0.7);
+
+  const allHi = candles.map(k => k.h), allLo = candles.map(k => k.l);
+  const minP = Math.min(...allLo), maxP = Math.max(...allHi);
+  const rangeP = maxP - minP || 1;
+  const maxVol = Math.max(...candles.map(k => k.v)) || 1;
+
+  const px = i => pad.l + i * cStep + cStep / 2;
+  const py = p => pad.t + (1 - (p - minP) / rangeP) * Hmain;
+  const vy = v => Hmain + sep + Hvol - (v / maxVol) * Hvol;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // ── Bollinger Bands ──
+  const bbArr = [];
+  for (let i = 0; i < N; i++) {
+    if (i < 19) { bbArr.push(null); continue; }
+    const sl = closes.slice(i - 19, i + 1);
+    const m = sl.reduce((a,b) => a+b,0) / 20;
+    const std = Math.sqrt(sl.reduce((s,v)=>s+(v-m)**2,0)/20);
+    bbArr.push({ u: m + 2*std, l: m - 2*std });
+  }
+  // Fill
+  ctx.beginPath();
+  for (let i = 0; i < N; i++) { if (bbArr[i]) { i === 0 || !bbArr[i-1] ? ctx.moveTo(px(i), py(bbArr[i].u)) : ctx.lineTo(px(i), py(bbArr[i].u)); } }
+  for (let i = N-1; i >= 0; i--) { if (bbArr[i]) ctx.lineTo(px(i), py(bbArr[i].l)); }
+  ctx.closePath(); ctx.fillStyle = 'rgba(78,222,163,0.05)'; ctx.fill();
+  // Lines
+  ['u','l'].forEach(k => {
+    ctx.beginPath(); let first = true;
+    for (let i = 0; i < N; i++) { if (!bbArr[i]) continue; if (first) { ctx.moveTo(px(i),py(bbArr[i][k])); first=false; } else ctx.lineTo(px(i),py(bbArr[i][k])); }
+    ctx.strokeStyle = 'rgba(78,222,163,0.2)'; ctx.lineWidth = 1; ctx.stroke();
+  });
+
+  // ── EMAs ──
+  const drawLine = (period, color) => {
+    if (N < period) return;
+    const k = 2/(period+1);
+    let ema = closes.slice(0,period).reduce((a,b)=>a+b,0)/period;
+    ctx.beginPath(); ctx.moveTo(px(period-1), py(ema));
+    for (let i = period; i < N; i++) { ema = closes[i]*k + ema*(1-k); ctx.lineTo(px(i), py(ema)); }
+    ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash([]); ctx.stroke();
+  };
+  drawLine(20, 'rgba(74,158,255,0.75)');
+  drawLine(50, 'rgba(255,149,0,0.75)');
+
+  // ── Volume ──
+  for (let i = 0; i < N; i++) {
+    const c = candles[i], isUp = c.c >= c.o;
+    ctx.fillStyle = isUp ? 'rgba(78,222,163,0.3)' : 'rgba(255,100,100,0.3)';
+    const x = px(i) - candleW/2, y = vy(c.v);
+    ctx.fillRect(x, y, candleW, Hmain + sep + Hvol - y);
+  }
+
+  // ── Candles ──
+  for (let i = 0; i < N; i++) {
+    const c = candles[i], isUp = c.c >= c.o;
+    const col = isUp ? '#4edea3' : '#ff6464';
+    const x = px(i);
+    ctx.strokeStyle = col; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, py(c.h)); ctx.lineTo(x, py(c.l)); ctx.stroke();
+    const bTop = py(Math.max(c.o,c.c)), bBot = py(Math.min(c.o,c.c));
+    ctx.fillStyle = isUp ? 'rgba(78,222,163,0.8)' : 'rgba(255,100,100,0.8)';
+    ctx.fillRect(x - candleW/2, bTop, candleW, Math.max(1, bBot - bTop));
+  }
+
+  // ── Labels ──
+  ctx.textAlign = 'left'; ctx.font = '10px JetBrains Mono, monospace';
+  const last = closes[N-1];
+  ctx.fillStyle = '#4edea3'; ctx.fillText('$' + fmt(last, 0), W - pad.r + 2, py(last) + 3);
+  ctx.fillStyle = 'rgba(139,164,189,0.5)';
+  ctx.fillText('$' + fmt(maxP, 0), W - pad.r + 2, pad.t + 8);
+  ctx.fillText('$' + fmt(minP, 0), W - pad.r + 2, Hmain - 2);
+  ctx.fillStyle = 'rgba(74,158,255,0.7)';
+  ctx.fillText('20', W - pad.r + 2, pad.t + 18);
+  ctx.fillStyle = 'rgba(255,149,0,0.7)';
+  ctx.fillText('50', W - pad.r + 2, pad.t + 28);
 }
 
 // Close alert panel on outside click
