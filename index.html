@@ -263,6 +263,16 @@ body {
   flex-shrink: 0;
 }
 
+/* ── MONTE CARLO TOGGLE ──────────────────────────────────── */
+.mc-bet-toggle {
+  width: 100%; margin-top: 6px;
+  background: rgba(78,222,163,0.08); border: 1px solid rgba(78,222,163,0.2);
+  color: var(--tertiary); border-radius: 6px; padding: 7px;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  font-family: inherit; transition: background .12s;
+}
+.mc-bet-toggle:hover { background: rgba(78,222,163,0.15); }
+
 /* ── ALERTAS — campanita y panel ──────────────────────────── */
 .btn-activar-alertas {
   background: var(--surface-2);
@@ -7177,6 +7187,8 @@ function renderListaDE() {
       '<button onclick="event.stopPropagation();abrirCasa(this,\'https://www.bet365.com\')" style="flex:1;min-width:80px;background:#1B7A3E;color:#fff;border:none;border-radius:6px;padding:7px 4px;font-size:11px;font-weight:700;cursor:pointer">🔵 Bet365</button>' +
       '<button onclick="event.stopPropagation();abrirCasa(this,\'https://www.sportbet.ec\')" style="flex:1;min-width:80px;background:#FF6B00;color:#fff;border:none;border-radius:6px;padding:7px 4px;font-size:11px;font-weight:700;cursor:pointer">🟠 Sportbet</button>' +
       '</div>' +
+      '<button onclick="event.stopPropagation();toggleMCBet(this,' + vb.odd.toFixed(2) + ',' + Math.round(vb.probReal || 0) + ')" class="mc-bet-toggle">🎲 Análisis Monte Carlo</button>' +
+      '<div class="mc-bet-panel" style="display:none;"></div>' +
       '</div>';
   }).join('');
 }
@@ -10229,6 +10241,8 @@ function renderCardMentor(s, i) {
       <button onclick="abrirCasa(this,'https://www.bet365.com')" style="flex:1;min-width:80px;background:#1B7A3E;color:#fff;border:none;border-radius:6px;padding:8px 4px;font-size:11px;font-weight:700;cursor:pointer">🔵 Bet365</button>
       <button onclick="abrirCasa(this,'https://www.sportbet.ec')" style="flex:1;min-width:80px;background:#FF6B00;color:#fff;border:none;border-radius:6px;padding:8px 4px;font-size:11px;font-weight:700;cursor:pointer">🟠 Sportbet</button>
     </div>
+    <button onclick="toggleMCBet(this,${s.odd?.toFixed(2)||'1.50'},${Math.round(s.prob||s.probReal||50)})" class="mc-bet-toggle">🎲 Análisis Monte Carlo</button>
+    <div class="mc-bet-panel" style="display:none;"></div>
   </div>`;
 }
 
@@ -10397,6 +10411,87 @@ function abrirCasa(btn, url) {
   btn.disabled = true;
   window.open(url, '_blank', 'noopener');
   setTimeout(function() { btn.textContent = txt; btn.disabled = false; }, 1000);
+}
+
+// ── MONTE CARLO POR APUESTA ───────────────────────────────
+function monteCarloBet(odd, probReal, monto, bankroll, n) {
+  n = n || 1000;
+  var prob = (probReal || 0) / 100;
+  var victorias = 0, sumGanancia = 0;
+  for (var i = 0; i < n; i++) {
+    if (Math.random() < prob) { victorias++; sumGanancia += (odd - 1) * monto; }
+    else sumGanancia -= monto;
+  }
+  var gananciaEsp = sumGanancia / n;
+  return {
+    winRate: victorias / n * 100,
+    gananciaEsperada: gananciaEsp,
+    valorEsperado: monto > 0 ? gananciaEsp / monto : 0,
+    ganaSi: bankroll + (odd - 1) * monto,
+    pierdeSi: bankroll - monto,
+    esValuePositivo: gananciaEsp > 0
+  };
+}
+
+function historialSimilar(probReal) {
+  try {
+    var hist = JSON.parse(localStorage.getItem('jcahs_historial') || '[]');
+    var margin = 10;
+    var sim = hist.filter(function(r) {
+      return r.probReal != null && Math.abs(r.probReal - probReal) <= margin &&
+             (r.resultado === 'GANÓ' || r.resultado === 'PERDIÓ');
+    });
+    if (!sim.length) return null;
+    var gan = sim.filter(function(r) { return r.resultado === 'GANÓ'; }).length;
+    return { n: sim.length, hitRate: gan / sim.length * 100 };
+  } catch(e) { return null; }
+}
+
+function renderMCBetHTML(res, odd, probReal, monto, bankroll, hist) {
+  var vc = res.esValuePositivo ? '#4edea3' : '#ff6464';
+  var verdTxt = res.esValuePositivo ? '✅ VALUE POSITIVO — el edge está a tu favor' : '⚠️ REVISAR — el edge no justifica esta apuesta';
+  var verdBg = res.esValuePositivo ? 'rgba(78,222,163,0.12)' : 'rgba(255,180,0,0.12)';
+  var histHtml = hist
+    ? '<div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:10px;margin:10px 0 0">' +
+      '<div style="font-size:11px;color:#8ba4bd;margin-bottom:4px;">📊 Tu historial con prob real similar (±10%)</div>' +
+      '<div style="font-family:monospace;font-weight:700;color:' + (hist.hitRate >= probReal ? '#4edea3' : '#ffd966') + '">' +
+      hist.hitRate.toFixed(1) + '% de aciertos <span style="color:#4e6a88;font-weight:400;font-family:inherit;">(' + hist.n + ' apuestas)</span> ' +
+      (hist.hitRate >= probReal ? '✅' : '⚠️') + '</div>' +
+      '<div style="font-size:11px;color:#4e6a88;margin-top:2px;">' +
+      (hist.hitRate >= probReal ? 'Tu historial confirma la probabilidad estimada.' : 'Tu historial real está por debajo de la estimada — ser más conservador.') +
+      '</div></div>'
+    : '<div style="font-size:11px;color:#4e6a88;margin-top:8px;">Sin historial de apuestas con probabilidad similar todavía.</div>';
+
+  return '<div style="background:#081425;border:1px solid rgba(78,222,163,0.2);border-radius:10px;padding:14px;margin-top:8px;font-size:13px;line-height:1.6;">' +
+    '<div style="font-weight:700;color:#4edea3;margin-bottom:10px;font-size:13px;">🎲 ANÁLISIS MONTE CARLO <span style="font-size:11px;font-weight:400;color:#4e6a88">(1,000 simulaciones)</span></div>' +
+    '<div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span style="color:#8ba4bd">Ganancia esperada</span><span style="font-family:monospace;font-weight:700;color:' + vc + '">' + (res.gananciaEsperada >= 0 ? '+$' : '-$') + Math.abs(res.gananciaEsperada).toFixed(2) + '</span></div>' +
+    '<div style="font-size:11px;color:#4e6a88;margin-bottom:8px;">Promedio de 1,000 escenarios con tu probabilidad real</div>' +
+    '<div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span style="color:#8ba4bd">Probabilidad de ganar</span><span style="font-family:monospace;font-weight:700;">' + res.winRate.toFixed(1) + '%</span></div>' +
+    '<div style="font-size:11px;color:#4e6a88;margin-bottom:8px;">Veces que ganarías de cada 100 apuestas idénticas</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">' +
+    '<div style="background:rgba(78,222,163,0.08);border-radius:8px;padding:8px;"><div style="font-size:11px;color:#4e6a88">Si ganas</div><div style="font-family:monospace;font-weight:700;color:#4edea3">$' + res.ganaSi.toFixed(2) + '</div><div style="font-size:11px;color:#4edea3">+' + (res.ganaSi / bankroll * 100 - 100).toFixed(1) + '%</div></div>' +
+    '<div style="background:rgba(255,100,100,0.08);border-radius:8px;padding:8px;"><div style="font-size:11px;color:#4e6a88">Si pierdes</div><div style="font-family:monospace;font-weight:700;color:#ff6464">$' + res.pierdeSi.toFixed(2) + '</div><div style="font-size:11px;color:#ff6464">-' + (monto / bankroll * 100).toFixed(1) + '%</div></div>' +
+    '</div>' +
+    '<div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span style="color:#8ba4bd">Valor por $1 apostado</span><span style="font-family:monospace;font-weight:700;color:' + vc + '">' + (res.valorEsperado >= 0 ? '+' : '') + '$' + res.valorEsperado.toFixed(3) + '</span></div>' +
+    histHtml +
+    '<div style="background:' + verdBg + ';border-radius:8px;padding:10px;margin-top:10px;text-align:center;font-size:13px;font-weight:700;color:' + (res.esValuePositivo ? '#4edea3' : '#ffd966') + '">' + verdTxt + '</div>' +
+    '</div>';
+}
+
+function toggleMCBet(btn, odd, probReal) {
+  var panel = btn.nextElementSibling;
+  if (!panel || !panel.classList.contains('mc-bet-panel')) return;
+  var isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : '';
+  btn.textContent = isOpen ? '🎲 Análisis Monte Carlo' : '🎲 Ocultar análisis';
+  if (!isOpen && !panel.dataset.loaded) {
+    var bankroll = (STATE && STATE.bankroll) ? STATE.bankroll : (parseFloat(localStorage.getItem('jcahs_bankroll')) || 200);
+    var monto = Math.max(0.50, bankroll * 0.02);
+    var res = monteCarloBet(odd, probReal, monto, bankroll);
+    var hist = historialSimilar(probReal);
+    panel.innerHTML = renderMCBetHTML(res, odd, probReal, monto, bankroll, hist);
+    panel.dataset.loaded = '1';
+  }
 }
 
 function mentorActualizarEstado(estado) {
