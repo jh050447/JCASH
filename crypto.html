@@ -2183,7 +2183,8 @@ function renderEstrategias() {
         '<span style="font-size:14px">' + icon + '</span>' +
         '<span class="estr-cond-label">' + escHtml(c.nombre) + '</span>' +
         '<span class="estr-cond-val" style="color:' + valColor + '">' + escHtml(c.valor) + '</span>' +
-        '</div>';
+        '</div>' +
+        '<div class="metric-exp" style="padding-left:26px;padding-bottom:4px;">' + _expDCACond(c.nombre) + '</div>';
     });
     body += '</div>';
     if (!e.dca.activa) {
@@ -2349,6 +2350,16 @@ function _expSenal(senal) {
   if (senal === 'COMPRAR') return 'Los indicadores sugieren zona de entrada. Máximo 2% del capital, Stop Loss obligatorio.';
   if (senal === 'VENDER') return 'No abrir nuevas posiciones. Si ya tienes cripto, considera proteger ganancias con Stop Loss.';
   return 'Sin zona clara de entrada ni de salida. Vigilar los indicadores.';
+}
+function _expDCACond(nombre) {
+  if (/Fear|Greed/i.test(nombre)) return 'El índice de pánico/codicia del mercado. Cuando baja de 20 hay miedo extremo — históricamente el mejor momento para acumular a largo plazo.';
+  if (/RSI.*sem|semanal/i.test(nombre)) return 'El RSI calculado sobre velas semanales indica sobreventa en horizonte de meses — señal de que el mercado ha caído demasiado lejos.';
+  if (/EMA200/i.test(nombre)) return 'El precio está por debajo del promedio de 200 días — zona de compra histórica en todos los ciclos anteriores de Bitcoin.';
+  return '';
+}
+function _expKelly(kelly, capital) {
+  const pct = capital > 0 ? kelly / capital * 100 : 0;
+  return 'El sistema sugiere arriesgar $' + fmt(kelly,2) + ' (' + fmt(pct,1) + '% de tu capital) — conservador para proteger el bankroll.';
 }
 function _expDiv(div4h, div1d) {
   if (div1d?.detectada) return 'Divergencia diaria: precio bajó pero RSI subió. Alta probabilidad de rebote — señal más confiable.';
@@ -2578,14 +2589,17 @@ function renderScanner() {
         <div class="trade-col">
           <span class="trade-col-label">Capital sugerido</span>
           <span class="trade-col-val" style="color:var(--tertiary)">$${fmt(kelly, 2)}</span>
+          <span class="metric-exp">Arriesga este monto — es el 2% del capital, suficiente para aprender el sistema sin daño severo.</span>
         </div>
         <div class="trade-col">
           <span class="trade-col-label">Stop Loss (−5%)</span>
           <span class="trade-col-val" style="color:var(--error)">${fmtPrecio(sl)}</span>
+          <span class="metric-exp">Si el precio cae a aquí, sales y limitas tu pérdida máxima. Obligatorio antes de entrar.</span>
         </div>
         <div class="trade-col">
           <span class="trade-col-label">Take Profit (+10%)</span>
           <span class="trade-col-val" style="color:var(--tertiary)">${fmtPrecio(tp)}</span>
+          <span class="metric-exp">Si el precio sube a aquí, aseguras ganancias. Relación riesgo/recompensa 1:2 ✓</span>
         </div>
       </div>
 
@@ -3790,10 +3804,10 @@ function ejecutarBacktest() {
   const bhColor  = buyHold >= 0  ? 'var(--tertiary)' : 'var(--error)';
 
   el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">' +
-    _btStat(cerradas.length, 'Ops simuladas') +
-    _btStat(fmt(winRate,1)+'%', 'Win rate') +
-    _btStat((totalRoi>=0?'+':'')+fmt(totalRoi,1)+'%', 'ROI total', roiColor) +
-    _btStat(fmt(drawdown,1)+'%', 'Max drawdown') +
+    _btStat(cerradas.length, 'Ops simuladas', null, 'Número de veces que la estrategia habría comprado y vendido con este historial de precios.') +
+    _btStat(fmt(winRate,1)+'%', 'Win rate', winRate >= 50 ? 'var(--tertiary)' : 'var(--error)', 'De cada 10 ops, ' + fmt(winRate/10,1) + ' ganaron. Sobre 50% es mejor que cara o cruz — sobre 55% es sólido.') +
+    _btStat((totalRoi>=0?'+':'')+fmt(totalRoi,1)+'%', 'ROI total', roiColor, '$' + fmt(capitalInicial,0) + ' inicial → $' + fmt(capital,2) + ' final. Compara con Buy & Hold abajo.') +
+    _btStat(fmt(drawdown,1)+'%', 'Max drawdown', drawdown > 20 ? 'var(--error)' : drawdown > 10 ? 'var(--warning)' : null, 'La mayor caída de capital durante el período. Por encima de 20% es psicológicamente difícil de mantener.') +
     '</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">' +
     '<div class="card" style="padding:12px;"><div class="card-title">Esta estrategia</div><div style="font-family:var(--f-mono);font-size:22px;font-weight:700;color:'+roiColor+'">'+(totalRoi>=0?'+':'')+fmt(totalRoi,1)+'%</div><div style="font-size:12px;color:var(--text-3);">$'+fmt(capitalInicial,0)+' → $'+fmt(capital,2)+'</div></div>' +
@@ -3828,8 +3842,8 @@ function ejecutarBacktest() {
   });
 }
 
-function _btStat(val, label, color) {
-  return '<div class="hs-stat"><div class="hs-stat-val" style="color:'+(color||'var(--text)')+'">'+escHtml(String(val))+'</div><div class="hs-stat-label">'+escHtml(label)+'</div></div>';
+function _btStat(val, label, color, exp) {
+  return '<div class="hs-stat"><div class="hs-stat-val" style="color:'+(color||'var(--text)')+'">'+escHtml(String(val))+'</div><div class="hs-stat-label">'+escHtml(label)+'</div>'+(exp?'<div class="metric-exp" style="margin-top:3px;">'+escHtml(exp)+'</div>':'')+'</div>';
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -3927,9 +3941,12 @@ function renderWatchlist() {
         '<span class="badge ' + d.senalClass + '">' + d.senal + '</span></div>' +
         '<div style="font-family:var(--f-mono);font-size:18px;font-weight:700;' + (ch >= 0 ? 'color:var(--tertiary)' : 'color:var(--error)') + '">' + fmtPrecio(p) + '</div>' +
         '<div style="font-family:var(--f-mono);font-size:12px;' + (ch >= 0 ? 'color:var(--tertiary)' : 'color:var(--error)') + ';">' + (ch >= 0 ? '+' : '') + fmt(ch, 2) + '%</div>' +
-        '<div style="font-size:12px;color:var(--text-3);margin-top:6px;">RSI: <b>' + (d.rsi4h != null ? fmt(d.rsi4h,1) : '—') + '</b> · Score: <b style="color:' + d.scoreColor + '">' + d.score + '/100</b></div>' +
+        '<div style="font-size:12px;color:var(--text-3);margin-top:6px;">RSI: <b>' + (d.rsi4h != null ? fmt(d.rsi4h,1) : '—') + '</b></div>' +
         '<div class="metric-exp">' + _expRSI(d.rsi4h) + '</div>' +
         (d.stoch4h ? '<div style="font-size:11px;color:var(--text-3);">StochRSI: K=' + fmt(d.stoch4h.k,0) + ' D=' + fmt(d.stoch4h.d,0) + ' · ' + d.stoch4h.zona + '</div>' + '<div class="metric-exp">' + _expStoch(d.stoch4h) + '</div>' : '') +
+        '<div style="font-size:12px;color:var(--text-3);margin-top:2px;">Score: <b style="color:' + d.scoreColor + '">' + d.score + '/100</b> · <b>' + d.senal + '</b></div>' +
+        '<div class="metric-exp">' + _expScore(d.score) + '</div>' +
+        '<div class="metric-exp" style="color:' + d.scoreColor + ';font-style:italic;">' + _expSenal(d.senal) + '</div>' +
         '<div style="display:flex;gap:6px;margin-top:8px;">' +
         '<button class="btn btn-primary btn-sm" style="flex:1;font-size:11px;" onclick="abrirModalRegistrar({moneda:\'' + escHtml(sym) + '\',posicion:\'LONG\'})">📋</button>' +
         '<button class="btn btn-ghost btn-sm" style="font-size:11px;" onclick="eliminarWatchlist(\'' + escHtml(sym) + '\')">🗑</button>' +
@@ -4026,7 +4043,8 @@ function renderDca() {
     const col  = c.activa === true ? 'var(--tertiary)' : c.activa === false ? 'var(--error)' : 'var(--text-3)';
     condHtml += '<div style="display:flex;gap:8px;align-items:center;padding:4px 0;font-size:13px;">' +
       '<span>' + icon + '</span><span style="flex:1;color:var(--text-2)">' + escHtml(c.nombre) + '</span>' +
-      '<span style="font-family:var(--f-mono);font-size:12px;color:' + col + '">' + escHtml(c.valor) + '</span></div>';
+      '<span style="font-family:var(--f-mono);font-size:12px;color:' + col + '">' + escHtml(c.valor) + '</span></div>' +
+      '<div class="metric-exp" style="padding-left:26px;padding-bottom:4px;">' + _expDCACond(c.nombre) + '</div>';
   });
   const estadoEl = qs('dca-estado');
   if (estadoEl) estadoEl.innerHTML = '<div style="background:' + bgColor + ';border:1px solid ' + bdColor + ';border-radius:var(--radius-lg);padding:14px 16px;">' + banner + condHtml + '</div>';
@@ -4256,9 +4274,15 @@ function renderSmallCapTabla(coins, offset) {
   const pagina = coins.slice(offset, offset + 20);
   const fmtM = v => v >= 1e6 ? '$' + fmt(v / 1e6, 2) + 'M' : '$' + fmt(v / 1e3, 0) + 'K';
 
-  let html = '<div style="overflow-x:auto"><table class="tabla"><thead><tr>' +
-    '<th>Token</th><th>Market Cap</th><th>Vol 24h</th><th>Vol/Cap%</th>' +
-    '<th>Precio</th><th>7d%</th><th>30d%</th><th>Score</th><th></th>' +
+  let html = '<div style="font-size:11px;color:var(--text-3);margin-bottom:8px;padding:0 2px;line-height:1.6;">' +
+    '<b>Vol/Cap%</b> = qué porcentaje del market cap se negocia cada día — mide liquidez y actividad real. ' +
+    'Mayor % significa más interés. ' +
+    '<b>Score 0-100</b> combina liquidez, volumen absoluto y momentum de precio.</div>' +
+    '<div style="overflow-x:auto"><table class="tabla"><thead><tr>' +
+    '<th>Token</th><th>Market Cap</th><th>Vol 24h</th>' +
+    '<th>Vol/Cap% <span style="font-size:9px;font-weight:400;">(liquidez)</span></th>' +
+    '<th>Precio</th><th>7d%</th><th>30d%</th>' +
+    '<th>Score <span style="font-size:9px;font-weight:400;">(0-100)</span></th><th></th>' +
     '</tr></thead><tbody>';
 
   pagina.forEach(c => {
@@ -4273,11 +4297,13 @@ function renderSmallCapTabla(coins, offset) {
       '<td><b style="font-family:var(--f-mono)">' + escHtml(c.symbol.toUpperCase()) + '</b><br><span style="font-size:11px;color:var(--text-3)">' + escHtml(c.name) + '</span></td>' +
       '<td style="font-family:var(--f-mono);font-size:12px">' + fmtM(c.market_cap) + '</td>' +
       '<td style="font-family:var(--f-mono);font-size:12px">' + fmtM(c.total_volume) + '</td>' +
-      '<td style="font-family:var(--f-mono);font-size:13px;font-weight:700;color:' + vcColor + '">' + fmt(volCap, 1) + '%</td>' +
+      '<td style="font-family:var(--f-mono);font-size:13px;font-weight:700;color:' + vcColor + '">' + fmt(volCap, 1) + '%' +
+        '<br><span style="font-size:10px;font-weight:400;font-family:var(--f-ui);color:var(--text-3)">' + (volCap > 20 ? 'alta liquidez' : volCap > 10 ? 'liquidez ok' : 'baja liquidez') + '</span></td>' +
       '<td style="font-family:var(--f-mono);font-size:13px">' + fmtPrecio(c.current_price) + '</td>' +
       '<td style="font-family:var(--f-mono);font-size:12px;color:' + (chg7 >= 0 ? 'var(--tertiary)' : 'var(--error)') + '">' + (chg7 >= 0 ? '+' : '') + fmt(chg7, 1) + '%</td>' +
       '<td style="font-family:var(--f-mono);font-size:12px;color:' + (chg30 >= 0 ? 'var(--tertiary)' : 'var(--error)') + '">' + (chg30 >= 0 ? '+' : '') + fmt(chg30, 1) + '%</td>' +
-      '<td style="font-family:var(--f-mono);font-size:14px;font-weight:700;color:' + scoreColor + '">' + score + '</td>' +
+      '<td style="font-family:var(--f-mono);font-size:14px;font-weight:700;color:' + scoreColor + '">' + score +
+        '<br><span style="font-size:10px;font-weight:400;font-family:var(--f-ui);color:var(--text-3)">' + (score >= 60 ? 'buena op.' : score >= 35 ? 'revisar' : 'señal débil') + '</span></td>' +
       '<td><button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="scConsultarSATOSHI(' + JSON.stringify(satoshiMsg) + ')">🤖 SATOSHI</button></td>' +
       '</tr>';
   });
