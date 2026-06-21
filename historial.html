@@ -197,6 +197,13 @@ tr.pendiente select.resultado-select { color: var(--warning); }
   font-family: inherit;
 }
 .btn-eliminar:hover { background: var(--error); color: var(--bg); }
+.input-label { display:block;font-size:11px;font-weight:600;color:var(--text-2);letter-spacing:.5px;text-transform:uppercase;margin-bottom:5px; }
+.input-mc { width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:8px 10px;outline:none;font-family:inherit; }
+.input-mc:focus { border-color:var(--tertiary); }
+.mc-kpi { background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:14px; }
+.mc-kpi-title { font-size:11px;font-weight:600;color:var(--text-2);letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px; }
+.mc-kpi-val { font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;margin-bottom:3px; }
+.mc-kpi-exp { font-size:11px;color:var(--text-3);line-height:1.5; }
 </style>
 </head>
 <body>
@@ -242,6 +249,32 @@ tr.pendiente select.resultado-select { color: var(--warning); }
   <h3>ROI acumulado (registros con monto apostado, en orden por ID)</h3>
   <canvas id="chartROI" width="900" height="240"></canvas>
   <p class="explicacion">Esta línea muestra cómo habría evolucionado tu dinero si hubieras apostado en cada predicción registrada, en el orden en que se hicieron.</p>
+</div>
+
+<div class="chart-box" id="mc-section" style="margin-top:24px;">
+  <h3 style="margin-bottom:4px;">🎲 Simulador Monte Carlo — Sistema Completo</h3>
+  <p class="explicacion" style="margin-bottom:14px;">Simula miles de escenarios futuros basados en tu hit rate y odds reales. Te muestra el rango probable de resultados, el riesgo de ruina y cuándo podrías alcanzar tu objetivo.</p>
+
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;" id="mc-inputs-grid">
+    <div><label class="input-label">Hit rate (%)</label><input type="number" id="mc-hr" class="input-mc" step="0.1" min="0" max="100" value="50"></div>
+    <div><label class="input-label">Odd promedio</label><input type="number" id="mc-odd" class="input-mc" step="0.01" min="1.01" value="1.90"></div>
+    <div><label class="input-label">Kelly (%)</label><input type="number" id="mc-kelly" class="input-mc" step="0.5" min="0.5" max="25" value="5"></div>
+    <div><label class="input-label">Bankroll inicial ($)</label><input type="number" id="mc-br0" class="input-mc" step="10" min="10" value="200"></div>
+    <div><label class="input-label">Apuestas a simular</label><input type="number" id="mc-nbets" class="input-mc" step="10" min="10" max="500" value="100"></div>
+    <div><label class="input-label">Simulaciones</label><select id="mc-nsims" class="input-mc"><option value="1000">1,000</option><option value="5000" selected>5,000</option><option value="10000">10,000</option></select></div>
+    <div><label class="input-label">Objetivo ($)</label><input type="number" id="mc-obj" class="input-mc" step="100" min="0" value="5000"></div>
+    <div style="display:flex;align-items:flex-end;gap:8px;">
+      <button onclick="ejecutarMC()" id="mc-btn" style="flex:1;padding:10px;background:#4edea3;color:#060f1a;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">▶ Ejecutar</button>
+      <button onclick="compararKelly()" style="padding:10px 8px;background:transparent;border:1px solid rgba(255,255,255,0.1);color:#8ba4bd;border-radius:8px;font-size:12px;cursor:pointer;">⚖️</button>
+    </div>
+  </div>
+
+  <div id="mc-estado" style="display:none;text-align:center;padding:20px;color:#8ba4bd;font-size:13px;">⏳ Calculando...</div>
+
+  <canvas id="mc-canvas" width="900" height="280" style="display:none;width:100%;border-radius:8px;background:#081425;"></canvas>
+
+  <div id="mc-results" style="display:none;"></div>
+  <div id="mc-kelly-table" style="display:none;margin-top:14px;"></div>
 </div>
 
 <h2 class="section-title">Detalle de registros (editable)</h2>
@@ -706,6 +739,285 @@ document.getElementById('tbodyHistorial').addEventListener('click', (e) => {
   const data = cargarHistorial().filter(r => r.id !== id);
   guardarHistorial(data);
   renderTodo();
+});
+
+// ── MONTE CARLO SISTEMA ──────────────────────────────────
+function mcAutoLoad() {
+  const data = cargarHistorial();
+  const incl = document.getElementById('chkEdgeInflado')?.checked;
+  const filt = filtrarDatos(data, incl).filter(r => r.resultado === 'GANÓ' || r.resultado === 'PERDIÓ');
+  if (!filt.length) return;
+  const stats = calcularResumen(filt);
+  const gan = filt.filter(r => r.resultado === 'GANÓ').length;
+  const hrEl = document.getElementById('mc-hr');
+  const oddEl = document.getElementById('mc-odd');
+  const brEl = document.getElementById('mc-br0');
+  if (hrEl) hrEl.value = stats.hitRate?.toFixed(1) || 50;
+  const odds = filt.map(r => r.cuotaReal || r.cuotaPrograma).filter(o => o > 1);
+  if (odds.length && oddEl) oddEl.value = (odds.reduce((s,v) => s+v,0)/odds.length).toFixed(2);
+  if (brEl) brEl.value = parseFloat(localStorage.getItem('jcahs_bankroll')) || 200;
+}
+
+function monteCarloSistema(hitRate, oddProm, kellyPct, bankroll0, nApuestas, nSims) {
+  const k = kellyPct / 100;
+  const bankrolls = []; // final bankrolls
+  const paths50 = []; // first 50 full paths for graph
+  let sumMaxLoss = 0;
+  const ruinas = [];
+  const rachas = [];
+
+  for (let s = 0; s < nSims; s++) {
+    let br = bankroll0, maxRacha = 0, rachaActual = 0;
+    const path = s < 50 ? [br] : null;
+    let esRuina = false;
+    for (let b = 0; b < nApuestas; b++) {
+      if (br <= 0) { esRuina = true; break; }
+      const monto = Math.max(0.01, br * k);
+      if (Math.random() < hitRate) { br += monto * (oddProm - 1); rachaActual = 0; }
+      else { br -= monto; rachaActual++; if (rachaActual > maxRacha) maxRacha = rachaActual; }
+      if (path) path.push(Math.max(0, br));
+    }
+    bankrolls.push(Math.max(0, br));
+    if (path) paths50.push(path);
+    rachas.push(maxRacha);
+    if (esRuina || br <= bankroll0 * 0.01) ruinas.push(s);
+  }
+
+  bankrolls.sort((a, b) => a - b);
+  const p10 = bankrolls[Math.floor(nSims * 0.10)];
+  const p50 = bankrolls[Math.floor(nSims * 0.50)];
+  const p90 = bankrolls[Math.floor(nSims * 0.90)];
+  rachas.sort((a, b) => a - b);
+  const rachaP80 = rachas[Math.floor(nSims * 0.80)];
+
+  // Percentile paths (step-by-step) from first min(1000,nSims) sims stored (paths50 = 50 paths)
+  const nSteps = paths50[0]?.length || 1;
+  const pPaths = { p10: [], p50: [], p90: [] };
+  if (paths50.length >= 10) {
+    for (let step = 0; step < nSteps; step++) {
+      const vals = paths50.map(p => p[step] || 0).sort((a,b) => a-b);
+      pPaths.p10.push(vals[Math.floor(vals.length * 0.10)]);
+      pPaths.p50.push(vals[Math.floor(vals.length * 0.50)]);
+      pPaths.p90.push(vals[Math.floor(vals.length * 0.90)]);
+    }
+  }
+
+  // Is it luck or system? Compare with random (hitRate=0.5) achieving same p50 ROI
+  const targetROI = (p50 - bankroll0) / bankroll0;
+  let luckyCount = 0;
+  for (let s = 0; s < Math.min(nSims, 2000); s++) {
+    let br = bankroll0;
+    for (let b = 0; b < nApuestas; b++) {
+      if (br <= 0) break;
+      const m = Math.max(0.01, br * k);
+      if (Math.random() < 0.5) br += m * (oddProm - 1); else br -= m;
+    }
+    if ((br - bankroll0) / bankroll0 >= targetROI) luckyCount++;
+  }
+  const pctSuerte = luckyCount / Math.min(nSims, 2000) * 100;
+
+  return { p10, p50, p90, paths50, pPaths, nSteps,
+           riesgoRuina: ruinas.length / nSims * 100,
+           rachaMaxP80: rachaP80, pctSuerte };
+}
+
+function ejecutarMC() {
+  const btn = document.getElementById('mc-btn');
+  const estado = document.getElementById('mc-estado');
+  const canvas = document.getElementById('mc-canvas');
+  const results = document.getElementById('mc-results');
+  const kellyTable = document.getElementById('mc-kelly-table');
+  if (!btn) return;
+
+  const hr    = parseFloat(document.getElementById('mc-hr')?.value) / 100 || 0.5;
+  const odd   = parseFloat(document.getElementById('mc-odd')?.value) || 1.9;
+  const kelly = parseFloat(document.getElementById('mc-kelly')?.value) || 5;
+  const br0   = parseFloat(document.getElementById('mc-br0')?.value) || 200;
+  const nBets = Math.min(500, Math.max(10, parseInt(document.getElementById('mc-nbets')?.value) || 100));
+  const nSims = parseInt(document.getElementById('mc-nsims')?.value) || 5000;
+  const obj   = parseFloat(document.getElementById('mc-obj')?.value) || 5000;
+
+  if (estado) { estado.style.display = ''; estado.textContent = '⏳ Calculando ' + nSims.toLocaleString() + ' simulaciones × ' + nBets + ' apuestas...'; }
+  if (canvas)  canvas.style.display = 'none';
+  if (results) results.style.display = 'none';
+  if (kellyTable) kellyTable.style.display = 'none';
+  btn.disabled = true; btn.textContent = '⏳ Calculando...';
+
+  setTimeout(function() {
+    try {
+      const res = monteCarloSistema(hr, odd, kelly, br0, nBets, nSims);
+      if (estado) estado.style.display = 'none';
+      renderMCCanvas(res, br0, nBets);
+      renderMCResults(res, hr, odd, kelly, br0, nBets, nSims, obj);
+    } catch(e) {
+      if (estado) { estado.textContent = 'Error: ' + e.message; }
+    }
+    btn.disabled = false; btn.textContent = '▶ Ejecutar';
+  }, 0);
+}
+
+function renderMCCanvas(res, br0, nBets) {
+  const canvas = document.getElementById('mc-canvas');
+  if (!canvas) return;
+  canvas.style.display = 'block';
+  const W = canvas.offsetWidth || 900, H = 280;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d'); if (!ctx) return;
+  ctx.clearRect(0, 0, W, H);
+
+  const pad = { l: 56, r: 14, t: 14, b: 30 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+
+  const allVals = [...res.pPaths.p10, ...res.pPaths.p90, br0];
+  const minV = Math.min(0, ...allVals), maxV = Math.max(...allVals) || 1;
+  const toX = i => pad.l + (i / Math.max(1, res.nSteps - 1)) * pw;
+  const toY = v => pad.t + (1 - (v - minV) / (maxV - minV)) * ph;
+
+  // Gray paths (50 simulations)
+  ctx.globalAlpha = 0.15;
+  res.paths50.forEach(path => {
+    ctx.beginPath();
+    path.forEach((v, i) => i === 0 ? ctx.moveTo(toX(i), toY(v)) : ctx.lineTo(toX(i), toY(v)));
+    ctx.strokeStyle = '#8ba4bd'; ctx.lineWidth = 1; ctx.stroke();
+  });
+  ctx.globalAlpha = 1;
+
+  // Bankroll inicial horizontal
+  const zy = toY(br0);
+  ctx.setLineDash([6, 3]); ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad.l, zy); ctx.lineTo(W - pad.r, zy); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Percentile curves
+  const drawLine = (pts, color, dash) => {
+    if (!pts.length) return;
+    if (dash) ctx.setLineDash([6,3]); else ctx.setLineDash([]);
+    ctx.beginPath();
+    pts.forEach((v, i) => i === 0 ? ctx.moveTo(toX(i), toY(v)) : ctx.lineTo(toX(i), toY(v)));
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+    ctx.setLineDash([]);
+  };
+  drawLine(res.pPaths.p90, '#4A9EFF', true);
+  drawLine(res.pPaths.p50, '#4edea3', false);
+  drawLine(res.pPaths.p10, '#ff6464', true);
+
+  // Labels
+  ctx.font = '10px JetBrains Mono, monospace'; ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(139,164,189,0.7)';
+  ctx.fillText('$' + Math.round(maxV), pad.l - 4, pad.t + 10);
+  ctx.fillText('$' + Math.round(br0), pad.l - 4, zy + 4);
+  ctx.fillText('$' + Math.round(minV < 0 ? 0 : minV), pad.l - 4, H - pad.b);
+  ctx.textAlign = 'left'; ctx.fillStyle = '#4edea3'; ctx.fillText('P50', W - pad.r + 2, toY(res.pPaths.p50.at(-1) || br0) + 4);
+  ctx.fillStyle = '#4A9EFF'; ctx.fillText('P90', W - pad.r + 2, toY(res.pPaths.p90.at(-1) || br0) - 3);
+  ctx.fillStyle = '#ff6464'; ctx.fillText('P10', W - pad.r + 2, toY(res.pPaths.p10.at(-1) || br0) + 10);
+
+  // Legend
+  ctx.font = '11px Inter, sans-serif'; ctx.textAlign = 'left';
+  [[50, '#8ba4bd'], [null, null]].concat([[res.pPaths.p90.length,'P90 — mejor 10%','#4A9EFF'], [res.pPaths.p50.length,'P50 — caso base','#4edea3'], [1,'P10 — peor 10%','#ff6464']]).forEach(() => {});
+  const legend = [['P90 mejor 10%','#4A9EFF'], ['P50 caso base','#4edea3'], ['P10 peor 10%','#ff6464'], ['Bankroll inicial','rgba(255,255,255,0.4)']];
+  legend.forEach(([label, col], i) => {
+    ctx.fillStyle = col; ctx.fillRect(pad.l + i * 130, H - 14, 14, 3);
+    ctx.fillStyle = 'rgba(139,164,189,0.7)'; ctx.fillText(label, pad.l + i * 130 + 18, H - 6);
+  });
+}
+
+function renderMCResults(res, hr, odd, kelly, br0, nBets, nSims, obj) {
+  const el = document.getElementById('mc-results');
+  if (!el) return;
+  el.style.display = '';
+
+  const ruinaColor = res.riesgoRuina < 5 ? 'var(--tertiary)' : res.riesgoRuina < 15 ? 'var(--warning)' : 'var(--error)';
+  const suerteColor = res.pctSuerte < 5 ? 'var(--tertiary)' : res.pctSuerte < 15 ? 'var(--warning)' : 'var(--error)';
+
+  // Meses al objetivo (estimado: nBets apuestas / 5 por semana ≈ 20/mes)
+  const apxMes = 20;
+  const mesP = v => v <= br0 ? '—' : (Math.ceil(nBets * Math.log(obj / br0) / Math.log(v / br0) / apxMes)).toString() + ' meses';
+
+  el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px;">' +
+
+    '<div class="mc-kpi">' +
+    '<div class="mc-kpi-title">🎲 Riesgo de ruina</div>' +
+    '<div class="mc-kpi-val" style="color:' + ruinaColor + '">' + res.riesgoRuina.toFixed(1) + '%</div>' +
+    '<div class="mc-kpi-exp">En ' + Math.round(res.riesgoRuina/100*nSims) + ' de cada ' + nSims.toLocaleString() + ' escenarios el bankroll llega a cero. ' +
+    (res.riesgoRuina < 5 ? 'Verde — riesgo bajo.' : res.riesgoRuina < 15 ? 'Amarillo — cuidado.' : 'Rojo — Kelly demasiado agresivo.') + '</div>' +
+    '</div>' +
+
+    '<div class="mc-kpi">' +
+    '<div class="mc-kpi-title">📊 Rango de resultados (' + nBets + ' apuestas)</div>' +
+    '<div style="font-size:13px;font-family:JetBrains Mono,monospace;line-height:2;">' +
+    '<span style="color:#4A9EFF">Mejor 10%:</span> $' + Math.round(res.p90) + ' (' + (res.p90 > br0 ? '+' : '') + ((res.p90 - br0)/br0*100).toFixed(0) + '%)<br>' +
+    '<span style="color:#4edea3">Caso base:</span> $' + Math.round(res.p50) + ' (' + (res.p50 > br0 ? '+' : '') + ((res.p50 - br0)/br0*100).toFixed(0) + '%)<br>' +
+    '<span style="color:#ff6464">Peor 10%:</span> $' + Math.round(res.p10) + ' (' + (res.p10 > br0 ? '+' : '') + ((res.p10 - br0)/br0*100).toFixed(0) + '%)' +
+    '</div></div>' +
+
+    '<div class="mc-kpi">' +
+    '<div class="mc-kpi-title">📉 Racha mala esperada</div>' +
+    '<div class="mc-kpi-val">' + res.rachaMaxP80 + ' pérdidas seguidas</div>' +
+    '<div class="mc-kpi-exp">En el 80% de los casos tendrás al menos una racha de ' + res.rachaMaxP80 + ' pérdidas seguidas. Es normal — no abandones el sistema si ocurre.</div>' +
+    '</div>' +
+
+    '<div class="mc-kpi">' +
+    '<div class="mc-kpi-title">🎯 Tiempo para llegar a $' + obj.toLocaleString() + '</div>' +
+    '<div style="font-size:13px;font-family:JetBrains Mono,monospace;line-height:2;">' +
+    (res.p90 >= obj ? '<span style="color:#4A9EFF">Mejor caso:</span> ~' + mesP(res.p90) + '<br>' : '<span style="color:#4A9EFF">Mejor caso:</span> no alcanza en ' + nBets + ' apuestas<br>') +
+    (res.p50 >= obj ? '<span style="color:#4edea3">Caso base:</span> ~' + mesP(res.p50) + '<br>' : '<span style="color:#4edea3">Caso base:</span> no alcanza en ' + nBets + ' apuestas<br>') +
+    (res.p10 >= obj ? '<span style="color:#ff6464">Peor caso:</span> ~' + mesP(res.p10) : '<span style="color:#ff6464">Peor caso:</span> no alcanza en ' + nBets + ' apuestas') +
+    '</div></div>' +
+
+    '<div class="mc-kpi" style="grid-column:span 2">' +
+    '<div class="mc-kpi-title">🔬 ¿Es suerte o sistema?</div>' +
+    '<div class="mc-kpi-val" style="color:' + suerteColor + '">' + res.pctSuerte.toFixed(1) + '% de simulaciones aleatorias logran tu ROI</div>' +
+    '<div class="mc-kpi-exp">' +
+    (res.pctSuerte < 5 ? '✅ Edge confirmado estadísticamente — menos del 5% de escenarios sin ventaja real logran tu resultado.' :
+     res.pctSuerte < 15 ? '⚠️ Hay indicios de edge pero necesitas más muestra para confirmarlo (5-15% podría ser suerte).' :
+     '🎲 Probabilmente suerte — más del 15% de escenarios aleatorios igualan tu ROI. Necesitas más datos.') +
+    '</div></div>' +
+    '</div>';
+}
+
+function compararKelly() {
+  const hr   = parseFloat(document.getElementById('mc-hr')?.value) / 100 || 0.5;
+  const odd  = parseFloat(document.getElementById('mc-odd')?.value) || 1.9;
+  const br0  = parseFloat(document.getElementById('mc-br0')?.value) || 200;
+  const nB   = Math.min(200, parseInt(document.getElementById('mc-nbets')?.value) || 100);
+  const kActual = parseFloat(document.getElementById('mc-kelly')?.value) || 5;
+  const el = document.getElementById('mc-kelly-table');
+  if (!el) return;
+  el.style.display = ''; el.innerHTML = '<div style="color:#8ba4bd;font-size:12px;margin-bottom:8px;">⏳ Calculando comparación de Kelly (5 × 1,000 sims)...</div>';
+
+  setTimeout(function() {
+    const kellys = [2, 5, 10, 15, 20];
+    const rows = kellys.map(k => {
+      const r = monteCarloSistema(hr, odd, k, br0, nB, 1000);
+      return { k, ruina: r.riesgoRuina, p50: r.p50, p90: r.p90 };
+    });
+    const bestIdx = rows.reduce((bi, r, i) => {
+      const score = (100 - r.ruina * 3) + ((r.p50 - br0) / br0 * 100);
+      const bScore = (100 - rows[bi].ruina * 3) + ((rows[bi].p50 - br0) / br0 * 100);
+      return score > bScore ? i : bi;
+    }, 0);
+
+    let html = '<div style="overflow-x:auto;margin-top:6px;"><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="color:#8ba4bd;font-size:11px;text-align:left;">';
+    html += '<th style="padding:8px 10px;">Kelly %</th><th>Ruina</th><th>Caso base</th><th>Mejor 10%</th><th></th></tr></thead><tbody>';
+    rows.forEach((r, i) => {
+      const isActual = Math.round(r.k) === Math.round(kActual);
+      const isBest = i === bestIdx;
+      const bg = isActual ? 'rgba(78,222,163,0.06)' : 'transparent';
+      const rc = r.ruina < 5 ? '#4edea3' : r.ruina < 15 ? '#ffd966' : '#ff6464';
+      html += '<tr style="background:' + bg + ';border-bottom:1px solid rgba(255,255,255,0.05);">' +
+        '<td style="padding:8px 10px;font-family:monospace;font-weight:700;">' + r.k + '%' + (isActual ? ' ← actual' : '') + '</td>' +
+        '<td style="color:' + rc + ';font-family:monospace;">' + r.ruina.toFixed(1) + '%</td>' +
+        '<td style="font-family:monospace;">$' + Math.round(r.p50) + '</td>' +
+        '<td style="font-family:monospace;color:#4A9EFF;">$' + Math.round(r.p90) + '</td>' +
+        '<td style="color:#4edea3;font-size:11px;">' + (isBest ? '✅ óptimo' : '') + '</td></tr>';
+    });
+    html += '</tbody></table><div style="font-size:11px;color:#4e6a88;margin-top:6px;">Kelly óptimo = mejor balance entre velocidad y seguridad dadas tu hit rate y odd promedio.</div></div>';
+    el.innerHTML = html;
+  }, 0);
+}
+
+// Auto-load MC inputs from historial
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(mcAutoLoad, 200);
 });
 
 window.addEventListener('focus', () => {
