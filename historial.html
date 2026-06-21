@@ -204,6 +204,22 @@ tr.pendiente select.resultado-select { color: var(--warning); }
 .mc-kpi-title { font-size:11px;font-weight:600;color:var(--text-2);letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px; }
 .mc-kpi-val { font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;margin-bottom:3px; }
 .mc-kpi-exp { font-size:11px;color:var(--text-3);line-height:1.5; }
+.clv-section { margin: 20px 0; }
+.clv-card { background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:16px;flex:1;min-width:180px; }
+.clv-card .label { font-size:11px;font-weight:600;color:var(--text-2);letter-spacing:.8px;text-transform:uppercase;margin-bottom:6px; }
+.clv-card .valor { font-size:26px;font-weight:700;font-family:'JetBrains Mono',monospace;margin-bottom:4px; }
+.clv-card .sub { font-size:11px;color:var(--text-3);line-height:1.5; }
+.clv-veredicto { border-radius:10px;padding:16px;margin-top:12px;font-size:14px;line-height:1.6; }
+.clv-guia { background:var(--surface-2);border:1px solid var(--border);border-radius:10px;margin-bottom:16px; }
+.clv-guia summary { padding:12px 16px;cursor:pointer;font-weight:600;font-size:13px;color:var(--text-2);list-style:none;display:flex;align-items:center;gap:8px; }
+.clv-guia summary::-webkit-details-marker { display:none; }
+.clv-guia[open] summary { border-bottom:1px solid var(--border); }
+.clv-guia .guia-body { padding:14px 16px;font-size:13px;color:var(--text-2);line-height:1.8; }
+.corr-table { width:100%;border-collapse:collapse;font-size:13px;margin-top:8px; }
+.corr-table th { font-size:11px;color:var(--text-2);font-weight:600;letter-spacing:.5px;padding:6px 10px;border-bottom:1px solid var(--border);text-align:left; }
+.corr-table td { padding:8px 10px;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:13px; }
+td.pos { color: #4edea3; }
+td.neg { color: #ff6464; }
 </style>
 </head>
 <body>
@@ -231,7 +247,7 @@ tr.pendiente select.resultado-select { color: var(--warning); }
     <h3>Desglose por rango de Prob Real</h3>
     <p class="explicacion">Esto muestra si el sistema acierta más cuando dice estar "muy seguro" (65-100%) que cuando dice estar "menos seguro" (35-64%). Si la calibración es correcta, el % de aciertos debería ser mayor en la fila de arriba.</p>
     <table>
-      <thead><tr><th>Rango</th><th>n</th><th>Hit rate</th><th>ROI</th></tr></thead>
+      <thead><tr><th>Rango</th><th>n</th><th>Hit rate</th><th>ROI</th><th>CLV prom</th></tr></thead>
       <tbody id="tbodyProbReal"></tbody>
     </table>
   </div>
@@ -239,7 +255,7 @@ tr.pendiente select.resultado-select { color: var(--warning); }
     <h3>Desglose por mercado</h3>
     <p class="explicacion">Compara qué tipo de apuesta (Resultado del partido vs Total de goles) ha funcionado mejor hasta ahora.</p>
     <table>
-      <thead><tr><th>Mercado</th><th>n</th><th>Hit rate</th><th>ROI</th></tr></thead>
+      <thead><tr><th>Mercado</th><th>n</th><th>Hit rate</th><th>ROI</th><th>CLV prom</th></tr></thead>
       <tbody id="tbodyMercado"></tbody>
     </table>
   </div>
@@ -249,6 +265,35 @@ tr.pendiente select.resultado-select { color: var(--warning); }
   <h3>ROI acumulado (registros con monto apostado, en orden por ID)</h3>
   <canvas id="chartROI" width="900" height="240"></canvas>
   <p class="explicacion">Esta línea muestra cómo habría evolucionado tu dinero si hubieras apostado en cada predicción registrada, en el orden en que se hicieron.</p>
+</div>
+
+<!-- ═══ SECCIÓN CLV ═══ -->
+<div class="clv-section" id="clv-section">
+  <h2 class="section-title">📈 Análisis CLV (Closing Line Value)</h2>
+
+  <details class="clv-guia">
+    <summary>📖 ¿Cómo registrar la Cuota de Cierre? (expandir)</summary>
+    <div class="guia-body">
+      <b>La cuota de cierre</b> es la odd de Pinnacle 5-10 minutos antes de que empiece el partido.<br><br>
+      <b>¿Dónde encontrarla?</b><br>
+      → <b>OddsPapi</b>: abre JCAHS justo antes del partido y anota la odd de Pinnacle<br>
+      → <b>Pinnacle.com</b>: busca el partido directamente<br>
+      → <b>Oddsportal.com</b>: odds históricas de Pinnacle (para registrar post-partido)<br><br>
+      <b>¿Cuándo registrarla?</b><br>
+      → Antes de que empiece el partido (ideal), o hasta 24H post-resultado desde Oddsportal<br><br>
+      <b>¿Por qué es importante?</b><br>
+      La odd de cierre de Pinnacle es el precio más eficiente del mercado — toda la información pública ya está incorporada.
+      Si tu odd fue mejor que esa, obtuviste valor real <b>independientemente del resultado</b>.
+    </div>
+  </details>
+
+  <div id="clv-aviso-insuf" style="display:none;background:rgba(78,222,163,0.06);border:1px solid rgba(78,222,163,0.2);border-radius:10px;padding:16px;font-size:13px;line-height:1.7;color:#8ba4bd;"></div>
+  <div id="clv-kpis" style="display:none;"></div>
+  <div class="chart-box" id="clv-chart-box" style="display:none;margin-top:14px;">
+    <h3>CLV Acumulado (promedio móvil)</h3>
+    <canvas id="chartCLV" width="900" height="180"></canvas>
+    <p class="explicacion">Esta línea muestra si consistentemente obtienes mejor precio que el mercado. Si tiende hacia arriba y se estabiliza sobre 0%, tienes edge real — más confiable que el ROI o el hit rate porque no depende de la suerte del resultado.</p>
+  </div>
 </div>
 
 <div class="chart-box" id="mc-section" style="margin-top:24px;">
@@ -290,6 +335,8 @@ tr.pendiente select.resultado-select { color: var(--warning); }
         <th>Pick</th>
         <th>Cuota Prog.</th>
         <th>Cuota Real</th>
+        <th title="La odd de Pinnacle 5-10 minutos antes del partido. Obtenerla en OddsPapi, Pinnacle.com o Oddsportal.com">Cuota Cierre ⓘ</th>
+        <th title="Closing Line Value: qué tan mejor fue tu precio vs el cierre del mercado. Positivo = obtuviste valor real">CLV ⓘ</th>
         <th>Prob Real</th>
         <th>Edge</th>
         <th>Monto</th>
@@ -327,6 +374,31 @@ const SEED_DATA = [
   {"id":16,"edgeInflado":false,"fecha":"2026-06-14","partido":"Gremio Atletico Sampaio RR vs Manaus FC AM","liga":"Brasileiro Serie D","mercado":"Over/Under 2.5","pick":"Más de 2.5 goles (+2.5)","cuotaPrograma":2.15,"cuotaReal":null,"probReal":58,"edge":24.8,"partidoId":"gremio-atletico-sampaio-rr-vs-manaus-fc-am-20260614","montoApostado":null,"resultado":"GANÓ","gananciaPerdida":null,"notas":"Marcador: 3-1 (4 goles totales, mayor a 2.5)."}
 ];
 
+// ── CLV (Closing Line Value) ──────────────────────────────
+function calcCLV(cuotaPrograma, cuotaCierre) {
+  if (!cuotaPrograma || !cuotaCierre || cuotaCierre <= 0) return null;
+  return (cuotaPrograma - cuotaCierre) / cuotaCierre * 100;
+}
+
+function calcCLVStats(subset) {
+  const conClv = subset.filter(r => r.clv !== null && r.clv !== undefined);
+  if (!conClv.length) return { n: 0, avg: null };
+  return { n: conClv.length, avg: conClv.reduce((s, r) => s + r.clv, 0) / conClv.length };
+}
+
+// Migra registros que no tienen los campos CLV (primera carga)
+function migrarCLV(data) {
+  let modified = false;
+  data.forEach(r => {
+    if (!('cuotaCierre' in r)) { r.cuotaCierre = null; modified = true; }
+    if (!('clv' in r)) {
+      r.clv = (r.cuotaCierre !== null && r.cuotaPrograma !== null) ? calcCLV(r.cuotaPrograma, r.cuotaCierre) : null;
+      modified = true;
+    }
+  });
+  return { data, modified };
+}
+
 function cargarHistorial() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) {
@@ -334,7 +406,10 @@ function cargarHistorial() {
     return SEED_DATA.slice();
   }
   try {
-    return JSON.parse(raw);
+    const data = JSON.parse(raw);
+    const { data: migrated, modified } = migrarCLV(data);
+    if (modified) localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+    return migrated;
   } catch (e) {
     console.error('Historial: JSON corrupto en localStorage, usando seed', e);
     return SEED_DATA.slice();
@@ -371,7 +446,9 @@ function procesarPendientes() {
   let maxId = data.reduce((max, r) => Math.max(max, r.id), 0);
   pendientes.forEach(p => {
     maxId += 1;
-    data.push(Object.assign({}, p, { id: maxId }));
+    const rec = Object.assign({ cuotaCierre: null, clv: null }, p, { id: maxId });
+    rec.clv = calcCLV(rec.cuotaPrograma, rec.cuotaCierre);
+    data.push(rec);
   });
 
   guardarHistorial(data);
@@ -468,6 +545,8 @@ function renderTabla() {
       '<td>' + escHtml(r.pick) + '</td>' +
       '<td class="num">' + fmtNum(r.cuotaPrograma, 2) + '</td>' +
       '<td class="num" ' + ce(r.id, 'cuotaReal', 'number') + '>' + fmtNum(r.cuotaReal, 2) + '</td>' +
+      '<td class="num" ' + ce(r.id, 'cuotaCierre', 'number') + ' title="Cuota Pinnacle al cierre. Editar aquí o en Oddsportal post-partido">' + (r.cuotaCierre === null ? '—' : fmtNum(r.cuotaCierre, 2)) + '</td>' +
+      '<td class="num ' + (r.clv === null ? '' : r.clv >= 0 ? 'pos' : 'neg') + '">' + (r.clv === null ? '—' : (r.clv >= 0 ? '+' : '') + r.clv.toFixed(1) + '%') + '</td>' +
       '<td class="num">' + (r.probReal === null ? '—' : fmtNum(r.probReal, 0) + '%') + '</td>' +
       '<td class="num">' + (r.edge === null ? '—' : fmtNum(r.edge, 1) + '%') + '</td>' +
       '<td class="num" ' + ce(r.id, 'montoApostado', 'number') + '>' + (r.montoApostado === null ? '—' : '$' + fmtNum(r.montoApostado, 2)) + '</td>' +
@@ -540,7 +619,10 @@ function filaDesglose(label, subset) {
   const stats = calcularResumen(subset);
   const hitTxt = stats.totalConResultado ? stats.hitRate.toFixed(1) + '% (' + stats.ganados + '/' + stats.totalConResultado + ')' : '—';
   const roiTxt = stats.totalApostado ? (stats.roi >= 0 ? '+' : '') + stats.roi.toFixed(1) + '% (n=' + stats.n + ')' : '—';
-  return '<tr><td>' + escHtml(label) + '</td><td class="num">' + subset.length + '</td><td class="num">' + hitTxt + '</td><td class="num">' + roiTxt + '</td></tr>';
+  const clvS = calcCLVStats(subset);
+  const clvTxt = clvS.n >= 2 ? (clvS.avg >= 0 ? '+' : '') + clvS.avg.toFixed(1) + '% (n=' + clvS.n + ')' : '—';
+  const clvCls = clvS.n >= 2 ? (clvS.avg >= 0 ? 'pos' : 'neg') : '';
+  return '<tr><td>' + escHtml(label) + '</td><td class="num">' + subset.length + '</td><td class="num">' + hitTxt + '</td><td class="num">' + roiTxt + '</td><td class="num ' + clvCls + '">' + clvTxt + '</td></tr>';
 }
 
 function renderDesgloseProbReal() {
@@ -646,12 +728,139 @@ function renderGraficoROI() {
   });
 }
 
+function renderClv() {
+  const incluir = document.getElementById('chkEdgeInflado')?.checked;
+  const data = filtrarDatos(cargarHistorial(), incluir);
+  const conClv = data.filter(r => r.clv !== null && r.clv !== undefined);
+  const aviso = document.getElementById('clv-aviso-insuf');
+  const kpisEl = document.getElementById('clv-kpis');
+  const chartBox = document.getElementById('clv-chart-box');
+
+  if (conClv.length < 3) {
+    if (aviso) { aviso.style.display = ''; aviso.innerHTML = 'Registra la cuota de cierre en tus próximas apuestas para activar el análisis CLV — <b>el indicador más poderoso de edge real</b> (funciona desde 3 registros). <br><br>Edita la columna <b>"Cuota Cierre"</b> en la tabla de registros con la odd de Pinnacle al cierre del partido.'; }
+    if (kpisEl) kpisEl.style.display = 'none';
+    if (chartBox) chartBox.style.display = 'none';
+    return;
+  }
+  if (aviso) aviso.style.display = 'none';
+  if (kpisEl) kpisEl.style.display = '';
+  if (chartBox) chartBox.style.display = '';
+
+  const clvProm = conClv.reduce((s, r) => s + r.clv, 0) / conClv.length;
+  const nPos = conClv.filter(r => r.clv > 0).length;
+  const pctPos = nPos / conClv.length * 100;
+
+  // Correlación CLV vs Resultado
+  const clvPos = conClv.filter(r => r.clv > 0 && (r.resultado === 'GANÓ' || r.resultado === 'PERDIÓ'));
+  const clvNeg = conClv.filter(r => r.clv <= 0 && (r.resultado === 'GANÓ' || r.resultado === 'PERDIÓ'));
+  const hrPos = clvPos.length ? (clvPos.filter(r => r.resultado === 'GANÓ').length / clvPos.length * 100).toFixed(1) + '%' : '—';
+  const hrNeg = clvNeg.length ? (clvNeg.filter(r => r.resultado === 'GANÓ').length / clvNeg.length * 100).toFixed(1) + '%' : '—';
+  const roiPos = calcularResumen(clvPos);
+  const roiNeg = calcularResumen(clvNeg);
+  const roiPosTxt = roiPos.roi !== null ? (roiPos.roi >= 0 ? '+' : '') + roiPos.roi.toFixed(1) + '%' : '—';
+  const roiNegTxt = roiNeg.roi !== null ? (roiNeg.roi >= 0 ? '+' : '') + roiNeg.roi.toFixed(1) + '%' : '—';
+
+  // Veredicto
+  let verd, verdBg, verdCol;
+  if (conClv.length >= 3 && clvProm > 3 && pctPos > 60) {
+    verd = '<b>✅ EDGE CONFIRMADO</b><br>Tu sistema consistentemente obtiene mejor precio que el mercado de cierre. Esto es la evidencia más sólida de edge real disponible en value betting. Con estos datos puedes considerar escalar el bankroll con confianza.';
+    verdBg = 'rgba(78,222,163,0.1)'; verdCol = '#4edea3';
+  } else if (conClv.length >= 3 && clvProm > 0 && pctPos > 50) {
+    verd = '<b>⚡ INDICIOS DE EDGE</b><br>CLV positivo pero necesitas más datos. Objetivo: 20-30 registros con cuota de cierre para confirmación estadística.';
+    verdBg = 'rgba(255,217,102,0.1)'; verdCol = '#ffd966';
+  } else if (conClv.length >= 10 && clvProm < 0) {
+    verd = '<b>⚠️ SIN EVIDENCIA DE EDGE</b><br>El mercado tiene mejor precio que tú consistentemente. Posibles causas: (1) Las odds de OddsPapi no coinciden con las reales en Ecuabet. (2) El de-vig necesita recalibración. (3) Estás entrando tarde (el mercado ya movió la línea). Revisar proceso antes de continuar.';
+    verdBg = 'rgba(255,100,100,0.1)'; verdCol = '#ff6464';
+  } else {
+    verd = '<b>📊 INSUFICIENTE</b><br>Registra cuota de cierre en al menos 10 apuestas para un veredicto confiable. Actualmente: ' + conClv.length + '/10 registros.';
+    verdBg = 'rgba(255,255,255,0.04)'; verdCol = '#8ba4bd';
+  }
+
+  // Explicaciones KPI
+  const expClvProm = clvProm > 3 ? 'Excelente — obtienes en promedio un precio ' + clvProm.toFixed(1) + '% mejor que el mercado al cierre. Evidencia fuerte de edge real.' :
+    clvProm > 0 ? 'Positivo pero moderado — obtienes ligeramente mejor precio que el mercado. Necesitas más datos para confirmar.' :
+    'Negativo — el mercado tiene mejor precio que tú. Revisar si las odds de OddsPapi coinciden con las reales en Ecuabet.';
+  const expPctPos = pctPos > 55 ? 'Más de la mitad de tus apuestas superan el precio de cierre. Señal fuerte de sistema bien calibrado.' :
+    pctPos >= 45 ? 'Sin señal clara todavía. Necesitas más registros para determinar si hay edge real.' :
+    'El mercado supera tus precios con frecuencia. Revisar el proceso de selección.';
+
+  kpisEl.innerHTML =
+    '<div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px;">' +
+    '<div class="clv-card"><div class="label">CLV Promedio</div>' +
+    '<div class="valor ' + (clvProm >= 0 ? 'pos' : 'neg') + '">' + (clvProm >= 0 ? '+' : '') + clvProm.toFixed(2) + '%</div>' +
+    '<div class="sub">' + conClv.length + ' registros con cuota de cierre</div>' +
+    '<div class="sub">' + expClvProm + '</div></div>' +
+
+    '<div class="clv-card"><div class="label">% Con CLV Positivo</div>' +
+    '<div class="valor ' + (pctPos > 55 ? 'pos' : pctPos >= 45 ? '' : 'neg') + '">' + pctPos.toFixed(1) + '%</div>' +
+    '<div class="sub">' + nPos + '/' + conClv.length + ' apuestas con CLV > 0</div>' +
+    '<div class="sub">' + expPctPos + '</div></div>' +
+
+    '<div class="clv-card" style="flex:2;min-width:260px;"><div class="label">Correlación CLV → Resultado</div>' +
+    '<table class="corr-table"><thead><tr><th></th><th>Hit rate</th><th>ROI</th><th>n</th></tr></thead><tbody>' +
+    '<tr><td>Con CLV positivo</td><td class="' + (hrPos !== '—' && parseFloat(hrPos) > 50 ? 'pos' : '') + '">' + hrPos + '</td><td>' + roiPosTxt + '</td><td>' + clvPos.length + '</td></tr>' +
+    '<tr><td>Con CLV negativo</td><td>' + hrNeg + '</td><td>' + roiNegTxt + '</td><td>' + clvNeg.length + '</td></tr>' +
+    '</tbody></table>' +
+    '<div class="sub" style="margin-top:6px;">Si el hit rate es mayor cuando el CLV es positivo → el sistema identifica correctamente las oportunidades de valor.</div></div>' +
+    '</div>' +
+    '<div class="clv-veredicto" style="background:' + verdBg + ';border:1px solid ' + verdCol + '20;color:' + verdCol + ';">' + verd + '</div>';
+
+  renderGraficoCLV(conClv);
+}
+
+function renderGraficoCLV(conClv) {
+  const canvas = document.getElementById('chartCLV');
+  if (!canvas || !conClv.length) return;
+  const W = canvas.width, H = canvas.height;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  // Rolling average
+  let sumClv = 0;
+  const puntos = conClv.map((r, i) => { sumClv += r.clv; return sumClv / (i + 1); });
+
+  const margin = { top: 16, right: 20, bottom: 26, left: 50 };
+  const pw = W - margin.left - margin.right;
+  const ph = H - margin.top - margin.bottom;
+  const mn = Math.min(0, ...puntos) - 1, mx = Math.max(0, ...puntos) + 1;
+  const toX = i => margin.left + (i / Math.max(1, puntos.length - 1)) * pw;
+  const toY = v => margin.top + (1 - (v - mn) / (mx - mn)) * ph;
+
+  // Zero line
+  const zy = toY(0);
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 1; ctx.setLineDash([6, 3]);
+  ctx.beginPath(); ctx.moveTo(margin.left, zy); ctx.lineTo(W - margin.right, zy); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // CLV line
+  const lastVal = puntos[puntos.length - 1];
+  const lineColor = lastVal >= 0 ? '#4edea3' : '#ff6464';
+  ctx.beginPath();
+  puntos.forEach((v, i) => i === 0 ? ctx.moveTo(toX(0), toY(v)) : ctx.lineTo(toX(i), toY(v)));
+  ctx.strokeStyle = lineColor; ctx.lineWidth = 2.5; ctx.stroke();
+
+  // Dots
+  ctx.fillStyle = lineColor;
+  puntos.forEach((v, i) => {
+    ctx.beginPath(); ctx.arc(toX(i), toY(v), 4, 0, Math.PI * 2); ctx.fill();
+  });
+
+  // Labels
+  ctx.font = '11px JetBrains Mono'; ctx.fillStyle = '#8ba4bd'; ctx.textAlign = 'right';
+  ctx.fillText(mx.toFixed(1) + '%', margin.left - 4, margin.top + 8);
+  ctx.fillText('0%', margin.left - 4, zy + 4);
+  ctx.fillText(mn.toFixed(1) + '%', margin.left - 4, margin.top + ph);
+  ctx.fillStyle = lineColor; ctx.textAlign = 'left';
+  ctx.fillText((lastVal >= 0 ? '+' : '') + lastVal.toFixed(1) + '%', toX(puntos.length - 1) + 6, toY(lastVal) + 4);
+}
+
 function renderTodo() {
   renderTabla();
   renderResumen();
   renderDesgloseProbReal();
   renderDesgloseMercado();
   renderGraficoROI();
+  renderClv();
 }
 
 function exportarJSON() {
@@ -706,6 +915,11 @@ document.getElementById('tbodyHistorial').addEventListener('focusout', (e) => {
 
   const texto = el.textContent.trim();
   rec[field] = (type === 'number') ? parseEditedNumber(texto) : texto;
+
+  // Cuando se edita cuotaCierre, recalcular CLV automáticamente
+  if (field === 'cuotaCierre') {
+    rec.clv = calcCLV(rec.cuotaPrograma, rec.cuotaCierre);
+  }
 
   guardarHistorial(data);
   renderTodo();
