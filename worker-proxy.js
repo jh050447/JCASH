@@ -15,6 +15,12 @@
  *   /?url=...&api=oddspapi                          (OddsPapi: injects apiKey query param)
  *   /?url=...&api=oddsapio                          (odds-api.io: injects apiKey query param)
  *   /?url=...&api=rapidapi&host=...                 (RapidAPI: injects X-RapidAPI-Key/X-RapidAPI-Host headers)
+ *   /?url=...&api=finnhub                            (Finnhub: injects X-Finnhub-Token header)
+ *   /?url=...&api=alphavantage                       (Alpha Vantage: injects &apikey= query param)
+ *
+ * AUTO-DETECT (by destination URL, no &api= needed):
+ *   URL contains "finnhub.io"      → injects X-Finnhub-Token header automatically
+ *   URL contains "alphavantage.co" → injects &apikey= query param automatically
  *
  * All sensitive API keys live here as Cloudflare Worker env vars (secrets).
  * Fallback values are kept for local `wrangler dev` only — rotate these after
@@ -53,7 +59,9 @@ export default {
     const TAVILY_KEY    = env.TAVILY_KEY    || '';
     const ODDSPAPI_KEY  = env.ODDSPAPI_KEY  || '';
     const ODDS_API_IO_KEY = env.ODDS_API_IO_KEY || '';
-    const RAPIDAPI_KEY  = env.RAPIDAPI_KEY  || '';
+    const RAPIDAPI_KEY       = env.RAPIDAPI_KEY       || '';
+    const FINNHUB_KEY        = env.FINNHUB_KEY        || '';
+    const ALPHAVANTAGE_KEY   = env.ALPHAVANTAGE_KEY   || '';
 
     const url = new URL(request.url);
     const target   = url.searchParams.get('url');
@@ -100,6 +108,11 @@ export default {
       targetUrlObj.searchParams.set('apiKey', ODDS_API_IO_KEY);
       targetUrl = targetUrlObj.toString();
     }
+    // Alpha Vantage — explicit &api=alphavantage OR auto-detect by URL
+    if (api === 'alphavantage' || targetUrlObj.hostname.includes('alphavantage.co')) {
+      targetUrlObj.searchParams.set('apikey', ALPHAVANTAGE_KEY);
+      targetUrl = targetUrlObj.toString();
+    }
     // Build request headers
     const reqHeaders = {};
 
@@ -131,6 +144,10 @@ export default {
       const rapidApiHost = url.searchParams.get('host') || '';
       reqHeaders['X-RapidAPI-Key'] = RAPIDAPI_KEY;
       reqHeaders['X-RapidAPI-Host'] = rapidApiHost;
+    }
+    // Finnhub — explicit &api=finnhub OR auto-detect by URL
+    if (api === 'finnhub' || targetUrlObj.hostname.includes('finnhub.io')) {
+      reqHeaders['X-Finnhub-Token'] = FINNHUB_KEY;
     }
 
     // Forward original Accept-Encoding if present
