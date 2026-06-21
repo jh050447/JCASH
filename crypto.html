@@ -936,6 +936,8 @@ select.input { cursor: pointer; }
           </div>
         </div>
 
+        <div id="hs-div-desglose" style="margin-bottom:12px;"></div>
+
         <div class="hs-filter-row">
           <button class="hs-filter-btn active" id="hf-all" onclick="setHsFilter('all')">Todas</button>
           <button class="hs-filter-btn" id="hf-BTC" onclick="setHsFilter('BTC')">BTC</button>
@@ -1571,6 +1573,52 @@ function calcVolumeSignal(vols) {
   return { ratio: recent / avg, alto: recent > avg * 1.2 };
 }
 
+// ── DIVERGENCIA ALCISTA RSI ───────────────────────────────
+// Precio mínimo más bajo + RSI mínimo más alto → vendedores agotados
+function calcDivergenciaAlcista(sym, tf) {
+  const candles = STATE.ohlc[sym]?.[tf] || [];
+  const noDiv = { detectada: false };
+  if (candles.length < 30) return noDiv;
+
+  const closes = candles.map(k => k.c);
+  const N = closes.length;
+  // Ventana reciente: últimas 10 velas; anterior: las 10 antes
+  const startPrev = N - 20, endPrev = N - 11;
+  const startRec  = N - 10, endRec  = N - 1;
+  if (startPrev < 0) return noDiv;
+
+  // Mínimo de precio en cada ventana
+  let minRecIdx = startRec;
+  for (let i = startRec + 1; i <= endRec; i++) {
+    if (closes[i] < closes[minRecIdx]) minRecIdx = i;
+  }
+  let minPrevIdx = startPrev;
+  for (let i = startPrev + 1; i <= endPrev; i++) {
+    if (closes[i] < closes[minPrevIdx]) minPrevIdx = i;
+  }
+
+  // RSI en cada mínimo usando calcRSI sobre slice hasta ese punto
+  const rsiRec  = calcRSI(closes.slice(0, minRecIdx + 1), 14);
+  const rsiPrev = calcRSI(closes.slice(0, minPrevIdx + 1), 14);
+  if (rsiRec === null || rsiPrev === null) return noDiv;
+
+  // Divergencia alcista confirmada:
+  // precio hizo mínimo más bajo Y RSI hizo mínimo más alto Y RSI < 45 Y diff > 3 pts
+  if (closes[minRecIdx] < closes[minPrevIdx] &&
+      rsiRec > rsiPrev &&
+      rsiRec < 45 &&
+      (rsiRec - rsiPrev) > 3) {
+    return {
+      detectada: true,
+      rsi_anterior: rsiPrev,
+      rsi_reciente: rsiRec,
+      diferencia: rsiRec - rsiPrev,
+      velas_atras: endRec - minRecIdx
+    };
+  }
+  return noDiv;
+}
+
 function calcChange24h(sym) {
   const k1d = STATE.ohlc[sym]?.['1d'] || [];
   if (k1d.length < 1) return 0;
@@ -1686,6 +1734,18 @@ function calcScore(sym) {
     razonesFail.push('F&G ' + fng + ' (neutral)');
   }
 
+  // Divergencia alcista 4H (+25) y 1D (+35, más significativa)
+  const div4h = calcDivergenciaAlcista(sym, '4h');
+  const div1d = calcDivergenciaAlcista(sym, '1d');
+  if (div4h.detectada) {
+    score += 25;
+    razones.unshift({ txt: '📐 Divergencia alcista 4H — precio hizo mínimo más bajo pero RSI subió de ' + fmt(div4h.rsi_anterior,1) + ' a ' + fmt(div4h.rsi_reciente,1) + ' (+' + fmt(div4h.diferencia,1) + ' pts). Los vendedores pierden fuerza.', key: 'div_4h' });
+  }
+  if (div1d.detectada) {
+    score += 35;
+    razones.unshift({ txt: '📐 Divergencia alcista DIARIA — señal más fuerte. Precio bajando pero RSI subiendo (' + fmt(div1d.rsi_anterior,1) + '→' + fmt(div1d.rsi_reciente,1) + '). Posible agotamiento bajista.', key: 'div_1d' });
+  }
+
   score = Math.min(100, score);
 
   // Señal
@@ -1703,7 +1763,7 @@ function calcScore(sym) {
   return {
     sym, score, senal, senalClass, scoreColor,
     rsi4h, macd4h, volSig, ema20_1d, ema50_1d, ema200_1d,
-    precio, razones, razonesFail,
+    precio, razones, razonesFail, div4h, div1d,
     rsiColor: rsi4h < 30 ? 'var(--tertiary)' : rsi4h > 70 ? 'var(--error)' : 'var(--warning)'
   };
 }
@@ -1749,8 +1809,9 @@ function calcEstrategias() {
   monedas8.forEach(sym => {
     const d = calcScore(sym);
     if (!d || d.rsi4h === null) return;
-    if (d.rsi4h < 35 && d.score >= 60) {
-      swingCandidatas.push({ sym, rsi: d.rsi4h, score: d.score, precio: d.precio });
+    const tieneDiv = !!(d.div4h?.detectada || d.div1d?.detectada);
+    if ((d.rsi4h < 35 && d.score >= 60) || (tieneDiv && d.score >= 50)) {
+      swingCandidatas.push({ sym, rsi: d.rsi4h, score: d.score, precio: d.precio, div4h: d.div4h, div1d: d.div1d });
     } else {
       const dist = d.rsi4h - 35;
       if (dist < swingProximaRsi) { swingProximaRsi = dist; swingProximaSym = sym; swingProximaVal = d.rsi4h; }
@@ -1817,17 +1878,20 @@ function renderEstrategias() {
     if (e.swing.activa) {
       estado = 'activa'; badge = 'ACTIVA'; abierta = true;
       const m = e.swing.candidatas[0];
+      const tieneDiv = !!(m.div4h?.detectada || m.div1d?.detectada);
       const exchId = STATE.exchSelected[m.sym] || 'binance';
       const exchNombre = EXCHANGES[exchId]?.nombre || 'Binance';
       const kelly = calcKelly(m.score / 100, 2, 0.25) * STATE.capitalCrypto;
       const sl = m.precio ? m.precio * 0.95 : null;
       const tp = m.precio ? m.precio * 1.10 : null;
       body = '<div class="estr-instrucciones">' +
-        '<b>🎯 ' + m.sym + ' — RSI ' + fmt(m.rsi, 1) + ' · Score ' + m.score + '/100</b><br>' +
+        '<b>🎯 ' + m.sym + ' — RSI ' + fmt(m.rsi, 1) + ' · Score ' + m.score + '/100</b>' +
+        (tieneDiv ? ' <span style="font-size:11px;color:var(--warning);font-weight:700">📐 Divergencia alcista</span>' : '') + '<br>' +
         '1. Ve a <b>' + escHtml(exchNombre) + '</b><br>' +
         '2. Compra <b>' + m.sym + '</b> en SPOT<br>' +
         '3. Precio entrada: <b>' + fmtPrecio(m.precio) + '</b><br>' +
-        '4. Stop Loss: <b style="color:var(--error)">' + (sl ? fmtPrecio(sl) : '—') + '</b> (−5%)<br>' +
+        '4. Stop Loss: <b style="color:var(--error)">' + (sl ? fmtPrecio(sl) : '—') + '</b> (−5%)' +
+        (tieneDiv ? ' <span style="font-size:11px;color:var(--text-3)">— o el mínimo reciente (más preciso con divergencia)</span>' : '') + '<br>' +
         '5. Take Profit: <b style="color:var(--tertiary)">' + (tp ? fmtPrecio(tp) : '—') + '</b> (+10%)<br>' +
         '6. Monto sugerido: <b style="color:var(--tertiary)">$' + fmt(kelly, 2) + '</b> (' + fmt(kelly / STATE.capitalCrypto * 100, 1) + '% de $' + fmt(STATE.capitalCrypto, 2) + ')<br>' +
         '7. Registra en Historial de Señales' +
@@ -1839,7 +1903,8 @@ function renderEstrategias() {
         '<div style="display:flex;gap:5px;margin-top:7px;">' +
         '<a href="https://www.binance.com/es/trade/' + m.sym + '_USDT" target="_blank" rel="noopener" style="flex:1;text-align:center;background:#F0B90B;color:#000;border-radius:6px;font-size:11px;font-weight:700;padding:5px 4px;text-decoration:none;">🟡 Binance</a>' +
         '<a href="https://www.kucoin.com/es/trade/' + m.sym + '-USDT" target="_blank" rel="noopener" style="flex:1;text-align:center;background:#23AF91;color:#fff;border-radius:6px;font-size:11px;font-weight:700;padding:5px 4px;text-decoration:none;">🟢 KuCoin</a>' +
-        '</div>';
+        '</div>' +
+        (tieneDiv ? '<div style="margin-top:8px;font-size:11px;color:var(--text-3);line-height:1.5;padding:6px 8px;background:var(--surface-2);border-radius:6px;border-left:2px solid rgba(255,217,102,0.35);">⚠ La divergencia reduce falsas señales pero no las elimina. En tendencia bajista fuerte el precio puede seguir cayendo. Stop loss obligatorio.</div>' : '');
       if (e.swing.candidatas.length > 1) {
         body += '<div style="margin-top:10px;font-size:12px;color:var(--text-3);">También con señal: ' +
           e.swing.candidatas.slice(1).map(x => x.sym + ' (RSI ' + fmt(x.rsi,1) + ')').join(', ') + '</div>';
@@ -2085,6 +2150,7 @@ function renderCoinCard(sym, elId) {
     </div>
 
     ${explTxt ? `<div class="por-que"><b>¿Por qué?</b> ${explTxt}</div>` : ''}
+    ${(datos.div4h?.detectada || datos.div1d?.detectada) ? '<div style="margin-top:6px;font-size:11px;color:var(--text-3);line-height:1.5;padding:6px 8px;background:var(--surface-2);border-radius:6px;border-left:2px solid rgba(255,217,102,0.35);">⚠ La divergencia reduce falsas señales pero no las elimina. En tendencia bajista fuerte el precio puede seguir cayendo. Stop loss obligatorio.</div>' : ''}
 
     <div class="op-box">
       <div class="op-box-title">Abrir operación</div>
@@ -2999,7 +3065,8 @@ function abrirModalSenal(sym) {
     moneda: sym, precioEntrada: p,
     rsi4h: d.rsi4h, ema20: d.ema20_1d, ema50: d.ema50_1d,
     macd: d.macd4h?.macd ?? null, score: d.score, senal: d.senal,
-    fearGreed: STATE.fng?.value ?? null, capitalSugerido: kelly
+    fearGreed: STATE.fng?.value ?? null, capitalSugerido: kelly,
+    divergencia_alcista: !!(d.div4h?.detectada || d.div1d?.detectada)
   };
 
   const preview = qs('senal-datos-preview');
@@ -3045,7 +3112,8 @@ function confirmarSenal() {
     resultado: 'pendiente',
     precioSalida: null, pnlReal: null,
     notas: qs('senal-notas')?.value.trim() || '',
-    edgeInflado: qs('senal-edge-inflado')?.checked || false
+    edgeInflado: qs('senal-edge-inflado')?.checked || false,
+    divergencia_alcista: _modalSenalData.divergencia_alcista || false
   };
 
   const lista = leerHistorialSenales();
@@ -3095,6 +3163,29 @@ function renderHistorialSenales() {
   }
   if (qs('hs-sub')) {
     qs('hs-sub').textContent = senales.length + ' señales registradas' + (resueltas.length > 0 ? ' · ' + resueltas.length + ' resueltas' : '');
+  }
+
+  // Desglose por divergencia alcista
+  const desgEl = qs('hs-div-desglose');
+  if (desgEl) {
+    const conDiv  = resueltas.filter(s => s.divergencia_alcista);
+    const sinDiv  = resueltas.filter(s => !s.divergencia_alcista);
+    if (conDiv.length > 0 || sinDiv.length > 0) {
+      const _hr  = arr => arr.length > 0 ? fmt(arr.filter(s => s.resultado === 'ganó').length / arr.length * 100, 0) + '%' : '—';
+      const _roi = arr => {
+        const valid = arr.filter(s => s.capitalSugerido > 0);
+        if (!valid.length) return '—';
+        return (valid.reduce((s, x) => s + (x.pnlReal || 0) / x.capitalSugerido * 100, 0) / valid.length >= 0 ? '+' : '') + fmt(valid.reduce((s, x) => s + (x.pnlReal || 0) / x.capitalSugerido * 100, 0) / valid.length, 1) + '%';
+      };
+      desgEl.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+        '<div style="background:rgba(255,217,102,0.06);border:1px solid rgba(255,217,102,0.2);border-radius:var(--radius);padding:10px 12px;">' +
+        '<div style="font-size:11px;font-weight:600;color:var(--warning);margin-bottom:4px;">📐 CON DIVERGENCIA (' + conDiv.length + ')</div>' +
+        '<div style="font-size:13px;font-family:var(--f-mono);">Hit rate: <b>' + _hr(conDiv) + '</b> · ROI: <b>' + _roi(conDiv) + '</b></div></div>' +
+        '<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;">' +
+        '<div style="font-size:11px;font-weight:600;color:var(--text-3);margin-bottom:4px;">SIN DIVERGENCIA (' + sinDiv.length + ')</div>' +
+        '<div style="font-size:13px;font-family:var(--f-mono);">Hit rate: <b>' + _hr(sinDiv) + '</b> · ROI: <b>' + _roi(sinDiv) + '</b></div></div>' +
+        '</div>';
+    } else { desgEl.innerHTML = ''; }
   }
 
   const wrap = qs('hs-table-wrap');
