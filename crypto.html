@@ -1520,6 +1520,27 @@ function calcRSI(closes, period) {
   return 100 - (100 / (1 + avgG / avgL));
 }
 
+function calcRSIArray(closes, period) {
+  period = period || 14;
+  const out = new Array(closes.length).fill(null);
+  if (closes.length < period + 1) return out;
+  let gains = 0, losses = 0;
+  for (let i = 1; i <= period; i++) {
+    const d = closes[i] - closes[i - 1];
+    if (d >= 0) gains += d; else losses -= d;
+  }
+  let avgG = gains / period, avgL = losses / period;
+  out[period] = avgL === 0 ? 100 : 100 - 100 / (1 + avgG / avgL);
+  for (let i = period + 1; i < closes.length; i++) {
+    const d = closes[i] - closes[i - 1];
+    const g = d >= 0 ? d : 0, l = d < 0 ? -d : 0;
+    avgG = (avgG * (period - 1) + g) / period;
+    avgL = (avgL * (period - 1) + l) / period;
+    out[i] = avgL === 0 ? 100 : 100 - 100 / (1 + avgG / avgL);
+  }
+  return out;
+}
+
 function calcEMA(closes, period) {
   if (closes.length < period) return null;
   const k = 2 / (period + 1);
@@ -1617,6 +1638,91 @@ function calcDivergenciaAlcista(sym, tf) {
     };
   }
   return noDiv;
+}
+
+// ── BOLLINGER BANDS ──────────────────────────────────────
+function calcBollingerBands(closes, period, mult) {
+  period = period || 20; mult = mult || 2;
+  if (closes.length < period) return null;
+  const slice = closes.slice(-period);
+  const media = slice.reduce((a, b) => a + b, 0) / period;
+  const std = Math.sqrt(slice.reduce((s, v) => s + (v - media) ** 2, 0) / period);
+  const superior = media + mult * std;
+  const inferior = media - mult * std;
+  const precio = closes[closes.length - 1];
+  let posicion;
+  if (precio <= inferior * 1.005) posicion = 'inferior';
+  else if (precio >= superior * 0.995) posicion = 'superior';
+  else posicion = 'medio';
+  return { superior, media, inferior, ancho: (superior - inferior) / media, posicion };
+}
+
+// ── STOCHASTIC RSI ────────────────────────────────────────
+function calcStochasticRSI(closes, rsiP, stochP, kS) {
+  rsiP = rsiP || 14; stochP = stochP || 14; kS = kS || 3;
+  if (closes.length < rsiP + stochP + kS * 2) return null;
+  const rsiArr = calcRSIArray(closes, rsiP);
+
+  // Stochastic values over stochP window
+  const stochArr = [];
+  for (let i = rsiP + stochP - 1; i < rsiArr.length; i++) {
+    const win = rsiArr.slice(i - stochP + 1, i + 1).filter(v => v !== null);
+    if (win.length < stochP) { stochArr.push(null); continue; }
+    const mn = Math.min(...win), mx = Math.max(...win);
+    stochArr.push(mx === mn ? 50 : (rsiArr[i] - mn) / (mx - mn) * 100);
+  }
+
+  // %K = SMA(kS) of stoch
+  const kArr = [];
+  for (let i = kS - 1; i < stochArr.length; i++) {
+    const win = stochArr.slice(i - kS + 1, i + 1).filter(v => v !== null);
+    kArr.push(win.length >= kS ? win.reduce((a, b) => a + b, 0) / kS : null);
+  }
+  // %D = SMA(kS) of K
+  const dArr = [];
+  for (let i = kS - 1; i < kArr.length; i++) {
+    const win = kArr.slice(i - kS + 1, i + 1).filter(v => v !== null);
+    dArr.push(win.length >= kS ? win.reduce((a, b) => a + b, 0) / kS : null);
+  }
+
+  const k = kArr.filter(v => v !== null).at(-1);
+  const d = dArr.filter(v => v !== null).at(-1);
+  const prevK = kArr.filter(v => v !== null).at(-2);
+  const prevD = dArr.filter(v => v !== null).at(-2);
+  if (k == null || d == null) return null;
+
+  const cruceSobreD = prevK != null && prevD != null && prevK < prevD && k > d && k < 20 && d < 20;
+  const zona = k < 20 ? 'sobrevendido' : k > 80 ? 'sobrecomprado' : 'neutral';
+  return { k, d, zona, cruceSobreD };
+}
+
+// ── SOPORTES Y RESISTENCIAS ───────────────────────────────
+function calcSoportesResistencias(sym, tf) {
+  const candles = (STATE.ohlc[sym]?.[tf] || []).slice(-200);
+  const empty = { soportes: [], resistencias: [] };
+  if (candles.length < 10) return empty;
+  const N = candles.length;
+  const pivLow = [], pivHigh = [];
+
+  for (let i = 2; i < N - 2; i++) {
+    const lo = candles[i].l;
+    if (lo < candles[i-1].l && lo < candles[i-2].l && lo < candles[i+1].l && lo < candles[i+2].l) pivLow.push(lo);
+    const hi = candles[i].h;
+    if (hi > candles[i-1].h && hi > candles[i-2].h && hi > candles[i+1].h && hi > candles[i+2].h) pivHigh.push(hi);
+  }
+
+  function agrupar(pivots, tipo) {
+    const sorted = [...pivots].sort((a, b) => a - b);
+    const zonas = [];
+    sorted.forEach(p => {
+      const ex = zonas.find(z => Math.abs(z.precio - p) / z.precio < 0.015);
+      if (ex) { ex.toques++; ex.precio = (ex.precio * (ex.toques - 1) + p) / ex.toques; }
+      else zonas.push({ precio: p, toques: 1, tipo });
+    });
+    return zonas.sort((a, b) => b.toques - a.toques).slice(0, 3);
+  }
+
+  return { soportes: agrupar(pivLow, 'soporte'), resistencias: agrupar(pivHigh, 'resistencia') };
 }
 
 function calcChange24h(sym) {
@@ -1734,6 +1840,43 @@ function calcScore(sym) {
     razonesFail.push('F&G ' + fng + ' (neutral)');
   }
 
+  // Bollinger Bands 4H
+  const bb4h = calcBollingerBands(closes4h, 20, 2);
+  if (bb4h) {
+    if (bb4h.posicion === 'inferior' && rsi4h !== null && rsi4h < 45) {
+      score += 20;
+      razones.push({ txt: 'Precio en banda inferior de Bollinger con RSI bajo — doble sobreventa', key: 'bb_inf' });
+    } else if (bb4h.posicion === 'superior') {
+      score -= 15;
+      razonesFail.push('Banda superior de Bollinger (sobrecompra)');
+    }
+  }
+
+  // Stochastic RSI 4H
+  const stoch4h = calcStochasticRSI(closes4h);
+  if (stoch4h) {
+    if (stoch4h.cruceSobreD) {
+      score += 25;
+      razones.push({ txt: 'Stoch RSI: K cruza sobre D en zona sobrevendida (K=' + fmt(stoch4h.k,0) + ', D=' + fmt(stoch4h.d,0) + ')', key: 'stoch_cross' });
+    } else if (stoch4h.zona === 'sobrevendido') {
+      score += 15;
+      razones.push({ txt: 'Stoch RSI sobrevendido (K=' + fmt(stoch4h.k,0) + ', D=' + fmt(stoch4h.d,0) + ')', key: 'stoch_sob' });
+    } else if (stoch4h.zona === 'sobrecomprado') {
+      score -= 10;
+      razonesFail.push('Stoch RSI sobrecomprado (K=' + fmt(stoch4h.k,0) + ')');
+    }
+  }
+
+  // Soportes y Resistencias 4H
+  const sr = calcSoportesResistencias(sym, '4h');
+  let nearSoporte = null, nearResist = null;
+  if (precio) {
+    nearSoporte = sr.soportes.find(s => Math.abs(precio - s.precio) / precio < 0.02 && s.toques >= 3) || null;
+    nearResist  = sr.resistencias.find(r => Math.abs(precio - r.precio) / precio < 0.02) || null;
+    if (nearSoporte) { score += 20; razones.push({ txt: 'Soporte fuerte cercano: $' + fmt(nearSoporte.precio, 0) + ' (' + nearSoporte.toques + ' toques)', key: 'soporte' }); }
+    if (nearResist)  { score -= 10; razonesFail.push('Resistencia cercana: $' + fmt(nearResist.precio, 0) + ' (' + nearResist.toques + ' toques)'); }
+  }
+
   // Divergencia alcista 4H (+25) y 1D (+35, más significativa)
   const div4h = calcDivergenciaAlcista(sym, '4h');
   const div1d = calcDivergenciaAlcista(sym, '1d');
@@ -1763,7 +1906,7 @@ function calcScore(sym) {
   return {
     sym, score, senal, senalClass, scoreColor,
     rsi4h, macd4h, volSig, ema20_1d, ema50_1d, ema200_1d,
-    precio, razones, razonesFail, div4h, div1d,
+    precio, razones, razonesFail, div4h, div1d, bb4h, stoch4h, sr, nearSoporte, nearResist,
     rsiColor: rsi4h < 30 ? 'var(--tertiary)' : rsi4h > 70 ? 'var(--error)' : 'var(--warning)'
   };
 }
@@ -1811,7 +1954,7 @@ function calcEstrategias() {
     if (!d || d.rsi4h === null) return;
     const tieneDiv = !!(d.div4h?.detectada || d.div1d?.detectada);
     if ((d.rsi4h < 35 && d.score >= 60) || (tieneDiv && d.score >= 50)) {
-      swingCandidatas.push({ sym, rsi: d.rsi4h, score: d.score, precio: d.precio, div4h: d.div4h, div1d: d.div1d });
+      swingCandidatas.push({ sym, rsi: d.rsi4h, score: d.score, precio: d.precio, div4h: d.div4h, div1d: d.div1d, nearSoporte: d.nearSoporte, nearResist: d.nearResist });
     } else {
       const dist = d.rsi4h - 35;
       if (dist < swingProximaRsi) { swingProximaRsi = dist; swingProximaSym = sym; swingProximaVal = d.rsi4h; }
@@ -1892,6 +2035,8 @@ function renderEstrategias() {
         '3. Precio entrada: <b>' + fmtPrecio(m.precio) + '</b><br>' +
         '4. Stop Loss: <b style="color:var(--error)">' + (sl ? fmtPrecio(sl) : '—') + '</b> (−5%)' +
         (tieneDiv ? ' <span style="font-size:11px;color:var(--text-3)">— o el mínimo reciente (más preciso con divergencia)</span>' : '') + '<br>' +
+        (m.nearSoporte ? '   ✅ <b>Soporte fuerte cerca</b>: $' + fmt(m.nearSoporte.precio,0) + ' (' + m.nearSoporte.toques + ' toques) — confirma entrada<br>' : '') +
+        (m.nearResist  ? '   ⚠ Resistencia cercana: $' + fmt(m.nearResist.precio,0) + ' — cuidado con el recorrido<br>' : '') +
         '5. Take Profit: <b style="color:var(--tertiary)">' + (tp ? fmtPrecio(tp) : '—') + '</b> (+10%)<br>' +
         '6. Monto sugerido: <b style="color:var(--tertiary)">$' + fmt(kelly, 2) + '</b> (' + fmt(kelly / STATE.capitalCrypto * 100, 1) + '% de $' + fmt(STATE.capitalCrypto, 2) + ')<br>' +
         '7. Registra en Historial de Señales' +
@@ -2142,6 +2287,25 @@ function renderCoinCard(sym, elId) {
         <span class="metric-label">Volumen 4H</span>
         <span class="metric-val" style="color:${volColor}">${volTxt}</span>
       </div>
+      ${datos.bb4h ? `<div class="metric-row">
+        <span class="metric-label">Bollinger 20</span>
+        <span class="metric-val" style="color:${datos.bb4h.posicion==='inferior'?'var(--tertiary)':datos.bb4h.posicion==='superior'?'var(--error)':'var(--text-2)'}">
+          ${datos.bb4h.posicion==='inferior'?'↓ Banda inf ('+fmtPrecio(datos.bb4h.inferior)+')':datos.bb4h.posicion==='superior'?'↑ Banda sup ('+fmtPrecio(datos.bb4h.superior)+')':'→ Zona media'}
+        </span>
+      </div>` : ''}
+      ${datos.stoch4h ? `<div class="metric-row">
+        <span class="metric-label">Stoch RSI</span>
+        <span class="metric-val" style="color:${datos.stoch4h.zona==='sobrevendido'?'var(--tertiary)':datos.stoch4h.zona==='sobrecomprado'?'var(--error)':'var(--text-2)'}">
+          K:${fmt(datos.stoch4h.k,0)} D:${fmt(datos.stoch4h.d,0)} — ${datos.stoch4h.zona==='sobrevendido'?'Sobrevendido':datos.stoch4h.zona==='sobrecomprado'?'Sobrecomprado':'Neutral'}${datos.stoch4h.cruceSobreD?' ✚':''}
+        </span>
+      </div>` : ''}
+      ${datos.nearSoporte ? `<div class="metric-row">
+        <span class="metric-label">Soporte</span>
+        <span class="metric-val" style="color:var(--tertiary)">← aquí · $${fmt(datos.nearSoporte.precio,0)} (${datos.nearSoporte.toques} toques)</span>
+      </div>` : (datos.sr?.soportes?.length ? `<div class="metric-row">
+        <span class="metric-label">Soporte próx.</span>
+        <span class="metric-val" style="color:var(--text-3)">$${fmt(datos.sr.soportes[0].precio,0)} (${datos.sr.soportes[0].toques} toques)</span>
+      </div>` : '')}
     </div>
 
     <div class="coin-score-row">
