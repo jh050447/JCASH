@@ -311,10 +311,11 @@ select.input { cursor: pointer; }
 .coin-price { font-family:var(--f-mono); font-size:24px; font-weight:700; margin-bottom:2px; }
 .coin-chg { font-family:var(--f-mono); font-size:13px; font-weight:600; }
 
-.coin-metrics { margin-top:14px; display:flex; flex-direction:column; gap:8px; }
-.metric-row { display:flex; justify-content:space-between; align-items:center; }
+.coin-metrics { margin-top:14px; display:flex; flex-direction:column; gap:2px; }
+.metric-row { display:flex; justify-content:space-between; align-items:center; padding:2px 0; }
 .metric-label { font-size:12px; color:var(--text-3); }
 .metric-val { font-family:var(--f-mono); font-size:13px; font-weight:600; }
+.metric-exp { font-size:11px; color:var(--text-3); line-height:1.4; padding:1px 0 5px; }
 
 .rsi-bar-wrap { width:80px; height:6px; background:var(--surface-2); border-radius:3px; overflow:hidden; display:inline-block; vertical-align:middle; margin-right:6px; }
 .rsi-bar-fill { height:100%; border-radius:3px; transition:width .3s; }
@@ -2293,6 +2294,68 @@ function renderPanel() {
   renderUltimasOps();
 }
 
+// ── EXPLICACIONES EN LENGUAJE SIMPLE ─────────────────────
+function _expRSI(rsi) {
+  if (rsi === null || rsi === undefined) return '';
+  if (rsi < 30) return 'Zona de pánico extremo — los compradores históricos suelen aparecer aquí. Señal de entrada si otros indicadores confirman.';
+  if (rsi < 40) return 'El precio lleva días cayendo — posible zona de acumulación, pero todavía sin confirmar.';
+  if (rsi < 55) return 'El precio lleva varios días cayendo pero no está en zona de pánico. La zona ideal de entrada es RSI < 30.';
+  if (rsi < 70) return 'El mercado tiene momentum positivo — no es zona de compra barata.';
+  return 'El precio subió demasiado rápido — zona de sobrecompra. Riesgo de corrección próxima.';
+}
+function _expTendencia(esAlcista) {
+  return esAlcista
+    ? 'El promedio reciente supera el histórico — el mercado está en tendencia alcista de fondo.'
+    : 'El promedio reciente está por debajo del histórico — el mercado lleva semanas a la baja.';
+}
+function _expMACD(macd4h) {
+  if (!macd4h) return '';
+  if (macd4h.cruce_alcista) return 'El momentum acaba de cambiar a alcista — señal temprana de posible rebote.';
+  if (macd4h.cruce_bajista) return 'El momentum acaba de cambiar a bajista — señal temprana de posible caída.';
+  if (macd4h.macd > 0) return 'El momentum es alcista — la tendencia de corto plazo favorece a los compradores.';
+  return 'El momentum sigue bajista — sin señal de cambio de dirección todavía.';
+}
+function _expVol(volSig) {
+  if (!volSig) return '';
+  return volSig.alto
+    ? 'El volumen está ' + fmt(volSig.ratio,1) + 'x sobre el promedio — hay interés fuerte. Confirma la señal actual.'
+    : 'El volumen está en nivel habitual — sin señal fuerte de compras ni de ventas.';
+}
+function _expBB(bb) {
+  if (!bb) return '';
+  if (bb.posicion === 'inferior') return 'El precio tocó el límite inferior — zona estadísticamente sobrevendida, posible rebote técnico.';
+  if (bb.posicion === 'superior') return 'El precio tocó el límite superior — zona de sobrecompra, precaución para abrir nuevas posiciones.';
+  return 'El precio está entre las bandas — sin señal de sobrecompra ni sobreventa.';
+}
+function _expStoch(stoch) {
+  if (!stoch) return '';
+  if (stoch.cruceSobreD) return 'El momentum cruzó al alza desde zona sobrevendida — señal de compra temprana. Confirmar con RSI.';
+  if (stoch.zona === 'sobrevendido') return 'El momentum está agotado a la baja — posible rebote próximo. Zona de vigilancia para entrada.';
+  if (stoch.zona === 'sobrecomprado') return 'El momentum está agotado al alza — probable corrección próxima. No es buen momento para comprar.';
+  return 'Sin señal clara de momentum — esperar que K cruce sobre D en zona baja (< 20) para señal de compra.';
+}
+function _expSR(nearSoporte, nearResist, sr) {
+  if (nearResist) return 'El precio está cerca de un techo fuerte (' + nearResist.toques + ' toques). Mala zona para comprar — esperar que baje al soporte.';
+  if (nearSoporte) return 'Este precio funcionó como piso ' + nearSoporte.toques + ' veces — los compradores han aparecido aquí consistentemente.';
+  if (sr?.soportes?.length) return 'Piso histórico a $' + fmt(sr.soportes[0].precio,0) + ' — si el precio llega ahí, podría ser buena zona de entrada.';
+  return '';
+}
+function _expScore(score) {
+  if (score >= 60) return 'Señal fuerte — múltiples indicadores apuntan a posible entrada. Stop Loss obligatorio antes de operar.';
+  if (score >= 35) return 'Zona intermedia — esperar mejores condiciones. Sin señal clara de entrada.';
+  return 'Más señales negativas que positivas — el sistema no recomienda entrar ahora.';
+}
+function _expSenal(senal) {
+  if (senal === 'COMPRAR') return 'Los indicadores sugieren zona de entrada. Máximo 2% del capital, Stop Loss obligatorio.';
+  if (senal === 'VENDER') return 'No abrir nuevas posiciones. Si ya tienes cripto, considera proteger ganancias con Stop Loss.';
+  return 'Sin zona clara de entrada ni de salida. Vigilar los indicadores.';
+}
+function _expDiv(div4h, div1d) {
+  if (div1d?.detectada) return 'Divergencia diaria: precio bajó pero RSI subió. Alta probabilidad de rebote — señal más confiable.';
+  if (div4h?.detectada) return 'El precio bajó pero el RSI subió — los vendedores pierden fuerza. Señal más confiable que RSI solo.';
+  return '';
+}
+
 function renderCoinCard(sym, elId) {
   const el = qs(elId);
   if (!el) return;
@@ -2338,8 +2401,15 @@ function renderCoinCard(sym, elId) {
   const kellyCapital = calcKelly(datos.score / 100, 2, 0.25) * STATE.capitalCrypto;
   const kellyFmt = '$' + fmt(kellyCapital, 2);
 
-  // Explicaciones
+  // Valores precalculados para el template (evita lógica compleja dentro del literal)
   const explTxt = generarExplicaciones(datos);
+  const bbTxt   = datos.bb4h ? (datos.bb4h.posicion==='inferior'?'↓ Banda inf ('+fmtPrecio(datos.bb4h.inferior)+')':datos.bb4h.posicion==='superior'?'↑ Banda sup ('+fmtPrecio(datos.bb4h.superior)+')':'→ Zona media') : '';
+  const bbCol   = datos.bb4h ? (datos.bb4h.posicion==='inferior'?'var(--tertiary)':datos.bb4h.posicion==='superior'?'var(--error)':'var(--text-2)') : '';
+  const stochTxt= datos.stoch4h ? 'K:'+fmt(datos.stoch4h.k,0)+' D:'+fmt(datos.stoch4h.d,0)+' · '+(datos.stoch4h.zona==='sobrevendido'?'sobrevendido':datos.stoch4h.zona==='sobrecomprado'?'sobrecomprado':'neutral')+(datos.stoch4h.cruceSobreD?' ✚':'') : '';
+  const stochCol= datos.stoch4h ? (datos.stoch4h.zona==='sobrevendido'?'var(--tertiary)':datos.stoch4h.zona==='sobrecomprado'?'var(--error)':'var(--text-2)') : '';
+  const srExpTxt = _expSR(datos.nearSoporte, datos.nearResist, datos.sr);
+  const divExpTxt = _expDiv(datos.div4h, datos.div1d);
+  const esAlcista1D = datos.ema20_1d && datos.ema50_1d && datos.ema20_1d > datos.ema50_1d;
 
   el.innerHTML = `
     <div class="coin-header">
@@ -2358,48 +2428,71 @@ function renderCoinCard(sym, elId) {
       <div class="metric-row">
         <span class="metric-label">RSI 4H</span>
         <span>
-          <span class="rsi-bar-wrap">
-            <span class="rsi-bar-fill" style="width:${rsiW}%;background:${datos.rsiColor}"></span>
-          </span>
+          <span class="rsi-bar-wrap"><span class="rsi-bar-fill" style="width:${rsiW}%;background:${datos.rsiColor}"></span></span>
           <span class="metric-val" style="color:${datos.rsiColor}">${datos.rsi4h != null ? fmt(datos.rsi4h, 1) : '—'}</span>
         </span>
       </div>
+      <div class="metric-exp">${_expRSI(datos.rsi4h)}</div>
+
       <div class="metric-row">
         <span class="metric-label">Tendencia 1D</span>
         <span class="metric-val" style="color:${emaColor}">${emaTxt}</span>
       </div>
+      <div class="metric-exp">${_expTendencia(esAlcista1D)}</div>
+
       <div class="metric-row">
         <span class="metric-label">MACD 4H</span>
         <span class="metric-val" style="color:${macdColor}">${macdTxt}</span>
       </div>
+      <div class="metric-exp">${_expMACD(datos.macd4h)}</div>
+
       <div class="metric-row">
         <span class="metric-label">Volumen 4H</span>
         <span class="metric-val" style="color:${volColor}">${volTxt}</span>
       </div>
-      ${datos.bb4h ? `<div class="metric-row">
+      <div class="metric-exp">${_expVol(datos.volSig)}</div>
+
+      ${bbTxt ? `<div class="metric-row">
         <span class="metric-label">Bollinger 20</span>
-        <span class="metric-val" style="color:${datos.bb4h.posicion==='inferior'?'var(--tertiary)':datos.bb4h.posicion==='superior'?'var(--error)':'var(--text-2)'}">
-          ${datos.bb4h.posicion==='inferior'?'↓ Banda inf ('+fmtPrecio(datos.bb4h.inferior)+')':datos.bb4h.posicion==='superior'?'↑ Banda sup ('+fmtPrecio(datos.bb4h.superior)+')':'→ Zona media'}
-        </span>
-      </div>` : ''}
-      ${datos.stoch4h ? `<div class="metric-row">
+        <span class="metric-val" style="color:${bbCol}">${bbTxt}</span>
+      </div>
+      <div class="metric-exp">${_expBB(datos.bb4h)}</div>` : ''}
+
+      ${stochTxt ? `<div class="metric-row">
         <span class="metric-label">Stoch RSI</span>
-        <span class="metric-val" style="color:${datos.stoch4h.zona==='sobrevendido'?'var(--tertiary)':datos.stoch4h.zona==='sobrecomprado'?'var(--error)':'var(--text-2)'}">
-          K:${fmt(datos.stoch4h.k,0)} D:${fmt(datos.stoch4h.d,0)} — ${datos.stoch4h.zona==='sobrevendido'?'Sobrevendido':datos.stoch4h.zona==='sobrecomprado'?'Sobrecomprado':'Neutral'}${datos.stoch4h.cruceSobreD?' ✚':''}
-        </span>
-      </div>` : ''}
-      ${datos.nearSoporte ? `<div class="metric-row">
+        <span class="metric-val" style="color:${stochCol}">${stochTxt}</span>
+      </div>
+      <div class="metric-exp">${_expStoch(datos.stoch4h)}</div>` : ''}
+
+      ${datos.nearResist ? `<div class="metric-row">
+        <span class="metric-label">Resistencia</span>
+        <span class="metric-val" style="color:var(--error)">← aquí · $${fmt(datos.nearResist.precio,0)} (${datos.nearResist.toques} toques)</span>
+      </div>
+      <div class="metric-exp">${srExpTxt}</div>` : datos.nearSoporte ? `<div class="metric-row">
         <span class="metric-label">Soporte</span>
         <span class="metric-val" style="color:var(--tertiary)">← aquí · $${fmt(datos.nearSoporte.precio,0)} (${datos.nearSoporte.toques} toques)</span>
-      </div>` : (datos.sr?.soportes?.length ? `<div class="metric-row">
+      </div>
+      <div class="metric-exp">${srExpTxt}</div>` : datos.sr?.soportes?.length ? `<div class="metric-row">
         <span class="metric-label">Soporte próx.</span>
         <span class="metric-val" style="color:var(--text-3)">$${fmt(datos.sr.soportes[0].precio,0)} (${datos.sr.soportes[0].toques} toques)</span>
-      </div>` : '')}
+      </div>
+      <div class="metric-exp">${srExpTxt}</div>` : ''}
+
+      ${divExpTxt ? `<div class="metric-row">
+        <span class="metric-label">Divergencia</span>
+        <span class="metric-val" style="color:var(--warning)">📐 ${datos.div1d?.detectada ? 'Detectada en 1D' : 'Detectada en 4H'}</span>
+      </div>
+      <div class="metric-exp">${divExpTxt}</div>` : ''}
     </div>
 
-    <div class="coin-score-row">
-      <span class="score-label">Score</span>
-      <span class="score-val" style="color:${datos.scoreColor}">${datos.score}<span style="font-size:14px;color:var(--text-3)">/100</span></span>
+    <div class="coin-score-row" style="flex-direction:column;align-items:stretch;gap:3px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="score-label">Score / Señal</span>
+        <span class="score-val" style="color:${datos.scoreColor}">${datos.score}<span style="font-size:14px;color:var(--text-3)">/100</span>
+        <span class="badge ${datos.senalClass}" style="font-size:11px;margin-left:8px;">${datos.senal}</span></span>
+      </div>
+      <div class="metric-exp">${_expScore(datos.score)}</div>
+      <div class="metric-exp" style="color:${datos.scoreColor};font-style:italic;">${_expSenal(datos.senal)}</div>
     </div>
 
     ${explTxt ? `<div class="por-que"><b>¿Por qué?</b> ${explTxt}</div>` : ''}
@@ -2502,6 +2595,10 @@ function renderScanner() {
           📋 Operación
         </button>
         ${c.score > 50 ? `<button class="btn btn-ghost" style="flex:1" onclick="abrirModalSenal('${c.sym}')">📊 Registrar señal</button>` : ''}
+      </div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
+        <div class="metric-exp">${_expScore(c.score)}</div>
+        <div class="metric-exp" style="color:${c.scoreColor};font-style:italic;">${_expSenal(c.senal)}</div>
       </div>
     </div>`;
   });
@@ -3831,7 +3928,8 @@ function renderWatchlist() {
         '<div style="font-family:var(--f-mono);font-size:18px;font-weight:700;' + (ch >= 0 ? 'color:var(--tertiary)' : 'color:var(--error)') + '">' + fmtPrecio(p) + '</div>' +
         '<div style="font-family:var(--f-mono);font-size:12px;' + (ch >= 0 ? 'color:var(--tertiary)' : 'color:var(--error)') + ';">' + (ch >= 0 ? '+' : '') + fmt(ch, 2) + '%</div>' +
         '<div style="font-size:12px;color:var(--text-3);margin-top:6px;">RSI: <b>' + (d.rsi4h != null ? fmt(d.rsi4h,1) : '—') + '</b> · Score: <b style="color:' + d.scoreColor + '">' + d.score + '/100</b></div>' +
-        (d.stoch4h ? '<div style="font-size:11px;color:var(--text-3);">StochRSI: K=' + fmt(d.stoch4h.k,0) + ' D=' + fmt(d.stoch4h.d,0) + ' · ' + d.stoch4h.zona + '</div>' : '') +
+        '<div class="metric-exp">' + _expRSI(d.rsi4h) + '</div>' +
+        (d.stoch4h ? '<div style="font-size:11px;color:var(--text-3);">StochRSI: K=' + fmt(d.stoch4h.k,0) + ' D=' + fmt(d.stoch4h.d,0) + ' · ' + d.stoch4h.zona + '</div>' + '<div class="metric-exp">' + _expStoch(d.stoch4h) + '</div>' : '') +
         '<div style="display:flex;gap:6px;margin-top:8px;">' +
         '<button class="btn btn-primary btn-sm" style="flex:1;font-size:11px;" onclick="abrirModalRegistrar({moneda:\'' + escHtml(sym) + '\',posicion:\'LONG\'})">📋</button>' +
         '<button class="btn btn-ghost btn-sm" style="font-size:11px;" onclick="eliminarWatchlist(\'' + escHtml(sym) + '\')">🗑</button>' +
