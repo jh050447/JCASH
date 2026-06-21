@@ -1733,7 +1733,7 @@ function calcBollingerBands(closes, period, mult) {
   if (closes.length < period) return null;
   const slice = closes.slice(-period);
   const media = slice.reduce((a, b) => a + b, 0) / period;
-  const std = Math.sqrt(slice.reduce((s, v) => s + (v - media) ** 2, 0) / period);
+  const std = Math.sqrt(slice.reduce((s, v) => s + (v - media) * (v - media), 0) / period);
   const superior = media + mult * std;
   const inferior = media - mult * std;
   const precio = closes[closes.length - 1];
@@ -1772,10 +1772,12 @@ function calcStochasticRSI(closes, rsiP, stochP, kS) {
     dArr.push(win.length >= kS ? win.reduce((a, b) => a + b, 0) / kS : null);
   }
 
-  const k = kArr.filter(v => v !== null).at(-1);
-  const d = dArr.filter(v => v !== null).at(-1);
-  const prevK = kArr.filter(v => v !== null).at(-2);
-  const prevD = dArr.filter(v => v !== null).at(-2);
+  const kValid = kArr.filter(v => v !== null);
+  const dValid = dArr.filter(v => v !== null);
+  const k = kValid[kValid.length - 1];
+  const d = dValid[dValid.length - 1];
+  const prevK = kValid[kValid.length - 2];
+  const prevD = dValid[dValid.length - 2];
   if (k == null || d == null) return null;
 
   const cruceSobreD = prevK != null && prevD != null && prevK < prevD && k > d && k < 20 && d < 20;
@@ -4250,7 +4252,7 @@ function renderCandleChart(sym, cvId) {
     if (i < 19) { bbArr.push(null); continue; }
     const sl = closes.slice(i - 19, i + 1);
     const m = sl.reduce((a,b) => a+b,0) / 20;
-    const std = Math.sqrt(sl.reduce((s,v)=>s+(v-m)**2,0)/20);
+    const std = Math.sqrt(sl.reduce((s,v)=>s+(v-m)*(v-m),0)/20);
     bbArr.push({ u: m + 2*std, l: m - 2*std });
   }
   // Fill
