@@ -3417,12 +3417,13 @@ function _tgDedup(key) {
   } catch(e) { return true; }
 }
 
-async function enviarAlertaTelegram(texto) {
+function enviarAlertaTelegram(texto) {
   try {
-    await fetch(_TG_PROXY + '/?telegram=1&chat_id=' + _TG_CHAT +
-      '&text=' + encodeURIComponent(texto));
+    fetch(_TG_PROXY + '/?telegram=1&chat_id=' + _TG_CHAT +
+      '&text=' + encodeURIComponent(texto)); // fire-and-forget
   } catch(e) { console.warn('Telegram error:', e); }
 }
+window.enviarAlertaTelegram = enviarAlertaTelegram;
 
 function _enviarTgCrypto(a) {
   const sym   = a.sym;
