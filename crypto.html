@@ -4584,19 +4584,44 @@ function renderCandleChart(sym, cvId) {
 // ═══════════════════════════════════════════════════════════
 
 async function cargarDatosMacro() {
-  const CACHE_MS = 60 * 60 * 1000; // 1 hora
+  // FIX 1+2: cache 23h + control "ya se llamó hoy"
+  const CACHE_MS = 23 * 60 * 60 * 1000;
+  const hoyStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
   const stored = (() => { try { return JSON.parse(localStorage.getItem('jcahs_macro_cache') || 'null'); } catch { return null; } })();
-  if (stored && stored.ts && Date.now() - stored.ts < CACHE_MS) {
-    STATE.macro = stored;
-    renderMacro();
+  const lastFetch = localStorage.getItem('jcahs_macro_last_fetch');
+  const cacheValido = stored && stored.ts && Date.now() - stored.ts < CACHE_MS;
+  const yaLlamoHoy = lastFetch === hoyStr;
+
+  // Si cache válido (<23h) o ya llamamos hoy → usar cache, no tocar la API
+  if (cacheValido || yaLlamoHoy) {
+    if (stored) { STATE.macro = stored; renderMacro(); }
     return;
   }
+  // Cache en memoria de la misma sesión
   if (STATE.macro && STATE.macro.ts && Date.now() - STATE.macro.ts < CACHE_MS) {
     renderMacro();
     return;
   }
 
   const avBase = 'https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=';
+  function parseGQ(data) {
+    const q = data?.['Global Quote'];
+    if (!q || !q['05. price']) return null;
+    return {
+      precio: parseFloat(q['05. price']),
+      cambioPct: parseFloat((q['10. change percent'] || '0').replace('%', ''))
+    };
+  }
+  function _macroFromRaw(spy, dxy, vix) {
+    return {
+      ts: Date.now(),
+      sp500: spy ? { ...spy, tendencia: spy.cambioPct >= 0 ? 'alcista' : 'bajista' } : null,
+      dxy:   dxy ? { ...dxy, tendencia: dxy.cambioPct >= 0 ? 'alcista' : 'bajista' } : null,
+      vix:   vix ? { ...vix, nivel: vix.precio < 20 ? 'bajo' : vix.precio < 30 ? 'moderado' : 'alto' } : null
+    };
+  }
+
   try {
     const [spyR, dxyR, vixR] = await Promise.all([
       proxyGet(avBase + 'SPY'),
@@ -4604,29 +4629,41 @@ async function cargarDatosMacro() {
       proxyGet(avBase + '%5EVIX')
     ]);
 
-    function parseGQ(data) {
-      const q = data?.['Global Quote'];
-      if (!q || !q['05. price']) return null;
-      return {
-        precio: parseFloat(q['05. price']),
-        cambioPct: parseFloat((q['10. change percent'] || '0').replace('%', ''))
-      };
+    // FIX 3: detectar respuesta de rate limit ("Note" o "Information")
+    const rateLimited = [spyR, dxyR, vixR].some(r => r?.Note || r?.Information);
+    if (rateLimited) {
+      try { localStorage.setItem('jcahs_macro_last_fetch', hoyStr); } catch {}
+      if (stored) {
+        STATE.macro = { ...stored, rateLimited: true };
+        renderMacro();
+      } else {
+        _renderMacroRateLimited();
+      }
+      return;
     }
 
     const spy = parseGQ(spyR), dxy = parseGQ(dxyR), vix = parseGQ(vixR);
-    if (!spy && !dxy && !vix) throw new Error('Sin datos de Alpha Vantage');
+    if (!spy && !dxy && !vix) throw new Error('Sin datos válidos de Alpha Vantage');
 
-    STATE.macro = {
-      ts: Date.now(),
-      sp500: spy ? { ...spy, tendencia: spy.cambioPct >= 0 ? 'alcista' : 'bajista' } : null,
-      dxy:   dxy ? { ...dxy, tendencia: dxy.cambioPct >= 0 ? 'alcista' : 'bajista' } : null,
-      vix:   vix ? { ...vix, nivel: vix.precio < 20 ? 'bajo' : vix.precio < 30 ? 'moderado' : 'alto' } : null
-    };
-    try { localStorage.setItem('jcahs_macro_cache', JSON.stringify(STATE.macro)); } catch {}
+    STATE.macro = _macroFromRaw(spy, dxy, vix);
+    try {
+      localStorage.setItem('jcahs_macro_cache', JSON.stringify(STATE.macro));
+      localStorage.setItem('jcahs_macro_last_fetch', hoyStr);
+    } catch {}
     renderMacro();
+
   } catch(e) {
-    console.warn('cargarDatosMacro:', e.message);
+    // Sin log en consola — usar cache antiguo si existe
+    if (stored) { STATE.macro = { ...stored, rateLimited: true }; renderMacro(); }
+    else _renderMacroRateLimited();
   }
+}
+
+function _renderMacroRateLimited() {
+  const panel = qs('macro-panel'), content = qs('macro-content');
+  if (!panel || !content) return;
+  panel.style.display = '';
+  content.innerHTML = '<div style="grid-column:span 3;font-size:12px;color:var(--text-3);padding:4px 0;">📊 Contexto macro: actualizando mañana (límite diario Alpha Vantage alcanzado)</div>';
 }
 
 function renderMacro() {
@@ -4639,7 +4676,9 @@ function renderMacro() {
   const m = STATE.macro;
   if (tsEl) {
     const ago = Math.round((Date.now() - m.ts) / 60000);
-    tsEl.textContent = ago < 2 ? 'actualizado ahora' : 'hace ' + ago + ' min';
+    const agoTxt = ago < 2 ? 'ahora' : ago < 60 ? 'hace ' + ago + ' min' : 'hace ' + Math.round(ago / 60) + 'h';
+    tsEl.textContent = m.rateLimited ? '⚠ datos de ayer (límite diario alcanzado)' : agoTxt;
+    tsEl.style.color = m.rateLimited ? 'var(--warning)' : '';
   }
 
   const items = [];
