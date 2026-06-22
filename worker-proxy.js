@@ -18,6 +18,9 @@
  *   /?url=...&api=finnhub                            (Finnhub: injects X-Finnhub-Token header)
  *   /?url=...&api=alphavantage                       (Alpha Vantage: injects &apikey= query param)
  *
+ * TELEGRAM ENDPOINT (no &url= needed):
+ *   /?telegram=1&chat_id=XXXXX&text=[encoded]       (sends message via bot — token from secret)
+ *
  * AUTO-DETECT (by destination URL, no &api= needed):
  *   URL contains "finnhub.io"      → injects X-Finnhub-Token header automatically
  *   URL contains "alphavantage.co" → injects &apikey= query param automatically
@@ -62,11 +65,43 @@ export default {
     const RAPIDAPI_KEY       = env.RAPIDAPI_KEY       || '';
     const FINNHUB_KEY        = env.FINNHUB_KEY        || '';
     const ALPHAVANTAGE_KEY   = env.ALPHAVANTAGE_KEY   || '';
+    const TELEGRAM_BOT_TOKEN = env.TELEGRAM_BOT_TOKEN || '';
 
     const url = new URL(request.url);
     const target   = url.searchParams.get('url');
     const provider = url.searchParams.get('provider') || '';
     const api      = url.searchParams.get('api') || '';
+
+    // ── Telegram endpoint — intercept before URL validation ──
+    if (url.searchParams.get('telegram') === '1') {
+      if (!TELEGRAM_BOT_TOKEN) {
+        return new Response(JSON.stringify({ error: 'TELEGRAM_BOT_TOKEN not configured' }), {
+          status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        });
+      }
+      const chatId = url.searchParams.get('chat_id') || '';
+      const text   = url.searchParams.get('text') || '';
+      if (!chatId || !text) {
+        return new Response(JSON.stringify({ error: 'Missing chat_id or text' }), {
+          status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        });
+      }
+      const tgUrl = 'https://api.telegram.org/bot' + TELEGRAM_BOT_TOKEN +
+        '/sendMessage?chat_id=' + encodeURIComponent(chatId) +
+        '&text=' + encodeURIComponent(text) + '&parse_mode=HTML';
+      try {
+        const tgRes  = await fetch(tgUrl);
+        const tgBody = await tgRes.text();
+        return new Response(tgBody, {
+          status: tgRes.status,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), {
+          status: 502, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        });
+      }
+    }
 
     if (!target) {
       return new Response(JSON.stringify({ error: 'Missing ?url= parameter' }), {
