@@ -3409,12 +3409,12 @@ function _tgDedup(key) {
   const ahora = Date.now(), TTL = 60 * 60 * 1000;
   try {
     const mapa = JSON.parse(localStorage.getItem(_TG_DEDUP_KEY) || '{}');
-    Object.keys(mapa).forEach(k => { if (ahora - mapa[k] > TTL) delete mapa[k]; });
+    Object.keys(mapa).forEach(function(k) { if (ahora - mapa[k] > TTL) delete mapa[k]; });
     if (mapa[key] && ahora - mapa[key] < TTL) return false;
     mapa[key] = ahora;
     localStorage.setItem(_TG_DEDUP_KEY, JSON.stringify(mapa));
     return true;
-  } catch { return true; }
+  } catch(e) { return true; }
 }
 
 async function enviarAlertaTelegram(texto) {
@@ -3449,7 +3449,7 @@ function _enviarTgCrypto(a) {
       '💰 Precio: ' + fmtPrecio(p) + '\n' +
       '⚠️ Vigilar para posible entrada';
   } else if (a.tipo === 'fngExtreme') {
-    const fng = STATE.fng?.value ?? '—';
+    const fng = (STATE.fng && STATE.fng.value != null) ? STATE.fng.value : '—';
     msg = '😱 <b>JCAHS — Miedo Extremo</b>\n\n' +
       'Fear & Greed: ' + fng + ' (Miedo Extremo)\n' +
       '📊 Posible zona de DCA para BTC/ETH\n' +
