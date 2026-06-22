@@ -262,15 +262,21 @@ tr.pendiente select.resultado-select { color: var(--warning); }
 .corr-table td { padding:8px 10px;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:13px; }
 td.pos { color: #4edea3; }
 td.neg { color: #ff6464; }
+/* ── TOOLTIPS ─────────────────────────────────────────────── */
+.tooltip-wrapper{position:relative;display:inline-flex;align-items:center;gap:4px;}
+.tooltip-icon{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#1a6eb5;color:white;font-size:10px;cursor:pointer;flex-shrink:0;opacity:.8;transition:opacity .2s;}
+.tooltip-icon:hover{opacity:1;}
+.tooltip-box{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#0d2540;border:1px solid #1a6eb5;border-radius:8px;padding:10px 14px;width:260px;font-size:12px;line-height:1.5;color:#cdd6f4;z-index:9999;pointer-events:none;}
+.tooltip-wrapper:hover .tooltip-box,.tooltip-wrapper.active .tooltip-box{display:block;}
 </style>
 </head>
 <body>
 
 <!-- Selector de modo global -->
 <div class="hap-modo-bar" id="hap-modo-bar">
-  <button class="hap-modo-btn active" id="tab-prev" onclick="hap_setModo('previsto')">📐 Previsto</button>
-  <button class="hap-modo-btn" id="tab-real" onclick="hap_setModo('real')">💰 Real</button>
-  <button class="hap-modo-btn" id="tab-mix" onclick="hap_setModo('mixto')">🔀 Mixto</button>
+  <button class="hap-modo-btn active" id="tab-prev" onclick="hap_setModo('previsto')"><span class="tooltip-wrapper">📐 Previsto<span class="tooltip-icon">ⓘ</span><div class="tooltip-box"><b>Modo Previsto</b><br>Muestra estadísticas basadas en los datos que calculó el sistema (probabilidades, edge teórico). Útil para evaluar si el sistema tiene buena lógica.</div></span></button>
+  <button class="hap-modo-btn" id="tab-real" onclick="hap_setModo('real')"><span class="tooltip-wrapper">💰 Real<span class="tooltip-icon">ⓘ</span><div class="tooltip-box"><b>Modo Real</b><br>Muestra estadísticas basadas solo en las cuotas y stakes que tú ingresaste manualmente. Útil para saber cuánto estás ganando realmente con tu dinero.</div></span></button>
+  <button class="hap-modo-btn" id="tab-mix" onclick="hap_setModo('mixto')"><span class="tooltip-wrapper">🔀 Mixto<span class="tooltip-icon">ⓘ</span><div class="tooltip-box"><b>Modo Mixto</b><br>Combina datos reales donde los tienes, y datos del sistema donde no. La vista más completa disponible en todo momento.</div></span></button>
 </div>
 
 <h1>📊 Historial de Validación</h1>
@@ -633,11 +639,11 @@ function renderResumen() {
   }
 
   document.getElementById('resumenGeneral').innerHTML =
-    '<div class="resumen-card"><div class="label">Hit rate</div>' +
+    '<div class="resumen-card"><div class="label">' + tip('Hit rate', TIPS.hit_rate) + '</div>' +
       '<div class="valor">' + hitRateTxt + '</div>' +
       '<div class="sub">' + r.ganados + '/' + r.totalConResultado + ' (GANÓ/PERDIÓ)</div>' +
       '<div class="sub explicacion">' + hitExplicacion + '</div></div>' +
-    '<div class="resumen-card"><div class="label">ROI</div>' +
+    '<div class="resumen-card"><div class="label">' + tip('ROI', TIPS.roi) + '</div>' +
       '<div class="valor ' + roiClass + '">' + roiTxt + '</div>' +
       '<div class="sub">sobre ' + r.n + ' apuestas con monto registrado</div>' +
       '<div class="sub explicacion">' + roiExplicacion + '</div></div>' +
@@ -829,12 +835,12 @@ function renderClv() {
 
   kpisEl.innerHTML =
     '<div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px;">' +
-    '<div class="clv-card"><div class="label">CLV Promedio</div>' +
+    '<div class="clv-card"><div class="label">' + tip('CLV Promedio', TIPS.clv) + '</div>' +
     '<div class="valor ' + (clvProm >= 0 ? 'pos' : 'neg') + '">' + (clvProm >= 0 ? '+' : '') + clvProm.toFixed(2) + '%</div>' +
     '<div class="sub">' + conClv.length + ' registros con cuota de cierre</div>' +
     '<div class="sub">' + expClvProm + '</div></div>' +
 
-    '<div class="clv-card"><div class="label">% Con CLV Positivo</div>' +
+    '<div class="clv-card"><div class="label">' + tip('% Con CLV Positivo', TIPS.clv) + '</div>' +
     '<div class="valor ' + (pctPos > 55 ? 'pos' : pctPos >= 45 ? '' : 'neg') + '">' + pctPos.toFixed(1) + '%</div>' +
     '<div class="sub">' + nPos + '/' + conClv.length + ' apuestas con CLV > 0</div>' +
     '<div class="sub">' + expPctPos + '</div></div>' +
@@ -896,6 +902,41 @@ function renderGraficoCLV(conClv) {
   ctx.fillStyle = lineColor; ctx.textAlign = 'left';
   ctx.fillText((lastVal >= 0 ? '+' : '') + lastVal.toFixed(1) + '%', toX(puntos.length - 1) + 6, toY(lastVal) + 4);
 }
+
+// ── SISTEMA DE TOOLTIPS ───────────────────────────────────
+function tip(label, texto) {
+  return '<span class="tooltip-wrapper">' + label +
+    '<span class="tooltip-icon">ⓘ</span>' +
+    '<div class="tooltip-box">' + texto + '</div></span>';
+}
+
+const TIPS = {
+  hit_rate: '<b>Hit Rate</b><br>Porcentaje de apuestas que ganaste. Ejemplo: 6 de 10 = 60% Hit Rate.<br><i>No es suficiente solo — puedes ganar poco y perder mucho.</i>',
+  roi: '<b>ROI — Retorno sobre inversión</b><br>Por cada $100 apostados, ¿cuánto ganaste o perdiste?<br>ROI +20% = ganaste $20 por cada $100. ROI -10% = perdiste $10.',
+  clv: '<b>CLV — Closing Line Value</b><br>Compara tu cuota vs la cuota final de Pinnacle antes del partido.<br>CLV positivo = conseguiste mejor precio que el mercado → ventaja real.<br><i>El indicador más poderoso para saber si tu sistema funciona.</i>',
+  edge: '<b>Edge (Ventaja)</b><br>Diferencia entre lo que vale la apuesta y lo que paga la casa.<br>Edge +5% = la casa te paga 5% más de lo que debería → apuesta con valor.<br>Edge negativo = la casa tiene ventaja → no apostar.',
+  prob_real: '<b>Probabilidad Real</b><br>Lo que el sistema estima de chance de ganar, sin margen de la casa.<br>Si la casa paga cuota 2.00 (50%) y el sistema dice 60%, hay valor.',
+  kelly: '<b>Kelly %</b><br>Cuánto de tu bankroll apostar según tu ventaja matemática.<br>Kelly 5% = apostar el 5% de tu capital. JCAHS usa Kelly fraccionado (25%) para reducir riesgo.',
+  odd_cierre: '<b>Cuota de Cierre</b><br>La cuota final de Pinnacle justo antes de que empiece el partido.<br>Es el precio más eficiente del mercado. Se usa para calcular el CLV.',
+  varianza: '<b>Varianza</b><br>Incluso las buenas decisiones pueden perder a corto plazo por azar.<br>Una apuesta con 70% de probabilidad pierde 3 de cada 10 veces.<br>La varianza disminuye con más apuestas — necesitas mínimo 100.',
+  sistema_acerto: '<b>¿El sistema acertó?</b><br>✅ Correcto: tenías ventaja y ganaste, o no tenías y perdiste.<br>⚠️ Varianza: tenías ventaja pero perdiste — fue mala suerte.<br>🍀 Suerte: no tenías ventaja pero ganaste — no repetir.',
+  monte_carlo: '<b>Simulación Monte Carlo</b><br>Simula miles de futuros posibles con tu hit rate y cuota actual.<br>Muestra: peor escenario probable, caso base, mejor caso, tiempo para tu objetivo.',
+  riesgo_ruina: '<b>Riesgo de Ruina</b><br>Probabilidad de perder todo tu bankroll si sigues apostando igual.<br>Debe mantenerse por debajo del 5%.',
+  filtros_mentor: '<b>Filtros Mentor</b><br>Cuántos criterios de calidad pasó esta apuesta antes de recomendarla.<br>Ejemplo: 4 de 5 = pasó 4 de los 5 filtros del sistema. Más filtros = señal más confiable.',
+};
+
+document.addEventListener('click', function(e) {
+  const icon = e.target.closest('.tooltip-icon');
+  if (icon) {
+    const wrapper = icon.closest('.tooltip-wrapper');
+    const isActive = wrapper.classList.contains('active');
+    document.querySelectorAll('.tooltip-wrapper.active').forEach(w => w.classList.remove('active'));
+    if (!isActive) wrapper.classList.add('active');
+    e.stopPropagation();
+  } else {
+    document.querySelectorAll('.tooltip-wrapper.active').forEach(w => w.classList.remove('active'));
+  }
+});
 
 function renderTodo() {
   renderTabla(); // mantiene tbodyHistorial para edits legacy de CLV/focusout
@@ -1193,7 +1234,7 @@ function renderMCResults(res, hr, odd, kelly, br0, nBets, nSims, obj) {
   el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px;">' +
 
     '<div class="mc-kpi">' +
-    '<div class="mc-kpi-title">🎲 Riesgo de ruina</div>' +
+    '<div class="mc-kpi-title">' + tip('🎲 Riesgo de ruina', TIPS.riesgo_ruina) + '</div>' +
     '<div class="mc-kpi-val" style="color:' + ruinaColor + '">' + res.riesgoRuina.toFixed(1) + '%</div>' +
     '<div class="mc-kpi-exp">En ' + Math.round(res.riesgoRuina/100*nSims) + ' de cada ' + nSims.toLocaleString() + ' escenarios el bankroll llega a cero. ' +
     (res.riesgoRuina < 5 ? 'Verde — riesgo bajo.' : res.riesgoRuina < 15 ? 'Amarillo — cuidado.' : 'Rojo — Kelly demasiado agresivo.') + '</div>' +
@@ -1222,7 +1263,7 @@ function renderMCResults(res, hr, odd, kelly, br0, nBets, nSims, obj) {
     '</div></div>' +
 
     '<div class="mc-kpi" style="grid-column:span 2">' +
-    '<div class="mc-kpi-title">🔬 ¿Es suerte o sistema?</div>' +
+    '<div class="mc-kpi-title">' + tip('🔬 ¿Es suerte o sistema?', TIPS.monte_carlo) + '</div>' +
     '<div class="mc-kpi-val" style="color:' + suerteColor + '">' + res.pctSuerte.toFixed(1) + '% de simulaciones aleatorias logran tu ROI</div>' +
     '<div class="mc-kpi-exp">' +
     (res.pctSuerte < 5 ? '✅ Edge confirmado estadísticamente — menos del 5% de escenarios sin ventaja real logran tu resultado.' :
@@ -1523,7 +1564,7 @@ function hapCardBody(r) {
 
   // B5 Post-mortem
   const acerto = hapSistemaAcerto(r);
-  const b5 = fila('Sistema acertó', acerto ? acerto.icon+' '+acerto.txt : '⬜ Sin datos suficientes') +
+  const b5 = fila(tip('Sistema acertó', TIPS.sistema_acerto), acerto ? acerto.icon+' '+acerto.txt : '⬜ Sin datos suficientes') +
     '<div style="margin-top:8px;margin-bottom:4px;font-size:11px;color:#8ba4bd;font-weight:600;letter-spacing:.5px;text-transform:uppercase;">Notas libres</div>' +
     '<textarea id="b5nt-'+id+'" style="width:100%;min-height:60px;background:#0d1f35;border:1px solid rgba(255,255,255,0.07);border-radius:6px;color:#e2eefc;font-size:13px;padding:8px;outline:none;resize:vertical;">'+escHtml(pm.notas||'')+'</textarea>' +
     '<button class="hap-btn-save" onclick="hapGuardarPostmortem('+id+')">💾 Guardar post-mortem</button>';

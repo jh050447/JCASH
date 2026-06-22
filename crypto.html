@@ -497,6 +497,13 @@ select.input { cursor: pointer; }
 @media(max-width:1200px){ .hs2-r1{grid-template-columns:repeat(3,1fr);} .hs2-r2{grid-template-columns:repeat(2,1fr);} }
 @media(max-width:768px){ .hs2-r1,.hs2-r2{grid-template-columns:repeat(2,1fr);} .hs2-form-row{grid-template-columns:1fr;} }
 
+/* ── TOOLTIPS ─────────────────────────────────────────────── */
+.tooltip-wrapper{position:relative;display:inline-flex;align-items:center;gap:4px;}
+.tooltip-icon{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#1a6eb5;color:white;font-size:10px;cursor:pointer;flex-shrink:0;opacity:.8;transition:opacity .2s;}
+.tooltip-icon:hover{opacity:1;}
+.tooltip-box{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#0d2540;border:1px solid #1a6eb5;border-radius:8px;padding:10px 14px;width:260px;font-size:12px;line-height:1.5;color:#cdd6f4;z-index:9999;pointer-events:none;}
+.tooltip-wrapper:hover .tooltip-box,.tooltip-wrapper.active .tooltip-box{display:block;}
+
 /* ── ESTRATEGIAS ACTIVAS ─────────────────────────────────── */
 .estr-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); margin-bottom:10px; overflow:hidden; transition:border-color .2s; }
 .estr-card.activa { border-color:rgba(78,222,163,0.35); }
@@ -2510,7 +2517,7 @@ function renderCoinCard(sym, elId) {
 
     <div class="coin-metrics">
       <div class="metric-row">
-        <span class="metric-label">RSI 4H</span>
+        <span class="metric-label">${tip('RSI 4H', TIPS_CRYPTO.rsi)}</span>
         <span>
           <span class="rsi-bar-wrap"><span class="rsi-bar-fill" style="width:${rsiW}%;background:${datos.rsiColor}"></span></span>
           <span class="metric-val" style="color:${datos.rsiColor}">${datos.rsi4h != null ? fmt(datos.rsi4h, 1) : '—'}</span>
@@ -2519,31 +2526,31 @@ function renderCoinCard(sym, elId) {
       <div class="metric-exp">${_expRSI(datos.rsi4h)}</div>
 
       <div class="metric-row">
-        <span class="metric-label">Tendencia 1D</span>
+        <span class="metric-label">${tip('Tendencia 1D', TIPS_CRYPTO.tendencia)}</span>
         <span class="metric-val" style="color:${emaColor}">${emaTxt}</span>
       </div>
       <div class="metric-exp">${_expTendencia(esAlcista1D)}</div>
 
       <div class="metric-row">
-        <span class="metric-label">MACD 4H</span>
+        <span class="metric-label">${tip('MACD 4H', TIPS_CRYPTO.macd)}</span>
         <span class="metric-val" style="color:${macdColor}">${macdTxt}</span>
       </div>
       <div class="metric-exp">${_expMACD(datos.macd4h)}</div>
 
       <div class="metric-row">
-        <span class="metric-label">Volumen 4H</span>
+        <span class="metric-label">${tip('Volumen 4H', TIPS_CRYPTO.volumen)}</span>
         <span class="metric-val" style="color:${volColor}">${volTxt}</span>
       </div>
       <div class="metric-exp">${_expVol(datos.volSig)}</div>
 
       ${bbTxt ? `<div class="metric-row">
-        <span class="metric-label">Bollinger 20</span>
+        <span class="metric-label">${tip('Bollinger 20', TIPS_CRYPTO.bollinger)}</span>
         <span class="metric-val" style="color:${bbCol}">${bbTxt}</span>
       </div>
       <div class="metric-exp">${_expBB(datos.bb4h)}</div>` : ''}
 
       ${stochTxt ? `<div class="metric-row">
-        <span class="metric-label">Stoch RSI</span>
+        <span class="metric-label">${tip('Stoch RSI', TIPS_CRYPTO.stoch_rsi)}</span>
         <span class="metric-val" style="color:${stochCol}">${stochTxt}</span>
       </div>
       <div class="metric-exp">${_expStoch(datos.stoch4h)}</div>` : ''}
@@ -2661,17 +2668,17 @@ function renderScanner() {
 
       <div class="scanner-trade-row">
         <div class="trade-col">
-          <span class="trade-col-label">Capital sugerido</span>
+          <span class="trade-col-label">${tip('Capital sugerido', TIPS_CRYPTO.kelly)}</span>
           <span class="trade-col-val" style="color:var(--tertiary)">$${fmt(kelly, 2)}</span>
           <span class="metric-exp">Arriesga este monto — es el 2% del capital, suficiente para aprender el sistema sin daño severo.</span>
         </div>
         <div class="trade-col">
-          <span class="trade-col-label">Stop Loss (−5%)</span>
+          <span class="trade-col-label">${tip('Stop Loss (−5%)', TIPS_CRYPTO.sl)}</span>
           <span class="trade-col-val" style="color:var(--error)">${fmtPrecio(sl)}</span>
           <span class="metric-exp">Si el precio cae a aquí, sales y limitas tu pérdida máxima. Obligatorio antes de entrar.</span>
         </div>
         <div class="trade-col">
-          <span class="trade-col-label">Take Profit (+10%)</span>
+          <span class="trade-col-label">${tip('Take Profit (+10%)', TIPS_CRYPTO.tp1)}</span>
           <span class="trade-col-val" style="color:var(--tertiary)">${fmtPrecio(tp)}</span>
           <span class="metric-exp">Si el precio sube a aquí, aseguras ganancias. Relación riesgo/recompensa 1:2 ✓</span>
         </div>
@@ -4709,7 +4716,7 @@ function renderMacro() {
       ? 'Mercados en riesgo — puede presionar crypto a la baja'
       : c.tendencia === 'alcista' ? 'Mercados estables — entorno favorable para cripto'
       : 'Movimiento pequeño — sin impacto directo en cripto';
-    items.push('<div class="macro-item"><div class="macro-sym">S&amp;P 500</div>' +
+    items.push('<div class="macro-item"><div class="macro-sym">' + tip('S&amp;P 500', TIPS_CRYPTO.sp500) + '</div>' +
       '<div class="macro-val">$' + fmt(c.precio, 2) + '</div>' +
       '<div class="macro-chg" style="color:' + col + '">' + (c.cambioPct >= 0 ? '+' : '') + fmt(c.cambioPct, 2) + '% hoy ' + (c.tendencia === 'alcista' ? '↑' : '↓') + '</div>' +
       '<div class="macro-exp">' + expTxt + '</div></div>');
@@ -4721,7 +4728,7 @@ function renderMacro() {
       ? 'Dólar fuerte — históricamente presiona BTC a la baja'
       : c.tendencia === 'bajista' ? 'Dólar débil — favorable para activos de riesgo como cripto'
       : 'Dólar estable — sin impacto directo significativo';
-    items.push('<div class="macro-item"><div class="macro-sym">DXY (Dólar)</div>' +
+    items.push('<div class="macro-item"><div class="macro-sym">' + tip('DXY (Dólar)', TIPS_CRYPTO.dxy) + '</div>' +
       '<div class="macro-val">' + fmt(c.precio, 2) + '</div>' +
       '<div class="macro-chg" style="color:' + col + '">' + (c.cambioPct >= 0 ? '+' : '') + fmt(c.cambioPct, 2) + '% hoy ' + (c.tendencia === 'alcista' ? '↑' : '↓') + '</div>' +
       '<div class="macro-exp">' + expTxt + '</div></div>');
@@ -4733,7 +4740,7 @@ function renderMacro() {
     const expTxt = c.nivel === 'alto' ? 'Alta volatilidad en mercados — precaución extra en cripto'
       : c.nivel === 'moderado' ? 'Volatilidad moderada — operar con precaución'
       : 'Mercados tranquilos — entorno de baja incertidumbre';
-    items.push('<div class="macro-item"><div class="macro-sym">VIX (Volatilidad)</div>' +
+    items.push('<div class="macro-item"><div class="macro-sym">' + tip('VIX (Volatilidad)', TIPS_CRYPTO.vix) + '</div>' +
       '<div class="macro-val" style="color:' + col + '">' + fmt(c.precio, 1) + '</div>' +
       '<div class="macro-chg" style="color:' + col + '">' + c.nivel.charAt(0).toUpperCase() + c.nivel.slice(1) + ' (' + (c.nivel === 'bajo' ? '<20' : c.nivel === 'moderado' ? '20-30' : '>30') + ')</div>' +
       '<div class="macro-exp">' + expTxt + '</div></div>');
@@ -5301,6 +5308,49 @@ function registrarSenalHS2(sym, entrada, sl, tp, kelly) {
   document.body.appendChild(toast); setTimeout(() => toast.remove(), 4000);
   ir('sec-historial-crypto');
 }
+
+// ── SISTEMA DE TOOLTIPS ──────────────────────────────────
+function tip(label, texto) {
+  return '<span class="tooltip-wrapper">' + label +
+    '<span class="tooltip-icon">ⓘ</span>' +
+    '<div class="tooltip-box">' + texto + '</div></span>';
+}
+
+const TIPS_CRYPTO = {
+  rsi: '<b>RSI — Índice de Fuerza Relativa</b><br>Mide si una moneda está sobrecomprada o sobrevendida (0 a 100).<br>RSI < 30 = muy barata, posible rebote. 🟢<br>RSI > 70 = muy cara, posible caída. 🔴',
+  macd: '<b>MACD — Convergencia de Medias</b><br>Detecta cambios de tendencia.<br>Histograma verde y creciendo = momentum alcista. 🟢<br>Cruce al alza = posible señal de compra.',
+  bollinger: '<b>Bandas de Bollinger</b><br>Muestra si el precio está caro o barato respecto a su rango reciente.<br>Banda inferior = posible zona de compra. 🟢<br>Banda superior = posible zona de venta. 🔴',
+  stoch_rsi: '<b>Stochastic RSI</b><br>Versión más sensible del RSI — detecta cambios antes.<br>K y D < 20 = zona de sobreventa, posible entrada. 🟢<br>K y D > 80 = sobrecompra, precaución. 🔴',
+  divergencia: '<b>Divergencia Alcista</b><br>El precio baja pero el RSI sube — la caída se está agotando.<br>Una de las señales más confiables para anticipar un rebote.',
+  tendencia: '<b>Tendencia EMA</b><br>EMA20 > EMA50 = tendencia alcista (promedio reciente supera al histórico). 🟢<br>EMA20 < EMA50 = tendencia bajista. 🔴',
+  volumen: '<b>Volumen vs Promedio</b><br>Cuánto se compra/vende comparado con el promedio normal.<br>Volumen alto = movimiento más confiable. Volumen bajo = puede revertirse.',
+  fear_greed: '<b>Fear & Greed Index</b><br>Sentimiento del mercado crypto (0 a 100).<br>0-25 = Miedo extremo → históricamente buen momento para comprar. 🟢<br>75-100 = Codicia extrema → precaución. 🔴',
+  score: '<b>Score JCAHS (0-100)</b><br>Combina todos los indicadores técnicos en un número.<br>≥ 70 = señal fuerte, múltiples indicadores alineados. 🟢<br>50-69 = moderado. < 50 = señal débil.',
+  sl: '<b>Stop Loss (Límite de Pérdida)</b><br>Precio al que deberías vender si va en tu contra para limitar la pérdida.<br><i>Obligatorio antes de abrir cualquier operación.</i>',
+  tp1: '<b>Take Profit 1 — Primera Meta</b><br>Primer precio objetivo donde tomar ganancias parciales.<br>Recomendado: cerrar 50-70% de la posición aquí y dejar el resto correr.',
+  ratio_rr: '<b>Ratio Riesgo/Beneficio</b><br>Cuánto puedes ganar por cada dólar que arriesgas.<br>Ratio 2.5 = ganas $2.50 por cada $1 arriesgado.<br><i>Mínimo recomendado: 2.0</i>',
+  kelly: '<b>Kelly % — Tamaño de Posición</b><br>Cuánto de tu capital asignar a esta operación.<br>JCAHS usa Kelly fraccionado al 25% para proteger el capital.',
+  sp500: '<b>S&P 500</b><br>Índice de las 500 empresas más grandes de EE.UU.<br>Cuando cae fuerte, el crypto tiende a caer también.',
+  dxy: '<b>DXY — Índice del Dólar</b><br>Fortaleza del dólar vs otras monedas.<br>DXY alto = dólar fuerte → presión bajista en crypto. 🔴<br>DXY bajo = favorable para crypto. 🟢',
+  vix: '<b>VIX — Índice de Volatilidad</b><br>Mide el miedo en mercados financieros.<br>VIX > 25 = mucho miedo → crypto puede caer. 🔴<br>VIX < 15 = mercados tranquilos → favorable. 🟢',
+  soportes: '<b>Soportes</b><br>Niveles donde el precio ha rebotado al alza históricamente.<br>Más toques = soporte más fuerte. Buena zona de compra potencial.',
+  resistencias: '<b>Resistencias</b><br>Niveles donde el precio ha rebotado a la baja históricamente.<br>Si el precio rompe una resistencia, puede acelerar al alza.',
+  entry_edge: '<b>Entry Edge — Ventaja de Entrada</b><br>Compara tu precio de entrada vs el precio 48h después.<br>Edge positivo = el precio subió → buena timing. 🟢<br>Equivalente al CLV en apuestas.',
+  dca: '<b>DCA — Dollar Cost Averaging</b><br>Comprar una cantidad fija de crypto periódicamente, sin importar el precio.<br>Reduce el riesgo de comprar todo en el peor momento.',
+};
+
+document.addEventListener('click', function(e) {
+  const icon = e.target.closest('.tooltip-icon');
+  if (icon) {
+    const wrapper = icon.closest('.tooltip-wrapper');
+    const isActive = wrapper.classList.contains('active');
+    document.querySelectorAll('.tooltip-wrapper.active').forEach(w => w.classList.remove('active'));
+    if (!isActive) wrapper.classList.add('active');
+    e.stopPropagation();
+  } else {
+    document.querySelectorAll('.tooltip-wrapper.active').forEach(w => w.classList.remove('active'));
+  }
+});
 
 // Close alert panel on outside click
 document.addEventListener('click', function(e) {
