@@ -471,6 +471,32 @@ select.input { cursor: pointer; }
 .mc-bet-toggle { background:rgba(78,222,163,0.08);border:1px solid rgba(78,222,163,0.2);color:var(--tertiary);border-radius:6px;padding:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--f-ui);transition:background .12s; }
 .mc-bet-toggle:hover { background:rgba(78,222,163,0.15); }
 
+/* ── SEÑALES HISTÓRICAS v2 ───────────────────────────────── */
+.hs2-kpi-row { display:grid;gap:10px;margin-bottom:12px; }
+.hs2-r1 { grid-template-columns:repeat(6,1fr); }
+.hs2-r2 { grid-template-columns:repeat(4,1fr); }
+.hs2-kpi { background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px; }
+.hs2-kpi-val { font-family:var(--f-mono);font-size:20px;font-weight:700;color:var(--text);line-height:1.2; }
+.hs2-kpi-lbl { font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.6px;margin-top:3px; }
+.hs2-filt-row { display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:12px; }
+.hs2-filt-btn { padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text-3);transition:all .12s; }
+.hs2-filt-btn.on { background:var(--tert-dim);color:var(--tertiary);border-color:rgba(78,222,163,0.3); }
+.hs2-filt-sep { width:1px;height:20px;background:var(--border);margin:0 4px; }
+.hs2-card { background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;overflow:hidden;transition:border-color .15s; }
+.hs2-card.abierta { border-color:rgba(78,222,163,0.35); }
+.hs2-card-hdr { display:flex;align-items:center;padding:12px 16px;cursor:pointer;gap:10px;user-select:none; }
+.hs2-card-hdr:hover { background:rgba(255,255,255,0.02); }
+.hs2-card-body { border-top:1px solid var(--border);padding:12px 16px; }
+.hs2-blk { border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden; }
+.hs2-blk-hdr { padding:8px 12px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text-2);display:flex;justify-content:space-between;background:var(--surface-2);user-select:none; }
+.hs2-blk-body { padding:12px; }
+.hs2-ind-row { display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px; }
+.hs2-ind-row:last-child { border-bottom:none; }
+.hs2-ind-lbl { color:var(--text-3); }
+.hs2-form-row { display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px; }
+@media(max-width:1200px){ .hs2-r1{grid-template-columns:repeat(3,1fr);} .hs2-r2{grid-template-columns:repeat(2,1fr);} }
+@media(max-width:768px){ .hs2-r1,.hs2-r2{grid-template-columns:repeat(2,1fr);} .hs2-form-row{grid-template-columns:1fr;} }
+
 /* ── ESTRATEGIAS ACTIVAS ─────────────────────────────────── */
 .estr-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); margin-bottom:10px; overflow:hidden; transition:border-color .2s; }
 .estr-card.activa { border-color:rgba(78,222,163,0.35); }
@@ -978,51 +1004,23 @@ select.input { cursor: pointer; }
 
       </section>
 
-      <!-- ══════════ HISTORIAL SEÑALES ══════════ -->
+      <!-- ══════════ SEÑALES HISTÓRICAS v2 ══════════ -->
       <section class="seccion" id="sec-historial-crypto">
 
         <div class="sec-header">
           <div>
-            <div class="sec-title">📊 Historial de Señales</div>
-            <div class="sec-sub" id="hs-sub">Validación del sistema antes de capital real</div>
+            <div class="sec-title">📊 Señales Históricas</div>
+            <div class="sec-sub" id="hs2-sub">Registro completo de operaciones</div>
           </div>
-          <button class="btn btn-ghost btn-sm" onclick="ir('sec-scanner')">↗ Al Scanner</button>
-        </div>
-
-        <div class="hs-stats">
-          <div class="hs-stat"><div class="hs-stat-val" id="hs-total">0</div><div class="hs-stat-label">Señales</div></div>
-          <div class="hs-stat"><div class="hs-stat-val" id="hs-hitrate">—</div><div class="hs-stat-label">Hit Rate</div></div>
-          <div class="hs-stat"><div class="hs-stat-val" id="hs-roi">—</div><div class="hs-stat-label">ROI Prom.</div></div>
-          <div class="hs-stat">
-            <div class="hs-stat-val" id="hs-pnl">$0</div>
-            <div class="hs-stat-label">P&amp;L Total</div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" onclick="ir('sec-scanner')">↗ Scanner</button>
+            <button class="btn btn-ghost btn-sm" onclick="hs2Exportar()">⬇ JSON</button>
           </div>
         </div>
 
-        <div id="hs-div-desglose" style="margin-bottom:12px;"></div>
-
-        <div class="hs-filter-row">
-          <button class="hs-filter-btn active" id="hf-all" onclick="setHsFilter('all')">Todas</button>
-          <button class="hs-filter-btn" id="hf-BTC" onclick="setHsFilter('BTC')">BTC</button>
-          <button class="hs-filter-btn" id="hf-ETH" onclick="setHsFilter('ETH')">ETH</button>
-          <button class="hs-filter-btn" id="hf-SOL" onclick="setHsFilter('SOL')">SOL</button>
-          <button class="hs-filter-btn" id="hf-XRP" onclick="setHsFilter('XRP')">XRP</button>
-          <label style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-3);cursor:pointer;">
-            <input type="checkbox" id="hs-inc-edge" onchange="renderHistorialSenales()">
-            Incluir edge inflado
-          </label>
-        </div>
-
-        <div class="card" style="padding:0">
-          <div class="hs-table-wrap" id="hs-table-wrap">
-            <div class="empty-state">Sin señales registradas todavía.<br>Ve al Scanner y registra señales cuando el score sea &gt; 50.</div>
-          </div>
-        </div>
-
-        <div class="card hs-canvas-wrap" id="hs-canvas-card" style="display:none">
-          <div class="card-title">P&amp;L Acumulado</div>
-          <canvas id="canvas-pnl" style="width:100%;height:180px;display:block;"></canvas>
-        </div>
+        <div id="hs2-dashboard"></div>
+        <div id="hs2-filtros-wrap"></div>
+        <div id="hs2-lista"></div>
 
       </section>
 
@@ -1433,7 +1431,7 @@ function ir(sec) {
   if (sec === 'sec-scanner') renderScanner();
   if (sec === 'sec-posiciones') renderPosiciones();
   if (sec === 'sec-panel') renderUltimasOps();
-  if (sec === 'sec-historial-crypto') renderHistorialSenales();
+  if (sec === 'sec-historial-crypto') renderHS2();
   if (sec === 'sec-noticias') cargarNoticiasCrypto();
   if (sec === 'sec-small-cap' && STATE.smallCapData) renderSmallCapTabla(STATE.smallCapData, STATE.smallCapOffset || 0);
   if (sec === 'sec-dca') renderDca();
@@ -2684,7 +2682,7 @@ function renderScanner() {
           onclick="abrirModalRegistrar({moneda:'${c.sym}',entrada:${entrada.toFixed(2)},posicion:'LONG',stake:${kelly.toFixed(2)}})">
           📋 Operación
         </button>
-        ${c.score > 50 ? `<button class="btn btn-ghost" style="flex:1" onclick="abrirModalSenal('${c.sym}')">📊 Registrar señal</button>` : ''}
+        ${c.score > 50 ? `<button class="btn btn-ghost" style="flex:1" onclick="registrarSenalHS2('${c.sym}',${entrada},${sl.toFixed(2)},${tp.toFixed(2)},${kelly.toFixed(2)})">📋 Registrar señal</button>` : ''}
       </div>
       <button onclick="toggleMCTrade(this,'${c.sym}',${entrada},${sl.toFixed(2)},${tp.toFixed(2)},${kelly.toFixed(2)})" class="mc-bet-toggle" style="width:100%;margin-top:6px;">🎲 Ver análisis de esta operación</button>
       <div class="mc-trade-panel" style="display:none;"></div>
@@ -4856,6 +4854,452 @@ function noticiaSATOSHI(headline, source) {
   ir('sec-satoshi');
   const msg = 'Analiza el impacto de esta noticia en BTC/ETH: "' + headline + '" — Fuente: ' + source + '. ¿Es positivo o negativo para el mercado crypto? ¿Afecta alguna de las monedas que monitoreo?';
   setTimeout(() => consultarSATOSHI(msg), 150);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SEÑALES HISTÓRICAS v2 — jcahs_historial_senales
+// ═══════════════════════════════════════════════════════════
+
+const HS2_KEY = 'jcahs_historial_senales';
+const HS2_TOKENS = ['BTC','ETH','SOL','XRP','ADA','AVAX','DOT','LINK'];
+
+// CRUD
+function hs2Leer() { try { return JSON.parse(localStorage.getItem(HS2_KEY) || '[]'); } catch { return []; } }
+function hs2Guardar(lista) { localStorage.setItem(HS2_KEY, JSON.stringify(lista)); }
+
+// Estado de filtros reactivo
+const hs2F = { token:'all', estado:'all', resultado:'all', plazo:'all', motivo:'all',
+               desde:'', hasta:'', scoreMin:0, texto:'' };
+
+function hs2Filtrar(lista) {
+  return lista.filter(r => {
+    if (hs2F.token !== 'all' && r.entrada?.token !== hs2F.token) return false;
+    if (hs2F.estado !== 'all' && r.estado !== hs2F.estado) return false;
+    if (hs2F.resultado === 'ganadora' && (r.salida_real?.pnl_usd || 0) <= 0) return false;
+    if (hs2F.resultado === 'perdedora' && (r.salida_real?.pnl_usd || 0) >= 0) return false;
+    if (hs2F.plazo !== 'all' && r.entrada?.timeframe !== hs2F.plazo) return false;
+    if (hs2F.motivo !== 'all' && r.salida_real?.motivo !== hs2F.motivo) return false;
+    if (hs2F.desde && (r.entrada?.fecha || '') < hs2F.desde) return false;
+    if (hs2F.hasta && (r.entrada?.fecha || '') > hs2F.hasta + 'T23:59') return false;
+    if ((r.indicadores?.score || 0) < hs2F.scoreMin) return false;
+    if (hs2F.texto) {
+      const q = hs2F.texto.toLowerCase();
+      if (!(r.entrada?.token || '').toLowerCase().includes(q) && !(r.postmortem?.notas || '').toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function hs2Metricas(lista) {
+  const cerradas = lista.filter(r => r.estado === 'cerrada');
+  const abiertas = lista.filter(r => r.estado === 'abierta');
+  const ganadoras = cerradas.filter(r => (r.salida_real?.pnl_usd || 0) > 0);
+  const hitRate = cerradas.length ? ganadoras.length / cerradas.length * 100 : null;
+  const pnlTotal = cerradas.reduce((s, r) => s + (r.salida_real?.pnl_usd || 0), 0);
+  const roiProm = cerradas.length ? cerradas.reduce((s, r) => s + (r.salida_real?.pnl_pct || 0), 0) / cerradas.length : null;
+  // Racha
+  let racha = 0, rachaDir = '';
+  for (const r of [...lista].sort((a,b) => (b.entrada?.fecha||'').localeCompare(a.entrada?.fecha||''))) {
+    if (r.estado !== 'cerrada') continue;
+    const g = (r.salida_real?.pnl_usd || 0) > 0;
+    if (!racha) { racha = 1; rachaDir = g ? '+' : '-'; }
+    else if ((g && rachaDir==='+') || (!g && rachaDir==='-')) racha++;
+    else break;
+  }
+  // Quality metrics
+  const perdedoras = cerradas.filter(r => (r.salida_real?.pnl_usd || 0) <= 0);
+  const scoreGan = ganadoras.length ? ganadoras.reduce((s,r)=>s+(r.indicadores?.score||0),0)/ganadoras.length : null;
+  const scorePerd = perdedoras.length ? perdedoras.reduce((s,r)=>s+(r.indicadores?.score||0),0)/perdedoras.length : null;
+  const conEdge = lista.filter(r => r.postmortem?.entry_edge_pct != null);
+  const edgeProm = conEdge.length ? conEdge.reduce((s,r)=>s+r.postmortem.entry_edge_pct,0)/conEdge.length : null;
+  const conRR = cerradas.filter(r => r.salida_prevista?.ratio_rr);
+  const rrProm = conRR.length ? conRR.reduce((s,r)=>s+r.salida_prevista.ratio_rr,0)/conRR.length : null;
+  const tp1N = cerradas.filter(r=>r.salida_real?.motivo==='TP1').length;
+  const slN  = cerradas.filter(r=>r.salida_real?.motivo==='SL').length;
+  const manN = cerradas.filter(r=>r.salida_real?.motivo==='Manual').length;
+  return { total:lista.length, abiertas:abiertas.length, cerradas:cerradas.length,
+    hitRate, pnlTotal, roiProm, racha, rachaDir, scoreGan, scorePerd, edgeProm, rrProm, tp1N, slN, manN };
+}
+
+// ── Semáforo de indicadores ───────────────────────────────
+function hs2Sem(key, val) {
+  if (val === null || val === undefined) return '<span style="color:var(--text-3)">—</span>';
+  const V = typeof val === 'number' ? val : val;
+  let col = 'var(--text-2)';
+  if (key==='rsi') col = V<30?'var(--tertiary)':V>70?'var(--error)':'var(--warning)';
+  else if (key==='score') col = V>=70?'var(--tertiary)':V>=50?'var(--warning)':'var(--error)';
+  else if (key==='fear_greed') col = V<20?'var(--tertiary)':V>60?'var(--error)':'var(--warning)';
+  else if (key==='vix') col = V<20?'var(--tertiary)':V>30?'var(--error)':'var(--warning)';
+  else if (key==='macd_histograma') col = V>0?'var(--tertiary)':'var(--error)';
+  else if (key==='stoch_rsi_k') col = V<20?'var(--tertiary)':V>80?'var(--error)':'var(--warning)';
+  else if (key==='divergencia_alcista') col = val?'var(--tertiary)':'var(--text-3)';
+  else if (key==='tendencia_ema') col = val==='alcista'?'var(--tertiary)':val==='bajista'?'var(--error)':'var(--warning)';
+  else if (key==='bb_posicion') col = val==='bajo'?'var(--tertiary)':val==='alto'?'var(--error)':'var(--warning)';
+  const disp = typeof val === 'boolean' ? (val?'✅ Sí':'❌ No') : escHtml(String(val));
+  return '<span style="font-family:var(--f-mono);font-weight:600;color:'+col+'">'+disp+'</span>';
+}
+
+// ── Render principal ──────────────────────────────────────
+function renderHS2() {
+  const todas = hs2Leer();
+  const lista = hs2Filtrar(todas);
+  const m = hs2Metricas(lista);
+  _renderHS2Dashboard(m, lista);
+  _renderHS2Filtros(todas);
+  _renderHS2Lista(lista);
+}
+
+function _kpi(val, lbl, color) {
+  return '<div class="hs2-kpi"><div class="hs2-kpi-val" style="color:'+(color||'var(--text)')+'">'+escHtml(String(val))+'</div><div class="hs2-kpi-lbl">'+escHtml(lbl)+'</div></div>';
+}
+
+function _renderHS2Dashboard(m, lista) {
+  const el = qs('hs2-dashboard'); if (!el) return;
+  const pnlCol = m.pnlTotal >= 0 ? 'var(--tertiary)' : 'var(--error)';
+  const roiCol = m.roiProm === null ? 'var(--text)' : m.roiProm >= 0 ? 'var(--tertiary)' : 'var(--error)';
+  const hrCol  = m.hitRate === null ? 'var(--text)' : m.hitRate >= 55 ? 'var(--tertiary)' : m.hitRate >= 45 ? 'var(--warning)' : 'var(--error)';
+  const rachaDisp = m.racha ? (m.rachaDir==='+'?'🟢':'🔴')+' '+m.rachaDir+m.racha : '—';
+  let html = '<div class="hs2-kpi-row hs2-r1">' +
+    _kpi(m.total, 'Operaciones totales') +
+    _kpi(m.abiertas, 'Abiertas', m.abiertas > 0 ? 'var(--tertiary)' : null) +
+    _kpi(m.hitRate !== null ? fmt(m.hitRate,1)+'%' : '—', 'Hit rate', hrCol) +
+    _kpi(m.roiProm !== null ? (m.roiProm>=0?'+':'')+fmt(m.roiProm,1)+'%' : '—', 'ROI promedio op.', roiCol) +
+    _kpi((m.pnlTotal>=0?'+$':'-$')+fmt(Math.abs(m.pnlTotal),2), 'P&L total', pnlCol) +
+    _kpi(rachaDisp, 'Racha actual') +
+    '</div>';
+  const edgeCol = m.edgeProm === null ? 'var(--text)' : m.edgeProm > 0 ? 'var(--tertiary)' : 'var(--error)';
+  const rrCol   = m.rrProm === null ? 'var(--text)' : m.rrProm >= 1.5 ? 'var(--tertiary)' : m.rrProm >= 1 ? 'var(--warning)' : 'var(--error)';
+  const motDisp = m.cerradas ? 'TP1 '+m.tp1N+' · SL '+m.slN+' · Manual '+m.manN : '—';
+  html += '<div class="hs2-kpi-row hs2-r2">' +
+    _kpi(m.edgeProm !== null ? (m.edgeProm>=0?'+':'')+fmt(m.edgeProm,1)+'%' : '—', 'Entry edge prom.', edgeCol) +
+    _kpi(m.scoreGan !== null ? 'Gan '+fmt(m.scoreGan,0)+' / Perd '+(m.scorePerd!==null?fmt(m.scorePerd,0):'—') : '—', 'Score (gan vs perd)') +
+    _kpi(m.rrProm !== null ? fmt(m.rrProm,2)+':1' : '—', 'R/R realizado prom.', rrCol) +
+    _kpi(motDisp, 'Motivo cierre') +
+    '</div>';
+  // Equity curve
+  const cerradas = lista.filter(r=>r.estado==='cerrada'&&r.salida_real?.pnl_usd!=null).sort((a,b)=>(a.salida_real.fecha||'').localeCompare(b.salida_real.fecha||''));
+  if (cerradas.length >= 2) {
+    html += '<div class="card" style="padding:14px;margin-bottom:12px;"><div class="card-title">Equity Curve — P&L Acumulado ($)</div>' +
+      '<canvas id="hs2-cv-equity" style="width:100%;height:160px;display:block;"></canvas></div>';
+  }
+  // Distribution
+  const tokenMap = {};
+  lista.forEach(r => {
+    const t = r.entrada?.token; if (!t) return;
+    if (!tokenMap[t]) tokenMap[t] = {gan:0,perd:0};
+    if (r.estado==='cerrada') { if ((r.salida_real?.pnl_usd||0)>0) tokenMap[t].gan++; else tokenMap[t].perd++; }
+  });
+  const hasTokenData = Object.values(tokenMap).some(v=>v.gan+v.perd>0);
+  if (hasTokenData) {
+    html += '<div class="card" style="padding:14px;margin-bottom:12px;"><div class="card-title">Distribución por Token</div>' +
+      '<canvas id="hs2-cv-dist" style="width:100%;height:120px;display:block;"></canvas></div>';
+  }
+  el.innerHTML = html;
+  if (cerradas.length >= 2) requestAnimationFrame(() => _hs2EquityCurve(cerradas));
+  if (hasTokenData) requestAnimationFrame(() => _hs2DistChart(tokenMap));
+}
+
+function _hs2EquityCurve(cerradas) {
+  const cv = qs('hs2-cv-equity'); if (!cv) return;
+  const W = cv.offsetWidth||500, H=160; cv.width=W; cv.height=H;
+  const ctx = cv.getContext('2d'); if (!ctx) return;
+  let sum=0; const pts = cerradas.map(r=>{sum+=(r.salida_real?.pnl_usd||0);return sum;});
+  const mn=Math.min(0,...pts),mx=Math.max(0,...pts),rng=mx-mn||1;
+  const pad={l:46,r:14,t:14,b:24};
+  const pw=W-pad.l-pad.r,ph=H-pad.t-pad.b;
+  const tx=i=>pad.l+(i/Math.max(1,pts.length-1))*pw, ty=v=>pad.t+(1-(v-mn)/rng)*ph;
+  ctx.clearRect(0,0,W,H);
+  const zy=ty(0); ctx.setLineDash([4,4]); ctx.strokeStyle='rgba(255,255,255,0.15)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(pad.l,zy); ctx.lineTo(W-pad.r,zy); ctx.stroke(); ctx.setLineDash([]);
+  const isPos=pts[pts.length-1]>=0, lc=isPos?'#4edea3':'#ff6464';
+  const g=ctx.createLinearGradient(0,pad.t,0,H-pad.b);
+  g.addColorStop(0,isPos?'rgba(78,222,163,0.22)':'rgba(255,100,100,0.22)'); g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.beginPath(); pts.forEach((v,i)=>i===0?ctx.moveTo(tx(0),ty(v)):ctx.lineTo(tx(i),ty(v)));
+  ctx.lineTo(tx(pts.length-1),zy); ctx.lineTo(tx(0),zy); ctx.closePath(); ctx.fillStyle=g; ctx.fill();
+  ctx.beginPath(); pts.forEach((v,i)=>i===0?ctx.moveTo(tx(0),ty(v)):ctx.lineTo(tx(i),ty(v)));
+  ctx.strokeStyle=lc; ctx.lineWidth=2; ctx.stroke();
+  ctx.font='10px JetBrains Mono,monospace'; ctx.textAlign='right'; ctx.fillStyle='rgba(139,164,189,0.7)';
+  ctx.fillText('$'+fmt(mx,0),pad.l-4,pad.t+8); ctx.fillText('$'+fmt(mn,0),pad.l-4,H-pad.b);
+  ctx.fillStyle=lc; ctx.textAlign='left';
+  const lv=pts[pts.length-1]; ctx.fillText((lv>=0?'+$':'-$')+fmt(Math.abs(lv),2),tx(pts.length-1)+4,ty(lv)+4);
+}
+
+function _hs2DistChart(tokenMap) {
+  const cv = qs('hs2-cv-dist'); if (!cv) return;
+  const W = cv.offsetWidth||500, H=120; cv.width=W; cv.height=H;
+  const ctx = cv.getContext('2d'); if (!ctx) return;
+  const tokens = Object.keys(tokenMap).filter(t=>tokenMap[t].gan+tokenMap[t].perd>0);
+  if (!tokens.length) return;
+  const pad={l:46,r:14,t:10,b:30};
+  const pw=W-pad.l-pad.r,ph=H-pad.t-pad.b;
+  const bw=Math.min(30,pw/tokens.length/2.5), gap=pw/tokens.length;
+  const maxVal = Math.max(...tokens.map(t=>tokenMap[t].gan+tokenMap[t].perd));
+  ctx.clearRect(0,0,W,H);
+  tokens.forEach((t,i) => {
+    const x=pad.l+i*gap+gap/2-bw;
+    const total=tokenMap[t].gan+tokenMap[t].perd;
+    const gh=ph*(tokenMap[t].gan/maxVal), lh=ph*(tokenMap[t].perd/maxVal);
+    ctx.fillStyle='rgba(78,222,163,0.7)';
+    ctx.fillRect(x,pad.t+ph-gh,bw,gh);
+    ctx.fillStyle='rgba(255,100,100,0.7)';
+    ctx.fillRect(x+bw+2,pad.t+ph-lh,bw,lh);
+    ctx.fillStyle='rgba(139,164,189,0.7)'; ctx.font='10px Inter,sans-serif'; ctx.textAlign='center';
+    ctx.fillText(t,x+bw+1,H-8);
+    if (total>0) { ctx.fillStyle='rgba(255,255,255,0.5)'; ctx.fillText(total,x+bw+1,pad.t+ph-Math.max(gh,lh)-3); }
+  });
+  ctx.fillStyle='rgba(78,222,163,0.8)'; ctx.fillRect(pad.l,H-20,10,8);
+  ctx.fillStyle='rgba(139,164,189,0.7)'; ctx.font='10px Inter,sans-serif'; ctx.textAlign='left';
+  ctx.fillText('Gan',pad.l+13,H-13);
+  ctx.fillStyle='rgba(255,100,100,0.8)'; ctx.fillRect(pad.l+45,H-20,10,8);
+  ctx.fillStyle='rgba(139,164,189,0.7)'; ctx.fillText('Perd',pad.l+58,H-13);
+}
+
+function _renderHS2Filtros(todas) {
+  const el = qs('hs2-filtros-wrap'); if (!el) return;
+  const b = (key, val, lbl) => '<button class="hs2-filt-btn'+(hs2F[key]===val?' on':'')+'" onclick="hs2SetF(\''+key+'\',\''+val+'\')">'+lbl+'</button>';
+  el.innerHTML = '<div class="hs2-filt-row">' +
+    b('token','all','Todos') + HS2_TOKENS.map(t=>b('token',t,t)).join('') +
+    '<span class="hs2-filt-sep"></span>' +
+    b('estado','all','Estado') + b('estado','abierta','🟢 Abierta') + b('estado','cerrada','✅ Cerrada') + b('estado','expirada','⏰ Expirada') +
+    '<span class="hs2-filt-sep"></span>' +
+    b('resultado','all','Resultado') + b('resultado','ganadora','Ganadora') + b('resultado','perdedora','Perdedora') +
+    '<span class="hs2-filt-sep"></span>' +
+    b('plazo','all','4H/1D') + b('plazo','4H','4H') + b('plazo','1D','1D') +
+    '<span class="hs2-filt-sep"></span>' +
+    b('motivo','all','Motivo') + b('motivo','TP1','TP1') + b('motivo','TP2','TP2') + b('motivo','SL','SL') + b('motivo','Manual','Manual') +
+    '</div>' +
+    '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">' +
+    '<label style="font-size:11px;color:var(--text-3);">Score min: ' +
+    '<input type="range" min="0" max="100" value="'+hs2F.scoreMin+'" style="width:80px;vertical-align:middle;" oninput="hs2SetF(\'scoreMin\',+this.value);document.getElementById(\'hs2-score-val\').textContent=this.value" id="hs2-score-sl"> '+
+    '<span id="hs2-score-val">'+hs2F.scoreMin+'</span></label>' +
+    '<label style="font-size:11px;color:var(--text-3);">Desde: <input type="date" value="'+hs2F.desde+'" style="background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:3px 6px;font-size:11px;" oninput="hs2SetF(\'desde\',this.value)"></label>' +
+    '<label style="font-size:11px;color:var(--text-3);">Hasta: <input type="date" value="'+hs2F.hasta+'" style="background:var(--surface-2);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:3px 6px;font-size:11px;" oninput="hs2SetF(\'hasta\',this.value)"></label>' +
+    '<input type="text" placeholder="🔍 Buscar token / notas..." value="'+escHtml(hs2F.texto)+'" style="background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 10px;font-size:12px;min-width:180px;" oninput="hs2SetF(\'texto\',this.value)">' +
+    '<button class="btn btn-ghost btn-sm" onclick="hs2LimpiarFiltros()">✕ Limpiar</button>' +
+    '<span style="margin-left:auto;font-size:12px;color:var(--text-3);" id="hs2-count">'+hs2Filtrar(todas).length+' / '+todas.length+' registros</span>' +
+    '</div>';
+}
+
+function hs2SetF(key, val) { hs2F[key] = val; renderHS2(); }
+function hs2LimpiarFiltros() {
+  Object.assign(hs2F, { token:'all', estado:'all', resultado:'all', plazo:'all', motivo:'all', desde:'', hasta:'', scoreMin:0, texto:'' });
+  renderHS2();
+}
+
+function _renderHS2Lista(lista) {
+  const el = qs('hs2-lista'); if (!el) return;
+  if (!lista.length) { el.innerHTML = '<div class="empty-state">Sin señales registradas. Ve al Scanner y haz clic en "📋 Registrar señal" cuando el score sea > 50.</div>'; return; }
+  el.innerHTML = lista.map(r => {
+    const est = r.estado || 'abierta';
+    const tok = r.entrada?.token || '?';
+    const tf  = r.entrada?.timeframe || '';
+    const fch = (r.entrada?.fecha || '').slice(0,10);
+    const sc  = r.indicadores?.score;
+    const scBadge = sc!=null ? '<span style="background:'+(sc>=70?'var(--tert-dim)':sc>=50?'var(--warn-dim)':'rgba(255,100,100,0.12)')+';color:'+(sc>=70?'var(--tertiary)':sc>=50?'var(--warning)':'var(--error)')+';padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;">'+sc+'</span>' : '';
+    const pnl = r.salida_real?.pnl_usd;
+    const pnlTxt = pnl!=null ? '<span style="font-family:var(--f-mono);font-weight:700;color:'+(pnl>=0?'var(--tertiary)':'var(--error)')+'">'+(pnl>=0?'+$':'-$')+fmt(Math.abs(pnl),2)+'</span>' : '';
+    const estIcon = est==='abierta'?'🟢':est==='cerrada'?'✅':'⏰';
+    return '<div class="hs2-card '+est+'" id="hs2c-'+r.id+'">' +
+      '<div class="hs2-card-hdr" onclick="hs2Toggle(\''+r.id+'\')">' +
+      '<span>'+estIcon+'</span>' +
+      '<span style="font-family:var(--f-mono);font-weight:700;color:'+((COIN_COLOR[tok])||'var(--tertiary)')+'">'+tok+'</span>' +
+      '<span style="font-size:11px;color:var(--text-3);">'+tf+'</span>' +
+      '<span style="font-size:12px;color:var(--text-3);">'+fch+'</span>' +
+      scBadge + pnlTxt +
+      '<span style="margin-left:auto;font-size:11px;color:var(--text-3);" id="hs2-arr-'+r.id+'">▼</span>' +
+      '</div>' +
+      '<div class="hs2-card-body" id="hs2-body-'+r.id+'" style="display:none;">'+_hs2CardBody(r)+'</div>' +
+      '</div>';
+  }).join('');
+}
+
+function hs2Toggle(id) {
+  const body = qs('hs2-body-'+id), arr = qs('hs2-arr-'+id);
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  if (arr) arr.textContent = open ? '▼' : '▲';
+}
+
+function _hs2CardBody(r) {
+  const blk = (emoji, title, content, id) =>
+    '<div class="hs2-blk"><div class="hs2-blk-hdr" onclick="hs2ToggleBlk(\''+id+'\')">' +
+    emoji + ' ' + title + '<span id="hs2ba-'+id+'">▶</span></div>' +
+    '<div class="hs2-blk-body" id="hs2bb-'+id+'" style="display:none;">'+content+'</div></div>';
+
+  // Bloque 1: Entrada
+  const e = r.entrada || {};
+  const b1 = '<div class="hs2-ind-row"><span class="hs2-ind-lbl">Fecha</span><span>'+escHtml(e.fecha||'—')+'</span></div>' +
+    '<div class="hs2-ind-row"><span class="hs2-ind-lbl">Exchange</span><span>'+escHtml(e.exchange||'—')+'</span></div>' +
+    '<div class="hs2-ind-row"><span class="hs2-ind-lbl">Precio entrada</span><span style="font-family:var(--f-mono)">'+fmtPrecio(e.precio)+'</span></div>' +
+    '<div class="hs2-ind-row"><span class="hs2-ind-lbl">Capital USD</span><span style="font-family:var(--f-mono)">$'+fmt(e.capital_usd,2)+' ('+fmt(e.capital_pct,1)+'%)</span></div>' +
+    '<div class="hs2-ind-row"><span class="hs2-ind-lbl">Tamaño posición</span><span style="font-family:var(--f-mono)">'+fmt(e.tamano_posicion,6)+' '+escHtml(e.token||'')+'</span></div>';
+
+  // Bloque 2: Indicadores
+  const ind = r.indicadores || {};
+  const indRows = [
+    ['score','Score',ind.score],['rsi','RSI 4H',ind.rsi],
+    ['macd_histograma','MACD Histograma',ind.macd_histograma],
+    ['bb_posicion','Bollinger',ind.bb_posicion],
+    ['stoch_rsi_k','Stoch RSI K/D',ind.stoch_rsi_k!=null?fmt(ind.stoch_rsi_k,1)+' / '+fmt(ind.stoch_rsi_d||0,1):null],
+    ['tendencia_ema','Tendencia EMA',ind.tendencia_ema],
+    ['divergencia_alcista','Divergencia alcista',ind.divergencia_alcista],
+    ['fear_greed','Fear & Greed',ind.fear_greed],
+    ['vix','VIX',ind.vix]
+  ];
+  const b2 = indRows.map(([k,lbl,v])=>
+    '<div class="hs2-ind-row"><span class="hs2-ind-lbl">'+lbl+'</span>'+hs2Sem(k,v)+'</div>'
+  ).join('') + (ind.sp500?'<div class="hs2-ind-row"><span class="hs2-ind-lbl">S&P500</span><span style="font-family:var(--f-mono)">$'+fmt(ind.sp500,2)+'</span></div>':'');
+
+  // Bloque 3: Salida prevista
+  const sp = r.salida_prevista || {};
+  const b3 = '<div class="hs2-ind-row"><span class="hs2-ind-lbl">Stop Loss</span><span style="color:var(--error);font-family:var(--f-mono)">'+fmtPrecio(sp.sl_precio)+' ('+fmt(sp.sl_pct,1)+'%)</span></div>' +
+    '<div class="hs2-ind-row"><span class="hs2-ind-lbl">TP1</span><span style="color:var(--tertiary);font-family:var(--f-mono)">'+fmtPrecio(sp.tp1_precio)+' (+'+fmt(sp.tp1_pct,1)+'%) → +$'+fmt(sp.pnl_esperado_tp1,2)+'</span></div>' +
+    '<div class="hs2-ind-row"><span class="hs2-ind-lbl">TP2</span><span style="color:var(--tertiary);font-family:var(--f-mono)">'+fmtPrecio(sp.tp2_precio)+' (+'+fmt(sp.tp2_pct,1)+'%) → +$'+fmt(sp.pnl_esperado_tp2,2)+'</span></div>' +
+    '<div class="hs2-ind-row"><span class="hs2-ind-lbl">Ratio R/R</span><span style="font-family:var(--f-mono)">'+fmt(sp.ratio_rr,2)+':1</span></div>';
+
+  // Bloque 4: Salida real
+  let b4;
+  const sr = r.salida_real || {};
+  if (r.estado === 'abierta') {
+    b4 = '<div class="hs2-form-row">' +
+      '<div><label class="label">Fecha salida</label><input type="date" id="hs2-sf-'+r.id+'" class="input" value="'+(sr.fecha||'').slice(0,10)+'"></div>' +
+      '<div><label class="label">Precio salida ($)</label><input type="number" id="hs2-sp-'+r.id+'" class="input" placeholder="0.00" step="any" value="'+(sr.precio||'')+'"></div>' +
+      '<div><label class="label">Motivo</label><select id="hs2-sm-'+r.id+'" class="input">' +
+      ['TP1','TP2','SL','Manual'].map(m=>'<option'+(sr.motivo===m?' selected':'')+'>'+m+'</option>').join('') +
+      '</select></div></div>' +
+      '<button class="btn btn-primary btn-sm" onclick="hs2GuardarSalida(\''+r.id+'\')">💾 Registrar Salida</button>';
+  } else {
+    b4 = '<div class="hs2-ind-row"><span class="hs2-ind-lbl">Fecha</span><span>'+escHtml((sr.fecha||'').slice(0,10))+'</span></div>' +
+      '<div class="hs2-ind-row"><span class="hs2-ind-lbl">Precio</span><span style="font-family:var(--f-mono)">'+fmtPrecio(sr.precio)+'</span></div>' +
+      '<div class="hs2-ind-row"><span class="hs2-ind-lbl">Motivo</span><span>'+escHtml(sr.motivo||'—')+'</span></div>' +
+      '<div class="hs2-ind-row"><span class="hs2-ind-lbl">P&L</span><span style="font-family:var(--f-mono);color:'+(sr.pnl_usd>=0?'var(--tertiary)':'var(--error)')+'">'+(sr.pnl_usd>=0?'+$':'-$')+fmt(Math.abs(sr.pnl_usd||0),2)+' ('+fmt(sr.pnl_pct||0,1)+'%)</span></div>';
+  }
+
+  // Bloque 5: Post-mortem
+  const pm = r.postmortem || {};
+  const scoreAcerto = pm.score_acerto != null ? (pm.score_acerto ? '✅ Sí — sistema funcionó' : '❌ No — score no predijo el resultado') : '—';
+  const b5 = '<div class="hs2-form-row" style="grid-template-columns:1fr 1fr;">' +
+    '<div><label class="label">Precio 48h después ($)</label><input type="number" id="hs2-p48-'+r.id+'" class="input" placeholder="precio actual -48h" step="any" value="'+(pm.precio_48h||'')+'"></div>' +
+    '<div style="display:flex;align-items:flex-end;"><div style="font-size:12px;color:var(--text-2);">Entry Edge:<br><span style="font-family:var(--f-mono);font-weight:700;color:'+(pm.entry_edge_pct!=null?(pm.entry_edge_pct>0?'var(--tertiary)':'var(--error)'):'var(--text-3)')+'">'+
+    (pm.entry_edge_pct!=null?(pm.entry_edge_pct>=0?'+':'')+fmt(pm.entry_edge_pct,2)+'%':'—')+'</span></div></div></div>' +
+    '<div style="margin-bottom:8px;"><span style="font-size:11px;color:var(--text-3);">¿El score acertó? </span>'+scoreAcerto+'</div>' +
+    '<div style="margin-bottom:8px;"><label class="label">Notas</label><input type="text" id="hs2-pn-'+r.id+'" class="input" placeholder="Qué aprendiste de esta operación..." value="'+escHtml(pm.notas||'')+'"></div>' +
+    '<button class="btn btn-primary btn-sm" onclick="hs2GuardarPM(\''+r.id+'\')">💾 Guardar Post-mortem</button>';
+
+  return blk('📥','ENTRADA',b1,'b1-'+r.id) + blk('📊','INDICADORES AL MOMENTO DE ENTRADA',b2,'b2-'+r.id) +
+    blk('🎯','SALIDA PREVISTA',b3,'b3-'+r.id) + blk('📤','SALIDA REAL',b4,'b4-'+r.id) + blk('🔬','POST-MORTEM',b5,'b5-'+r.id);
+}
+
+function hs2ToggleBlk(id) {
+  const body = qs('hs2bb-'+id), arr = qs('hs2ba-'+id);
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  if (arr) arr.textContent = open ? '▶' : '▼';
+}
+
+function hs2GuardarSalida(id) {
+  const fecha = qs('hs2-sf-'+id)?.value;
+  const precio = parseFloat(qs('hs2-sp-'+id)?.value);
+  const motivo = qs('hs2-sm-'+id)?.value;
+  if (!fecha || isNaN(precio) || precio <= 0) { alert('Fecha y precio son obligatorios'); return; }
+  const lista = hs2Leer(), r = lista.find(x => x.id === id);
+  if (!r) return;
+  const pnlUsd = r.entrada?.capital_usd && r.entrada?.precio
+    ? (precio - r.entrada.precio) / r.entrada.precio * r.entrada.capital_usd : null;
+  const pnlPct = r.entrada?.precio ? (precio - r.entrada.precio) / r.entrada.precio * 100 : null;
+  r.estado = 'cerrada';
+  r.salida_real = { fecha: fecha+'T00:00:00', precio, motivo, pnl_usd: pnlUsd, pnl_pct: pnlPct,
+    diferencia_vs_prevista_pct: (motivo==='TP1'&&r.salida_prevista?.tp1_precio)
+      ? (precio-r.salida_prevista.tp1_precio)/r.salida_prevista.tp1_precio*100 : null };
+  hs2Guardar(lista);
+  renderHS2();
+}
+
+function hs2GuardarPM(id) {
+  const p48 = parseFloat(qs('hs2-p48-'+id)?.value);
+  const notas = qs('hs2-pn-'+id)?.value || '';
+  const lista = hs2Leer(), r = lista.find(x => x.id === id);
+  if (!r) return;
+  r.postmortem = r.postmortem || {};
+  r.postmortem.notas = notas;
+  if (!isNaN(p48) && p48 > 0 && r.entrada?.precio) {
+    r.postmortem.precio_48h = p48;
+    r.postmortem.entry_edge_pct = (r.entrada.precio - p48) / p48 * 100;
+  }
+  r.postmortem.score_acerto = r.estado==='cerrada' && (r.indicadores?.score||0)>=70 && (r.salida_real?.pnl_usd||0)>0;
+  hs2Guardar(lista);
+  renderHS2();
+}
+
+function hs2Exportar() {
+  const data = hs2Leer();
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url;
+  a.download='jcahs_senales_'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ── Registro automático desde Scanner ────────────────────
+function registrarSenalHS2(sym, entrada, sl, tp, kelly) {
+  const d = calcScore(sym);
+  if (!d) { alert('Datos no disponibles para '+sym); return; }
+  const p = STATE.precios[sym] || entrada;
+  const capital = STATE.capitalCrypto;
+  const kellyPct = capital > 0 ? kelly / capital * 100 : 0;
+  const tp2 = entrada > 0 ? entrada * 1.15 : 0;
+  const slPct  = entrada > 0 ? Math.abs(sl - entrada) / entrada * 100 : 5;
+  const tp1Pct = entrada > 0 ? Math.abs(tp - entrada) / entrada * 100 : 10;
+  const tp2Pct = entrada > 0 ? Math.abs(tp2 - entrada) / entrada * 100 : 15;
+  const exchId = STATE.exchSelected[sym] || 'binance';
+  const senal = {
+    id: Date.now().toString() + '_' + sym,
+    estado: 'abierta',
+    entrada: {
+      fecha: new Date().toISOString().slice(0,19), token: sym, timeframe: '4H',
+      precio: entrada, exchange: EXCHANGES[exchId]?.nombre || 'Binance',
+      capital_usd: kelly, capital_pct: kellyPct,
+      tamano_posicion: entrada > 0 ? kelly / entrada : 0
+    },
+    indicadores: {
+      score: d.score, rsi: d.rsi4h,
+      macd_linea: d.macd4h?.macd ?? null,
+      macd_signal: d.macd4h?.signal ?? null,
+      macd_histograma: d.macd4h?.hist ?? null,
+      bb_posicion: d.bb4h?.posicion || null,
+      stoch_rsi_k: d.stoch4h?.k ?? null,
+      stoch_rsi_d: d.stoch4h?.d ?? null,
+      divergencia_alcista: !!(d.div4h?.detectada || d.div1d?.detectada),
+      tendencia_ema: (d.ema20_1d && d.ema50_1d) ? (d.ema20_1d > d.ema50_1d ? 'alcista' : 'bajista') : 'lateral',
+      volumen_vs_promedio: d.volSig?.ratio ?? null,
+      fear_greed: STATE.fng?.value ?? null,
+      sp500: STATE.macro?.sp500?.precio ?? null,
+      dxy: STATE.macro?.dxy?.precio ?? null,
+      vix: STATE.macro?.vix?.precio ?? null,
+      kelly_pct: kellyPct,
+      ratio_rr: slPct > 0 ? tp1Pct / slPct : 0
+    },
+    salida_prevista: {
+      sl_precio: sl, sl_pct: -slPct,
+      tp1_precio: tp, tp1_pct: tp1Pct,
+      tp2_precio: tp2, tp2_pct: tp2Pct,
+      fecha_estimada: new Date(Date.now()+3*86400000).toISOString().slice(0,19),
+      pnl_esperado_tp1: kelly * tp1Pct / 100,
+      pnl_esperado_tp2: kelly * tp2Pct / 100,
+      ratio_rr: slPct > 0 ? tp1Pct / slPct : 0
+    },
+    salida_real: { fecha:null, precio:null, motivo:null, pnl_usd:null, pnl_pct:null, diferencia_vs_prevista_pct:null },
+    postmortem: { precio_48h:null, entry_edge_pct:null, score_acerto:null, notas:'' }
+  };
+  const lista = hs2Leer(); lista.unshift(senal); hs2Guardar(lista);
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--tert-dim);border:1px solid var(--tertiary);color:var(--tertiary);padding:12px 16px;border-radius:var(--radius);font-size:13px;font-weight:600;z-index:9999;pointer-events:none;max-width:320px;line-height:1.5;';
+  toast.textContent = '✅ Señal ' + sym + ' registrada — Score ' + d.score + ' | Precio ' + fmtPrecio(entrada);
+  document.body.appendChild(toast); setTimeout(() => toast.remove(), 4000);
+  ir('sec-historial-crypto');
 }
 
 // Close alert panel on outside click
