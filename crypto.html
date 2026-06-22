@@ -3398,6 +3398,67 @@ function limpiarChatSATOSHI() {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  ALERTAS TELEGRAM — CRYPTO
+// ═══════════════════════════════════════════════════════════
+
+const _TG_PROXY    = 'https://jcahs-proxy.jh050447.workers.dev';
+const _TG_CHAT     = '1519036308';
+const _TG_DEDUP_KEY = 'jcahs_telegram_enviados';
+
+function _tgDedup(key) {
+  const ahora = Date.now(), TTL = 60 * 60 * 1000;
+  try {
+    const mapa = JSON.parse(localStorage.getItem(_TG_DEDUP_KEY) || '{}');
+    Object.keys(mapa).forEach(k => { if (ahora - mapa[k] > TTL) delete mapa[k]; });
+    if (mapa[key] && ahora - mapa[key] < TTL) return false;
+    mapa[key] = ahora;
+    localStorage.setItem(_TG_DEDUP_KEY, JSON.stringify(mapa));
+    return true;
+  } catch { return true; }
+}
+
+async function enviarAlertaTelegram(texto) {
+  try {
+    await fetch(_TG_PROXY + '/?telegram=1&chat_id=' + _TG_CHAT +
+      '&text=' + encodeURIComponent(texto));
+  } catch(e) { console.warn('Telegram error:', e); }
+}
+
+function _enviarTgCrypto(a) {
+  const sym   = a.sym;
+  const p     = STATE.precios[sym];
+  const d     = sym !== 'GLOBAL' ? calcScore(sym) : null;
+  const tgKey = sym + '_' + a.tipo;
+  if (!_tgDedup(tgKey)) return;
+
+  let msg = '';
+  if (a.tipo === 'scoreAlto' && d && p) {
+    const kelly = calcKelly(d.score / 100, 2, 0.25) * STATE.capitalCrypto;
+    const sl = p * 0.95, tp = p * 1.10;
+    msg = '₿ <b>JCAHS Crypto — Señal Detectada</b>\n\n' +
+      '🪙 ' + sym + ' (' + fmtPrecio(p) + ')\n' +
+      '📊 Score: ' + d.score + '/100 | Señal: COMPRAR\n' +
+      '📉 RSI 4H: ' + (d.rsi4h != null ? fmt(d.rsi4h, 1) : '—') + '\n' +
+      '🛑 Stop Loss: ' + fmtPrecio(sl) + ' (-5%)\n' +
+      '🎯 Take Profit: ' + fmtPrecio(tp) + ' (+10%)\n' +
+      '💵 Capital sugerido: $' + fmt(kelly, 2) + '\n\n' +
+      '📱 jh050447.github.io/JCASH/crypto.html';
+  } else if (a.tipo === 'rsiSob' && p) {
+    msg = '📉 <b>JCAHS — RSI Sobrevendido</b>\n\n' +
+      '🪙 ' + sym + ': RSI ' + fmt(a.rsi, 1) + ' (sobrevendido)\n' +
+      '💰 Precio: ' + fmtPrecio(p) + '\n' +
+      '⚠️ Vigilar para posible entrada';
+  } else if (a.tipo === 'fngExtreme') {
+    const fng = STATE.fng?.value ?? '—';
+    msg = '😱 <b>JCAHS — Miedo Extremo</b>\n\n' +
+      'Fear & Greed: ' + fng + ' (Miedo Extremo)\n' +
+      '📊 Posible zona de DCA para BTC/ETH\n' +
+      '💡 Verifica las 3 condiciones en DCA Hold';
+  }
+  if (msg) enviarAlertaTelegram(msg);
+}
+
+// ═══════════════════════════════════════════════════════════
 //  ALERTAS CRYPTO
 // ═══════════════════════════════════════════════════════════
 
@@ -3442,6 +3503,8 @@ function verificarAlertasCrypto() {
     STATE.alertasCrypto = (STATE.alertasCrypto || []).concat(nuevas).slice(-20);
     try { localStorage.setItem('jcahs_crypto_alertas_notificadas', JSON.stringify(notificadas)); } catch {}
     notificarAlertasCrypto(nuevas);
+    // Telegram
+    nuevas.forEach(a => _enviarTgCrypto(a));
     renderCampanitaCrypto();
   }
 }
