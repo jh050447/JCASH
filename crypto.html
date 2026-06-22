@@ -402,6 +402,23 @@ select.input { cursor: pointer; }
 .extremo-chg { font-weight:700; }
 .extremo-nota { color:var(--text-3); font-size:11px; }
 
+/* ── NOTICIAS ────────────────────────────────────────────── */
+.noticia-card { background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;transition:border-color .15s; }
+.noticia-card:hover { border-color:rgba(78,222,163,0.25); }
+.noticia-headline { font-size:14px;font-weight:600;color:var(--text);line-height:1.4;margin-bottom:4px; }
+.noticia-meta { font-size:11px;color:var(--text-3);display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
+.noticia-badge { font-size:12px;flex-shrink:0; }
+.noticia-btns { display:flex;gap:6px;margin-top:8px;flex-wrap:wrap; }
+.noticia-btn { padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text-2);transition:background .12s; }
+.noticia-btn:hover { background:var(--surface-3);color:var(--text); }
+
+/* ── MACRO PANEL ─────────────────────────────────────────── */
+.macro-item { background:var(--surface-2);border-radius:var(--radius);padding:10px 12px; }
+.macro-sym { font-size:11px;font-weight:600;color:var(--text-3);letter-spacing:.5px;text-transform:uppercase;margin-bottom:3px; }
+.macro-val { font-family:var(--f-mono);font-size:15px;font-weight:700; }
+.macro-chg { font-family:var(--f-mono);font-size:12px;margin-top:1px; }
+.macro-exp { font-size:10px;color:var(--text-3);line-height:1.4;margin-top:3px; }
+
 /* ── CAMPANITA CRYPTO ────────────────────────────────────── */
 .campanita-wrap { position:relative; }
 .btn-campanita { position:relative; background:transparent; border:none; font-size:18px; cursor:pointer; padding:4px 6px; line-height:1; color:var(--text-2); }
@@ -644,6 +661,9 @@ select.input { cursor: pointer; }
     <a class="nav-link" id="nl-sec-satoshi" onclick="ir('sec-satoshi')">
       <span class="nav-icon">🤖</span> SATOSHI
     </a>
+    <a class="nav-link" id="nl-sec-noticias" onclick="ir('sec-noticias')">
+      <span class="nav-icon">📰</span> Noticias
+    </a>
     <a class="nav-link" id="nl-sec-historial-crypto" onclick="ir('sec-historial-crypto')">
       <span class="nav-icon">📊</span> Historial Señales
     </a>
@@ -739,6 +759,15 @@ select.input { cursor: pointer; }
             <div class="sec-sub" id="panel-fuente">Fuente: Kraken OHLC + CoinGecko</div>
           </div>
           <button class="btn btn-ghost btn-sm" onclick="recargarDatos(true)">↺ Actualizar</button>
+        </div>
+
+        <!-- Contexto Macro (Alpha Vantage) -->
+        <div id="macro-panel" style="display:none;margin-bottom:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div style="font-size:11px;font-weight:600;color:var(--text-3);letter-spacing:1px;text-transform:uppercase;">📊 Contexto Macro</div>
+            <div style="font-size:11px;color:var(--text-3);" id="macro-ts">—</div>
+          </div>
+          <div id="macro-content" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;"></div>
         </div>
 
         <!-- Estrategias Activas -->
@@ -928,6 +957,23 @@ select.input { cursor: pointer; }
                    onkeydown="if(event.key==='Enter')consultarSATOSHI()">
             <button class="btn btn-primary" onclick="consultarSATOSHI()" style="flex-shrink:0">Enviar</button>
           </div>
+        </div>
+
+      </section>
+
+      <!-- ══════════ NOTICIAS ══════════ -->
+      <section class="seccion" id="sec-noticias">
+
+        <div class="sec-header">
+          <div>
+            <div class="sec-title">📰 Noticias Crypto</div>
+            <div class="sec-sub" id="noticias-sub">Últimas noticias del mercado — Finnhub</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="cargarNoticiasCrypto(true)">↺ Actualizar</button>
+        </div>
+
+        <div id="noticias-content">
+          <div class="empty-state">Haz clic en "↺ Actualizar" para cargar las últimas noticias crypto.</div>
         </div>
 
       </section>
@@ -1312,6 +1358,9 @@ const STATE = {
   smallCapTimestamp: null,
   smallCapOffset: 0,
   watchlistCoins: [],
+  noticias: null,
+  noticiasTimestamp: null,
+  macro: null,
   preciosTimestamp: null,
   satoshiChat: [],
   alertasCrypto: [],
@@ -1385,6 +1434,7 @@ function ir(sec) {
   if (sec === 'sec-posiciones') renderPosiciones();
   if (sec === 'sec-panel') renderUltimasOps();
   if (sec === 'sec-historial-crypto') renderHistorialSenales();
+  if (sec === 'sec-noticias') cargarNoticiasCrypto();
   if (sec === 'sec-small-cap' && STATE.smallCapData) renderSmallCapTabla(STATE.smallCapData, STATE.smallCapOffset || 0);
   if (sec === 'sec-dca') renderDca();
   if (sec === 'sec-watchlist') renderWatchlist();
@@ -3093,8 +3143,10 @@ function init() {
     if (e.target === this) cerrarModal();
   });
 
-  // Cargar datos
+  // Cargar datos: macro primero (rate limit más estricto, cache 60min), luego el resto
+  cargarDatosMacro();
   recargarDatos(true);
+  cargarNoticiasCrypto();
 
   // Restaurar chat SATOSHI guardado
   try { STATE.satoshiChat = JSON.parse(localStorage.getItem('jcahs_satoshi_chat') || '[]'); } catch { STATE.satoshiChat = []; }
@@ -3158,7 +3210,12 @@ function construirContextoSATOSHI() {
     'REGLAS DE RIESGO:\n' +
     '- Máximo 2% del capital por operación\n' +
     '- Stop loss siempre antes de entrar\n' +
-    '- Si pierdes 10% en un mes → parar';
+    '- Si pierdes 10% en un mes → parar' +
+    (STATE.macro ? '\n\nCONTEXTO MACRO:\n' +
+      (STATE.macro.sp500 ? 'S&P 500: $' + fmt(STATE.macro.sp500.precio, 2) + ' (' + (STATE.macro.sp500.cambioPct >= 0 ? '+' : '') + fmt(STATE.macro.sp500.cambioPct, 2) + '% hoy) — ' + STATE.macro.sp500.tendencia + '\n' : '') +
+      (STATE.macro.dxy ? 'DXY (dólar): ' + fmt(STATE.macro.dxy.precio, 2) + ' (' + (STATE.macro.dxy.cambioPct >= 0 ? '+' : '') + fmt(STATE.macro.dxy.cambioPct, 2) + '% hoy) — ' + STATE.macro.dxy.tendencia + '\n' : '') +
+      (STATE.macro.vix ? 'VIX: ' + fmt(STATE.macro.vix.precio, 1) + ' (volatilidad ' + STATE.macro.vix.nivel + ')\n' : '') +
+      'Nota: cuando S&P500 cae >1%, BTC tiende a correlacionar negativamente a corto plazo. Cuando DXY sube, crypto históricamente baja.' : '');
 }
 
 async function buscarTavilyCrypto(query) {
@@ -4520,6 +4577,190 @@ function renderCandleChart(sym, cvId) {
   ctx.fillText('20', W - pad.r + 2, pad.t + 18);
   ctx.fillStyle = 'rgba(255,149,0,0.7)';
   ctx.fillText('50', W - pad.r + 2, pad.t + 28);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CONTEXTO MACRO (Alpha Vantage)
+// ═══════════════════════════════════════════════════════════
+
+async function cargarDatosMacro() {
+  const CACHE_MS = 60 * 60 * 1000; // 1 hora
+  const stored = (() => { try { return JSON.parse(localStorage.getItem('jcahs_macro_cache') || 'null'); } catch { return null; } })();
+  if (stored && stored.ts && Date.now() - stored.ts < CACHE_MS) {
+    STATE.macro = stored;
+    renderMacro();
+    return;
+  }
+  if (STATE.macro && STATE.macro.ts && Date.now() - STATE.macro.ts < CACHE_MS) {
+    renderMacro();
+    return;
+  }
+
+  const avBase = 'https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=';
+  try {
+    const [spyR, dxyR, vixR] = await Promise.all([
+      proxyGet(avBase + 'SPY'),
+      proxyGet(avBase + 'DX-Y.NYB'),
+      proxyGet(avBase + '%5EVIX')
+    ]);
+
+    function parseGQ(data) {
+      const q = data?.['Global Quote'];
+      if (!q || !q['05. price']) return null;
+      return {
+        precio: parseFloat(q['05. price']),
+        cambioPct: parseFloat((q['10. change percent'] || '0').replace('%', ''))
+      };
+    }
+
+    const spy = parseGQ(spyR), dxy = parseGQ(dxyR), vix = parseGQ(vixR);
+    if (!spy && !dxy && !vix) throw new Error('Sin datos de Alpha Vantage');
+
+    STATE.macro = {
+      ts: Date.now(),
+      sp500: spy ? { ...spy, tendencia: spy.cambioPct >= 0 ? 'alcista' : 'bajista' } : null,
+      dxy:   dxy ? { ...dxy, tendencia: dxy.cambioPct >= 0 ? 'alcista' : 'bajista' } : null,
+      vix:   vix ? { ...vix, nivel: vix.precio < 20 ? 'bajo' : vix.precio < 30 ? 'moderado' : 'alto' } : null
+    };
+    try { localStorage.setItem('jcahs_macro_cache', JSON.stringify(STATE.macro)); } catch {}
+    renderMacro();
+  } catch(e) {
+    console.warn('cargarDatosMacro:', e.message);
+  }
+}
+
+function renderMacro() {
+  const panel = qs('macro-panel');
+  const content = qs('macro-content');
+  const tsEl = qs('macro-ts');
+  if (!panel || !content || !STATE.macro) return;
+
+  panel.style.display = '';
+  const m = STATE.macro;
+  if (tsEl) {
+    const ago = Math.round((Date.now() - m.ts) / 60000);
+    tsEl.textContent = ago < 2 ? 'actualizado ahora' : 'hace ' + ago + ' min';
+  }
+
+  const items = [];
+
+  if (m.sp500) {
+    const c = m.sp500, col = c.tendencia === 'alcista' ? 'var(--tertiary)' : 'var(--error)';
+    const expTxt = c.tendencia === 'bajista' && c.cambioPct < -0.5
+      ? 'Mercados en riesgo — puede presionar crypto a la baja'
+      : c.tendencia === 'alcista' ? 'Mercados estables — entorno favorable para cripto'
+      : 'Movimiento pequeño — sin impacto directo en cripto';
+    items.push('<div class="macro-item"><div class="macro-sym">S&amp;P 500</div>' +
+      '<div class="macro-val">$' + fmt(c.precio, 2) + '</div>' +
+      '<div class="macro-chg" style="color:' + col + '">' + (c.cambioPct >= 0 ? '+' : '') + fmt(c.cambioPct, 2) + '% hoy ' + (c.tendencia === 'alcista' ? '↑' : '↓') + '</div>' +
+      '<div class="macro-exp">' + expTxt + '</div></div>');
+  }
+
+  if (m.dxy) {
+    const c = m.dxy, col = c.tendencia === 'bajista' ? 'var(--tertiary)' : 'var(--error)';
+    const expTxt = c.tendencia === 'alcista' && c.cambioPct > 0.2
+      ? 'Dólar fuerte — históricamente presiona BTC a la baja'
+      : c.tendencia === 'bajista' ? 'Dólar débil — favorable para activos de riesgo como cripto'
+      : 'Dólar estable — sin impacto directo significativo';
+    items.push('<div class="macro-item"><div class="macro-sym">DXY (Dólar)</div>' +
+      '<div class="macro-val">' + fmt(c.precio, 2) + '</div>' +
+      '<div class="macro-chg" style="color:' + col + '">' + (c.cambioPct >= 0 ? '+' : '') + fmt(c.cambioPct, 2) + '% hoy ' + (c.tendencia === 'alcista' ? '↑' : '↓') + '</div>' +
+      '<div class="macro-exp">' + expTxt + '</div></div>');
+  }
+
+  if (m.vix) {
+    const c = m.vix;
+    const col = c.nivel === 'bajo' ? 'var(--tertiary)' : c.nivel === 'moderado' ? 'var(--warning)' : 'var(--error)';
+    const expTxt = c.nivel === 'alto' ? 'Alta volatilidad en mercados — precaución extra en cripto'
+      : c.nivel === 'moderado' ? 'Volatilidad moderada — operar con precaución'
+      : 'Mercados tranquilos — entorno de baja incertidumbre';
+    items.push('<div class="macro-item"><div class="macro-sym">VIX (Volatilidad)</div>' +
+      '<div class="macro-val" style="color:' + col + '">' + fmt(c.precio, 1) + '</div>' +
+      '<div class="macro-chg" style="color:' + col + '">' + c.nivel.charAt(0).toUpperCase() + c.nivel.slice(1) + ' (' + (c.nivel === 'bajo' ? '<20' : c.nivel === 'moderado' ? '20-30' : '>30') + ')</div>' +
+      '<div class="macro-exp">' + expTxt + '</div></div>');
+  }
+
+  content.innerHTML = items.join('') || '<div style="font-size:12px;color:var(--text-3);">Datos macro no disponibles (rate limit Alpha Vantage).</div>';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  NOTICIAS CRYPTO (Finnhub)
+// ═══════════════════════════════════════════════════════════
+
+function _tiempoRelativo(tsSegundos) {
+  const diff = Math.floor(Date.now() / 1000 - tsSegundos);
+  if (diff < 60) return 'hace un momento';
+  if (diff < 3600) return 'hace ' + Math.floor(diff / 60) + ' minutos';
+  if (diff < 86400) return 'hace ' + Math.floor(diff / 3600) + ' horas';
+  return 'hace ' + Math.floor(diff / 86400) + ' días';
+}
+
+async function cargarNoticiasCrypto(forzar) {
+  const CACHE_MS = 15 * 60 * 1000;
+  if (!forzar && STATE.noticias && STATE.noticiasTimestamp && Date.now() - STATE.noticiasTimestamp < CACHE_MS) {
+    renderNoticias(STATE.noticias);
+    return;
+  }
+  const subEl = qs('noticias-sub');
+  const el = qs('noticias-content');
+  if (el) el.innerHTML = '<div class="empty-state">⏳ Cargando noticias...</div>';
+  try {
+    const data = await proxyGet('https://finnhub.io/api/v1/news?category=crypto&minId=0');
+    if (!Array.isArray(data)) throw new Error('Respuesta inesperada de Finnhub');
+    const sorted = data.sort((a, b) => (b.datetime || 0) - (a.datetime || 0)).slice(0, 10);
+    STATE.noticias = sorted;
+    STATE.noticiasTimestamp = Date.now();
+    if (subEl) subEl.textContent = sorted.length + ' noticias · actualizado ' + new Date().toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+    // Alerta campanita para noticias muy negativas
+    const muyNegativas = sorted.filter(n => (n.sentiment != null && n.sentiment < -0.5));
+    if (muyNegativas.length > 0) {
+      const nuevas = muyNegativas.slice(0, 2).map(n => ({
+        sym: 'GLOBAL', tipo: 'noticiaNeg', titulo: '📰 Noticia negativa',
+        desc: n.headline?.slice(0, 60) + (n.headline?.length > 60 ? '...' : ''),
+        rsi: null, score: null, ts: Date.now()
+      }));
+      STATE.alertasCrypto = (STATE.alertasCrypto || []).concat(nuevas).slice(-20);
+      renderCampanitaCrypto();
+    }
+
+    renderNoticias(sorted);
+  } catch(e) {
+    console.warn('cargarNoticiasCrypto:', e.message);
+    if (el) el.innerHTML = '<div class="empty-state" style="color:var(--error)">Error al cargar noticias: ' + e.message + '</div>';
+  }
+}
+
+function renderNoticias(noticias) {
+  const el = qs('noticias-content');
+  if (!el) return;
+  if (!noticias || noticias.length === 0) {
+    el.innerHTML = '<div class="empty-state">Sin noticias disponibles.</div>';
+    return;
+  }
+  el.innerHTML = noticias.map((n, idx) => {
+    const sent = n.sentiment;
+    const badge = (sent != null && sent > 0.1) ? '🟢' : (sent != null && sent < -0.1) ? '🔴' : '⚪';
+    const tiempo = n.datetime ? _tiempoRelativo(n.datetime) : '—';
+    const source = escHtml(n.source || 'Desconocido');
+    const headline = escHtml(n.headline || '(sin título)');
+    return '<div class="noticia-card">' +
+      '<div style="display:flex;align-items:flex-start;gap:8px;">' +
+      '<span class="noticia-badge">' + badge + '</span>' +
+      '<div style="flex:1"><div class="noticia-headline">' + headline + '</div>' +
+      '<div class="noticia-meta"><span>' + source + '</span><span>·</span><span>' + tiempo + '</span></div></div>' +
+      '</div>' +
+      '<div class="noticia-btns">' +
+      (n.url ? '<a href="' + escHtml(n.url) + '" target="_blank" rel="noopener" class="noticia-btn">📖 Leer</a>' : '') +
+      '<button class="noticia-btn" onclick="noticiaSATOSHI(' + JSON.stringify(n.headline || '') + ',' + JSON.stringify(n.source || '') + ')">🤖 Preguntar a SATOSHI</button>' +
+      '</div></div>';
+  }).join('');
+}
+
+function noticiaSATOSHI(headline, source) {
+  ir('sec-satoshi');
+  const msg = 'Analiza el impacto de esta noticia en BTC/ETH: "' + headline + '" — Fuente: ' + source + '. ¿Es positivo o negativo para el mercado crypto? ¿Afecta alguna de las monedas que monitoreo?';
+  setTimeout(() => consultarSATOSHI(msg), 150);
 }
 
 // Close alert panel on outside click
