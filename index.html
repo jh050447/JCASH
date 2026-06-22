@@ -6921,6 +6921,30 @@ function infoTiempoPartido(fechaIso) {
 
 // ─── SISTEMA DE ALERTAS — value bets listos para apostar pronto ──
 const ALERTAS_NOTIFICADAS_KEY = 'jcahs_alertas_notificadas';
+const TG_PROXY = 'https://jcahs-proxy.jh050447.workers.dev';
+const TG_CHAT  = '1519036308';
+const TG_DEDUP_KEY = 'jcahs_telegram_enviados';
+
+function _tgDedup(key) {
+  var ahora = Date.now(), TTL = 60 * 60 * 1000;
+  try {
+    var mapa = JSON.parse(localStorage.getItem(TG_DEDUP_KEY) || '{}');
+    // limpiar expirados
+    Object.keys(mapa).forEach(function(k) { if (ahora - mapa[k] > TTL) delete mapa[k]; });
+    if (mapa[key] && ahora - mapa[key] < TTL) return false; // ya enviado
+    mapa[key] = ahora;
+    localStorage.setItem(TG_DEDUP_KEY, JSON.stringify(mapa));
+    return true;
+  } catch(e) { return true; }
+}
+
+async function enviarAlertaTelegram(texto) {
+  try {
+    var url = TG_PROXY + '/?telegram=1&chat_id=' + TG_CHAT +
+      '&text=' + encodeURIComponent(texto);
+    await fetch(url);
+  } catch(e) { console.warn('Telegram alert error:', e); }
+}
 
 function cargarAlertasNotificadas() {
   try {
@@ -6999,6 +7023,27 @@ function notificarAlertasNuevas(alertas) {
         body: a.partido + ' — ' + a.pick + ' (Score ' + a.score + ', inicia en ' + a.minutosRestantes + 'min)'
       });
     } catch (e) { console.log('Notification error:', e); }
+
+    // Telegram — deduplicado por clave + ventana 60min
+    if (_tgDedup('bet_' + a.clave)) {
+      var vb = (STATE.deApuestas || []).find(function(v) { return v && v.partido === a.partido && v.pick === a.pick; }) ||
+               ((STATE.mentor && STATE.mentor.sugerencias) || []).find(function(s) { return s && s.partido === a.partido && s.pick === a.pick; }) || {};
+      var liga   = vb.liga || '';
+      var odd    = (a.odd != null) ? a.odd.toFixed(2) : '—';
+      var edge   = (vb.edge != null) ? vb.edge.toFixed(1) : '—';
+      var prob   = (a.probReal != null) ? a.probReal.toFixed(0) : '—';
+      var apostar = vb.apostar != null ? '$' + vb.apostar.toFixed(2) : (STATE.bankroll ? '$' + (STATE.bankroll * 0.02).toFixed(2) : '—');
+      var msg = '⚽ <b>JCAHS — Value Bet Detectada</b>\n\n' +
+        '🏆 ' + liga + '\n' +
+        '⚔️ ' + a.partido + '\n' +
+        '📌 Pick: ' + a.pick + '\n' +
+        '💰 Odd: ' + odd + ' | Edge: +' + edge + '%\n' +
+        '🎯 Prob Real: ' + prob + '%\n' +
+        '💵 Stake sugerido: ' + apostar + '\n' +
+        '⏰ Inicia en: ' + a.minutosRestantes + ' min\n\n' +
+        '📱 jh050447.github.io/JCASH/';
+      enviarAlertaTelegram(msg);
+    }
   });
 
   if (hayNuevas) guardarAlertasNotificadas(notificadas);
