@@ -4756,6 +4756,30 @@ function _tiempoRelativo(tsSegundos) {
   return 'hace ' + Math.floor(diff / 86400) + ' días';
 }
 
+// ── TRADUCCIÓN MyMemory ───────────────────────────────────
+async function traducirNoticia(texto) {
+  if (!texto || texto.trim() === '') return texto;
+  try {
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
+    const url = 'https://api.mymemory.translated.net/get?q=' + encodeURIComponent(texto) + '&langpair=en|es';
+    const res = await Promise.race([fetch(url), timeout]);
+    const data = await res.json();
+    return data.responseData?.translatedText || texto;
+  } catch {
+    return texto; // fallback: texto original sin error visible
+  }
+}
+
+async function traducirNoticias(noticias) {
+  return Promise.all(noticias.map(async n => {
+    const [headline, summary] = await Promise.all([
+      traducirNoticia(n.headline),
+      traducirNoticia(n.summary)
+    ]);
+    return { ...n, headline, summary, _traducido: true };
+  }));
+}
+
 async function cargarNoticiasCrypto(forzar) {
   const CACHE_MS = 15 * 60 * 1000;
   if (!forzar && STATE.noticias && STATE.noticiasTimestamp && Date.now() - STATE.noticiasTimestamp < CACHE_MS) {
@@ -4785,7 +4809,17 @@ async function cargarNoticiasCrypto(forzar) {
       renderCampanitaCrypto();
     }
 
+    // 1° Renderizar en inglés inmediatamente (no bloqueante)
     renderNoticias(sorted);
+
+    // 2° Traducir en background — actualizar cuando llegue la traducción
+    if (subEl) subEl.textContent += ' · traduciendo…';
+    traducirNoticias(sorted).then(traducidas => {
+      STATE.noticias = traducidas;
+      renderNoticias(traducidas);
+      if (subEl) subEl.textContent = sorted.length + ' noticias en español · ' +
+        new Date().toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', hour12: false });
+    });
   } catch(e) {
     console.warn('cargarNoticiasCrypto:', e.message);
     if (el) el.innerHTML = '<div class="empty-state" style="color:var(--error)">Error al cargar noticias: ' + e.message + '</div>';
