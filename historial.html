@@ -197,6 +197,48 @@ tr.pendiente select.resultado-select { color: var(--warning); }
   font-family: inherit;
 }
 .btn-eliminar:hover { background: var(--error); color: var(--bg); }
+/* ── MODO GLOBAL ─────────────────────────────────────────── */
+.hap-modo-bar { display:flex;gap:8px;margin-bottom:20px; }
+.hap-modo-btn { padding:8px 20px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);cursor:pointer;font-size:13px;font-weight:600;transition:all .15s; }
+.hap-modo-btn:hover { border-color:var(--tertiary);color:var(--tertiary); }
+.hap-modo-btn.active { background:rgba(78,222,163,0.12);border-color:var(--tertiary);color:var(--tertiary); }
+/* ── FILTROS ─────────────────────────────────────────────── */
+.hap-filtro-wrap { background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:14px; }
+.hap-filtro-row { display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px; }
+.hap-filtro-btn { padding:4px 11px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text-3);cursor:pointer;font-size:11px;font-weight:600;transition:all .12s; }
+.hap-filtro-btn.on { background:var(--tert-dim);color:var(--tertiary);border-color:rgba(78,222,163,0.3); }
+.hap-filtro-sep { width:1px;height:18px;background:var(--border);margin:0 4px; }
+/* ── CARDS ───────────────────────────────────────────────── */
+.hap-card { background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden;transition:border-color .15s; }
+.hap-card.ganó { border-color:rgba(78,222,163,0.3); }
+.hap-card.perdió { border-color:rgba(255,180,171,0.3); }
+.hap-card-hdr { display:flex;align-items:center;padding:12px 16px;cursor:pointer;gap:10px;user-select:none; }
+.hap-card-hdr:hover { background:rgba(255,255,255,0.02); }
+.hap-card-body { border-top:1px solid var(--border);padding:12px 16px; }
+/* ── BLOQUES ─────────────────────────────────────────────── */
+.hap-blk { border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden; }
+.hap-blk-hdr { padding:8px 12px;cursor:pointer;font-size:12px;font-weight:700;color:var(--text-2);display:flex;justify-content:space-between;align-items:center;background:var(--surface-2);user-select:none; }
+.hap-blk-body { padding:12px; }
+.hap-fila { display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px; }
+.hap-fila:last-of-type { border-bottom:none; }
+.hap-lbl { color:var(--text-3);font-size:12px;min-width:140px; }
+.hap-inp { background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;padding:4px 8px;outline:none;min-width:0; }
+.hap-inp:focus { border-color:var(--tertiary); }
+.hap-btn-save { margin-top:10px;background:var(--tertiary);color:#060f1a;border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer; }
+.hap-btn-edit { background:transparent;border:1px solid var(--border);color:var(--text-2);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer; }
+/* ── MODAL ───────────────────────────────────────────────── */
+.hap-modal-ov { position:fixed;inset:0;background:rgba(6,15,26,.85);backdrop-filter:blur(8px);z-index:2000;display:none;align-items:center;justify-content:center;padding:16px; }
+.hap-modal-ov.show { display:flex; }
+.hap-modal-box { background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto; }
+.hap-form-row { display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px; }
+.hap-form-group { display:flex;flex-direction:column;gap:4px; }
+.hap-form-label { font-size:11px;font-weight:600;color:var(--text-2);letter-spacing:.5px;text-transform:uppercase; }
+.hap-form-input { background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:8px 10px;outline:none; }
+.hap-form-input:focus { border-color:var(--tertiary); }
+/* ── CALIDAD KPIs ────────────────────────────────────────── */
+.hap-calidad-row { display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px; }
+@media(max-width:900px){ .hap-calidad-row{grid-template-columns:repeat(2,1fr);} .hap-filtro-row{gap:4px;} }
+@media(max-width:600px){ .hap-calidad-row{grid-template-columns:1fr 1fr;} .hap-form-row{grid-template-columns:1fr;} }
 .input-label { display:block;font-size:11px;font-weight:600;color:var(--text-2);letter-spacing:.5px;text-transform:uppercase;margin-bottom:5px; }
 .input-mc { width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:8px 10px;outline:none;font-family:inherit; }
 .input-mc:focus { border-color:var(--tertiary); }
@@ -223,6 +265,13 @@ td.neg { color: #ff6464; }
 </style>
 </head>
 <body>
+
+<!-- Selector de modo global -->
+<div class="hap-modo-bar" id="hap-modo-bar">
+  <button class="hap-modo-btn active" id="tab-prev" onclick="hap_setModo('previsto')">📐 Previsto</button>
+  <button class="hap-modo-btn" id="tab-real" onclick="hap_setModo('real')">💰 Real</button>
+  <button class="hap-modo-btn" id="tab-mix" onclick="hap_setModo('mixto')">🔀 Mixto</button>
+</div>
 
 <h1>📊 Historial de Validación</h1>
 <div class="subtitle">Registro independiente de apuestas para validar edge/probReal contra resultados reales — datos persistidos en localStorage, separado de index.html</div>
@@ -322,35 +371,29 @@ td.neg { color: #ff6464; }
   <div id="mc-kelly-table" style="display:none;margin-top:14px;"></div>
 </div>
 
-<h2 class="section-title">Detalle de registros (editable)</h2>
-<div class="table-wrap">
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Fecha</th>
-        <th>Partido</th>
-        <th>Liga</th>
-        <th>Mercado</th>
-        <th>Pick</th>
-        <th>Cuota Prog.</th>
-        <th>Cuota Real</th>
-        <th title="La odd de Pinnacle 5-10 minutos antes del partido. Obtenerla en OddsPapi, Pinnacle.com o Oddsportal.com">Cuota Cierre ⓘ</th>
-        <th title="Closing Line Value: qué tan mejor fue tu precio vs el cierre del mercado. Positivo = obtuviste valor real">CLV ⓘ</th>
-        <th>Prob Real</th>
-        <th>Edge</th>
-        <th>Monto</th>
-        <th>Resultado</th>
-        <th>G/P</th>
-        <th>Partido ID</th>
-        <th>Notas</th>
-        <th>Edge⚠</th>
-        <th>Acción</th>
-      </tr>
-    </thead>
-    <tbody id="tbodyHistorial"></tbody>
-  </table>
+<!-- Nueva sección de registros con tarjetas -->
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+  <h2 class="section-title" style="margin:0;">Registros de Apuestas</h2>
+  <button class="toolbar button" onclick="hap_abrirModal()" style="background:var(--tertiary);color:#060f1a;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;">➕ Nueva Apuesta</button>
 </div>
+
+<!-- KPIs de calidad (modo-aware) -->
+<div id="hap-calidad"></div>
+
+<!-- Filtros reactivos -->
+<div id="hap-filtros-wrap"></div>
+
+<!-- Lista de tarjetas -->
+<div id="hap-lista"></div>
+
+<!-- Gráfico distribución por liga -->
+<div class="chart-box" id="hap-liga-chart" style="display:none;margin-bottom:20px;">
+  <h3>Hit Rate por Liga</h3>
+  <canvas id="hapCvLiga" width="900" height="180"></canvas>
+</div>
+
+<!-- Tbody legacy oculto (mantiene compatibilidad con renderTabla/CLV) -->
+<div style="display:none;"><table><tbody id="tbodyHistorial"></tbody></table></div>
 
 <script>
 const STORAGE_KEY = 'jcahs_historial';
@@ -855,12 +898,13 @@ function renderGraficoCLV(conClv) {
 }
 
 function renderTodo() {
-  renderTabla();
+  renderTabla(); // mantiene tbodyHistorial para edits legacy de CLV/focusout
   renderResumen();
   renderDesgloseProbReal();
   renderDesgloseMercado();
   renderGraficoROI();
   renderClv();
+  hap_renderAll(); // nuevo sistema de tarjetas
 }
 
 function exportarJSON() {
@@ -1234,12 +1278,501 @@ document.addEventListener('DOMContentLoaded', function() {
   setTimeout(mcAutoLoad, 200);
 });
 
+// ═══════════════════════════════════════════════════════════
+//  HISTORIAL APUESTAS — nuevo sistema con tarjetas
+// ═══════════════════════════════════════════════════════════
+
+const HAP_KEY      = 'jcahs_historial_apuestas';
+const HAP_MODO_KEY = 'jcahs_historial_modo';
+
+// ── Migración legacy (una sola vez) ──────────────────────
+function migrarRegistrosLegacy() {
+  if (localStorage.getItem(HAP_KEY)) return;
+  const legacy = cargarHistorial();
+  const migrated = legacy.map(r => ({
+    id: r.id,
+    estado: (r.resultado && r.resultado !== 'pendiente') ? 'cerrada' : 'pendiente',
+    edgeInflado: !!r.edgeInflado,
+    entrada: {
+      fecha: r.fecha || '', hora: '',
+      partido: r.partido || '', liga: r.liga || '',
+      mercado: r.mercado || '', pick: r.pick || '',
+      casa_apuestas: '', cuota_manual: r.cuotaReal || r.cuotaPrograma || null,
+      stake_manual: r.montoApostado || null, kelly_pct: null
+    },
+    indicadores_sistema: {
+      score_jcahs: null, prob_real: r.probReal || null,
+      edge_calculado: r.edge || null, odd_pinnacle: r.cuotaPrograma || null,
+      odd_bet365: null, filtros_mentor_pasados: null, filtros_mentor_total: null
+    },
+    salida_prevista: { ganancia_esperada_usd: null, perdida_esperada_usd: null, resultado_esperado: '' },
+    salida_real: {
+      resultado: (r.resultado || 'PENDIENTE').toUpperCase(),
+      pnl_usd: r.gananciaPerdida || null,
+      odd_cierre: r.cuotaCierre || r.cuotaReal || null,
+      clv: r.clv || null,
+      fecha_resultado: r.fecha || '', notas_resultado: r.notas || ''
+    },
+    postmortem: { sistema_acerto: null, notas: r.notas || '' }
+  }));
+  localStorage.setItem(HAP_KEY, JSON.stringify(migrated));
+}
+
+// ── CRUD ─────────────────────────────────────────────────
+function hapLeer() { try { return JSON.parse(localStorage.getItem(HAP_KEY) || '[]'); } catch { return []; } }
+function hapGuardar(lista) { localStorage.setItem(HAP_KEY, JSON.stringify(lista)); }
+function hapGetModo() { return localStorage.getItem(HAP_MODO_KEY) || 'previsto'; }
+
+function hap_setModo(modo) {
+  localStorage.setItem(HAP_MODO_KEY, modo);
+  document.querySelectorAll('.hap-modo-btn').forEach(b => b.classList.remove('active'));
+  const map = { previsto:'tab-prev', real:'tab-real', mixto:'tab-mix' };
+  document.getElementById(map[modo])?.classList.add('active');
+  hap_renderAll();
+}
+
+// ── Estado filtros ────────────────────────────────────────
+const hapF = { liga:'all', mercado:'all', resultado:'all', casa:'all', desde:'', hasta:'', probMin:0, texto:'' };
+
+function hapFiltrar(lista) {
+  return lista.filter(r => {
+    const res = (r.salida_real?.resultado || '').toUpperCase();
+    if (hapF.liga !== 'all' && (r.entrada?.liga || '') !== hapF.liga) return false;
+    if (hapF.mercado !== 'all') {
+      const m = r.entrada?.mercado || '';
+      if (hapF.mercado === '1X2' && m !== '1X2') return false;
+      if (hapF.mercado === 'ou25' && !m.includes('2.5')) return false;
+      if (hapF.mercado === 'btts' && !/ambos|btts/i.test(m)) return false;
+    }
+    if (hapF.resultado !== 'all') {
+      if (hapF.resultado === 'ganadas' && res !== 'GANÓ') return false;
+      if (hapF.resultado === 'perdidas' && res !== 'PERDIÓ') return false;
+      if (hapF.resultado === 'pendientes' && r.estado !== 'pendiente') return false;
+    }
+    if (hapF.casa !== 'all' && (r.entrada?.casa_apuestas || '') !== hapF.casa) return false;
+    if (hapF.desde && (r.entrada?.fecha || '') < hapF.desde) return false;
+    if (hapF.hasta && (r.entrada?.fecha || '') > hapF.hasta) return false;
+    if ((r.indicadores_sistema?.prob_real || 0) < hapF.probMin) return false;
+    if (hapF.texto) {
+      const q = hapF.texto.toLowerCase();
+      if (!(r.entrada?.partido||'').toLowerCase().includes(q) &&
+          !(r.entrada?.liga||'').toLowerCase().includes(q) &&
+          !(r.entrada?.pick||'').toLowerCase().includes(q) &&
+          !(r.postmortem?.notas||'').toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function hapSetF(key, val) { hapF[key] = val; hap_renderAll(); }
+function hap_limpiarFiltros() {
+  Object.assign(hapF, { liga:'all', mercado:'all', resultado:'all', casa:'all', desde:'', hasta:'', probMin:0, texto:'' });
+  hap_renderAll();
+}
+
+// ── P&L automático ────────────────────────────────────────
+function hapCalcPnL(r) {
+  const cuota = r.entrada?.cuota_manual;
+  const stake = r.entrada?.stake_manual;
+  const res   = (r.salida_real?.resultado || '').toUpperCase();
+  if (!cuota || !stake || !res || res === 'PENDIENTE') return null;
+  return res === 'GANÓ' ? stake * (cuota - 1) : -stake;
+}
+
+function hapSistemaAcerto(r) {
+  const edge = r.indicadores_sistema?.edge_calculado;
+  const res  = (r.salida_real?.resultado || '').toUpperCase();
+  if (edge == null || !res || res === 'PENDIENTE') return null;
+  const ep = edge > 0, g = res === 'GANÓ';
+  if (ep && g)   return { icon:'✅', txt:'Sistema correcto — edge positivo y ganaste' };
+  if (ep && !g)  return { icon:'⚠️', txt:'Varianza — el sistema tenía razón, perdiste por azar' };
+  if (!ep && !g) return { icon:'✅', txt:'Sistema correcto — edge negativo, no debías apostar' };
+  return           { icon:'🍀', txt:'Suerte — ganaste pero el sistema falló' };
+}
+
+// ── Render principal ──────────────────────────────────────
+function hap_renderAll() {
+  const todas = hapLeer();
+  const modo  = hapGetModo();
+  // Activar tab correcto
+  const mapTab = { previsto:'tab-prev', real:'tab-real', mixto:'tab-mix' };
+  document.querySelectorAll('.hap-modo-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(mapTab[modo])?.classList.add('active');
+
+  const lista = hapFiltrar(todas);
+  hap_renderKpisCalidad(lista, modo);
+  hap_renderFiltros(todas, lista.length);
+  hap_renderLista(lista, modo);
+  hap_renderGraficoLiga(lista);
+}
+
+function hap_renderLista(lista, modo) {
+  const el = document.getElementById('hap-lista'); if (!el) return;
+  modo = modo || hapGetModo();
+  if (!lista.length) {
+    el.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#4e6a88;font-size:14px;">Sin registros que coincidan con los filtros.<br><br><button onclick="hap_limpiarFiltros()" style="background:none;border:1px solid #4e6a88;color:#4e6a88;padding:6px 16px;border-radius:6px;cursor:pointer;">Limpiar filtros</button></div>';
+    return;
+  }
+  el.innerHTML = lista.map(r => {
+    const res = (r.salida_real?.resultado || 'PENDIENTE').toUpperCase();
+    const resIcon = res === 'GANÓ' ? '🟢' : res === 'PERDIÓ' ? '🔴' : '⏳';
+    const resClass = res === 'GANÓ' ? 'ganó' : res === 'PERDIÓ' ? 'perdió' : '';
+    const prob = r.indicadores_sistema?.prob_real;
+    const pnl = r.salida_real?.pnl_usd;
+    const pnlCalc = pnl ?? hapCalcPnL(r);
+    const pnlTxt = pnlCalc != null
+      ? '<span style="font-family:monospace;font-weight:700;color:'+(pnlCalc>=0?'#4edea3':'#ffb4ab')+'">'+(pnlCalc>=0?'+$':'-$')+Math.abs(pnlCalc).toFixed(2)+'</span>'
+      : (modo !== 'real' ? '<span style="color:#4e6a88;font-size:11px;">sin dato</span>' : '<span style="color:#ffd966;font-size:10px;">⚠️ sin datos reales</span>');
+    return '<div class="hap-card ' + resClass + '" id="hapc-'+r.id+'">' +
+      '<div class="hap-card-hdr" onclick="hapToggle(\''+r.id+'\',this)">' +
+      '<span style="font-size:16px">'+resIcon+'</span>' +
+      '<span style="font-weight:700;min-width:28px;color:#4e6a88;font-size:12px">#'+r.id+'</span>' +
+      '<div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(r.entrada?.partido||'—')+'</div>' +
+      '<div style="font-size:11px;color:#4e6a88;">'+escHtml(r.entrada?.liga||'')+(r.entrada?.mercado?' · '+r.entrada.mercado:'')+' · '+escHtml(r.entrada?.fecha||'—')+'</div></div>' +
+      (prob!=null?'<span style="background:rgba(78,222,163,0.12);color:#4edea3;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;">'+prob+'%</span>':'')+
+      pnlTxt +
+      '<span style="color:#4e6a88;font-size:11px;margin-left:8px;" id="haparr-'+r.id+'">▼</span>' +
+      '</div>' +
+      '<div class="hap-card-body" id="hapbody-'+r.id+'" style="display:none;">'+hapCardBody(r)+'</div>' +
+      '</div>';
+  }).join('');
+}
+
+function hapToggle(id, hdr) {
+  const body = document.getElementById('hapbody-'+id);
+  const arr  = document.getElementById('haparr-'+id);
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  if (arr) arr.textContent = open ? '▼' : '▲';
+}
+
+function hapToggleBlk(hdr) {
+  const body = hdr.nextElementSibling;
+  const arr  = hdr.querySelector('span:last-child');
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  if (arr) arr.textContent = open ? '▶' : '▼';
+}
+
+function hapCardBody(r) {
+  const e   = r.entrada || {};
+  const ind = r.indicadores_sistema || {};
+  const sp  = r.salida_prevista || {};
+  const sr  = r.salida_real || {};
+  const pm  = r.postmortem || {};
+  const id  = r.id;
+
+  const sem = (key, val) => {
+    if (val == null || val === '') return '<span style="color:#4e6a88">—</span>';
+    let col = '#8ba4bd';
+    if (key==='score')  col = val>=70?'#4edea3':val>=50?'#ffd966':'#ffb4ab';
+    if (key==='prob')   col = val>=65?'#4edea3':val>=35?'#ffd966':'#ffb4ab';
+    if (key==='edge')   col = val>5?'#4edea3':val>1?'#ffd966':'#ffb4ab';
+    return '<span style="font-family:monospace;font-weight:700;color:'+col+'">'+escHtml(String(val))+'</span>';
+  };
+  const fila = (lbl, content) => '<div class="hap-fila"><span class="hap-lbl">'+lbl+'</span><span>'+content+'</span></div>';
+  const inp  = (id2, val, type, min) => '<input type="'+(type||'text')+'" id="'+id2+'" class="hap-inp" value="'+escHtml(String(val||''))+'" '+(min?'min="'+min+'"':'')+' style="width:160px;">';
+  const sel  = (id2, opts, cur) => '<select id="'+id2+'" class="hap-inp">'+opts.map(o=>'<option'+(o===cur?' selected':'')+'>'+o+'</option>').join('')+'</select>';
+  const blk  = (emoji, title, body) => '<div class="hap-blk"><div class="hap-blk-hdr" onclick="hapToggleBlk(this)">'+emoji+' '+title+'<span>▶</span></div><div class="hap-blk-body" style="display:none;">'+body+'</div></div>';
+
+  // B1 Entrada
+  const b1 = fila('Fecha', inp('b1f-'+id, e.fecha, 'date')) +
+    fila('Hora', inp('b1h-'+id, e.hora, 'time')) +
+    fila('Partido', inp('b1pa-'+id, e.partido)) +
+    fila('Liga', sel('b1li-'+id, ['Kolmonen','USL League Two','OÖ Liga','NPSL','Brasileiro Serie D','World Cup','Otra'], e.liga||'Kolmonen')) +
+    fila('Mercado', sel('b1me-'+id, ['1X2','Over/Under 2.5','Ambos equipos marcan'], e.mercado||'1X2')) +
+    fila('Pick', inp('b1pi-'+id, e.pick)) +
+    fila('Casa', sel('b1ca-'+id, ['','Ecuabet','Bet365','Sportbet','Otra'], e.casa_apuestas||'')) +
+    fila('Cuota obtenida', inp('b1cu-'+id, e.cuota_manual, 'number', '1')) +
+    fila('Stake ($)', inp('b1st-'+id, e.stake_manual, 'number', '0')) +
+    fila('Kelly %', inp('b1ke-'+id, e.kelly_pct, 'number', '0')) +
+    '<button class="hap-btn-save" onclick="hapGuardarEntrada('+id+')">💾 Guardar cambios</button>';
+
+  // B2 Indicadores
+  const b2 = fila('Score JCAHS', sem('score', ind.score_jcahs)+' '+inp('b2sc-'+id, ind.score_jcahs, 'number', '0')) +
+    fila('Prob Real %', sem('prob', ind.prob_real)+' '+inp('b2pr-'+id, ind.prob_real, 'number', '0')) +
+    fila('Edge %', sem('edge', ind.edge_calculado)+' '+inp('b2ed-'+id, ind.edge_calculado, 'number')) +
+    fila('Odd Pinnacle', inp('b2op-'+id, ind.odd_pinnacle, 'number', '1')) +
+    fila('Odd Bet365', inp('b2ob-'+id, ind.odd_bet365, 'number', '1')) +
+    fila('Filtros Mentor', '<input type="number" id="b2fm1-'+id+'" class="hap-inp" value="'+(ind.filtros_mentor_pasados||'')+'" style="width:60px;" placeholder="X"> de <input type="number" id="b2fm2-'+id+'" class="hap-inp" value="'+(ind.filtros_mentor_total||'')+'" style="width:60px;" placeholder="Y">') +
+    '<button class="hap-btn-save" onclick="hapGuardarIndicadores('+id+')">💾 Guardar cambios</button>';
+
+  // B3 Salida prevista
+  const b3 = fila('Ganancia si gana ($)', inp('b3gg-'+id, sp.ganancia_esperada_usd, 'number')) +
+    fila('Pérdida si pierde ($)', inp('b3gp-'+id, sp.perdida_esperada_usd, 'number')) +
+    fila('Resultado esperado', inp('b3re-'+id, sp.resultado_esperado)) +
+    '<button class="hap-btn-save" onclick="hapGuardarPrevista('+id+')">💾 Guardar cambios</button>';
+
+  // B4 Salida real
+  const pnlAuto = hapCalcPnL(r);
+  const b4 = r.estado === 'pendiente'
+    ? fila('Resultado', sel('b4rs-'+id, ['GANÓ','PERDIÓ'], sr.resultado)) +
+      fila('P&L $ <small style="color:#4e6a88">(auto si cuota+stake)</small>', inp('b4pn-'+id, sr.pnl_usd ?? (pnlAuto != null ? pnlAuto.toFixed(2) : ''), 'number')) +
+      fila('Odd cierre Pinnacle', inp('b4oc-'+id, sr.odd_cierre, 'number', '1')) +
+      fila('CLV %', '<span style="color:#4e6a88;font-size:11px;">'+(sr.odd_cierre&&e.cuota_manual?((e.cuota_manual-sr.odd_cierre)/sr.odd_cierre*100).toFixed(2)+'% (auto)':'ingresa odd cierre')+'</span>') +
+      fila('Fecha resultado', inp('b4fr-'+id, sr.fecha_resultado, 'date')) +
+      fila('Notas', inp('b4no-'+id, sr.notas_resultado)) +
+      '<button class="hap-btn-save" onclick="hapGuardarSalidaReal('+id+')">💾 Registrar resultado</button>'
+    : fila('Resultado', '<span style="font-weight:700;color:'+(sr.resultado==='GANÓ'?'#4edea3':'#ffb4ab')+'">'+sr.resultado+'</span>') +
+      fila('P&L', '<span style="font-family:monospace;font-weight:700;color:'+(( sr.pnl_usd||0)>=0?'#4edea3':'#ffb4ab')+'">'+(( sr.pnl_usd||0)>=0?'+$':'-$')+Math.abs(sr.pnl_usd||0).toFixed(2)+'</span>') +
+      fila('Odd cierre', sr.odd_cierre || '—') +
+      fila('CLV', sr.clv != null ? (sr.clv>=0?'+':'')+sr.clv.toFixed(2)+'%' : '—') +
+      '<button class="hap-btn-edit" onclick="hapEditarSalida('+id+')">✏️ Editar</button>';
+
+  // B5 Post-mortem
+  const acerto = hapSistemaAcerto(r);
+  const b5 = fila('Sistema acertó', acerto ? acerto.icon+' '+acerto.txt : '⬜ Sin datos suficientes') +
+    '<div style="margin-top:8px;margin-bottom:4px;font-size:11px;color:#8ba4bd;font-weight:600;letter-spacing:.5px;text-transform:uppercase;">Notas libres</div>' +
+    '<textarea id="b5nt-'+id+'" style="width:100%;min-height:60px;background:#0d1f35;border:1px solid rgba(255,255,255,0.07);border-radius:6px;color:#e2eefc;font-size:13px;padding:8px;outline:none;resize:vertical;">'+escHtml(pm.notas||'')+'</textarea>' +
+    '<button class="hap-btn-save" onclick="hapGuardarPostmortem('+id+')">💾 Guardar post-mortem</button>';
+
+  return blk('⚽','ENTRADA',b1) + blk('📊','INDICADORES DEL SISTEMA',b2) + blk('🎯','SALIDA PREVISTA',b3) + blk('📤','SALIDA REAL',b4) + blk('🔬','POST-MORTEM',b5);
+}
+
+// ── Guardar bloques ───────────────────────────────────────
+function hapGuardarEntrada(id) {
+  const lista = hapLeer(), r = lista.find(x => x.id == id); if (!r) return;
+  r.entrada = r.entrada || {};
+  const g = s => document.getElementById(s)?.value;
+  r.entrada.fecha      = g('b1f-'+id) || r.entrada.fecha;
+  r.entrada.hora       = g('b1h-'+id) || '';
+  r.entrada.partido    = g('b1pa-'+id) || '';
+  r.entrada.liga       = g('b1li-'+id) || '';
+  r.entrada.mercado    = g('b1me-'+id) || '';
+  r.entrada.pick       = g('b1pi-'+id) || '';
+  r.entrada.casa_apuestas = g('b1ca-'+id) || '';
+  r.entrada.cuota_manual  = parseFloat(g('b1cu-'+id)) || null;
+  r.entrada.stake_manual  = parseFloat(g('b1st-'+id)) || null;
+  r.entrada.kelly_pct     = parseFloat(g('b1ke-'+id)) || null;
+  // Auto P&L si cambian cuota/stake
+  const pnl = hapCalcPnL(r);
+  if (pnl !== null && r.salida_real) r.salida_real.pnl_usd = pnl;
+  hapGuardar(lista); hap_renderAll();
+}
+
+function hapGuardarIndicadores(id) {
+  const lista = hapLeer(), r = lista.find(x => x.id == id); if (!r) return;
+  r.indicadores_sistema = r.indicadores_sistema || {};
+  const g = s => document.getElementById(s)?.value;
+  r.indicadores_sistema.score_jcahs = parseFloat(g('b2sc-'+id)) || null;
+  r.indicadores_sistema.prob_real   = parseFloat(g('b2pr-'+id)) || null;
+  r.indicadores_sistema.edge_calculado = parseFloat(g('b2ed-'+id)) || null;
+  r.indicadores_sistema.odd_pinnacle = parseFloat(g('b2op-'+id)) || null;
+  r.indicadores_sistema.odd_bet365   = parseFloat(g('b2ob-'+id)) || null;
+  r.indicadores_sistema.filtros_mentor_pasados = parseInt(g('b2fm1-'+id)) || null;
+  r.indicadores_sistema.filtros_mentor_total   = parseInt(g('b2fm2-'+id)) || null;
+  hapGuardar(lista); hap_renderAll();
+}
+
+function hapGuardarPrevista(id) {
+  const lista = hapLeer(), r = lista.find(x => x.id == id); if (!r) return;
+  r.salida_prevista = r.salida_prevista || {};
+  const g = s => document.getElementById(s)?.value;
+  r.salida_prevista.ganancia_esperada_usd = parseFloat(g('b3gg-'+id)) || null;
+  r.salida_prevista.perdida_esperada_usd  = parseFloat(g('b3gp-'+id)) || null;
+  r.salida_prevista.resultado_esperado    = g('b3re-'+id) || '';
+  hapGuardar(lista); hap_renderAll();
+}
+
+function hapGuardarSalidaReal(id) {
+  const lista = hapLeer(), r = lista.find(x => x.id == id); if (!r) return;
+  r.salida_real = r.salida_real || {};
+  const g = s => document.getElementById(s)?.value;
+  r.salida_real.resultado    = g('b4rs-'+id) || 'PENDIENTE';
+  r.salida_real.odd_cierre   = parseFloat(g('b4oc-'+id)) || null;
+  r.salida_real.fecha_resultado = g('b4fr-'+id) || '';
+  r.salida_real.notas_resultado = g('b4no-'+id) || '';
+  // Auto P&L
+  const pnlInp = parseFloat(g('b4pn-'+id));
+  r.salida_real.pnl_usd = !isNaN(pnlInp) ? pnlInp : hapCalcPnL(r);
+  // Auto CLV
+  if (r.salida_real.odd_cierre && r.entrada?.cuota_manual) {
+    r.salida_real.clv = (r.entrada.cuota_manual - r.salida_real.odd_cierre) / r.salida_real.odd_cierre * 100;
+  }
+  r.estado = r.salida_real.resultado !== 'PENDIENTE' ? 'cerrada' : 'pendiente';
+  hapGuardar(lista); hap_renderAll();
+}
+
+function hapEditarSalida(id) {
+  const lista = hapLeer(), r = lista.find(x => x.id == id); if (!r) return;
+  r.estado = 'pendiente'; hapGuardar(lista); hap_renderAll();
+}
+
+function hapGuardarPostmortem(id) {
+  const lista = hapLeer(), r = lista.find(x => x.id == id); if (!r) return;
+  r.postmortem = r.postmortem || {};
+  r.postmortem.notas = document.getElementById('b5nt-'+id)?.value || '';
+  r.postmortem.sistema_acerto = hapSistemaAcerto(r);
+  hapGuardar(lista); hap_renderAll();
+}
+
+// ── Nueva apuesta ─────────────────────────────────────────
+function hap_abrirModal() {
+  const modal = document.getElementById('hap-modal'); if (!modal) return;
+  document.getElementById('hap-new-fecha').value = new Date().toISOString().slice(0,10);
+  modal.classList.add('show');
+}
+
+function hap_guardarNueva() {
+  const g = id => document.getElementById(id)?.value;
+  const partido = g('hap-new-partido');
+  if (!partido) { alert('El partido es obligatorio'); return; }
+  const lista = hapLeer();
+  const maxId = lista.reduce((m, r) => Math.max(m, r.id || 0), 0);
+  const cuota = parseFloat(g('hap-new-cuota')) || null;
+  const stake = parseFloat(g('hap-new-stake')) || null;
+  lista.unshift({
+    id: maxId + 1, estado: 'pendiente', edgeInflado: false,
+    entrada: { fecha: g('hap-new-fecha'), hora: g('hap-new-hora'), partido,
+      liga: g('hap-new-liga'), mercado: g('hap-new-mercado'), pick: g('hap-new-pick'),
+      casa_apuestas: g('hap-new-casa'), cuota_manual: cuota, stake_manual: stake, kelly_pct: null },
+    indicadores_sistema: { score_jcahs:null, prob_real:null, edge_calculado:null, odd_pinnacle:null, odd_bet365:null, filtros_mentor_pasados:null, filtros_mentor_total:null },
+    salida_prevista: { ganancia_esperada_usd: cuota&&stake?stake*(cuota-1):null, perdida_esperada_usd: stake?-stake:null, resultado_esperado:'' },
+    salida_real: { resultado:'PENDIENTE', pnl_usd:null, odd_cierre:null, clv:null, fecha_resultado:'', notas_resultado:'' },
+    postmortem: { sistema_acerto:null, notas:'' }
+  });
+  hapGuardar(lista);
+  document.getElementById('hap-modal').classList.remove('show');
+  hap_renderAll();
+}
+
+// ── Filtros render ────────────────────────────────────────
+function hap_renderFiltros(todas, nFiltrados) {
+  const el = document.getElementById('hap-filtros-wrap'); if (!el) return;
+  const b = (key, val, lbl) => '<button class="hap-filtro-btn'+(hapF[key]===val?' on':'')+'" onclick="hapSetF(\''+key+'\',\''+val+'\')">'+lbl+'</button>';
+  const ligas = [...new Set(todas.map(r=>r.entrada?.liga).filter(Boolean))];
+  el.innerHTML = '<div class="hap-filtro-wrap">' +
+    '<div class="hap-filtro-row">' +
+    b('liga','all','Todas las ligas') + ligas.map(l=>b('liga',l,l)).join('') + '</div>' +
+    '<div class="hap-filtro-row">' +
+    b('mercado','all','Todos') + b('mercado','1X2','1X2') + b('mercado','ou25','O/U 2.5') + b('mercado','btts','BTTS') +
+    '<span class="hap-filtro-sep"></span>' +
+    b('resultado','all','Resultado') + b('resultado','ganadas','🟢 Ganadas') + b('resultado','perdidas','🔴 Perdidas') + b('resultado','pendientes','⏳ Pendientes') +
+    '<span class="hap-filtro-sep"></span>' +
+    b('casa','all','Casa') + ['Ecuabet','Bet365','Sportbet'].map(c=>b('casa',c,c)).join('') +
+    '</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">' +
+    '<label style="font-size:11px;color:#8ba4bd;">Prob min: <input type="range" min="0" max="100" value="'+hapF.probMin+'" style="width:70px;vertical-align:middle;" oninput="hapSetF(\'probMin\',+this.value);this.nextElementSibling.textContent=this.value"> <span>'+hapF.probMin+'</span></label>' +
+    '<label style="font-size:11px;color:#8ba4bd;">Desde: <input type="date" value="'+hapF.desde+'" style="background:#0d1f35;border:1px solid rgba(255,255,255,0.07);border-radius:4px;color:#e2eefc;padding:3px 6px;font-size:11px;" oninput="hapSetF(\'desde\',this.value)"></label>' +
+    '<label style="font-size:11px;color:#8ba4bd;">Hasta: <input type="date" value="'+hapF.hasta+'" style="background:#0d1f35;border:1px solid rgba(255,255,255,0.07);border-radius:4px;color:#e2eefc;padding:3px 6px;font-size:11px;" oninput="hapSetF(\'hasta\',this.value)"></label>' +
+    '<input type="text" placeholder="🔍 Buscar partido / liga / notas..." value="'+escHtml(hapF.texto)+'" style="background:#0d1f35;border:1px solid rgba(255,255,255,0.07);border-radius:6px;color:#e2eefc;padding:5px 10px;font-size:12px;min-width:180px;" oninput="hapSetF(\'texto\',this.value)">' +
+    '<button onclick="hap_limpiarFiltros()" style="background:none;border:1px solid rgba(255,255,255,0.07);color:#8ba4bd;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">✕ Limpiar</button>' +
+    '<span style="margin-left:auto;font-size:12px;color:#4e6a88;">Mostrando '+nFiltrados+' de '+todas.length+' registros</span>' +
+    '</div></div>';
+}
+
+// ── KPIs de calidad ───────────────────────────────────────
+function hap_renderKpisCalidad(lista, modo) {
+  const el = document.getElementById('hap-calidad'); if (!el) return;
+  const cerradas = lista.filter(r => r.estado === 'cerrada');
+  const conClv = cerradas.filter(r => r.salida_real?.clv != null);
+  const clvProm = conClv.length ? conClv.reduce((s,r)=>s+r.salida_real.clv,0)/conClv.length : null;
+  const ganadoras = cerradas.filter(r=>(r.salida_real?.resultado||'').toUpperCase()==='GANÓ');
+  const perdedoras = cerradas.filter(r=>(r.salida_real?.resultado||'').toUpperCase()==='PERDIÓ');
+  const edgeGan  = ganadoras.filter(r=>r.indicadores_sistema?.edge_calculado!=null);
+  const edgePerd = perdedoras.filter(r=>r.indicadores_sistema?.edge_calculado!=null);
+  const avgEdgeGan  = edgeGan.length  ? edgeGan.reduce((s,r)=>s+r.indicadores_sistema.edge_calculado,0)/edgeGan.length   : null;
+  const avgEdgePerd = edgePerd.length ? edgePerd.reduce((s,r)=>s+r.indicadores_sistema.edge_calculado,0)/edgePerd.length  : null;
+  const conStake = cerradas.filter(r=>r.entrada?.stake_manual);
+  const avgStake = conStake.length ? conStake.reduce((s,r)=>s+r.entrada.stake_manual,0)/conStake.length : null;
+  const casas = {};
+  lista.forEach(r=>{ const c=r.entrada?.casa_apuestas||'Sin especificar'; casas[c]=(casas[c]||0)+1; });
+  const topCasa = Object.entries(casas).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>k+' '+Math.round(v/lista.length*100)+'%').join(' · ');
+  const kpi = (val, lbl, col) => '<div class="mc-kpi"><div class="mc-kpi-val" style="color:'+(col||'#e2eefc')+'">'+val+'</div><div style="font-size:10px;color:#4e6a88;text-transform:uppercase;letter-spacing:.6px;margin-top:3px;">'+lbl+'</div></div>';
+  const modoTag = '<span style="font-size:9px;background:rgba(78,222,163,0.12);color:#4edea3;padding:1px 6px;border-radius:10px;margin-left:4px;">'+(modo||hapGetModo()).toUpperCase()+'</span>';
+  el.innerHTML = '<div class="hap-calidad-row">' +
+    kpi(clvProm!=null?(clvProm>=0?'+':'')+clvProm.toFixed(2)+'%':'—', 'CLV promedio'+modoTag, clvProm!=null?(clvProm>0?'#4edea3':'#ffb4ab'):null) +
+    kpi((avgEdgeGan!=null?'Gan '+(avgEdgeGan>=0?'+':'')+avgEdgeGan.toFixed(1)+'%':'—')+' / '+(avgEdgePerd!=null?'Perd '+(avgEdgePerd>=0?'+':'')+avgEdgePerd.toFixed(1)+'%':'—'), 'Edge: Gan vs Perd') +
+    kpi(avgStake!=null?'$'+avgStake.toFixed(2):'—', 'Apuesta promedio') +
+    kpi(topCasa||'—', '% por casa', '#8ba4bd') +
+    '</div>';
+}
+
+// ── Gráfico por liga ──────────────────────────────────────
+function hap_renderGraficoLiga(lista) {
+  const box = document.getElementById('hap-liga-chart');
+  const cv  = document.getElementById('hapCvLiga');
+  if (!box || !cv) return;
+  const cerradas = lista.filter(r => r.estado === 'cerrada');
+  const ligaMap = {};
+  cerradas.forEach(r => {
+    const l = r.entrada?.liga || 'Otra';
+    if (!ligaMap[l]) ligaMap[l] = { gan:0, tot:0 };
+    ligaMap[l].tot++;
+    if ((r.salida_real?.resultado||'').toUpperCase() === 'GANÓ') ligaMap[l].gan++;
+  });
+  const ligas = Object.entries(ligaMap).filter(([,v])=>v.tot>=1).sort((a,b)=>b[1].tot-a[1].tot);
+  if (!ligas.length) { box.style.display='none'; return; }
+  box.style.display = '';
+  cv.height = Math.max(120, ligas.length * 36 + 20);
+  const W = cv.offsetWidth||900, H = cv.height;
+  cv.width = W;
+  const ctx = cv.getContext('2d'); if (!ctx) return;
+  ctx.clearRect(0,0,W,H);
+  const padL = 160, padR = 60, barH = 22, gap = 14;
+  ligas.forEach(([liga, v], i) => {
+    const hr = v.tot > 0 ? v.gan / v.tot : 0;
+    const y = 10 + i * (barH + gap);
+    const bw = (W - padL - padR) * hr;
+    ctx.fillStyle = 'rgba(78,222,163,0.25)'; ctx.fillRect(padL, y, W-padL-padR, barH);
+    ctx.fillStyle = hr >= 0.6 ? '#4edea3' : hr >= 0.4 ? '#ffd966' : '#ffb4ab';
+    ctx.fillRect(padL, y, bw, barH);
+    ctx.fillStyle = '#8ba4bd'; ctx.font = '11px Inter,sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText(escHtml(liga).slice(0,22), padL-6, y+barH/2+4);
+    ctx.fillStyle = '#e2eefc'; ctx.font = 'bold 11px JetBrains Mono,monospace'; ctx.textAlign = 'left';
+    ctx.fillText(Math.round(hr*100)+'% ('+v.gan+'/'+v.tot+')', padL+bw+6, y+barH/2+4);
+  });
+}
+
 window.addEventListener('focus', () => {
   if (procesarPendientes()) renderTodo();
 });
 
 procesarPendientes();
+migrarRegistrosLegacy();
 renderTodo();
 </script>
+
+<!-- Modal Nueva Apuesta -->
+<div class="hap-modal-ov" id="hap-modal">
+  <div class="hap-modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="font-size:17px;font-weight:800;">➕ Nueva Apuesta</div>
+      <button onclick="document.getElementById('hap-modal').classList.remove('show')" style="background:none;border:none;color:var(--text-2);font-size:20px;cursor:pointer;">✕</button>
+    </div>
+    <div class="hap-form-row">
+      <div class="hap-form-group"><label class="hap-form-label">Fecha</label><input type="date" id="hap-new-fecha" class="hap-form-input"></div>
+      <div class="hap-form-group"><label class="hap-form-label">Hora</label><input type="time" id="hap-new-hora" class="hap-form-input"></div>
+    </div>
+    <div class="hap-form-group" style="margin-bottom:10px;"><label class="hap-form-label">Partido</label><input type="text" id="hap-new-partido" class="hap-form-input" placeholder="Ej: Real Madrid vs Barcelona"></div>
+    <div class="hap-form-row">
+      <div class="hap-form-group"><label class="hap-form-label">Liga</label>
+        <select id="hap-new-liga" class="hap-form-input">
+          <option>Kolmonen</option><option>USL League Two</option><option>OÖ Liga</option>
+          <option>NPSL</option><option>Brasileiro Serie D</option><option>World Cup</option><option>Otra</option>
+        </select></div>
+      <div class="hap-form-group"><label class="hap-form-label">Mercado</label>
+        <select id="hap-new-mercado" class="hap-form-input">
+          <option>1X2</option><option>Over/Under 2.5</option><option>Ambos equipos marcan</option>
+        </select></div>
+    </div>
+    <div class="hap-form-group" style="margin-bottom:10px;"><label class="hap-form-label">Pick (selección)</label><input type="text" id="hap-new-pick" class="hap-form-input" placeholder="Ej: Real Madrid gana el partido"></div>
+    <div class="hap-form-row">
+      <div class="hap-form-group"><label class="hap-form-label">Casa de apuestas</label>
+        <select id="hap-new-casa" class="hap-form-input">
+          <option value="">— Seleccionar —</option>
+          <option>Ecuabet</option><option>Bet365</option><option>Sportbet</option><option>Otra</option>
+        </select></div>
+      <div class="hap-form-group"><label class="hap-form-label">Cuota obtenida</label><input type="number" id="hap-new-cuota" class="hap-form-input" placeholder="2.10" step="0.01" min="1"></div>
+    </div>
+    <div class="hap-form-group" style="margin-bottom:16px;"><label class="hap-form-label">Stake apostado ($)</label><input type="number" id="hap-new-stake" class="hap-form-input" placeholder="10.00" step="0.01" min="0"></div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="document.getElementById('hap-modal').classList.remove('show')" style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-2);border-radius:8px;padding:10px;cursor:pointer;font-size:13px;">Cancelar</button>
+      <button onclick="hap_guardarNueva()" style="flex:1;background:var(--tertiary);color:#060f1a;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;">💾 Guardar</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
