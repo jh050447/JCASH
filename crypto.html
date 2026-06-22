@@ -1855,11 +1855,15 @@ function calcSoportesResistencias(sym, tf) {
     if (hi > candles[i-1].h && hi > candles[i-2].h && hi > candles[i+1].h && hi > candles[i+2].h) pivHigh.push(hi);
   }
 
+  // BUG 1 FIX: threshold adaptativo — precios < $1 (ADA, XRP) necesitan agrupación más fina
+  const lastClose = candles.length > 0 ? candles[candles.length - 1].c : 1;
+  const agrupPct = lastClose < 0.01 ? 0.001 : lastClose < 1 ? 0.003 : 0.015;
+
   function agrupar(pivots, tipo) {
     const sorted = [...pivots].sort((a, b) => a - b);
     const zonas = [];
     sorted.forEach(p => {
-      const ex = zonas.find(z => Math.abs(z.precio - p) / z.precio < 0.015);
+      const ex = zonas.find(z => z.precio > 0 && Math.abs(z.precio - p) / z.precio < agrupPct);
       if (ex) { ex.toques++; ex.precio = (ex.precio * (ex.toques - 1) + p) / ex.toques; }
       else zonas.push({ precio: p, toques: 1, tipo });
     });
@@ -2035,6 +2039,14 @@ function calcScore(sym) {
 
   score = Math.min(100, score);
 
+  // BUG 2 FIX: penalización −25 si señal 4H es alcista pero tendencia 1D es bajista
+  const tendenciaBajista = ema20_1d !== null && ema50_1d !== null && ema20_1d < ema50_1d;
+  if (tendenciaBajista && score >= 60) {
+    score -= 25;
+    razonesFail.push('Conflicto de timeframes — señal 4H alcista vs tendencia 1D bajista (−25 pts)');
+  }
+  score = Math.max(0, score);
+
   // Señal
   let senal, senalClass;
   if (score >= 60) { senal = 'COMPRAR'; senalClass = 'badge-green'; }
@@ -2051,6 +2063,7 @@ function calcScore(sym) {
     sym, score, senal, senalClass, scoreColor,
     rsi4h, macd4h, volSig, ema20_1d, ema50_1d, ema200_1d,
     precio, razones, razonesFail, div4h, div1d, bb4h, stoch4h, sr, nearSoporte, nearResist,
+    tendenciaBajista,
     rsiColor: rsi4h < 30 ? 'var(--tertiary)' : rsi4h > 70 ? 'var(--error)' : 'var(--warning)'
   };
 }
@@ -2561,6 +2574,7 @@ function renderCoinCard(sym, elId) {
     </div>
 
     ${explTxt ? `<div class="por-que"><b>¿Por qué?</b> ${explTxt}</div>` : ''}
+    ${datos.tendenciaBajista && datos.score > 70 ? '<div style="margin-top:6px;font-size:11px;color:var(--warning);line-height:1.5;padding:6px 8px;background:rgba(255,217,102,0.08);border-radius:6px;border-left:2px solid rgba(255,217,102,0.5);">⚠️ Señal contra tendencia bajista diaria — riesgo elevado. Reduce el monto sugerido a la mitad.</div>' : ''}
     ${(datos.div4h?.detectada || datos.div1d?.detectada) ? '<div style="margin-top:6px;font-size:11px;color:var(--text-3);line-height:1.5;padding:6px 8px;background:var(--surface-2);border-radius:6px;border-left:2px solid rgba(255,217,102,0.35);">⚠ La divergencia reduce falsas señales pero no las elimina. En tendencia bajista fuerte el precio puede seguir cayendo. Stop loss obligatorio.</div>' : ''}
 
     <button class="chart-toggle" onclick="toggleCandleChart('${sym}',this)">📈 Ver gráfico 4H ▼</button>
