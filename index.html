@@ -2112,8 +2112,35 @@ const EXCHANGES  = {
 };
 
 const COINGECKO_IDS = { BTC:'bitcoin', ETH:'ethereum', BNB:'binancecoin', SOL:'solana', XRP:'ripple' };
+const CACHE_COINGECKO_MS = 3 * 60 * 60 * 1000; // 3 horas
+let _lastCoinGeckoCall_ix = 0;
+const COINGECKO_MIN_INTERVAL = 15000; // 15 seg entre llamadas consecutivas
+
+async function coingeckoFetch(url) {
+  const ahora = Date.now();
+  const espera = COINGECKO_MIN_INTERVAL - (ahora - _lastCoinGeckoCall_ix);
+  if (espera > 0) await new Promise(function(r) { setTimeout(r, espera); });
+  _lastCoinGeckoCall_ix = Date.now();
+  try {
+    const r = await fetchSeguro(url, 6000);
+    if (r.ok) return r.json();
+  } catch(_) {}
+  const r = await fetchSeguro(proxyUrl(url), 8000);
+  if (!r.ok) throw new Error('CoinGecko ' + r.status);
+  return r.json();
+}
 
 async function cargarPrecios() {
+  const CG_PRECIOS_KEY = 'jcahs_coingecko_precios_ix';
+  // CAMBIO 1: cache 3h en localStorage
+  try {
+    const cached = JSON.parse(localStorage.getItem(CG_PRECIOS_KEY) || 'null');
+    if (cached && (Date.now() - cached.timestamp) < CACHE_COINGECKO_MS) {
+      for (const [sym, val] of Object.entries(cached.data)) STATE.precios[sym] = val;
+      return true;
+    }
+  } catch(_) {}
+
   if (!checkApiLimit('coingecko_precios')) {
     console.log('CoinGecko: límite de tasa alcanzado, usando precios en caché');
     return Object.keys(STATE.precios).length > 0;
@@ -2122,22 +2149,9 @@ async function cargarPrecios() {
 
   const ids = Object.values(COINGECKO_IDS).join(',');
   const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`;
+  // CAMBIO 2: coingeckoFetch (semáforo 15s + reintentos)
   let data;
-
-  // Intento 1: directo
-  try {
-    const r = await fetchSeguro(url, 6000);
-    if (r.ok) data = await r.json();
-  } catch (_) {}
-
-  // Intento 2: vía proxy
-  if (!data) {
-    try {
-      const r = await fetchSeguro(proxyUrl(url), 8000);
-      if (r.ok) data = await r.json();
-    } catch (_) {}
-  }
-
+  try { data = await coingeckoFetch(url); } catch(_) {}
   if (!data) return false;
 
   for (const sym of Object.keys(COINGECKO_IDS)) {
@@ -2151,6 +2165,12 @@ async function cargarPrecios() {
       ts:        ts(),
     };
   }
+  // CAMBIO 1: guardar en cache 3h
+  try {
+    const snap = {};
+    for (const sym of Object.keys(COINGECKO_IDS)) if (STATE.precios[sym]) snap[sym] = STATE.precios[sym];
+    localStorage.setItem(CG_PRECIOS_KEY, JSON.stringify({ data: snap, timestamp: Date.now() }));
+  } catch(_) {}
   return true;
 }
 
@@ -2428,9 +2448,19 @@ async function expandirTop100() {
 }
 
 async function cargarTop100() {
+  const CG_TOP100_KEY = 'jcahs_coingecko_top100_ix';
   const wrap = qs('top100-wrap');
   if (!wrap) return;
   wrap.classList.add('visible');
+  // CAMBIO 1: cache 3h
+  try {
+    const cached = JSON.parse(localStorage.getItem(CG_TOP100_KEY) || 'null');
+    if (cached && (Date.now() - cached.timestamp) < CACHE_COINGECKO_MS) {
+      STATE.top100 = cached.data;
+      renderTop100();
+      return;
+    }
+  } catch(_) {}
   if (!checkApiLimit('coingecko')) {
     console.log('CoinGecko: límite de tasa alcanzado, usando top100 en caché');
     if (STATE.top100.length) { renderTop100(); return; }
@@ -2441,11 +2471,11 @@ async function cargarTop100() {
   wrap.innerHTML = '<div class="loading"><span class="spin">⌛</span> Cargando 100 monedas...</div>';
   const cgUrl = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false&price_change_percentage=24h';
   try {
-    const r = await fetchSeguro(proxyUrl(cgUrl), 15000);
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const data = await r.json();
+    // CAMBIO 2: coingeckoFetch (semáforo)
+    const data = await coingeckoFetch(cgUrl);
     if (!Array.isArray(data) || !data.length) throw new Error('sin datos');
     STATE.top100 = data;
+    try { localStorage.setItem(CG_TOP100_KEY, JSON.stringify({ data, timestamp: Date.now() })); } catch(_) {}
     renderTop100();
   } catch (_) {
     const w = qs('top100-wrap');

@@ -1500,6 +1500,19 @@ async function proxyGet(url) {
   return r.json();
 }
 
+// ── COINGECKO RATE LIMITER ────────────────────────────────
+const CACHE_COINGECKO_MS = 3 * 60 * 60 * 1000; // 3 horas
+let _lastCoinGeckoCall = 0;
+const COINGECKO_MIN_INTERVAL = 15000; // 15 seg entre llamadas
+
+async function coingeckoFetch(url) {
+  const ahora = Date.now();
+  const espera = COINGECKO_MIN_INTERVAL - (ahora - _lastCoinGeckoCall);
+  if (espera > 0) await new Promise(function(r) { setTimeout(r, espera); });
+  _lastCoinGeckoCall = Date.now();
+  return proxyGet(url);
+}
+
 // ── CARGAR PRECIOS ────────────────────────────────────────
 // Cascada: 1° Kraken Ticker  2° CoinGecko  3° precios en memoria
 const _KRAKEN_TICKER_MAP = {
@@ -1532,9 +1545,23 @@ async function cargarPreciosKraken() {
 }
 
 async function cargarPreciosCoinGecko() {
-  const data = await proxyGet(
+  const CG_PRECIOS_KEY = 'jcahs_coingecko_precios';
+  // CAMBIO 1: cache 3h en localStorage
+  try {
+    const cached = JSON.parse(localStorage.getItem(CG_PRECIOS_KEY) || 'null');
+    if (cached && Date.now() - cached.timestamp < CACHE_COINGECKO_MS) {
+      const map = { bitcoin:'BTC', ethereum:'ETH', solana:'SOL', ripple:'XRP', cardano:'ADA', 'avalanche-2':'AVAX', polkadot:'DOT', chainlink:'LINK' };
+      Object.entries(map).forEach(([id, sym]) => {
+        if (cached.data[id]) { STATE.precios[sym] = cached.data[id].usd; STATE.changes24h[sym] = cached.data[id].usd_24h_change; }
+      });
+      return;
+    }
+  } catch(e) {}
+  // CAMBIO 2: usar coingeckoFetch (semáforo 15s)
+  const data = await coingeckoFetch(
     'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,ripple,cardano,avalanche-2,polkadot,chainlink&vs_currencies=usd&include_24hr_change=true'
   );
+  try { localStorage.setItem(CG_PRECIOS_KEY, JSON.stringify({ data, timestamp: Date.now() })); } catch(e) {}
   const map = {
     bitcoin: 'BTC', ethereum: 'ETH', solana: 'SOL', ripple: 'XRP',
     cardano: 'ADA', 'avalanche-2': 'AVAX', polkadot: 'DOT', chainlink: 'LINK'
@@ -1542,6 +1569,7 @@ async function cargarPreciosCoinGecko() {
   Object.entries(map).forEach(([id, sym]) => {
     if (data[id]) { STATE.precios[sym] = data[id].usd; STATE.changes24h[sym] = data[id].usd_24h_change; }
   });
+  // CAMBIO 3: CoinGecko es ya fallback — Kraken es el primario en cargarPrecios()
 }
 
 async function cargarPrecios(forzar) {
@@ -2994,14 +3022,27 @@ function renderMovimientosExtremos() {
 }
 
 async function cargarTop100() {
+  const CG_TOP100_KEY = 'jcahs_coingecko_top100';
   const wrap = qs('top100-table-wrap');
+  // CAMBIO 1: cache 3h
+  try {
+    const cached = JSON.parse(localStorage.getItem(CG_TOP100_KEY) || 'null');
+    if (cached && Date.now() - cached.timestamp < CACHE_COINGECKO_MS) {
+      STATE.top100 = cached.data;
+      renderTop100(cached.data);
+      renderMovimientosExtremos();
+      return;
+    }
+  } catch(e) {}
   wrap.innerHTML = '<div class="empty-state">Cargando Top 100...</div>';
   try {
-    const data = await proxyGet(
+    // CAMBIO 2: coingeckoFetch (semáforo)
+    const data = await coingeckoFetch(
       'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false'
     );
     if (!Array.isArray(data)) throw new Error('Respuesta inesperada');
     STATE.top100 = data;
+    try { localStorage.setItem(CG_TOP100_KEY, JSON.stringify({ data, timestamp: Date.now() })); } catch(e) {}
     renderTop100(data);
     renderMovimientosExtremos();
   } catch (e) {
@@ -4470,7 +4511,7 @@ function _scFiltrar(coins) {
 }
 
 async function scanearSmallCap() {
-  const CACHE_MS = 30 * 60 * 1000;
+  const CACHE_MS = CACHE_COINGECKO_MS; // CAMBIO 1: de 30min a 3h
   if (STATE.smallCapTimestamp && Date.now() - STATE.smallCapTimestamp < CACHE_MS && STATE.smallCapData) {
     ir('sec-small-cap');
     return;
@@ -4482,7 +4523,8 @@ async function scanearSmallCap() {
 
   try {
     const base = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&sparkline=false&price_change_percentage=7d,30d&per_page=250&page=';
-    const [r1, r2] = await Promise.all([proxyGet(base + '1'), proxyGet(base + '2')]);
+    const r1 = await coingeckoFetch(base + '1'); // CAMBIO 2: semáforo
+    const r2 = await coingeckoFetch(base + '2');
     const all = [...(Array.isArray(r1) ? r1 : []), ...(Array.isArray(r2) ? r2 : [])];
     const filtrados = _scFiltrar(all);
     STATE.smallCapData = filtrados;
