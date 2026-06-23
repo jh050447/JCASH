@@ -1378,13 +1378,28 @@ const STATE = {
   ultimaActualizacion: null
 };
 
+// Nombres protegidos — nunca traducir con MyMemory u otro servicio
 const NOMBRES = {
   BTC:'Bitcoin', ETH:'Ethereum', SOL:'Solana', XRP:'XRP',
-  ADA:'Cardano', AVAX:'Avalanche', DOT:'Polkadot', LINK:'Chainlink'
+  ADA:'Cardano', AVAX:'Avalanche', DOT:'Polkadot', LINK:'Chainlink',
+  BNB:'BNB', PUNT:'Punt'
 };
+const CRYPTO_NOMBRES = NOMBRES; // alias explícito para compatibilidad
 const COIN_COLOR = {
   BTC:'#F7931A', ETH:'#627EEA', SOL:'#9945FF', XRP:'#00AAE4',
   ADA:'#0033AD', AVAX:'#E84142', DOT:'#E6007A', LINK:'#2A5ADA'
+};
+const CRYPTO_LOGOS = {
+  BTC:  'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
+  ETH:  'https://assets.coingecko.com/coins/images/279/small/ethereum.png',
+  SOL:  'https://assets.coingecko.com/coins/images/4128/small/solana.png',
+  XRP:  'https://assets.coingecko.com/coins/images/44/small/xrp-symbol-white-128.png',
+  ADA:  'https://assets.coingecko.com/coins/images/975/small/cardano.png',
+  AVAX: 'https://assets.coingecko.com/coins/images/12559/small/Avalanche_Circle_RedWhite_Trans.png',
+  DOT:  'https://assets.coingecko.com/coins/images/12171/small/polkadot.png',
+  LINK: 'https://assets.coingecko.com/coins/images/877/small/chainlink-new-logo.png',
+  BNB:  'https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png',
+  PUNT: 'https://assets.coingecko.com/coins/images/30494/small/punt.png'
 };
 const EXCHANGES = {
   binance: { nombre:'Binance', spot:0.001,  futuros:0.0004 },
@@ -2529,12 +2544,19 @@ function renderCoinCard(sym, elId) {
   const srExpTxt = _expSR(datos.nearSoporte, datos.nearResist, datos.sr);
   const divExpTxt = _expDiv(datos.div4h, datos.div1d);
   const esAlcista1D = datos.ema20_1d && datos.ema50_1d && datos.ema20_1d > datos.ema50_1d;
+  // FIX 2: primer soporte/resistencia con precio > 0 (evita mostrar $0 en ADA/XRP)
+  const firstValidSoporte = (datos.sr?.soportes || []).find(s => s && s.precio > 0);
+  // FIX 3: logo del token
+  const logoUrl = CRYPTO_LOGOS[sym] || null;
+  const logoHtml = logoUrl ? '<img src="' + logoUrl + '" alt="' + sym + '" width="28" height="28" style="border-radius:50%;margin-right:8px;vertical-align:middle;flex-shrink:0;" onerror="this.style.display=\'none\'">' : '';
 
   el.innerHTML = `
     <div class="coin-header">
-      <div>
-        <div class="coin-sym" style="color:${coinColor}">${sym}</div>
-        <div class="coin-name">${nombre}</div>
+      <div style="display:flex;align-items:center;">
+        ${logoHtml}<div>
+          <div class="coin-sym" style="color:${coinColor}">${sym}</div>
+          <div class="coin-name">${CRYPTO_NOMBRES[sym] || sym}</div>
+        </div>
       </div>
       <span class="badge ${datos.senalClass}">${datos.senal}</span>
     </div>
@@ -2583,17 +2605,17 @@ function renderCoinCard(sym, elId) {
       </div>
       <div class="metric-exp">${_expStoch(datos.stoch4h)}</div>` : ''}
 
-      ${datos.nearResist ? `<div class="metric-row">
+      ${(datos.nearResist && datos.nearResist.precio > 0) ? `<div class="metric-row">
         <span class="metric-label">Resistencia</span>
-        <span class="metric-val" style="color:var(--error)">← aquí · $${fmt(datos.nearResist.precio,0)} (${datos.nearResist.toques} toques)</span>
+        <span class="metric-val" style="color:var(--error)">← aquí · ${fmtPrecio(datos.nearResist.precio)} (${datos.nearResist.toques} toques)</span>
       </div>
-      <div class="metric-exp">${srExpTxt}</div>` : datos.nearSoporte ? `<div class="metric-row">
+      <div class="metric-exp">${srExpTxt}</div>` : (datos.nearSoporte && datos.nearSoporte.precio > 0) ? `<div class="metric-row">
         <span class="metric-label">Soporte</span>
-        <span class="metric-val" style="color:var(--tertiary)">← aquí · $${fmt(datos.nearSoporte.precio,0)} (${datos.nearSoporte.toques} toques)</span>
+        <span class="metric-val" style="color:var(--tertiary)">← aquí · ${fmtPrecio(datos.nearSoporte.precio)} (${datos.nearSoporte.toques} toques)</span>
       </div>
-      <div class="metric-exp">${srExpTxt}</div>` : datos.sr?.soportes?.length ? `<div class="metric-row">
+      <div class="metric-exp">${srExpTxt}</div>` : firstValidSoporte ? `<div class="metric-row">
         <span class="metric-label">Soporte próx.</span>
-        <span class="metric-val" style="color:var(--text-3)">$${fmt(datos.sr.soportes[0].precio,0)} (${datos.sr.soportes[0].toques} toques)</span>
+        <span class="metric-val" style="color:var(--text-3)">${fmtPrecio(firstValidSoporte.precio)} (${firstValidSoporte.toques} toques)</span>
       </div>
       <div class="metric-exp">${srExpTxt}</div>` : ''}
 
