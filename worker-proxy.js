@@ -18,6 +18,11 @@
  *   /?url=...&api=finnhub                            (Finnhub: injects X-Finnhub-Token header)
  *   /?url=...&api=alphavantage                       (Alpha Vantage: injects &apikey= query param)
  *
+ * PUBLIC APIs — no key needed, use generic /?url= passthrough:
+ *   Bybit:  api.bybit.com/v5/market/kline?category=spot&symbol=BTCUSDT&interval=240&limit=1000
+ *   Kraken: api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=240
+ *   CoinGecko, Finnhub free-tier, alternative.me — also passthrough
+ *
  * TELEGRAM ENDPOINT (no &url= needed):
  *   /?telegram=1&chat_id=XXXXX&text=[encoded]       (sends message via bot — token from secret)
  *
