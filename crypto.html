@@ -6014,6 +6014,7 @@ function generarStorytellingBacktest(sym, tf, stats) {
 
 async function btEjecutarToken(sym) {
   const tf = window.backtestTF || '4h';
+  console.log('🔄 Ejecutando backtesting:', sym, tf, '| window.backtestTF:', window.backtestTF);
   const barra = qs('bt-barra'), progreso = qs('bt-progreso'), txt = qs('bt-progreso-txt');
   const el = qs('bt-results');
   if (!el) return;
@@ -6043,21 +6044,27 @@ async function btEjecutarToken(sym) {
       if (progreso) setTimeout(function() { progreso.style.display = 'none'; }, 2000);
       return;
     }
-    const stats = calcularEstadisticasBacktest(res);
+    const statsCalculadas = calcularEstadisticasBacktest(res);
+    statsCalculadas.sym = sym;
+    statsCalculadas.tf  = tf;
+    statsCalculadas.fechaEjecucion = new Date().toISOString();
+    const claveGuardado = sym + '_' + tf;
+
     try {
-      const stored = JSON.parse(localStorage.getItem('jcahs_backtest_resultados') || '{}');
+      const bt = JSON.parse(localStorage.getItem('jcahs_backtest_resultados') || '{}');
       // Migrar claves legacy (sin sufijo _TF) al formato nuevo
       ['BTC','ETH','SOL','XRP','ADA','AVAX','DOT','LINK'].forEach(function(s) {
-        if (stored[s] && !stored[s + '_4h']) {
-          stored[s + '_4h'] = stored[s];
-          delete stored[s];
-        }
+        if (bt[s] && !bt[s + '_4h']) { bt[s + '_4h'] = bt[s]; delete bt[s]; }
       });
-      const clave = sym + '_' + tf; // ej: 'BTC_1d'
-      stored[clave] = stats;
-      localStorage.setItem('jcahs_backtest_resultados', JSON.stringify(stored));
-    } catch(e) {}
-    el.innerHTML = generarStorytellingBacktest(sym, tf, stats);
+      bt[claveGuardado] = statsCalculadas;
+      if (bt[sym]) delete bt[sym]; // eliminar clave legacy sin sufijo si existe
+      console.log('✅ Guardando como:', claveGuardado, '| Stats:', JSON.stringify(statsCalculadas).length, 'bytes');
+      localStorage.setItem('jcahs_backtest_resultados', JSON.stringify(bt));
+      console.log('✅ localStorage actualizado. Claves:', Object.keys(bt));
+    } catch(e) {
+      console.error('❌ Error localStorage:', e.message);
+    }
+    el.innerHTML = generarStorytellingBacktest(sym, tf, statsCalculadas);
     if (progreso) setTimeout(function() { progreso.style.display = 'none'; }, 2000);
   }, 0);
 }
