@@ -3328,7 +3328,7 @@ function init() {
   // Cargar datos: macro primero (rate limit más estricto, cache 60min), luego el resto
   cargarDatosMacro();
   recargarDatos(true);
-  cargarNoticiasCrypto();
+  // FIX 1: noticias NO se cargan automáticamente — solo al navegar a la sección o pulsar ↺
 
   // Restaurar chat SATOSHI guardado
   try { STATE.satoshiChat = JSON.parse(localStorage.getItem('jcahs_satoshi_chat') || '[]'); } catch { STATE.satoshiChat = []; }
@@ -5057,14 +5057,39 @@ async function cargarNoticiasCrypto(forzar) {
     // 1° Renderizar en inglés inmediatamente (no bloqueante)
     renderNoticias(sorted);
 
-    // 2° Traducir en background — actualizar cuando llegue la traducción
-    if (subEl) subEl.textContent += ' · traduciendo…';
-    traducirNoticias(sorted).then(traducidas => {
-      STATE.noticias = traducidas;
-      renderNoticias(traducidas);
-      if (subEl) subEl.textContent = sorted.length + ' noticias en español · ' +
+    // FIX 3: cache 3h de traducciones — evita llamar MyMemory en cada visita
+    const TRAD_KEY = 'jcahs_noticias_traducidas';
+    const TRAD_TTL = 3 * 60 * 60 * 1000; // 3 horas
+    let tradCached = null;
+    try {
+      const raw = localStorage.getItem(TRAD_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && (Date.now() - parsed.timestamp) < TRAD_TTL && !forzar) {
+          tradCached = parsed.noticias;
+        }
+      }
+    } catch(e) {}
+
+    if (tradCached) {
+      // Usar cache — no llamar MyMemory
+      STATE.noticias = tradCached;
+      renderNoticias(tradCached);
+      if (subEl) subEl.textContent = sorted.length + ' noticias en español · (cache) · ' +
         new Date().toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', hour12: false });
-    });
+    } else {
+      // 2° Traducir en background — solo si no hay cache válido
+      if (subEl) subEl.textContent += ' · traduciendo…';
+      traducirNoticias(sorted).then(traducidas => {
+        STATE.noticias = traducidas;
+        renderNoticias(traducidas);
+        try {
+          localStorage.setItem(TRAD_KEY, JSON.stringify({ noticias: traducidas, timestamp: Date.now() }));
+        } catch(e) {}
+        if (subEl) subEl.textContent = sorted.length + ' noticias en español · ' +
+          new Date().toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', hour12: false });
+      });
+    }
   } catch(e) {
     console.warn('cargarNoticiasCrypto:', e.message);
     if (el) el.innerHTML = '<div class="empty-state" style="color:var(--error)">Error al cargar noticias: ' + e.message + '</div>';
