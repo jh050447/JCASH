@@ -2958,13 +2958,32 @@ function detectarEstrategias() {
     }
   }
   const vbets = STATE.valueBets||[];
-  if (vbets.length >= 3) {
-    const ep=vbets.slice(0,3).reduce((s,v)=>s+v.edge,0)/3;
-    const oc=vbets.slice(0,3).reduce((p,v)=>p*v.odd,1);
-    ops.push({ tipo:'apuesta', estrategia:'acumulador',
-      nombre:'Acumulador de Value Bets',
-      porQue:`${vbets.length} value bets disponibles. Edge promedio: +${ep.toFixed(1)}%. Odd combinada: ${oc.toFixed(2)}.`,
-      potencial:(bkr*0.02)*(oc-1), riesgo:'alto' });
+  if (vbets.length >= 2) {
+    // FIX 1: ordenar por edge desc, FIX 2: partidos únicos por gameId
+    const picksSorted = vbets.filter(v => v.edge > 0).sort((a, b) => b.edge - a.edge);
+    const picksUnicos = [];
+    const partidosVistos = new Set();
+    for (const pick of picksSorted) {
+      const idPartido = pick.gameId || pick.partido || pick.match;
+      if (!partidosVistos.has(idPartido)) {
+        partidosVistos.add(idPartido);
+        picksUnicos.push(pick);
+      }
+      if (picksUnicos.length >= 4) break;
+    }
+    if (picksUnicos.length >= 2) {
+      const oddCombinada = picksUnicos.reduce((acc, p) => acc * p.odd, 1);
+      const probCombinada = picksUnicos.reduce((acc, p) => acc * (p.probReal / 100), 1);
+      const kellyCombinada = calcKelly(probCombinada, oddCombinada, 0.25);
+      const ep = picksUnicos.reduce((s, v) => s + v.edge, 0) / picksUnicos.length;
+      console.log('MÚLTIPLE — picks seleccionados:', picksUnicos.map(p => ({ partido: p.partido, pick: p.pick, edge: p.edge, odd: p.odd })));
+      console.log('Odd combinada:', oddCombinada);
+      console.log('Kelly combinada:', kellyCombinada);
+      ops.push({ tipo:'apuesta', estrategia:'acumulador',
+        nombre:'Acumulador de Value Bets',
+        porQue:`${picksUnicos.length} picks de ${vbets.length} value bets (${picksUnicos.length} partidos distintos). Edge promedio: +${ep.toFixed(1)}%. Odd combinada: ${oddCombinada.toFixed(2)}.`,
+        potencial:(bkr * kellyCombinada) * (oddCombinada - 1), riesgo:'alto' });
+    }
   }
   if (vbets.some(v=>v.odd<1.6))
     ops.push({ tipo:'apuesta', estrategia:'handicap',
@@ -10149,20 +10168,37 @@ function generarSugerencias(capital, gananciaMin, gananciaMax, tipo) {
   });
   crypto.sort((a, b) => b.score - a.score);
 
-  // MÚLTIPLE → combinar mejores picks con score promedio
+  // MÚLTIPLE → FIX 1: ordenar por edge, FIX 2: partidos únicos
   if (tipo === 'multiple' && deportes.length >= 2) {
-    const picks = deportes.filter(s => s.tipo === 'APUESTA').slice(0, 3);
-    if (picks.length >= 2) {
-      const oddComb = picks.reduce((acc, p) => acc * p.odd, 1);
+    const picksSorted = deportes
+      .filter(s => s.tipo === 'APUESTA' && s.edge > 0)
+      .sort((a, b) => b.edge - a.edge);
+    const picksUnicos = [];
+    const partidosVistos = new Set();
+    for (const pick of picksSorted) {
+      const idPartido = pick.gameId || pick.partido || pick.match;
+      if (!partidosVistos.has(idPartido)) {
+        partidosVistos.add(idPartido);
+        picksUnicos.push(pick);
+      }
+      if (picksUnicos.length >= 4) break;
+    }
+    if (picksUnicos.length >= 2) {
+      const oddCombinada = picksUnicos.reduce((acc, p) => acc * p.odd, 1);
+      const probCombinada = picksUnicos.reduce((acc, p) => acc * (p.prob / 100), 1);
+      const kellyCombinada = calcKelly(probCombinada, oddCombinada, 0.25);
+      console.log('MÚLTIPLE — picks seleccionados:', picksUnicos.map(p => ({ partido: p.partido, pick: p.pick, edge: p.edge, odd: p.odd })));
+      console.log('Odd combinada:', oddCombinada);
+      console.log('Kelly combinada:', kellyCombinada);
       deportes.unshift({
         tipo: 'MÚLTIPLE', seccion: 'deportes',
-        descripcion: picks.map(p => p.descripcion).join(' + '),
-        apostar: capital, ganancia: capital * (oddComb - 1), odd: oddComb,
-        edge:  picks.reduce((acc, p) => acc + p.edge, 0)  / picks.length,
-        score: Math.round(picks.reduce((acc, p) => acc + p.score, 0) / picks.length),
-        prob:  picks.reduce((acc, p) => acc * p.prob / 100, 1) * 100,
-        kelly: null, calidad: 'MÚLTIPLE',
-        razon: `Acumulador de ${picks.length} value bets con edge positivo individual.`,
+        descripcion: picksUnicos.map(p => p.descripcion).join(' + '),
+        apostar: capital, ganancia: (capital * kellyCombinada) * (oddCombinada - 1), odd: oddCombinada,
+        edge:  picksUnicos.reduce((acc, p) => acc + p.edge, 0) / picksUnicos.length,
+        score: Math.round(picksUnicos.reduce((acc, p) => acc + p.score, 0) / picksUnicos.length),
+        prob:  probCombinada * 100,
+        kelly: kellyCombinada, calidad: 'MÚLTIPLE',
+        razon: `Acumulador de ${picksUnicos.length} picks (partidos distintos), ordenados por edge. Odd combinada: ${oddCombinada.toFixed(2)}.`,
       });
     }
   }
