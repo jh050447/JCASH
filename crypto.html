@@ -1099,16 +1099,25 @@ select.input { cursor: pointer; }
         <!-- Motor real por token -->
         <div class="card" style="margin-bottom:14px;">
           <div class="card-title">Motor real — señales históricas del sistema</div>
+          <!-- Selector de Timeframe -->
+          <div style="margin-bottom:12px;">
+            <div style="font-size:11px;color:var(--text-3);margin-bottom:6px;letter-spacing:1px;text-transform:uppercase;">Timeframe de análisis</div>
+            <div style="display:flex;gap:8px;">
+              <button id="btn-tf-1h" onclick="setTFBacktest('1h')" class="btn btn-ghost btn-sm">1H · 30 días</button>
+              <button id="btn-tf-4h" onclick="setTFBacktest('4h')" class="btn btn-primary btn-sm">4H · 120 días ★</button>
+              <button id="btn-tf-1d" onclick="setTFBacktest('1d')" class="btn btn-ghost btn-sm">1D · 2 años</button>
+            </div>
+          </div>
           <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
-            <button class="btn btn-ghost btn-sm" onclick="btEjecutarToken('BTC')">▶ BTC 4H</button>
-            <button class="btn btn-ghost btn-sm" onclick="btEjecutarToken('ETH')">▶ ETH 4H</button>
-            <button class="btn btn-ghost btn-sm" onclick="btEjecutarToken('SOL')">▶ SOL 4H</button>
-            <button class="btn btn-ghost btn-sm" onclick="btEjecutarToken('XRP')">▶ XRP 4H</button>
-            <button class="btn btn-ghost btn-sm" onclick="btEjecutarToken('ADA')">▶ ADA 4H</button>
-            <button class="btn btn-ghost btn-sm" onclick="btEjecutarToken('AVAX')">▶ AVAX 4H</button>
-            <button class="btn btn-ghost btn-sm" onclick="btEjecutarToken('DOT')">▶ DOT 4H</button>
-            <button class="btn btn-ghost btn-sm" onclick="btEjecutarToken('LINK')">▶ LINK 4H</button>
-            <button class="btn btn-primary btn-sm" onclick="btEjecutarTodos()">▶▶ Ejecutar todos</button>
+            <button class="btn btn-ghost btn-sm" onclick="btEjecutarToken('BTC')">▶ BTC</button>
+            <button class="btn btn-ghost btn-sm" onclick="btEjecutarToken('ETH')">▶ ETH</button>
+            <button class="btn btn-ghost btn-sm" onclick="btEjecutarToken('SOL')">▶ SOL</button>
+            <button class="btn btn-ghost btn-sm" onclick="btEjecutarToken('XRP')">▶ XRP</button>
+            <button class="btn btn-ghost btn-sm" onclick="btEjecutarToken('ADA')">▶ ADA</button>
+            <button class="btn btn-ghost btn-sm" onclick="btEjecutarToken('AVAX')">▶ AVAX</button>
+            <button class="btn btn-ghost btn-sm" onclick="btEjecutarToken('DOT')">▶ DOT</button>
+            <button class="btn btn-ghost btn-sm" onclick="btEjecutarToken('LINK')">▶ LINK</button>
+            <button class="btn btn-primary btn-sm" onclick="btEjecutarTodos()">▶▶ Todos</button>
           </div>
           <div id="bt-progreso" style="display:none;">
             <div style="height:6px;background:var(--surface-2);border-radius:3px;margin-bottom:6px;">
@@ -1370,14 +1379,14 @@ const STATE = {
   precios: {},
   fng: null,
   ohlc: {
-    BTC:  { '4h': [], '1d': [] },
-    ETH:  { '4h': [], '1d': [] },
-    SOL:  { '4h': [], '1d': [] },
-    XRP:  { '4h': [], '1d': [] },
-    ADA:  { '4h': [], '1d': [] },
-    AVAX: { '4h': [], '1d': [] },
-    DOT:  { '4h': [], '1d': [] },
-    LINK: { '4h': [], '1d': [] }
+    BTC:  { '1h': [], '4h': [], '1d': [] },
+    ETH:  { '1h': [], '4h': [], '1d': [] },
+    SOL:  { '1h': [], '4h': [], '1d': [] },
+    XRP:  { '1h': [], '4h': [], '1d': [] },
+    ADA:  { '1h': [], '4h': [], '1d': [] },
+    AVAX: { '1h': [], '4h': [], '1d': [] },
+    DOT:  { '1h': [], '4h': [], '1d': [] },
+    LINK: { '1h': [], '4h': [], '1d': [] }
   },
   capitalCrypto: parseFloat(localStorage.getItem('jcahs_crypto_capital')) || 200,
   changes24h: {},
@@ -1401,6 +1410,27 @@ const STATE = {
   cargando: false,
   ultimaActualizacion: null
 };
+
+const TIMEFRAMES_KRAKEN = {
+  '1h':  { interval:   60, label: '1H',  velas: 720, historia: '30 días'  },
+  '4h':  { interval:  240, label: '4H',  velas: 720, historia: '120 días' },
+  '1d':  { interval: 1440, label: '1D',  velas: 720, historia: '2 años'   }
+};
+const _KRAKEN_PARES = {
+  BTC:'XBTUSD', ETH:'ETHUSD', SOL:'SOLUSD', XRP:'XXRPZUSD',
+  ADA:'ADAUSD', AVAX:'AVAXUSD', DOT:'DOTUSD', LINK:'LINKUSD'
+};
+async function cargarOHLCMultiTF(sym) {
+  if (!STATE.ohlc[sym]) STATE.ohlc[sym] = {};
+  for (const [tf, cfg] of Object.entries(TIMEFRAMES_KRAKEN)) {
+    if (!STATE.ohlc[sym][tf] || STATE.ohlc[sym][tf].length === 0) {
+      try {
+        const datos = await cargarKlines(_KRAKEN_PARES[sym], cfg.interval);
+        if (datos && datos.length > 0) STATE.ohlc[sym][tf] = datos;
+      } catch(e) { console.warn('cargarOHLCMultiTF', sym, tf, e.message); }
+    }
+  }
+}
 
 // Nombres protegidos — nunca traducir con MyMemory u otro servicio
 const NOMBRES = {
@@ -2695,6 +2725,8 @@ function renderCoinCard(sym, elId) {
     ${datos.tendenciaBajista && datos.score > 70 ? '<div style="margin-top:6px;font-size:11px;color:var(--warning);line-height:1.5;padding:6px 8px;background:rgba(255,217,102,0.08);border-radius:6px;border-left:2px solid rgba(255,217,102,0.5);">⚠️ Señal contra tendencia bajista diaria — riesgo elevado. Reduce el monto sugerido a la mitad.</div>' : ''}
     ${(datos.div4h?.detectada || datos.div1d?.detectada) ? '<div style="margin-top:6px;font-size:11px;color:var(--text-3);line-height:1.5;padding:6px 8px;background:var(--surface-2);border-radius:6px;border-left:2px solid rgba(255,217,102,0.35);">⚠ La divergencia reduce falsas señales pero no las elimina. En tendencia bajista fuerte el precio puede seguir cayendo. Stop loss obligatorio.</div>' : ''}
 
+    ${renderConfluencia(sym)}
+
     <button class="chart-toggle" onclick="toggleCandleChart('${sym}',this)">📈 Ver gráfico 4H ▼</button>
     <div class="chart-wrap" id="chart-${sym}">
       <canvas id="cv-${sym}" style="width:100%;height:200px;display:block;" onclick="event.stopPropagation()"></canvas>
@@ -3221,6 +3253,11 @@ async function recargarDatos(forzar) {
     if (dot1d.length > 0) STATE.ohlc.DOT['1d'] = dot1d;
     if (link4h.length > 0) STATE.ohlc.LINK['4h'] = link4h;
     if (link1d.length > 0) STATE.ohlc.LINK['1d'] = link1d;
+
+    // 1H klines — segunda fase para confluencia multiperiodo
+    const syms8 = ['BTC','ETH','SOL','XRP','ADA','AVAX','DOT','LINK'];
+    const klines1h = await Promise.all(syms8.map(s => cargarKlines(_KRAKEN_PARES[s], 60)));
+    syms8.forEach((s, i) => { if (klines1h[i].length > 0) STATE.ohlc[s]['1h'] = klines1h[i]; });
 
     // Recalcular change24h ahora que klines están disponibles
     ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'AVAX', 'DOT', 'LINK'].forEach(sym => {
@@ -5556,6 +5593,112 @@ document.addEventListener('click', function(e) {
 });
 
 // ═══════════════════════════════════════════════════════════
+//  CONFLUENCIA MULTI-TIMEFRAME
+// ═══════════════════════════════════════════════════════════
+
+function analizarConfluencia(sym) {
+  const resultado = {};
+  for (const tf of ['1h', '4h', '1d']) {
+    const velas = (STATE.ohlc[sym] || {})[tf];
+    if (!velas || velas.length < 50) { resultado[tf] = { disponible: false }; continue; }
+    const closes = velas.map(k => k.c);
+    const highs  = velas.map(k => k.h);
+    const lows   = velas.map(k => k.l);
+    const vols   = velas.map(k => k.v);
+    const rsiVal  = calcRSI(closes, 14);       // single value
+    const ema20   = calcEMA(closes, 20);
+    const ema50   = calcEMA(closes, 50);
+    const macdD   = calcMACD(closes);           // { macd, signal, hist, ... }
+    const bbD     = calcBollingerBands(closes, 20, 2); // { superior, media, inferior, ... }
+    const volD    = calcVolumeSignal(vols);     // { ratio, alto }
+    const atrArr  = calcATR(highs, lows, closes, 14);
+    const atrVal  = atrArr[atrArr.length - 1];
+    const precio  = closes[closes.length - 1];
+    if (rsiVal === null || ema20 === null || ema50 === null) { resultado[tf] = { disponible: false }; continue; }
+
+    let puntos = 0; const senales = [];
+    if      (rsiVal < 30) { puntos += 3; senales.push('RSI sobreventa extrema'); }
+    else if (rsiVal < 40) { puntos += 2; senales.push('RSI zona de compra'); }
+    else if (rsiVal > 70) { puntos -= 3; senales.push('RSI sobrecompra'); }
+    else if (rsiVal > 60) { puntos -= 1; senales.push('RSI elevado'); }
+
+    if (ema20 > ema50) { puntos += 2; senales.push('Tendencia alcista'); }
+    else               { puntos -= 2; senales.push('Tendencia bajista'); }
+
+    if (macdD && macdD.hist > 0) { puntos += 2; senales.push('MACD positivo'); }
+    else if (macdD)               { puntos -= 1; senales.push('MACD negativo'); }
+
+    if (bbD) {
+      if      (precio < bbD.inferior) { puntos += 2; senales.push('Bajo banda inferior BB'); }
+      else if (precio > bbD.superior) { puntos -= 2; senales.push('Sobre banda superior BB'); }
+    }
+    if (volD.ratio > 1.5) { puntos += 1; senales.push('Volumen ' + volD.ratio.toFixed(1) + 'x'); }
+
+    let direccion, color, emoji;
+    if      (puntos >= 5)  { direccion = 'ALCISTA FUERTE'; color = '#00ff88'; emoji = '🟢'; }
+    else if (puntos >= 2)  { direccion = 'ALCISTA';        color = '#00cc66'; emoji = '🟢'; }
+    else if (puntos >= -1) { direccion = 'NEUTRAL';        color = '#f5a623'; emoji = '🟡'; }
+    else if (puntos >= -4) { direccion = 'BAJISTA';        color = '#ff4444'; emoji = '🔴'; }
+    else                   { direccion = 'BAJISTA FUERTE'; color = '#cc0000'; emoji = '🔴'; }
+
+    resultado[tf] = {
+      disponible: true, direccion, color, emoji, puntos, rsi: rsiVal,
+      tendencia: ema20 > ema50 ? 'alcista' : 'bajista',
+      macd: macdD?.hist > 0 ? 'positivo' : 'negativo',
+      bb:   bbD ? (precio < bbD.inferior ? 'bajo' : precio > bbD.superior ? 'alto' : 'medio') : 'medio',
+      volumen: volD.ratio, atr: atrVal, senales
+    };
+  }
+
+  const disp     = Object.values(resultado).filter(r => r.disponible);
+  const alcistas = disp.filter(r => r.puntos >= 2).length;
+  const bajistas = disp.filter(r => r.puntos < -1).length;
+  const total    = disp.length;
+
+  let confluencia, confluenciaEmoji, confluenciaColor;
+  if (total === 0)                           { confluencia = 'SIN DATOS';                   confluenciaEmoji = '⏳'; confluenciaColor = '#666';    }
+  else if (alcistas === total && total >= 2) { confluencia = 'CONFLUENCIA TOTAL ALCISTA';   confluenciaEmoji = '🚀'; confluenciaColor = '#00ff88'; }
+  else if (alcistas >= 2)                    { confluencia = 'CONFLUENCIA PARCIAL ALCISTA'; confluenciaEmoji = '✅'; confluenciaColor = '#00cc66'; }
+  else if (bajistas === total && total >= 2) { confluencia = 'CONFLUENCIA TOTAL BAJISTA';   confluenciaEmoji = '⛔'; confluenciaColor = '#cc0000'; }
+  else if (bajistas >= 2)                    { confluencia = 'CONFLUENCIA PARCIAL BAJISTA'; confluenciaEmoji = '⚠️'; confluenciaColor = '#ff4444'; }
+  else                                       { confluencia = 'SIN CONFLUENCIA — MIXTO';     confluenciaEmoji = '⚡'; confluenciaColor = '#f5a623'; }
+
+  return { ...resultado, confluencia, confluenciaEmoji, confluenciaColor, alcistas, bajistas, total };
+}
+
+function renderConfluencia(sym) {
+  const conf = analizarConfluencia(sym);
+  const tfsHtml = ['1h','4h','1d'].map(tf => {
+    const t = conf[tf];
+    if (!t || !t.disponible) return '<div style="flex:1;padding:8px;background:#0d1f35;border-radius:6px;text-align:center;">' +
+      '<div style="font-size:10px;color:#4e6a88;">' + tf.toUpperCase() + '</div>' +
+      '<div style="font-size:11px;color:#4e6a88;margin-top:4px;">Sin datos</div></div>';
+    return '<div style="flex:1;padding:8px;background:#0d1f35;border-radius:6px;text-align:center;border:1px solid ' + t.color + '44;">' +
+      '<div style="font-size:10px;color:#4e6a88;margin-bottom:4px;">' + tf.toUpperCase() + '</div>' +
+      '<div style="font-size:15px;">' + t.emoji + '</div>' +
+      '<div style="font-size:10px;color:' + t.color + ';margin-top:2px;">' + escHtml(t.direccion) + '</div>' +
+      '<div style="font-size:10px;color:#4e6a88;margin-top:3px;">RSI ' + fmt(t.rsi, 0) + '</div>' +
+      '</div>';
+  }).join('');
+
+  const nota = conf.confluencia.includes('TOTAL ALCISTA')
+    ? '<div style="margin-top:8px;padding:8px;background:#00ff8811;border-radius:6px;font-size:11px;color:#00ff88;">🚀 Los 3 timeframes alineados al alza — señal de máxima confianza.</div>'
+    : conf.confluencia.includes('MIXTO')
+    ? '<div style="margin-top:8px;padding:8px;background:#f5a62311;border-radius:6px;font-size:11px;color:#f5a623;">⚡ Timeframes contradictorios — esperar alineación antes de entrar.</div>'
+    : conf.confluencia.includes('BAJISTA')
+    ? '<div style="margin-top:8px;padding:8px;background:#ff444411;border-radius:6px;font-size:11px;color:#ff4444;">⛔ Múltiples timeframes bajistas — no es momento de comprar.</div>'
+    : '';
+
+  return '<div style="margin-top:12px;padding:12px;background:#081425;border-radius:8px;border:1px solid ' + conf.confluenciaColor + '33;">' +
+    '<div style="font-size:10px;color:#4e6a88;margin-bottom:8px;letter-spacing:1px;text-transform:uppercase;">Confluencia Multi-Timeframe</div>' +
+    '<div style="display:flex;gap:6px;margin-bottom:8px;">' + tfsHtml + '</div>' +
+    '<div style="padding:8px;border-radius:6px;background:' + conf.confluenciaColor + '22;border:1px solid ' + conf.confluenciaColor + '44;text-align:center;">' +
+    '<span style="color:' + conf.confluenciaColor + ';font-size:12px;font-weight:700;">' + conf.confluenciaEmoji + ' ' + escHtml(conf.confluencia) + '</span>' +
+    '<div style="font-size:10px;color:#4e6a88;margin-top:3px;">' + conf.alcistas + '/' + conf.total + ' timeframes alcistas</div>' +
+    '</div>' + nota + '</div>';
+}
+
+// ═══════════════════════════════════════════════════════════
 //  BACKTESTING REAL — señales históricas con OHLC de Kraken
 // ═══════════════════════════════════════════════════════════
 
@@ -5740,8 +5883,92 @@ function _btRenderStats(sym, tf, stats) {
     '</div>';
 }
 
+let backtestTF = '4h';
+function setTFBacktest(tf) {
+  backtestTF = tf;
+  ['1h','4h','1d'].forEach(t => {
+    const btn = qs('btn-tf-' + t);
+    if (!btn) return;
+    btn.className = t === tf ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
+  });
+}
+
+function generarStorytellingBacktest(sym, tf, stats) {
+  const tfLabel   = { '1h':'1 hora', '4h':'4 horas', '1d':'1 día' }[tf] || tf;
+  const historia  = { '1h':'30 días', '4h':'120 días', '1d':'2 años' }[tf] || '';
+  const diasN     = tf === '1h' ? 30 : tf === '4h' ? 120 : 730;
+  const veredicto = stats.hitRateTP1 >= 65
+    ? { texto:'EL SISTEMA TIENE EDGE REAL',       color:'#00ff88', emoji:'✅' }
+    : stats.hitRateTP1 >= 55
+    ? { texto:'EDGE MODERADO — SEGUIR VALIDANDO', color:'#f5a623', emoji:'⚠️' }
+    : { texto:'SIN EDGE CLARO — CALIBRAR',        color:'#ff4444', emoji:'❌' };
+  const mejorScore = Object.entries(stats.porScore)
+    .sort((a, b) => b[1].hitRate - a[1].hitRate)[0];
+  const senalesPorDia = (stats.total / diasN).toFixed(1);
+  const coinColor = COIN_COLOR[sym] || 'var(--tertiary)';
+
+  const barra = (val, color) =>
+    '<div style="background:#081425;border-radius:4px;height:8px;overflow:hidden;margin-top:3px;">' +
+    '<div style="width:' + val + '%;height:100%;background:' + color + ';border-radius:4px;"></div></div>';
+
+  return '<div style="padding:18px;background:#081425;border-radius:10px;margin-top:12px;border:1px solid #1a3a5c;">' +
+    '<h3 style="color:' + coinColor + ';margin:0 0 4px;font-size:15px;">🔬 ' + sym + ' · ' + tf.toUpperCase() + ' · Backtesting Real</h3>' +
+    '<p style="color:#4e6a88;font-size:11px;margin:0 0 16px;">720 velas · ' + historia + ' · Velas de ' + tfLabel + ' · Datos reales Kraken</p>' +
+    // Lo que encontramos
+    '<div style="padding:12px;background:#0d1f35;border-radius:8px;margin-bottom:12px;">' +
+    '<div style="font-size:10px;color:#1a6eb5;letter-spacing:1px;margin-bottom:6px;">📖 LO QUE ENCONTRAMOS</div>' +
+    '<p style="color:#e2eefc;font-size:12px;line-height:1.6;margin:0;">En los últimos <b>' + historia + '</b>, el sistema generó <b>' + stats.total + ' señales</b> en ' + sym + ' con score ≥ 60. ' +
+    'Eso es ~<b>' + senalesPorDia + ' señales/día</b> — ' + (parseFloat(senalesPorDia) > 2 ? 'muy activo para este token.' : 'selectivo, lo cual es positivo.') + '</p></div>' +
+    // Hit rates
+    '<div style="padding:12px;background:#0d1f35;border-radius:8px;margin-bottom:12px;">' +
+    '<div style="font-size:10px;color:#1a6eb5;letter-spacing:1px;margin-bottom:10px;">🎯 ¿CUÁNTAS VECES ACERTÓ EL SISTEMA?</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;">' +
+    '<div style="text-align:center;padding:10px;background:#081425;border-radius:8px;"><div style="font-size:22px;color:#00ff88;font-weight:700;">' + stats.hitRateTP1 + '%</div><div style="font-size:10px;color:#4e6a88;">Alcanzó TP1</div><div style="font-size:10px;color:#4e6a88;">' + Math.round(stats.total*stats.hitRateTP1/100) + '/' + stats.total + '</div></div>' +
+    '<div style="text-align:center;padding:10px;background:#081425;border-radius:8px;"><div style="font-size:22px;color:#f5a623;font-weight:700;">' + stats.hitRateTP2 + '%</div><div style="font-size:10px;color:#4e6a88;">Alcanzó TP2</div></div>' +
+    '<div style="text-align:center;padding:10px;background:#081425;border-radius:8px;"><div style="font-size:22px;color:#ff4444;font-weight:700;">' + stats.hitRateSL + '%</div><div style="font-size:10px;color:#4e6a88;">Tocó SL</div></div>' +
+    '</div>' +
+    '<p style="color:#e2eefc;font-size:12px;line-height:1.6;margin:0;">' +
+    (stats.hitRateTP1 >= 60 ? '✅ <b>' + stats.hitRateTP1 + '% de acierto</b> — de cada 10 señales, ' + Math.round(stats.hitRateTP1/10) + ' terminaron en ganancia. Los indicadores tienen valor predictivo real en ' + sym + '.' :
+    '⚠️ <b>' + stats.hitRateTP1 + '%</b> está bajo el 60% mínimo. El sistema necesita calibración para ' + sym + ' en ' + tf.toUpperCase() + '.') + '</p></div>' +
+    // Velocidad
+    '<div style="padding:12px;background:#0d1f35;border-radius:8px;margin-bottom:12px;">' +
+    '<div style="font-size:10px;color:#1a6eb5;letter-spacing:1px;margin-bottom:6px;">⏱ VELOCIDAD</div>' +
+    '<p style="color:#e2eefc;font-size:12px;margin:0 0 4px;">Cuando el sistema acierta, lo hace en promedio en <b>' + stats.tiempoPromedioTP1 + 'h</b>. ' +
+    (stats.tiempoPromedioTP1 < 12 ? 'Rápido — configura alertas Telegram para no perder la entrada.' :
+     stats.tiempoPromedioTP1 < 48 ? 'Tiempo razonable — tienes hasta dos días para decidir.' :
+     sym + ' es lento — las señales dan tiempo para analizar con calma.') + '</p></div>' +
+    // Por score
+    '<div style="padding:12px;background:#0d1f35;border-radius:8px;margin-bottom:12px;">' +
+    '<div style="font-size:10px;color:#1a6eb5;letter-spacing:1px;margin-bottom:10px;">📊 ¿A PARTIR DE QUÉ SCORE VALE LA PENA?</div>' +
+    Object.entries(stats.porScore).map(([rango, d]) =>
+      '<div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;"><span style="color:#e2eefc;font-size:12px;">Score ' + rango + '</span>' +
+      '<span style="color:' + (d.hitRate >= 65 ? '#00ff88' : d.hitRate >= 55 ? '#f5a623' : '#ff4444') + ';font-size:12px;font-weight:700;">' + d.hitRate + '% · ' + d.n + ' señales</span></div>' +
+      barra(d.hitRate, d.hitRate >= 65 ? '#00ff88' : d.hitRate >= 55 ? '#f5a623' : '#ff4444') +
+      '<p style="color:#4e6a88;font-size:10px;margin:3px 0 0;">' + (d.hitRate >= 65 ? '✅ Stake normal (Kelly completo)' : d.hitRate >= 55 ? '⚠️ Stake reducido (50% Kelly)' : '❌ No operar en este rango') + '</p></div>'
+    ).join('') +
+    '<p style="color:#e2eefc;font-size:12px;margin:8px 0 0;">💡 Score óptimo para ' + sym + ': <b>≥ ' + mejorScore[0].split('-')[0] + '</b></p></div>' +
+    // SL/TP reales
+    '<div style="padding:12px;background:#0d1f35;border-radius:8px;margin-bottom:12px;">' +
+    '<div style="font-size:10px;color:#1a6eb5;letter-spacing:1px;margin-bottom:8px;">📐 NIVELES ÓPTIMOS REALES</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px;">' +
+    '<div style="padding:8px;background:#ff444422;border-radius:6px;text-align:center;border:1px solid #ff444444;"><div style="color:#ff4444;font-size:16px;font-weight:700;">-' + stats.pctSLPromedio + '%</div><div style="color:#4e6a88;font-size:10px;">Stop Loss real</div></div>' +
+    '<div style="padding:8px;background:#f5a62322;border-radius:6px;text-align:center;border:1px solid #f5a62344;"><div style="color:#f5a623;font-size:16px;font-weight:700;">+' + stats.pctTP1Promedio + '%</div><div style="color:#4e6a88;font-size:10px;">Take Profit 1</div></div>' +
+    '<div style="padding:8px;background:#00ff8822;border-radius:6px;text-align:center;border:1px solid #00ff8844;"><div style="color:#00ff88;font-size:16px;font-weight:700;">+' + stats.pctTP2Promedio + '%</div><div style="color:#4e6a88;font-size:10px;">Take Profit 2</div></div></div>' +
+    '<p style="color:#e2eefc;font-size:12px;margin:0;">Calculados con la volatilidad real de ' + sym + ' — reemplazan el SL -5% y TP +10% genéricos.</p></div>' +
+    // Veredicto
+    '<div style="padding:14px;border-radius:8px;text-align:center;background:' + veredicto.color + '22;border:2px solid ' + veredicto.color + '44;">' +
+    '<div style="font-size:18px;">' + veredicto.emoji + '</div>' +
+    '<div style="color:' + veredicto.color + ';font-size:14px;font-weight:700;margin:6px 0;">' + veredicto.texto + '</div>' +
+    '<p style="color:#e2eefc;font-size:12px;line-height:1.6;margin:0 0 6px;">' +
+    (stats.hitRateTP1 >= 65 ? 'Con ' + stats.hitRateTP1 + '% hit rate y niveles SL/TP basados en volatilidad real, el sistema demuestra edge estadístico en ' + sym + ' ' + tf.toUpperCase() + '.' :
+    stats.hitRateTP1 >= 55 ? 'El sistema muestra señales prometedoras pero necesita más validación. Opera con stake reducido.' :
+    'Los datos históricos no muestran edge claro. Prueba con otro timeframe o espera más datos en vivo.') + '</p>' +
+    '<p style="color:#4e6a88;font-size:10px;margin:0;">⚠️ Resultados pasados no garantizan resultados futuros. Continúa en simulación hasta 50 señales en vivo validadas.</p></div>' +
+    '</div>';
+}
+
 function btEjecutarToken(sym) {
-  const tf = '4h';
+  const tf = backtestTF;
   const barra = qs('bt-barra'), progreso = qs('bt-progreso'), txt = qs('bt-progreso-txt');
   const el = qs('bt-results');
   if (!el) return;
@@ -5768,7 +5995,7 @@ function btEjecutarToken(sym) {
       stored[sym] = stats;
       localStorage.setItem('jcahs_backtest_resultados', JSON.stringify(stored));
     } catch(e) {}
-    el.innerHTML = _btRenderStats(sym, tf, stats);
+    el.innerHTML = generarStorytellingBacktest(sym, tf, stats);
     if (progreso) setTimeout(() => progreso.style.display = 'none', 2000);
   }, 0);
 }
@@ -5787,7 +6014,7 @@ function btEjecutarTodos() {
     if (idx >= syms.length) {
       // Guardar todo
       try { localStorage.setItem('jcahs_backtest_resultados', JSON.stringify(resultadosFinales)); } catch(e) {}
-      const html = Object.entries(resultadosFinales).map(([s, st]) => _btRenderStats(s, '4h', st)).join('');
+      const html = Object.entries(resultadosFinales).map(([s, st]) => generarStorytellingBacktest(s, backtestTF, st)).join('');
       el.innerHTML = html || '<div class="empty-state">Sin señales suficientes en ningún token.</div>';
       if (progreso) { if (barra) barra.style.width = '100%'; if (txt) txt.textContent = 'Análisis completado — ' + Object.keys(resultadosFinales).length + ' tokens.'; setTimeout(() => progreso.style.display = 'none', 2000); }
       return;
