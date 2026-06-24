@@ -6106,9 +6106,19 @@ function btEjecutarTodos() {
 
   function procesarSiguiente() {
     if (idx >= syms.length) {
-      // Guardar todo
-      try { localStorage.setItem('jcahs_backtest_resultados', JSON.stringify(resultadosFinales)); } catch(e) {}
-      const html = Object.entries(resultadosFinales).map(([s, st]) => generarStorytellingBacktest(s, window.backtestTF || '4h', st)).join('');
+      // Merge con datos existentes — no sobreescribir resultados de otros TF
+      try {
+        const existing = JSON.parse(localStorage.getItem('jcahs_backtest_resultados') || '{}');
+        const merged = Object.assign({}, existing, resultadosFinales);
+        localStorage.setItem('jcahs_backtest_resultados', JSON.stringify(merged));
+        console.log('✅ btEjecutarTodos guardado. Claves:', Object.keys(merged));
+      } catch(e) { console.error('❌ localStorage btEjecutarTodos:', e.message); }
+      // Mostrar solo los resultados de esta ejecución (con clave TF)
+      const html = Object.entries(resultadosFinales).map(([clave, st]) => {
+        const sym = st.sym || clave.split('_')[0];
+        const tf  = st.tf  || clave.split('_')[1] || '4h';
+        return generarStorytellingBacktest(sym, tf, st);
+      }).join('');
       el.innerHTML = html || '<div class="empty-state">Sin señales suficientes en ningún token.</div>';
       if (progreso) { if (barra) barra.style.width = '100%'; if (txt) txt.textContent = 'Análisis completado — ' + Object.keys(resultadosFinales).length + ' tokens.'; setTimeout(() => progreso.style.display = 'none', 2000); }
       return;
@@ -6119,10 +6129,14 @@ function btEjecutarTodos() {
     if (txt) txt.textContent = 'Analizando ' + sym + ' (' + (idx + 1) + '/' + syms.length + ')...';
     idx++;
     setTimeout(function() {
-      const tfTodos = window.backtestTF || '4h'; // Fix 2: usa TF seleccionado
+      const tfTodos = window.backtestTF || '4h';
       const res = ejecutarBacktestingReal(sym, tfTodos);
       if (res && res.length > 0) {
-        resultadosFinales[sym] = calcularEstadisticasBacktest(res);
+        const stats = calcularEstadisticasBacktest(res);
+        stats.sym = sym; stats.tf = tfTodos; stats.fechaEjecucion = new Date().toISOString();
+        const clave = sym + '_' + tfTodos; // clave con sufijo TF
+        resultadosFinales[clave] = stats;
+        if (resultadosFinales[sym]) delete resultadosFinales[sym]; // limpiar legacy
       }
       procesarSiguiente();
     }, 0);
