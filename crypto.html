@@ -5923,14 +5923,18 @@ function _btRenderStats(sym, tf, stats) {
     '</div>';
 }
 
-let backtestTF = '4h';
+window.backtestTF = window.backtestTF || '4h';
+
 function setTFBacktest(tf) {
-  backtestTF = tf;
+  window.backtestTF = tf;
   ['1h','4h','1d'].forEach(t => {
     const btn = qs('btn-tf-' + t);
     if (!btn) return;
     btn.className = t === tf ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
   });
+  // Limpiar resultados anteriores y mostrar TF activo
+  const el = qs('bt-results');
+  if (el) el.innerHTML = '<p style="text-align:center;padding:20px;color:var(--text-3);">Timeframe seleccionado: <b style="color:var(--tertiary)">' + tf.toUpperCase() + '</b> — Selecciona un token para ejecutar</p>';
 }
 
 function generarStorytellingBacktest(sym, tf, stats) {
@@ -6007,36 +6011,45 @@ function generarStorytellingBacktest(sym, tf, stats) {
     '</div>';
 }
 
-function btEjecutarToken(sym) {
-  const tf = backtestTF;
+async function btEjecutarToken(sym) {
+  const tf = window.backtestTF || '4h';
   const barra = qs('bt-barra'), progreso = qs('bt-progreso'), txt = qs('bt-progreso-txt');
   const el = qs('bt-results');
   if (!el) return;
-  const candles = (STATE.ohlc[sym] || {})[tf] || [];
+
+  // Fix 4: cargar datos si faltan (especialmente importante para 1H y 1D)
+  if (!STATE.ohlc?.[sym]?.[tf] || STATE.ohlc[sym][tf].length < 100) {
+    if (progreso) { progreso.style.display = ''; if (barra) barra.style.width = '5%'; if (txt) txt.textContent = 'Cargando datos ' + tf.toUpperCase() + ' para ' + sym + '...'; }
+    el.innerHTML = '<div class="empty-state">⏳ Cargando velas ' + tf.toUpperCase() + ' para ' + sym + '...</div>';
+    try { await cargarOHLCMultiTF(sym); } catch(e) { console.warn('cargarOHLCMultiTF:', e); }
+  }
+
+  const candles = STATE.ohlc?.[sym]?.[tf] || [];
   if (candles.length < 100) {
-    el.innerHTML = '<div class="empty-state" style="color:var(--warning)">Datos insuficientes para ' + sym + '. Actualiza los datos en el Panel primero.</div>';
+    el.innerHTML = '<div class="empty-state" style="color:var(--warning)">Datos insuficientes para ' + sym + ' ' + tf.toUpperCase() + '. Actualiza primero desde el Panel.</div>';
+    if (progreso) { progreso.style.display = 'none'; }
     return;
   }
+
   if (progreso) { progreso.style.display = ''; if (barra) barra.style.width = '10%'; if (txt) txt.textContent = 'Analizando ' + sym + ' ' + tf.toUpperCase() + '...'; }
-  el.innerHTML = '<div class="empty-state">⏳ Ejecutando backtesting real para ' + sym + '...</div>';
+  el.innerHTML = '<div class="empty-state">⏳ Ejecutando backtesting real para ' + sym + ' ' + tf.toUpperCase() + '...</div>';
 
   setTimeout(function() {
     const res = ejecutarBacktestingReal(sym, tf);
-    if (progreso) { if (barra) barra.style.width = '100%'; if (txt) txt.textContent = 'Completado.'; }
+    if (progreso) { if (barra) barra.style.width = '100%'; if (txt) txt.textContent = 'Completado — ' + sym + ' ' + tf.toUpperCase(); }
     if (!res || res.length === 0) {
-      el.innerHTML = '<div class="empty-state" style="color:var(--warning)">Sin señales suficientes para ' + sym + ' en el período disponible.</div>';
-      if (progreso) setTimeout(() => progreso.style.display = 'none', 2000);
+      el.innerHTML = '<div class="empty-state" style="color:var(--warning)">Sin señales suficientes para ' + sym + ' ' + tf.toUpperCase() + ' en el período disponible.</div>';
+      if (progreso) setTimeout(function() { progreso.style.display = 'none'; }, 2000);
       return;
     }
     const stats = calcularEstadisticasBacktest(res);
-    // Guardar en localStorage
     try {
       const stored = JSON.parse(localStorage.getItem('jcahs_backtest_resultados') || '{}');
-      stored[sym] = stats;
+      stored[sym + '_' + tf] = stats; // key incluye TF para no mezclar resultados
       localStorage.setItem('jcahs_backtest_resultados', JSON.stringify(stored));
     } catch(e) {}
     el.innerHTML = generarStorytellingBacktest(sym, tf, stats);
-    if (progreso) setTimeout(() => progreso.style.display = 'none', 2000);
+    if (progreso) setTimeout(function() { progreso.style.display = 'none'; }, 2000);
   }, 0);
 }
 
@@ -6054,7 +6067,7 @@ function btEjecutarTodos() {
     if (idx >= syms.length) {
       // Guardar todo
       try { localStorage.setItem('jcahs_backtest_resultados', JSON.stringify(resultadosFinales)); } catch(e) {}
-      const html = Object.entries(resultadosFinales).map(([s, st]) => generarStorytellingBacktest(s, backtestTF, st)).join('');
+      const html = Object.entries(resultadosFinales).map(([s, st]) => generarStorytellingBacktest(s, window.backtestTF || '4h', st)).join('');
       el.innerHTML = html || '<div class="empty-state">Sin señales suficientes en ningún token.</div>';
       if (progreso) { if (barra) barra.style.width = '100%'; if (txt) txt.textContent = 'Análisis completado — ' + Object.keys(resultadosFinales).length + ' tokens.'; setTimeout(() => progreso.style.display = 'none', 2000); }
       return;
@@ -6065,7 +6078,8 @@ function btEjecutarTodos() {
     if (txt) txt.textContent = 'Analizando ' + sym + ' (' + (idx + 1) + '/' + syms.length + ')...';
     idx++;
     setTimeout(function() {
-      const res = ejecutarBacktestingReal(sym, '4h');
+      const tfTodos = window.backtestTF || '4h'; // Fix 2: usa TF seleccionado
+      const res = ejecutarBacktestingReal(sym, tfTodos);
       if (res && res.length > 0) {
         resultadosFinales[sym] = calcularEstadisticasBacktest(res);
       }
