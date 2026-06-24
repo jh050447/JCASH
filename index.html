@@ -2979,6 +2979,19 @@ function detectarEstrategias() {
       console.log('MÚLTIPLE — picks seleccionados:', picksUnicos.map(p => ({ partido: p.partido, pick: p.pick, edge: p.edge, odd: p.odd })));
       console.log('Odd combinada:', oddCombinada);
       console.log('Kelly combinada:', kellyCombinada);
+      // Notificaciones múltiple (deduplicadas por clave de picks)
+      var claveMultiple = 'multi_' + picksUnicos.map(function(p) { return p.gameId || p.partido; }).sort().join('|');
+      if (_tgDedup(claveMultiple)) {
+        var stakeM    = bkr ? (bkr * kellyCombinada).toFixed(2) : '—';
+        var gananciaM = bkr ? (bkr * kellyCombinada * (oddCombinada - 1)).toFixed(2) : '—';
+        var perdidaM  = stakeM;
+        notifMultipleChrome(picksUnicos, oddCombinada, gananciaM);
+        notifMultipleTelegram(picksUnicos.map(function(p) {
+          return { partido: p.partido, pick: p.pick, score: Math.round(p.score || 0),
+                   edge: p.edge != null ? p.edge.toFixed(1) : '—', odd: p.odd != null ? p.odd.toFixed(2) : '—',
+                   probReal: p.probReal || 50 };
+        }), oddCombinada, stakeM, gananciaM, perdidaM);
+      }
       ops.push({ tipo:'apuesta', estrategia:'acumulador',
         nombre:'Acumulador de Value Bets',
         porQue:`${picksUnicos.length} picks de ${vbets.length} value bets (${picksUnicos.length} partidos distintos). Edge promedio: +${ep.toFixed(1)}%. Odd combinada: ${oddCombinada.toFixed(2)}.`,
@@ -6996,6 +7009,128 @@ function enviarAlertaTelegram(texto) {
 }
 window.enviarAlertaTelegram = enviarAlertaTelegram;
 
+// ─── SISTEMA DE NOTIFICACIONES — Chrome + Telegram ────────────
+async function notifChrome(titulo, cuerpo, icono) {
+  icono = icono || '⚽';
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') await Notification.requestPermission();
+  if (Notification.permission !== 'granted') return;
+  try {
+    new Notification(icono + ' ' + titulo, {
+      body: cuerpo, tag: 'jcahs-' + Date.now(), requireInteraction: false
+    });
+  } catch(e) { console.warn('notifChrome:', e); }
+}
+
+function notifValueBetChrome(partido, pick, score, edge, odd, hora) {
+  notifChrome('Value Bet · Score ' + score, partido + '\n' + pick + ' · Odd ' + odd + ' · Edge +' + edge + '%\nPartido: ' + hora);
+}
+
+function notifValueBetTelegram(datos) {
+  var d = datos;
+  var stake    = d.stake     || (STATE.bankroll ? (STATE.bankroll * 0.02).toFixed(2) : '—');
+  var ganancia = d.ganancia  || (d.stake && d.odd ? (d.stake * (d.odd - 1)).toFixed(2) : '—');
+  var perdida  = d.perdida   || d.stake || '—';
+  var minutos  = d.minutosRestantes != null ? d.minutosRestantes : 999;
+  var urgencia = minutos < 60
+    ? '🚨 URGENTE — partido en ' + minutos + ' minutos'
+    : '⏱ Partido en ' + Math.floor(minutos / 60) + 'h ' + (minutos % 60) + 'min';
+  var msg = '⚽ <b>JCAHS — VALUE BET DETECTADA</b>\n\n' +
+    '🏆 ' + (d.liga || '') + '\n' + (d.partido || '') + '\n📅 ' + (d.hora || '') + '\n\n' +
+    '🎯 PICK: ' + (d.pick || '') + '\n📊 Score: ' + (d.score || '—') + '/100\n\n' +
+    '💡 POR QUÉ ES VALUE\n' +
+    'Probabilidad real: ' + (d.probReal || '—') + '%\n' +
+    'Odd Pinnacle: ' + (d.oddPinnacle || '—') + '\n' +
+    'Odd disponible: ' + (d.oddDisponible || d.odd || '—') + '\n' +
+    'Edge: +' + (d.edge || '—') + '%\n\n' +
+    '🎯 PLAN\n' +
+    'Stake: $' + stake + ' (2% bankroll)\n' +
+    'Si ganas: +$' + ganancia + ' · Si pierdes: -$' + perdida + '\n\n' +
+    urgencia + '\n' +
+    '⚠️ Modo simulación activo\n📱 jh050447.github.io/JCASH/';
+  enviarAlertaTelegram(msg);
+}
+
+function notifMultipleChrome(picks, oddCombinada, ganancia) {
+  notifChrome('Múltiple · ' + picks.length + ' picks',
+    'Odd combinada: ' + oddCombinada.toFixed(2) + '\nGanancia potencial: +$' + ganancia + '\nVer JCAHS para detalle');
+}
+
+function notifMultipleTelegram(picks, oddCombinada, stake, ganancia, perdida) {
+  var listapicks = picks.map(function(p, i) {
+    return (i + 1) + '. ' + (p.pick || '') + ' · ' + (p.partido || '') +
+      '\n   Score ' + (p.score || '—') + ' · Edge +' + (p.edge || '—') + '% · Odd ' + (p.odd || '—');
+  }).join('\n\n');
+  var probComb = picks.reduce(function(a, p) { return a * ((p.probReal || 50) / 100); }, 1);
+  var msg = '🔥 <b>JCAHS — MÚLTIPLE CON EDGE</b>\n\n' +
+    picks.length + ' picks con ventaja real:\n\n' + listapicks + '\n\n' +
+    '📊 COMBINADA\nOdds: ' + picks.map(function(p) { return p.odd || '?'; }).join(' × ') + '\n' +
+    'Odd total: ' + oddCombinada.toFixed(2) + '\n' +
+    'Prob estimada: ' + (probComb * 100).toFixed(1) + '%\n\n' +
+    '🎯 PLAN\n' +
+    'Stake: $' + stake + ' · Si ganas: +$' + ganancia + ' · Si falla: -$' + perdida + '\n' +
+    'Ratio R/R: 1:' + (perdida > 0 ? (ganancia / perdida).toFixed(1) : '—') + '\n\n' +
+    '⚠️ Solo si todos los picks son independientes\n' +
+    '⚠️ Modo simulación activo\n📱 jh050447.github.io/JCASH/';
+  enviarAlertaTelegram(msg);
+}
+
+function notifPartidoProximo(partido, liga, minutosRestantes) {
+  notifChrome('Partido en ' + minutosRestantes + 'min', liga + ': ' + partido + '\nAbre JCAHS para ver si hay value');
+}
+
+function notifResumenDiario(apuestasHoy, ganadas, perdidas, pendientes, pnl) {
+  if (apuestasHoy === 0) return;
+  var emoji = pnl > 0 ? '✅' : pnl < 0 ? '❌' : '➡️';
+  var msg = '📊 <b>JCAHS — RESUMEN DEL DÍA</b>\n' +
+    new Date().toLocaleDateString('es-EC', { weekday:'long', day:'numeric', month:'long' }) + '\n\n' +
+    emoji + ' P&L del día: ' + (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2) + '\n\n' +
+    '📋 APUESTAS DE HOY\n' +
+    'Total: ' + apuestasHoy + ' · Ganadas: ' + ganadas + ' ✅ · Perdidas: ' + perdidas + ' ❌ · Pendientes: ' + pendientes + ' ⏳\n\n' +
+    (pendientes > 0 ? '⚠️ Tienes ' + pendientes + ' apuesta(s) sin resultado\n\n' : '') +
+    '📱 jh050447.github.io/JCASH/historial.html';
+  enviarAlertaTelegram(msg);
+}
+
+function iniciarSchedulerResumen() {
+  setInterval(function() {
+    var ahora = new Date();
+    var horaEc = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Guayaquil' }));
+    if (horaEc.getHours() === 20 && horaEc.getMinutes() === 0) {
+      var historial = [];
+      try { historial = JSON.parse(localStorage.getItem('jcahs_historial_apuestas') || '[]'); } catch(e) {}
+      var hoy = new Date().toISOString().slice(0, 10);
+      var apuestasHoy = historial.filter(function(a) { return a.entrada && a.entrada.fecha === hoy; });
+      var ganadas   = apuestasHoy.filter(function(a) { return a.salida_real && a.salida_real.resultado === 'GANÓ'; }).length;
+      var perdidas  = apuestasHoy.filter(function(a) { return a.salida_real && a.salida_real.resultado === 'PERDIÓ'; }).length;
+      var pendientes = apuestasHoy.filter(function(a) { return a.estado === 'pendiente'; }).length;
+      var pnl = apuestasHoy.reduce(function(acc, a) { return acc + (a.salida_real && a.salida_real.pnl_usd ? a.salida_real.pnl_usd : 0); }, 0);
+      notifResumenDiario(apuestasHoy.length, ganadas, perdidas, pendientes, pnl);
+    }
+  }, 60000);
+}
+
+function checkApuestasPendientes() {
+  var historial = [];
+  try { historial = JSON.parse(localStorage.getItem('jcahs_historial_apuestas') || '[]'); } catch(e) {}
+  var ahora = Date.now();
+  var pendientes = historial.filter(function(a) {
+    if (a.estado !== 'pendiente') return false;
+    var fechaStr = (a.entrada && a.entrada.fecha ? a.entrada.fecha : '') + 'T' + (a.entrada && a.entrada.hora ? a.entrada.hora : '12:00');
+    var fechaTs = new Date(fechaStr).getTime();
+    return (ahora - fechaTs) > 24 * 60 * 60 * 1000;
+  });
+  if (pendientes.length > 0) {
+    notifChrome(pendientes.length + ' apuesta(s) sin resultado',
+      'Tienes apuestas de hace más de 24h sin registrar resultado.\nAbre historial para actualizar.', '📋');
+  }
+}
+
+function notifAPIAgotada(nombreAPI, resetDate) {
+  notifChrome(nombreAPI + ' agotada',
+    'Límite mensual alcanzado.\nReset: ' + (resetDate || 'próximo mes') + '\nJCAHS usa datos en caché.', '⚠️');
+}
+
 function cargarAlertasNotificadas() {
   try {
     return new Set(JSON.parse(localStorage.getItem(ALERTAS_NOTIFICADAS_KEY) || '[]'));
@@ -7068,31 +7203,25 @@ function notificarAlertasNuevas(alertas) {
     if (notificadas.has(a.clave)) return;
     notificadas.add(a.clave);
     hayNuevas = true;
-    try {
-      new Notification('JCAHS - Apuesta lista', {
-        body: a.partido + ' — ' + a.pick + ' (Score ' + a.score + ', inicia en ' + a.minutosRestantes + 'min)'
-      });
-    } catch (e) { console.log('Notification error:', e); }
+    // Chrome — notificación corta
+    var odd_str = (a.odd != null) ? a.odd.toFixed(2) : '—';
+    notifValueBetChrome(a.partido, a.pick, a.score, '—', odd_str, a.minutosRestantes + 'min');
 
-    // Telegram — deduplicado por clave + ventana 60min
+    // Telegram — deduplicado + mensaje largo con storytelling
     if (_tgDedup('bet_' + a.clave)) {
-      var vb = (STATE.deApuestas || []).find(function(v) { return v && v.partido === a.partido && v.pick === a.pick; }) ||
-               ((STATE.mentor && STATE.mentor.sugerencias) || []).find(function(s) { return s && s.partido === a.partido && s.pick === a.pick; }) || {};
-      var liga   = vb.liga || '';
-      var odd    = (a.odd != null) ? a.odd.toFixed(2) : '—';
-      var edge   = (vb.edge != null) ? vb.edge.toFixed(1) : '—';
-      var prob   = (a.probReal != null) ? a.probReal.toFixed(0) : '—';
-      var apostar = vb.apostar != null ? '$' + vb.apostar.toFixed(2) : (STATE.bankroll ? '$' + (STATE.bankroll * 0.02).toFixed(2) : '—');
-      var msg = '⚽ <b>JCAHS — Value Bet Detectada</b>\n\n' +
-        '🏆 ' + liga + '\n' +
-        '⚔️ ' + a.partido + '\n' +
-        '📌 Pick: ' + a.pick + '\n' +
-        '💰 Odd: ' + odd + ' | Edge: +' + edge + '%\n' +
-        '🎯 Prob Real: ' + prob + '%\n' +
-        '💵 Stake sugerido: ' + apostar + '\n' +
-        '⏰ Inicia en: ' + a.minutosRestantes + ' min\n\n' +
-        '📱 jh050447.github.io/JCASH/';
-      enviarAlertaTelegram(msg);
+      var vb2 = (STATE.deApuestas || []).find(function(v) { return v && v.partido === a.partido && v.pick === a.pick; }) ||
+                ((STATE.mentor && STATE.mentor.sugerencias) || []).find(function(s) { return s && s.partido === a.partido && s.pick === a.pick; }) || {};
+      var apostar = vb2.apostar != null ? vb2.apostar.toFixed(2) : (STATE.bankroll ? (STATE.bankroll * 0.02).toFixed(2) : '—');
+      var gananciaTg = (vb2.apostar && a.odd) ? (vb2.apostar * (a.odd - 1)).toFixed(2) : '—';
+      notifValueBetTelegram({
+        partido: a.partido, liga: vb2.liga || '', pick: a.pick,
+        score: a.score, edge: vb2.edge != null ? vb2.edge.toFixed(1) : '—',
+        probReal: a.probReal != null ? a.probReal.toFixed(0) : '—',
+        oddPinnacle: vb2.odd != null ? vb2.odd.toFixed(2) : '—',
+        oddDisponible: a.odd != null ? a.odd.toFixed(2) : '—',
+        stake: apostar, ganancia: gananciaTg, perdida: apostar,
+        hora: a.minutosRestantes + ' min', minutosRestantes: a.minutosRestantes
+      });
     }
   });
 
@@ -7738,10 +7867,20 @@ async function init() {
   // Iniciar reloj
   iniciarReloj();
 
+  // Solicitar permiso Chrome notifications al cargar
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+
   // Sistema de alertas — botón de permiso + chequeo inicial + recálculo periódico
   actualizarBotonAlertas();
   nuevoVerificarAlertas();
   setInterval(nuevoVerificarAlertas, 90 * 1000);
+
+  // Scheduler resumen diario 20:00 Ecuador + check apuestas pendientes >24h
+  iniciarSchedulerResumen();
+  checkApuestasPendientes();
+  setInterval(checkApuestasPendientes, 60 * 60 * 1000);
 
   // Scheduler OddsPapi — consultas en horas fijas [8, 12, 17] (Guayaquil)
   _checkOddsPapiSchedule(); // chequeo inmediato al arrancar
