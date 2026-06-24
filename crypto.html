@@ -5829,7 +5829,8 @@ function ejecutarBacktestingReal(sym, tf) {
 
     if (volActual !== null && volActual > 1.5) score += 10;
 
-    if (score < 40) continue; // umbral reducido solo para backtesting histórico
+    const umbralScore = tf === '4h' ? 70 : tf === '1h' ? 65 : 40;
+    if (score < umbralScore) continue; // umbral por TF: 1H≥65, 4H≥70, 1D≥40
 
     // SL/TP basados en ATR real
     const slATR  = precio - atrActual * 1.5;
@@ -5987,7 +5988,7 @@ function generarStorytellingBacktest(sym, tf, stats) {
     // Lo que encontramos
     '<div style="padding:12px;background:#0d1f35;border-radius:8px;margin-bottom:12px;">' +
     '<div style="font-size:10px;color:#1a6eb5;letter-spacing:1px;margin-bottom:6px;">📖 LO QUE ENCONTRAMOS</div>' +
-    '<p style="color:#e2eefc;font-size:12px;line-height:1.6;margin:0;">En los últimos <b>' + historia + '</b>, el sistema generó <b>' + stats.total + ' señales</b> en ' + sym + ' con score ≥ 60. ' +
+    '<p style="color:#e2eefc;font-size:12px;line-height:1.6;margin:0;">En los últimos <b>' + historia + '</b>, el sistema generó <b>' + stats.total + ' señales</b> en ' + sym + ' con score ≥ ' + (tf === '4h' ? 70 : tf === '1h' ? 65 : 40) + '. ' +
     'Eso es ~<b>' + senalesPorDia + ' señales/día</b> — ' + (parseFloat(senalesPorDia) > 2 ? 'muy activo para este token.' : 'selectivo, lo cual es positivo.') + '</p></div>' +
     // Hit rates
     '<div style="padding:12px;background:#0d1f35;border-radius:8px;margin-bottom:12px;">' +
