@@ -5804,7 +5804,7 @@ function ejecutarBacktestingReal(sym, tf) {
 
     if (volActual !== null && volActual > 1.5) score += 10;
 
-    if (score < 60) continue;
+    if (score < 40) continue; // umbral reducido solo para backtesting histórico
 
     // SL/TP basados en ATR real
     const slATR  = precio - atrActual * 1.5;
@@ -5864,7 +5864,8 @@ function calcularEstadisticasBacktest(resultados) {
   const tp1Res = resultados.filter(r => r.resultado === 'TP1' || r.resultado === 'TP2');
 
   const porScore = {};
-  [['60-69', r => r.score >= 60 && r.score < 70],
+  [['40-59', r => r.score >= 40 && r.score < 60],
+   ['60-69', r => r.score >= 60 && r.score < 70],
    ['70-79', r => r.score >= 70 && r.score < 80],
    ['80+',   r => r.score >= 80]].forEach(([lbl, fn]) => {
     const sub = resultados.filter(fn);
@@ -6045,7 +6046,15 @@ async function btEjecutarToken(sym) {
     const stats = calcularEstadisticasBacktest(res);
     try {
       const stored = JSON.parse(localStorage.getItem('jcahs_backtest_resultados') || '{}');
-      stored[sym + '_' + tf] = stats; // key incluye TF para no mezclar resultados
+      // Migrar claves legacy (sin sufijo _TF) al formato nuevo
+      ['BTC','ETH','SOL','XRP','ADA','AVAX','DOT','LINK'].forEach(function(s) {
+        if (stored[s] && !stored[s + '_4h']) {
+          stored[s + '_4h'] = stored[s];
+          delete stored[s];
+        }
+      });
+      const clave = sym + '_' + tf; // ej: 'BTC_1d'
+      stored[clave] = stats;
       localStorage.setItem('jcahs_backtest_resultados', JSON.stringify(stored));
     } catch(e) {}
     el.innerHTML = generarStorytellingBacktest(sym, tf, stats);
