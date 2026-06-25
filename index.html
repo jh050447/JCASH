@@ -7028,26 +7028,48 @@ function notifValueBetChrome(partido, pick, score, edge, odd, hora) {
 
 function notifValueBetTelegram(datos) {
   var d = datos;
-  var stake    = d.stake     || (STATE.bankroll ? (STATE.bankroll * 0.02).toFixed(2) : '—');
-  var ganancia = d.ganancia  || (d.stake && d.odd ? (d.stake * (d.odd - 1)).toFixed(2) : '—');
-  var perdida  = d.perdida   || d.stake || '—';
+  var stake    = parseFloat(d.stake || (STATE.bankroll ? STATE.bankroll * 0.02 : 4));
+  var odd      = parseFloat(d.oddDisponible || d.odd || d.oddPinnacle || 1);
+  var ganancia = d.ganancia != null ? parseFloat(d.ganancia) : parseFloat((stake * (odd - 1)).toFixed(2));
+  var perdida  = d.perdida  != null ? parseFloat(d.perdida)  : stake;
+  var ratioRR  = perdida > 0 ? (ganancia / perdida).toFixed(1) : '—';
   var minutos  = d.minutosRestantes != null ? d.minutosRestantes : 999;
+
   var urgencia = minutos < 60
     ? '🚨 URGENTE — partido en ' + minutos + ' minutos'
-    : '⏱ Partido en ' + Math.floor(minutos / 60) + 'h ' + (minutos % 60) + 'min';
+    : minutos < 120
+    ? '⚡ Partido en ' + Math.floor(minutos/60) + 'h ' + (minutos%60) + 'min — actúa pronto'
+    : '⏱ Partido en ' + Math.floor(minutos/60) + 'h ' + (minutos%60) + 'min';
+
+  var razones = [];
+  if (d.probReal >= 65) razones.push('Probabilidad real ' + d.probReal + '% — sistema muy confiado');
+  if (d.edge >= 8)      razones.push('Edge +' + d.edge + '% — la casa paga significativamente más de lo justo');
+  else if (d.edge >= 5) razones.push('Edge +' + d.edge + '% — hay ventaja real sobre la casa');
+  if (d.score >= 75)    razones.push('Score ' + d.score + '/100 — señal fuerte');
+  if (d.filtrosMentor)  razones.push('Pasó ' + d.filtrosMentor + ' filtros del Mentor');
+  if (!razones.length)  razones.push('Edge +' + (d.edge || '—') + '% · Prob real ' + (d.probReal || '—') + '%');
+
+  var oddMinima = d.oddPinnacle ? (d.oddPinnacle * 0.98).toFixed(2) : '—';
+
   var msg = '⚽ <b>JCAHS — VALUE BET DETECTADA</b>\n\n' +
-    '🏆 ' + (d.liga || '') + '\n' + (d.partido || '') + '\n📅 ' + (d.hora || '') + '\n\n' +
+    '🏆 ' + (d.liga || '') + '\n' + (d.partido || '') + '\n📅 ' + (d.hora || '') + ' · ' + urgencia + '\n\n' +
     '🎯 PICK: ' + (d.pick || '') + '\n📊 Score: ' + (d.score || '—') + '/100\n\n' +
-    '💡 POR QUÉ ES VALUE\n' +
-    'Probabilidad real: ' + (d.probReal || '—') + '%\n' +
-    'Odd Pinnacle: ' + (d.oddPinnacle || '—') + '\n' +
-    'Odd disponible: ' + (d.oddDisponible || d.odd || '—') + '\n' +
-    'Edge: +' + (d.edge || '—') + '%\n\n' +
-    '🎯 PLAN\n' +
-    'Stake: $' + stake + ' (2% bankroll)\n' +
-    'Si ganas: +$' + ganancia + ' · Si pierdes: -$' + perdida + '\n\n' +
+    '💡 POR QUÉ ES VALUE\n' + razones.join('\n') + '\n' +
+    'Odd Pinnacle (precio justo): ' + (d.oddPinnacle || '—') + '\n' +
+    'Odd que puedes tomar: ' + (d.oddDisponible || d.odd || '—') + '\n' +
+    'La diferencia es tu ventaja — la casa paga más de lo que debería\n\n' +
+    '💡 QUÉ PUEDE PASAR\n' +
+    '🟢 Si ganas: +$' + ganancia.toFixed(2) + ' sobre $' + stake.toFixed(2) + ' apostados\n' +
+    '🔴 Si pierdes: -$' + perdida.toFixed(2) + '\n' +
+    'Ratio R/R: 1:' + ratioRR + ' — por cada $1 arriesgas ganar $' + ratioRR + '\n\n' +
+    '🎯 TU PLAN DE OPERACIÓN\n' +
+    'Pick: ' + (d.pick || '') + '\n' +
+    'Odd mínima aceptable: ' + oddMinima + ' (no apostar por menos)\n' +
+    'Stake sugerido: $' + stake.toFixed(2) + ' (2% bankroll)\n' +
+    'Casa recomendada: Ecuabet / Bet365 / Sportbet\n\n' +
     urgencia + '\n' +
-    '⚠️ Modo simulación activo\n📱 jh050447.github.io/JCASH/';
+    '⚠️ Modo simulación activo — no apostar dinero real aún\n\n' +
+    '📱 jh050447.github.io/JCASH/';
   enviarAlertaTelegram(msg);
 }
 
