@@ -1139,6 +1139,10 @@ body {
   .sidebar-footer { padding: 10px 6px; }
 }
 </style>
+<!-- JCAHS Shared Modules v2 -->
+<script src="js/shared/math.js"></script>
+<script src="js/core/storage.js"></script>
+<script src="js/core/notifications.js"></script>
 </head>
 <body>
 
@@ -2197,32 +2201,6 @@ async function cargarFearGreed() {
       STATE.fng = { valor: v, label: d.data[0].value_classification };
     }
   } catch (_) {}
-}
-
-// ─── RSI (Wilder) ────────────────────────────────────────────
-function calcRSI(closes, period = 14) {
-  if (!closes || closes.length < period + 1) return null;
-  let ag = 0, al = 0;
-  for (let i = 1; i <= period; i++) {
-    const d = closes[i] - closes[i - 1];
-    if (d > 0) ag += d; else al -= d;
-  }
-  ag /= period; al /= period;
-  for (let i = period + 1; i < closes.length; i++) {
-    const d = closes[i] - closes[i - 1];
-    ag = (ag * (period - 1) + Math.max(d, 0)) / period;
-    al = (al * (period - 1) + Math.max(-d, 0)) / period;
-  }
-  return al === 0 ? 100 : parseFloat((100 - 100 / (1 + ag / al)).toFixed(1));
-}
-
-// ─── KELLY CRITERION ─────────────────────────────────────────
-function calcKelly(prob, odd, fraccion = 0.25) {
-  if (!prob || !odd || odd <= 1) return 0;
-  const b = odd - 1;
-  const q = 1 - prob;
-  const k = (prob * b - q) / b;
-  return Math.max(0, k * fraccion);
 }
 
 // ─── VALUE BET EDGE ──────────────────────────────────────────
@@ -6451,7 +6429,6 @@ function cerrarAsesor() {
   setHTML('ia-panel-container', '');
 }
 
-function escHtml(t) { var d = document.createElement('div'); d.appendChild(document.createTextNode(t)); return d.innerHTML; }
 function escAttr(t) { return String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 const GROQ_URL = 'https://jcahs-proxy.jh050447.workers.dev/?url=' +
@@ -7120,7 +7097,7 @@ function iniciarSchedulerResumen() {
     var horaEc = new Date(ahora.toLocaleString('en-US', { timeZone: 'America/Guayaquil' }));
     if (horaEc.getHours() === 20 && horaEc.getMinutes() === 0) {
       var historial = [];
-      try { historial = JSON.parse(localStorage.getItem('jcahs_historial_apuestas') || '[]'); } catch(e) {}
+      historial = Storage.getHistorialApuestas();
       var hoy = new Date().toISOString().slice(0, 10);
       var apuestasHoy = historial.filter(function(a) { return a.entrada && a.entrada.fecha === hoy; });
       var ganadas   = apuestasHoy.filter(function(a) { return a.salida_real && a.salida_real.resultado === 'GANÓ'; }).length;
@@ -7134,7 +7111,7 @@ function iniciarSchedulerResumen() {
 
 function checkApuestasPendientes() {
   var historial = [];
-  try { historial = JSON.parse(localStorage.getItem('jcahs_historial_apuestas') || '[]'); } catch(e) {}
+  historial = Storage.getHistorialApuestas();
   var ahora = Date.now();
   var pendientes = historial.filter(function(a) {
     if (a.estado !== 'pendiente') return false;
