@@ -8,6 +8,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/main.css">
+<style>
+  /* Override directo: main.css tiene html,body{overflow:hidden} del app-shell */
+  html { overflow: auto !important; height: auto !important; }
+  body { overflow: auto !important; height: auto !important; }
+</style>
 <!-- JCAHS Core State & Config (deben ser los primeros) -->
 <script src="js/core/state.js"></script>
 <script src="js/core/config.js"></script>

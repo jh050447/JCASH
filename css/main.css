@@ -2093,11 +2093,12 @@ td.neg { color: #ff6464; }
 
 /* === HISTORIAL — FIX SCROLL ==============================================
    html/body tienen overflow:hidden del app-shell (index/crypto).
-   historial.html usa <body class="page-historial"> y no tiene .app-shell,
-   asi que restauramos el scroll natural del documento.                      */
-.page-historial,
-.page-historial body {
+   historial.html usa <body class="page-historial"> — multiples selectores
+   para maxima especificidad en todos los browsers.                          */
+.page-historial html,
+html:has(body.page-historial),
+body.page-historial {
   height: auto !important;
-  overflow: visible !important;
+  overflow: auto !important;
   overflow-y: auto !important;
 }
