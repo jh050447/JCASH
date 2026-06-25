@@ -2065,3 +2065,28 @@ td.neg { color: #ff6464; }
 .tooltip-icon:hover{opacity:1;}
 .tooltip-box{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#0d2540;border:1px solid #1a6eb5;border-radius:8px;padding:10px 14px;width:260px;font-size:12px;line-height:1.5;color:#cdd6f4;z-index:9999;pointer-events:none;}
 .tooltip-wrapper:hover .tooltip-box,.tooltip-wrapper.active .tooltip-box{display:block;}
+
+
+/* === CRYPTO PANEL — SCROLL HORIZONTAL EN MOVIL ===========================
+   En <800px el .grid-4 colapsa a 1 columna. Sobreescribimos #crypto-cards
+   con flex + scroll horizontal para que las 8 cards sean deslizables.     */
+@media (max-width: 800px) {
+  #crypto-cards {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    gap: 12px;
+    padding-bottom: 8px;
+    scrollbar-width: thin;
+  }
+  #crypto-cards::-webkit-scrollbar       { height: 4px; }
+  #crypto-cards::-webkit-scrollbar-track { background: transparent; }
+  #crypto-cards::-webkit-scrollbar-thumb { background: rgba(26,110,181,0.4); border-radius: 2px; }
+  #crypto-cards .crypto-coin-card {
+    min-width: 280px;
+    flex-shrink: 0;
+    scroll-snap-align: start;
+  }
+}
