@@ -666,6 +666,10 @@ select.input { cursor: pointer; }
   .satoshi-chat-area { max-height:260px; }
 }
 </style>
+<!-- JCAHS Shared Modules v2 -->
+<script src="js/shared/math.js"></script>
+<script src="js/core/storage.js"></script>
+<script src="js/core/notifications.js"></script>
 </head>
 <body>
 
@@ -1743,27 +1747,6 @@ async function cargarKlines(krakenPair, interval) {
 }
 
 // ── INDICADORES TÉCNICOS ──────────────────────────────────
-function calcRSI(closes, period) {
-  period = period || 14;
-  if (closes.length < period + 1) return null;
-  let gains = 0, losses = 0;
-  for (let i = 1; i <= period; i++) {
-    const diff = closes[i] - closes[i - 1];
-    if (diff >= 0) gains += diff; else losses -= diff;
-  }
-  let avgG = gains / period;
-  let avgL = losses / period;
-  for (let i = period + 1; i < closes.length; i++) {
-    const diff = closes[i] - closes[i - 1];
-    const g = diff >= 0 ? diff : 0;
-    const l = diff < 0 ? -diff : 0;
-    avgG = (avgG * (period - 1) + g) / period;
-    avgL = (avgL * (period - 1) + l) / period;
-  }
-  if (avgL === 0) return 100;
-  return 100 - (100 / (1 + avgG / avgL));
-}
-
 function calcRSIArray(closes, period) {
   period = period || 14;
   const out = new Array(closes.length).fill(null);
@@ -1783,52 +1766,6 @@ function calcRSIArray(closes, period) {
     out[i] = avgL === 0 ? 100 : 100 - 100 / (1 + avgG / avgL);
   }
   return out;
-}
-
-function calcEMA(closes, period) {
-  if (closes.length < period) return null;
-  const k = 2 / (period + 1);
-  let ema = closes.slice(0, period).reduce((a, b) => a + b, 0) / period;
-  for (let i = period; i < closes.length; i++) {
-    ema = closes[i] * k + ema * (1 - k);
-  }
-  return ema;
-}
-
-function calcEMAArray(closes, period) {
-  if (closes.length < period) return [];
-  const k = 2 / (period + 1);
-  let ema = closes.slice(0, period).reduce((a, b) => a + b, 0) / period;
-  const result = new Array(period - 1).fill(null);
-  result.push(ema);
-  for (let i = period; i < closes.length; i++) {
-    ema = closes[i] * k + ema * (1 - k);
-    result.push(ema);
-  }
-  return result;
-}
-
-function calcMACD(closes) {
-  if (closes.length < 35) return null;
-  const ema12arr = calcEMAArray(closes, 12);
-  const ema26arr = calcEMAArray(closes, 26);
-  const macdLine = ema12arr.map((v, i) => {
-    if (v === null || ema26arr[i] === null) return null;
-    return v - ema26arr[i];
-  });
-  const macdValid = macdLine.filter(v => v !== null);
-  if (macdValid.length < 9) return null;
-  const signal = calcEMA(macdValid, 9);
-  const lastMACD = macdValid[macdValid.length - 1];
-  const prevMACD = macdValid[macdValid.length - 2];
-  const prevSignal = calcEMA(macdValid.slice(0, -1), 9);
-  return {
-    macd: lastMACD,
-    signal: signal,
-    hist: lastMACD - signal,
-    cruce_alcista: prevMACD !== null && prevSignal !== null && prevMACD < prevSignal && lastMACD > signal,
-    cruce_bajista: prevMACD !== null && prevSignal !== null && prevMACD > prevSignal && lastMACD < signal
-  };
 }
 
 function calcVolumeSignal(vols) {
@@ -1904,23 +1841,6 @@ function calcDivergenciaAlcista(sym, tf) {
     };
   }
   return noDiv;
-}
-
-// ── BOLLINGER BANDS ──────────────────────────────────────
-function calcBollingerBands(closes, period, mult) {
-  period = period || 20; mult = mult || 2;
-  if (closes.length < period) return null;
-  const slice = closes.slice(-period);
-  const media = slice.reduce((a, b) => a + b, 0) / period;
-  const std = Math.sqrt(slice.reduce((s, v) => s + (v - media) * (v - media), 0) / period);
-  const superior = media + mult * std;
-  const inferior = media - mult * std;
-  const precio = closes[closes.length - 1];
-  let posicion;
-  if (precio <= inferior * 1.005) posicion = 'inferior';
-  else if (precio >= superior * 0.995) posicion = 'superior';
-  else posicion = 'medio';
-  return { superior, media, inferior, ancho: (superior - inferior) / media, posicion };
 }
 
 // ── STOCHASTIC RSI ────────────────────────────────────────
@@ -2014,13 +1934,6 @@ function calcChange24h(sym) {
   return (current - prevClose) / prevClose * 100;
 }
 
-function calcKelly(prob, odd, fraccion) {
-  fraccion = fraccion || 0.25;
-  if (!prob || !odd || odd <= 1) return 0;
-  const b = odd - 1;
-  const k = (prob * b - (1 - prob)) / b;
-  return Math.max(0, k * fraccion);
-}
 
 function calcOperacion(entrada, salida, stake, pos) {
   if (!entrada || !salida || !stake) return null;
@@ -3352,9 +3265,6 @@ function init() {
   setInterval(cargarPrecios, 5 * 60 * 1000);
   setInterval(() => recargarDatos(true), 30 * 60 * 1000);
 }
-
-// ── HTML ESCAPE ───────────────────────────────────────────
-function escHtml(t) { const d = document.createElement('div'); d.appendChild(document.createTextNode(t || '')); return d.innerHTML; }
 
 // ═══════════════════════════════════════════════════════════
 //  SATOSHI — IA ASESOR CRYPTO

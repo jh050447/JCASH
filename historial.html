@@ -269,6 +269,10 @@ td.neg { color: #ff6464; }
 .tooltip-box{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#0d2540;border:1px solid #1a6eb5;border-radius:8px;padding:10px 14px;width:260px;font-size:12px;line-height:1.5;color:#cdd6f4;z-index:9999;pointer-events:none;}
 .tooltip-wrapper:hover .tooltip-box,.tooltip-wrapper.active .tooltip-box{display:block;}
 </style>
+<!-- JCAHS Shared Modules v2 -->
+<script src="js/shared/math.js"></script>
+<script src="js/core/storage.js"></script>
+<script src="js/core/notifications.js"></script>
 </head>
 <body>
 
@@ -505,13 +509,6 @@ function procesarPendientes() {
   return true;
 }
 
-function escHtml(str) {
-  if (str === null || str === undefined) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
 
 function fmtNum(v, decimales) {
   return (v === null || v === undefined || v === '') ? '—' : Number(v).toFixed(decimales);
