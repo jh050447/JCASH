@@ -410,11 +410,11 @@ body {
 }
 
 /* ── GRID LAYOUTS ───────────────────────────────────────── */
-.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.grid-4 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+@media (max-width: 1024px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
-@media (max-width: 1100px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 800px)  { .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; } }
+@media (max-width: 800px)  { .grid-3, .grid-2 { grid-template-columns: 1fr; } }
 
 /* ── SECTION HEADER ─────────────────────────────────────── */
 .sec-header {
@@ -1351,22 +1351,7 @@ body {
 .card-sub { font-size: 12px; color: var(--text-3); margin-top: 4px; }
 
 /* ── GRIDS ───────────────────────────────────────────────── */
-.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
-@media (max-width: 1100px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } }
-/* Cards de monedas: 3 cols base → 2 cols tablet → scroll horizontal móvil */
-#crypto-cards,
-.grid-4 {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-@media (max-width: 1024px) {
-  #crypto-cards,
-  .grid-4 {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
 
 /* ── SEC HEADER ──────────────────────────────────────────── */
 .sec-header {
@@ -1796,7 +1781,7 @@ select.input { cursor: pointer; }
 
   .btn-hamburguesa { display: flex; }
 
-  .grid-4, .grid-2 { grid-template-columns: 1fr; }
+  .grid-2 { grid-template-columns: 1fr; }
 
   .spa-content { padding: 14px 14px 80px; }
 
