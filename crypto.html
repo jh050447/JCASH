@@ -3580,7 +3580,7 @@ function enviarAlertaTelegram(texto) {
 }
 window.enviarAlertaTelegram = enviarAlertaTelegram;
 
-function _enviarTgCrypto(a) {
+async function _enviarTgCrypto(a) {
   const sym   = a.sym;
   const p     = STATE.precios[sym];
   const d     = sym !== 'GLOBAL' ? calcScore(sym) : null;
@@ -3590,35 +3590,31 @@ function _enviarTgCrypto(a) {
   let msg = '';
   if (a.tipo === 'scoreAlto' && d && p) {
     const kelly = calcKelly(d.score / 100, 2, 0.25) * STATE.capitalCrypto;
-    // SL/TP dinámicos basados en ATR
+    const kellyPct = calcKelly(d.score / 100, 2, 0.25) * 100;
     const k4h = (STATE.ohlc[sym] || {})['4h'] || [];
-    let sl = p * 0.95, tp = p * 1.10, tp2 = p * 1.15;
+    let sl = p * 0.95, tp = p * 1.10, tp2 = p * 1.15, atrVal = 0;
     if (k4h.length >= 15) {
       const atrArr = calcATR(k4h.map(c => c.h), k4h.map(c => c.l), k4h.map(c => c.c), 14);
-      const atr = atrArr[atrArr.length - 1];
-      if (atr > 0) { sl = p - atr * 1.5; tp = p + atr * 2.0; tp2 = p + atr * 3.0; }
+      atrVal = atrArr[atrArr.length - 1];
+      if (atrVal > 0) { sl = p - atrVal * 1.5; tp = p + atrVal * 2.0; tp2 = p + atrVal * 3.0; }
     }
-    const pctSL  = ((sl - p) / p * 100).toFixed(1);
-    const pctTP1 = ((tp  - p) / p * 100).toFixed(1);
-    const pctTP2 = ((tp2 - p) / p * 100).toFixed(1);
-    // Datos históricos reales del backtest
-    const btCache = (() => { try { return JSON.parse(localStorage.getItem('jcahs_backtest_resultados') || '{}'); } catch(e) { return {}; } })();
-    const bts = btCache[sym] || null;
-    const probTP1 = bts ? bts.hitRateTP1 + '%' : 'sin datos históricos';
-    const probSL  = bts ? bts.hitRateSL  + '%' : 'sin datos históricos';
-    const tiempoR = bts ? bts.tiempoPromedioTP1 + 'h promedio' : 'sin datos';
-    msg = '₿ <b>JCAHS Crypto — Señal Detectada</b>\n\n' +
-      '🪙 ' + sym + ' (' + fmtPrecio(p) + ')\n' +
-      '📊 Score: ' + d.score + '/100 | Señal: COMPRAR\n' +
-      '📉 RSI 4H: ' + (d.rsi4h != null ? fmt(d.rsi4h, 1) : '—') + '\n' +
-      '🛑 Stop Loss: ' + fmtPrecio(sl) + ' (' + pctSL + '% ATR)\n' +
-      '🎯 TP1: ' + fmtPrecio(tp) + ' (+' + pctTP1 + '%) · TP2: ' + fmtPrecio(tp2) + ' (+' + pctTP2 + '%)\n' +
-      '💵 Capital sugerido: $' + fmt(kelly, 2) + '\n\n' +
-      '💡 <b>BASADO EN ' + (bts ? bts.total : 0) + ' SEÑALES HISTÓRICAS REALES</b>\n' +
-      '🟢 Prob. alcanzar TP1: ' + probTP1 + '\n' +
-      '🔴 Prob. tocar SL: ' + probSL + '\n' +
-      '⏱ Tiempo promedio: ' + tiempoR + '\n\n' +
-      '📱 jh050447.github.io/JCASH/crypto.html';
+    const datos = {
+      precio: p, score: d.score,
+      rsi: d.rsi4h != null ? d.rsi4h : 50,
+      sl, tp1: tp, tp2,
+      capital: kelly, kelly: kellyPct,
+      fearGreed: STATE.fng?.value ?? 50,
+      sp500: STATE.macro?.sp500?.precio ?? null,
+      dxy:   STATE.macro?.dxy?.precio   ?? null,
+      vix:   STATE.macro?.vix?.precio   ?? null,
+      tendencia: (d.ema20_1d && d.ema50_1d) ? (d.ema20_1d > d.ema50_1d ? 'alcista' : 'bajista') : 'neutral',
+      volumen:    d.volSig?.ratio ?? 1,
+      macd:       d.macd4h?.hist ?? 0,
+      bb:         d.bb4h?.posicion ?? 'medio',
+      divergencia: !!(d.div4h?.detectada || d.div1d?.detectada),
+      atr: atrVal, timeframe: '4H'
+    };
+    msg = await generarMensajeCryptoTelegram(sym, datos);
   } else if (a.tipo === 'rsiSob' && p) {
     msg = '📉 <b>JCAHS — RSI Sobrevendido</b>\n\n' +
       '🪙 ' + sym + ': RSI ' + fmt(a.rsi, 1) + ' (sobrevendido)\n' +
@@ -3632,6 +3628,142 @@ function _enviarTgCrypto(a) {
       '💡 Verifica las 3 condiciones en DCA Hold';
   }
   if (msg) enviarAlertaTelegram(msg);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  OKX HISTÓRICO + STORYTELLING TELEGRAM
+// ═══════════════════════════════════════════════════════════
+
+async function cargarHistorialOKX(sym, tf, añosAtras) {
+  añosAtras = añosAtras || 3;
+  const OKX_SYMBOLS = { BTC:'BTC-USDT', ETH:'ETH-USDT', SOL:'SOL-USDT', XRP:'XRP-USDT', ADA:'ADA-USDT', AVAX:'AVAX-USDT', DOT:'DOT-USDT', LINK:'LINK-USDT' };
+  const OKX_INTERVALS = { '1h':'1H', '4h':'4H', '1d':'1D' };
+  const instId = OKX_SYMBOLS[sym], interval = OKX_INTERVALS[tf];
+  if (!instId || !interval) return null;
+  const BASE = 'https://www.okx.com/api/v5/market/history-candles';
+  const tsInicio = Date.now() - añosAtras * 365 * 24 * 60 * 60 * 1000;
+  let todasLasVelas = [], before = null, intentos = 0;
+  while (intentos < 20) {
+    try {
+      let url = BASE + '?instId=' + instId + '&bar=' + interval + '&limit=300';
+      if (before) url += '&before=' + before;
+      const res = await fetch(PROXY + '/?url=' + encodeURIComponent(url));
+      const data = await res.json();
+      if (!data.data || data.data.length === 0) break;
+      const cerradas = data.data
+        .filter(function(v) { return v[8] === '1' || v[8] === 1; })
+        .map(function(v) { return { t: parseInt(v[0]), o: parseFloat(v[1]), h: parseFloat(v[2]), l: parseFloat(v[3]), c: parseFloat(v[4]), v: parseFloat(v[5]) }; });
+      if (cerradas.length === 0) break;
+      todasLasVelas = todasLasVelas.concat(cerradas);
+      const masAntiguo = cerradas[cerradas.length - 1];
+      before = masAntiguo.t - 1;
+      if (masAntiguo.t <= tsInicio) break;
+      await new Promise(function(r) { setTimeout(r, 300); });
+      intentos++;
+    } catch(e) { break; }
+  }
+  if (todasLasVelas.length === 0) return null;
+  todasLasVelas.sort(function(a, b) { return a.t - b.t; });
+  return todasLasVelas.filter(function(v, i, arr) { return i === 0 || v.t !== arr[i-1].t; });
+}
+
+async function generarMensajeCryptoTelegram(sym, datos) {
+  const precio = datos.precio || 0;
+  const score  = datos.score  || 0;
+  const rsi    = datos.rsi    != null ? datos.rsi    : 50;
+  const sl     = datos.sl     || precio * 0.95;
+  const tp1    = datos.tp1    || precio * 1.10;
+  const tp2    = datos.tp2    || precio * 1.15;
+  const capital = datos.capital || (STATE.capitalCrypto * 0.02);
+  const kellyPct = datos.kelly != null ? datos.kelly : 2;
+  const fearGreed = datos.fearGreed != null ? datos.fearGreed : (STATE.fng?.value || 50);
+  const sp500  = datos.sp500  || null;
+  const dxy    = datos.dxy    || null;
+  const vix    = datos.vix    || null;
+  const tendencia  = datos.tendencia  || 'neutral';
+  const volumen    = datos.volumen    != null ? datos.volumen : 1;
+  const macdHist   = datos.macd       != null ? datos.macd    : 0;
+  const bbPos      = datos.bb         || 'medio';
+  const divergencia = datos.divergencia || false;
+  const timeframe  = datos.timeframe   || '4H';
+
+  const gananciaTP1 = Math.abs((tp1 - precio) / precio * capital).toFixed(2);
+  const gananciaTP2 = Math.abs((tp2 - precio) / precio * capital).toFixed(2);
+  const perdidaSL   = Math.abs((precio - sl)  / precio * capital).toFixed(2);
+  const pctTP1 = ((tp1 - precio) / precio * 100).toFixed(1);
+  const pctTP2 = ((tp2 - precio) / precio * 100).toFixed(1);
+  const pctSL  = ((precio - sl)  / precio * 100).toFixed(1);
+  const ratioRR = (perdidaSL > 0 ? gananciaTP1 / perdidaSL : 0).toFixed(1);
+
+  const razones = [];
+  if (rsi < 30)        razones.push('RSI ' + fmt(rsi,1) + ' — sobreventa extrema');
+  else if (rsi < 40)   razones.push('RSI ' + fmt(rsi,1) + ' — zona de acumulación');
+  if (bbPos === 'bajo') razones.push('Precio en banda inferior Bollinger');
+  if (volumen > 1.5)   razones.push('Volumen ' + volumen.toFixed(1) + 'x sobre promedio');
+  if (divergencia)     razones.push('Divergencia alcista confirmada');
+  if (macdHist > 0)    razones.push('MACD con momentum positivo');
+
+  const fgTexto = fearGreed < 25 ? '😱 Miedo Extremo (' + fearGreed + ') — zona de compra históricamente' :
+                  fearGreed < 45 ? '😟 Miedo (' + fearGreed + ') — mercado cauteloso' :
+                                   '😐 Neutral (' + fearGreed + ')';
+  const dxyTexto = dxy ? (dxy > 105 ? '⚠️ Dólar fuerte (' + fmt(dxy,1) + ') — presión bajista crypto' :
+                                       '✅ Dólar débil (' + fmt(dxy,1) + ') — favorable crypto') : '';
+  const vixTexto = vix ? (vix > 25 ? '⚠️ Volatilidad alta (VIX ' + fmt(vix,1) + ')' :
+                                      '✅ Mercados estables (VIX ' + fmt(vix,1) + ')') : '';
+
+  const tiempoDecision = timeframe === '4H' ? '4-8 horas' : '24 horas';
+  const tiempoObjetivo = timeframe === '4H' ? '2-5 días'  : '1-2 semanas';
+
+  const btCache = (() => { try { return JSON.parse(localStorage.getItem('jcahs_backtest_resultados') || '{}'); } catch(e) { return {}; } })();
+  const statsKey = sym + '_4h';
+  const stats = btCache[statsKey];
+
+  let seccionHistorica;
+  if (stats && stats.total >= 10) {
+    seccionHistorica = '\n💡 BASADO EN ' + stats.total + ' SEÑALES HISTÓRICAS REALES\n' +
+      '🟢 Prob. alcanzar TP1: ' + stats.hitRateTP1 + '%\n' +
+      '🔴 Prob. tocar SL: ' + stats.hitRateSL + '%\n' +
+      '⏱ Tiempo promedio hasta resultado: ' + stats.tiempoPromedioTP1 + 'h';
+  } else {
+    // Lanzar carga OKX en background para próximas alertas
+    cargarHistorialOKX(sym, '4h', 3).then(function(velas) {
+      if (velas && velas.length > 100) {
+        if (!STATE.ohlc[sym]) STATE.ohlc[sym] = {};
+        STATE.ohlc[sym]['4h_okx'] = velas;
+        const resultados = ejecutarBacktestingReal(sym, '4h');
+        if (resultados && resultados.length >= 5) {
+          const nuevasStats = calcularEstadisticasBacktest(resultados);
+          const btAct = (() => { try { return JSON.parse(localStorage.getItem('jcahs_backtest_resultados') || '{}'); } catch(e) { return {}; } })();
+          btAct[statsKey] = nuevasStats;
+          try { localStorage.setItem('jcahs_backtest_resultados', JSON.stringify(btAct)); } catch(e) {}
+        }
+      }
+    });
+    seccionHistorica = '\n💡 DATOS HISTÓRICOS\n⏳ Cargando historial OKX... próximas alertas incluirán probabilidades reales';
+  }
+
+  return '⚡ SEÑAL DE COMPRA — ' + sym + ' · ' + fmtPrecio(precio) + '\n\n' +
+    '📊 ANÁLISIS DEL MOMENTO\nScore ' + score + '/100 — ' + (razones.slice(0,3).join(' · ') || 'múltiples indicadores alineados') + '\n\n' +
+    '💡 QUÉ PUEDE PASAR SI ENTRAS AHORA\nEntrada a ' + fmtPrecio(precio) + ':\n\n' +
+    '🟢 Si llega a TP2 (' + fmtPrecio(tp2) + '):\n   Ganarías +$' + gananciaTP2 + ' sobre $' + fmt(capital,2) + ' (+' + pctTP2 + '%)\n\n' +
+    '🟡 Si llega a TP1 (' + fmtPrecio(tp1) + '):\n   Ganarías +$' + gananciaTP1 + ' sobre $' + fmt(capital,2) + ' (+' + pctTP1 + '%)\n\n' +
+    '🔴 Si toca Stop Loss (' + fmtPrecio(sl) + '):\n   Perderías -$' + perdidaSL + ' sobre $' + fmt(capital,2) + ' (-' + pctSL + '%)\n\n' +
+    '🎯 TU PLAN DE OPERACIÓN\n' +
+    'Entrada:       ' + fmtPrecio(precio) + '\n' +
+    'Stop Loss:     ' + fmtPrecio(sl) + ' (-' + pctSL + '%)\n' +
+    'Take Profit 1: ' + fmtPrecio(tp1) + ' (+' + pctTP1 + '%)\n' +
+    'Take Profit 2: ' + fmtPrecio(tp2) + ' (+' + pctTP2 + '%)\n' +
+    'Capital:       $' + fmt(capital,2) + ' (' + fmt(kellyPct,1) + '% bankroll)\n' +
+    'Ratio R/R:     1:' + ratioRR +
+    seccionHistorica + '\n\n' +
+    '⏱ TIEMPO ESTIMADO\nTimeframe ' + timeframe + ' → decide en las próximas ' + tiempoDecision + '\n' +
+    'Objetivo en ' + tiempoObjetivo + '\n\n' +
+    '🌍 CONTEXTO DEL MERCADO\n' + fgTexto + '\n' +
+    (dxyTexto ? dxyTexto + '\n' : '') +
+    (vixTexto ? vixTexto + '\n' : '') +
+    'Tendencia 1D: ' + (tendencia === 'alcista' ? '🟢 Alcista' : '🔴 Bajista') + '\n\n' +
+    '⚠️ MODO SIMULACIÓN ACTIVO\nNo usar dinero real hasta validar 50 señales\n\n' +
+    '📱 jh050447.github.io/JCASH/crypto.html';
 }
 
 // ═══════════════════════════════════════════════════════════
