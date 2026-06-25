@@ -1355,13 +1355,17 @@ body {
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
 @media (max-width: 1100px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } }
 /* Cards de monedas: 3 cols base → 2 cols tablet → scroll horizontal móvil */
-#crypto-cards {
+#crypto-cards,
+.grid-4 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
 }
 @media (max-width: 1024px) {
-  #crypto-cards { grid-template-columns: repeat(2, 1fr); }
+  #crypto-cards,
+  .grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 /* ── SEC HEADER ──────────────────────────────────────────── */
@@ -2074,10 +2078,10 @@ td.neg { color: #ff6464; }
 
 
 /* === CRYPTO PANEL — SCROLL HORIZONTAL EN MOVIL ===========================
-   En <800px el .grid-4 colapsa a 1 columna. Sobreescribimos #crypto-cards
-   con flex + scroll horizontal para que las 8 cards sean deslizables.     */
+   En <800px tanto #crypto-cards como .grid-4 usan flex + scroll horizontal. */
 @media (max-width: 800px) {
-  #crypto-cards {
+  #crypto-cards,
+  .grid-4 {
     display: flex;
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -2087,10 +2091,14 @@ td.neg { color: #ff6464; }
     padding-bottom: 8px;
     scrollbar-width: thin;
   }
-  #crypto-cards::-webkit-scrollbar       { height: 4px; }
-  #crypto-cards::-webkit-scrollbar-track { background: transparent; }
-  #crypto-cards::-webkit-scrollbar-thumb { background: rgba(26,110,181,0.4); border-radius: 2px; }
-  #crypto-cards .crypto-coin-card {
+  #crypto-cards::-webkit-scrollbar,
+  .grid-4::-webkit-scrollbar       { height: 4px; }
+  #crypto-cards::-webkit-scrollbar-track,
+  .grid-4::-webkit-scrollbar-track { background: transparent; }
+  #crypto-cards::-webkit-scrollbar-thumb,
+  .grid-4::-webkit-scrollbar-thumb { background: rgba(26,110,181,0.4); border-radius: 2px; }
+  #crypto-cards .crypto-coin-card,
+  .grid-4 .crypto-coin-card {
     min-width: 280px;
     flex-shrink: 0;
     scroll-snap-align: start;
