@@ -1143,6 +1143,8 @@ body {
 <script src="js/shared/math.js"></script>
 <script src="js/core/storage.js"></script>
 <script src="js/core/notifications.js"></script>
+<!-- JCAHS Betting Modules -->
+<script src="js/betting/kelly.js"></script>
 </head>
 <body>
 
@@ -10663,39 +10665,7 @@ function abrirCasa(btn, url) {
   setTimeout(function() { btn.textContent = txt; btn.disabled = false; }, 1000);
 }
 
-// ── MONTE CARLO POR APUESTA ───────────────────────────────
-function monteCarloBet(odd, probReal, monto, bankroll, n) {
-  n = n || 1000;
-  var prob = (probReal || 0) / 100;
-  var victorias = 0, sumGanancia = 0;
-  for (var i = 0; i < n; i++) {
-    if (Math.random() < prob) { victorias++; sumGanancia += (odd - 1) * monto; }
-    else sumGanancia -= monto;
-  }
-  var gananciaEsp = sumGanancia / n;
-  return {
-    winRate: victorias / n * 100,
-    gananciaEsperada: gananciaEsp,
-    valorEsperado: monto > 0 ? gananciaEsp / monto : 0,
-    ganaSi: bankroll + (odd - 1) * monto,
-    pierdeSi: bankroll - monto,
-    esValuePositivo: gananciaEsp > 0
-  };
-}
-
-function historialSimilar(probReal) {
-  try {
-    var hist = JSON.parse(localStorage.getItem('jcahs_historial') || '[]');
-    var margin = 10;
-    var sim = hist.filter(function(r) {
-      return r.probReal != null && Math.abs(r.probReal - probReal) <= margin &&
-             (r.resultado === 'GANÓ' || r.resultado === 'PERDIÓ');
-    });
-    if (!sim.length) return null;
-    var gan = sim.filter(function(r) { return r.resultado === 'GANÓ'; }).length;
-    return { n: sim.length, hitRate: gan / sim.length * 100 };
-  } catch(e) { return null; }
-}
+// ── MONTE CARLO + historialSimilar — ver js/betting/kelly.js
 
 function renderMCBetHTML(res, odd, probReal, monto, bankroll, hist) {
   var vc = res.esValuePositivo ? '#4edea3' : '#ff6464';
