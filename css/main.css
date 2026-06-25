@@ -2090,3 +2090,14 @@ td.neg { color: #ff6464; }
     scroll-snap-align: start;
   }
 }
+
+/* === HISTORIAL — FIX SCROLL ==============================================
+   html/body tienen overflow:hidden del app-shell (index/crypto).
+   historial.html usa <body class="page-historial"> y no tiene .app-shell,
+   asi que restauramos el scroll natural del documento.                      */
+.page-historial,
+.page-historial body {
+  height: auto !important;
+  overflow: visible !important;
+  overflow-y: auto !important;
+}
