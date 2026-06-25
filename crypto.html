@@ -729,7 +729,7 @@ const PROXY = 'https://jcahs-proxy.jh050447.workers.dev';
 const GROQ_URL = PROXY + '/?url=' + encodeURIComponent('https://api.groq.com/openai/v1/chat/completions') + '&api=groq';
 const TAVILY_URL = PROXY + '/?url=' + encodeURIComponent('https://api.tavily.com/search') + '&api=tavily';
 
-const STATE = Object.assign(window.STATE, {
+Object.assign(window.STATE, {
   precios: {},
   fng: null,
   ohlc: {
@@ -764,6 +764,7 @@ const STATE = Object.assign(window.STATE, {
   cargando: false,
   ultimaActualizacion: null
 });
+const STATE = window.STATE;
 
 const TIMEFRAMES_KRAKEN = {
   '1h':  { interval:   60, label: '1H',  velas: 720, historia: '30 días'  },

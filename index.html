@@ -758,7 +758,7 @@ function migrarOps(raw) {
 }
 
 // ─── ESTADO ─────────────────────────────────────────────────
-const STATE = Object.assign(window.STATE, {
+Object.assign(window.STATE, {
   precios:         {},
   fng:             null,
   senales:         {},
@@ -876,6 +876,7 @@ const STATE = Object.assign(window.STATE, {
   iaAsesor:  'MASTER',
   iaChats:   JSON.parse(localStorage.getItem('jcahs_ia_chats') || '{}'),
 });
+const STATE = window.STATE;
 
 // ─── HELPERS ────────────────────────────────────────────────
 const ts      = () => new Date().toLocaleTimeString('es-EC', { hour:'2-digit', minute:'2-digit' });
