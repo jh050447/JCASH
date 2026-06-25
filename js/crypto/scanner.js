@@ -1,13 +1,13 @@
-﻿/**
+/**
  * JCAHS — Crypto Scanner Module
- * Scoring, análisis de operaciones y confluencia multi-timeframe
+ * Scoring, analisis de operaciones y confluencia multi-timeframe
  * Depende de: js/shared/math.js, js/crypto/indicators.js
  * Globals de runtime: STATE, fmt (definidos en crypto.html inline script)
  */
 
 'use strict';
 
-// ── OPERACIÓN (SL/TP cálculo) ─────────────────────────────
+// -- OPERACION (SL/TP calculo) -------------------------------------------
 function calcOperacion(entrada, salida, stake, pos) {
   if (!entrada || !salida || !stake) return null;
   const variacion = (salida - entrada) / entrada;
@@ -15,7 +15,7 @@ function calcOperacion(entrada, salida, stake, pos) {
   return { variacion, pnl };
 }
 
-// ── SCORE PRINCIPAL (0-100) ──────────────────────────────
+// -- SCORE PRINCIPAL (0-100) ----------------------------------------
 function calcScore(sym) {
   const k4h = STATE.ohlc[sym]?.['4h'] || [];
   const k1d = STATE.ohlc[sym]?.['1d'] || [];
@@ -44,10 +44,10 @@ function calcScore(sym) {
   if (rsi4h !== null) {
     if (rsi4h < 30) {
       score += 30;
-      razones.push({ txt: 'RSI ' + fmt(rsi4h, 1) + ' â€” sobreventa extrema', key: 'rsi_sob' });
+      razones.push({ txt: 'RSI ' + fmt(rsi4h, 1) + ' — sobreventa extrema', key: 'rsi_sob' });
     } else if (rsi4h < 40) {
       score += 15;
-      razones.push({ txt: 'RSI ' + fmt(rsi4h, 1) + ' â€” zona de acumulaciÃ³n', key: 'rsi_acc' });
+      razones.push({ txt: 'RSI ' + fmt(rsi4h, 1) + ' — zona de acumulación', key: 'rsi_acc' });
     } else if (rsi4h > 70) {
       razonesFail.push('RSI ' + fmt(rsi4h, 1) + ' (sobrecompra)');
     } else {
@@ -91,10 +91,10 @@ function calcScore(sym) {
   // Fear & Greed
   if (fng < 20) {
     score += 25;
-    razones.push({ txt: 'Fear & Greed ' + fng + ' â€” miedo extremo', key: 'fng_ext' });
+    razones.push({ txt: 'Fear & Greed ' + fng + ' — miedo extremo', key: 'fng_ext' });
   } else if (fng < 30) {
     score += 15;
-    razones.push({ txt: 'Fear & Greed ' + fng + ' â€” miedo alto', key: 'fng_miedo' });
+    razones.push({ txt: 'Fear & Greed ' + fng + ' — miedo alto', key: 'fng_miedo' });
   } else if (fng > 75) {
     razonesFail.push('F&G ' + fng + ' (codicia extrema)');
   } else {
@@ -106,7 +106,7 @@ function calcScore(sym) {
   if (bb4h) {
     if (bb4h.posicion === 'inferior' && rsi4h !== null && rsi4h < 45) {
       score += 20;
-      razones.push({ txt: 'Precio en banda inferior de Bollinger con RSI bajo â€” doble sobreventa', key: 'bb_inf' });
+      razones.push({ txt: 'Precio en banda inferior de Bollinger con RSI bajo — doble sobreventa', key: 'bb_inf' });
     } else if (bb4h.posicion === 'superior') {
       score -= 15;
       razonesFail.push('Banda superior de Bollinger (sobrecompra)');
@@ -138,29 +138,29 @@ function calcScore(sym) {
     if (nearResist)  { score -= 10; razonesFail.push('Resistencia cercana: $' + fmt(nearResist.precio, 0) + ' (' + nearResist.toques + ' toques)'); }
   }
 
-  // Divergencia alcista 4H (+25) y 1D (+35, mÃ¡s significativa)
+  // Divergencia alcista 4H (+25) y 1D (+35, más significativa)
   const div4h = calcDivergenciaAlcista(sym, '4h');
   const div1d = calcDivergenciaAlcista(sym, '1d');
   if (div4h.detectada) {
     score += 25;
-    razones.unshift({ txt: 'ðŸ“ Divergencia alcista 4H â€” precio hizo mÃ­nimo mÃ¡s bajo pero RSI subiÃ³ de ' + fmt(div4h.rsi_anterior,1) + ' a ' + fmt(div4h.rsi_reciente,1) + ' (+' + fmt(div4h.diferencia,1) + ' pts). Los vendedores pierden fuerza.', key: 'div_4h' });
+    razones.unshift({ txt: '📐 Divergencia alcista 4H — precio hizo mínimo más bajo pero RSI subió de ' + fmt(div4h.rsi_anterior,1) + ' a ' + fmt(div4h.rsi_reciente,1) + ' (+' + fmt(div4h.diferencia,1) + ' pts). Los vendedores pierden fuerza.', key: 'div_4h' });
   }
   if (div1d.detectada) {
     score += 35;
-    razones.unshift({ txt: 'ðŸ“ Divergencia alcista DIARIA â€” seÃ±al mÃ¡s fuerte. Precio bajando pero RSI subiendo (' + fmt(div1d.rsi_anterior,1) + 'â†’' + fmt(div1d.rsi_reciente,1) + '). Posible agotamiento bajista.', key: 'div_1d' });
+    razones.unshift({ txt: '📐 Divergencia alcista DIARIA — señal más fuerte. Precio bajando pero RSI subiendo (' + fmt(div1d.rsi_anterior,1) + '→' + fmt(div1d.rsi_reciente,1) + '). Posible agotamiento bajista.', key: 'div_1d' });
   }
 
   score = Math.min(100, score);
 
-  // BUG 2 FIX: penalizaciÃ³n âˆ’25 si seÃ±al 4H es alcista pero tendencia 1D es bajista
+  // BUG 2 FIX: penalización −25 si señal 4H es alcista pero tendencia 1D es bajista
   const tendenciaBajista = ema20_1d !== null && ema50_1d !== null && ema20_1d < ema50_1d;
   if (tendenciaBajista && score >= 60) {
     score -= 25;
-    razonesFail.push('Conflicto de timeframes â€” seÃ±al 4H alcista vs tendencia 1D bajista (âˆ’25 pts)');
+    razonesFail.push('Conflicto de timeframes — señal 4H alcista vs tendencia 1D bajista (−25 pts)');
   }
   score = Math.max(0, score);
 
-  // SeÃ±al
+  // Señal
   let senal, senalClass;
   if (score >= 60) { senal = 'COMPRAR'; senalClass = 'badge-green'; }
   else if (score <= 25) { senal = 'VENDER'; senalClass = 'badge-red'; }
@@ -181,8 +181,7 @@ function calcScore(sym) {
   };
 }
 
-// ── RSI SEMANAL (para DCA) ──────────────────────────────
-
+// -- RSI SEMANAL (para DCA) -----------------------------------------
 function calcRsiSemanal(sym) {
   const k1d = STATE.ohlc[sym]?.['1d'] || [];
   if (k1d.length < 14 * 7) return null; // need ~14 weeks
@@ -192,8 +191,7 @@ function calcRsiSemanal(sym) {
   return calcRSI(weeklyCloses, 14);
 }
 
-// ── ANÁLISIS DE CONFLUENCIA MULTI-TF ────────────────────
-
+// -- ANALISIS DE CONFLUENCIA MULTI-TF --------------------------------
 function analizarConfluencia(sym) {
   const resultado = {};
   for (const tf of ['1h', '4h', '1d']) {
@@ -233,11 +231,11 @@ function analizarConfluencia(sym) {
     if (volD.ratio > 1.5) { puntos += 1; senales.push('Volumen ' + volD.ratio.toFixed(1) + 'x'); }
 
     let direccion, color, emoji;
-    if      (puntos >= 5)  { direccion = 'ALCISTA FUERTE'; color = '#00ff88'; emoji = 'ðŸŸ¢'; }
-    else if (puntos >= 2)  { direccion = 'ALCISTA';        color = '#00cc66'; emoji = 'ðŸŸ¢'; }
-    else if (puntos >= -1) { direccion = 'NEUTRAL';        color = '#f5a623'; emoji = 'ðŸŸ¡'; }
-    else if (puntos >= -4) { direccion = 'BAJISTA';        color = '#ff4444'; emoji = 'ðŸ”´'; }
-    else                   { direccion = 'BAJISTA FUERTE'; color = '#cc0000'; emoji = 'ðŸ”´'; }
+    if      (puntos >= 5)  { direccion = 'ALCISTA FUERTE'; color = '#00ff88'; emoji = '🟢'; }
+    else if (puntos >= 2)  { direccion = 'ALCISTA';        color = '#00cc66'; emoji = '🟢'; }
+    else if (puntos >= -1) { direccion = 'NEUTRAL';        color = '#f5a623'; emoji = '🟡'; }
+    else if (puntos >= -4) { direccion = 'BAJISTA';        color = '#ff4444'; emoji = '🔴'; }
+    else                   { direccion = 'BAJISTA FUERTE'; color = '#cc0000'; emoji = '🔴'; }
 
     resultado[tf] = {
       disponible: true, direccion, color, emoji, puntos, rsi: rsiVal,
@@ -254,12 +252,12 @@ function analizarConfluencia(sym) {
   const total    = disp.length;
 
   let confluencia, confluenciaEmoji, confluenciaColor;
-  if (total === 0)                           { confluencia = 'SIN DATOS';                   confluenciaEmoji = 'â³'; confluenciaColor = '#666';    }
-  else if (alcistas === total && total >= 2) { confluencia = 'CONFLUENCIA TOTAL ALCISTA';   confluenciaEmoji = 'ðŸš€'; confluenciaColor = '#00ff88'; }
-  else if (alcistas >= 2)                    { confluencia = 'CONFLUENCIA PARCIAL ALCISTA'; confluenciaEmoji = 'âœ…'; confluenciaColor = '#00cc66'; }
-  else if (bajistas === total && total >= 2) { confluencia = 'CONFLUENCIA TOTAL BAJISTA';   confluenciaEmoji = 'â›”'; confluenciaColor = '#cc0000'; }
-  else if (bajistas >= 2)                    { confluencia = 'CONFLUENCIA PARCIAL BAJISTA'; confluenciaEmoji = 'âš ï¸'; confluenciaColor = '#ff4444'; }
-  else                                       { confluencia = 'SIN CONFLUENCIA â€” MIXTO';     confluenciaEmoji = 'âš¡'; confluenciaColor = '#f5a623'; }
+  if (total === 0)                           { confluencia = 'SIN DATOS';                   confluenciaEmoji = '⏳'; confluenciaColor = '#666';    }
+  else if (alcistas === total && total >= 2) { confluencia = 'CONFLUENCIA TOTAL ALCISTA';   confluenciaEmoji = '🚀'; confluenciaColor = '#00ff88'; }
+  else if (alcistas >= 2)                    { confluencia = 'CONFLUENCIA PARCIAL ALCISTA'; confluenciaEmoji = '✅'; confluenciaColor = '#00cc66'; }
+  else if (bajistas === total && total >= 2) { confluencia = 'CONFLUENCIA TOTAL BAJISTA';   confluenciaEmoji = '⛔'; confluenciaColor = '#cc0000'; }
+  else if (bajistas >= 2)                    { confluencia = 'CONFLUENCIA PARCIAL BAJISTA'; confluenciaEmoji = '⚠️'; confluenciaColor = '#ff4444'; }
+  else                                       { confluencia = 'SIN CONFLUENCIA — MIXTO';     confluenciaEmoji = '⚡'; confluenciaColor = '#f5a623'; }
 
   return { ...resultado, confluencia, confluenciaEmoji, confluenciaColor, alcistas, bajistas, total };
 }
