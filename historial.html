@@ -782,6 +782,8 @@ document.getElementById('tbodyHistorial').addEventListener('click', (e) => {
   const id = Number(btn.getAttribute('data-id'));
   const data = cargarHistorial().filter(r => r.id !== id);
   guardarHistorial(data);
+  // Sincronizar eliminación al sistema HAP para que las tarjetas queden correctas
+  try { hapGuardar(hapLeer().filter(r => r.id != id)); } catch(e) {}
   renderTodo();
 });
 
@@ -1444,8 +1446,15 @@ function hapGuardarPostmortem(id) {
 // ── Eliminar apuesta ──────────────────────────────────────
 function hapEliminar(id) {
   if (!confirm('¿Eliminar este registro permanentemente? Esta acción no se puede deshacer.')) return;
+  // Eliminar del sistema HAP (jcahs_historial_apuestas)
   hapGuardar(hapLeer().filter(r => r.id != id));
-  hap_renderAll();
+  // Sincronizar al sistema legado (jcahs_historial) para que el gráfico quede correcto
+  try {
+    const legacy = cargarHistorial().filter(r => r.id != id);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy));
+  } catch(e) {}
+  // Refrescar chart + tarjetas a la vez
+  renderTodo();
 }
 
 // ── Nueva apuesta ─────────────────────────────────────────
