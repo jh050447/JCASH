@@ -5948,10 +5948,15 @@ async function autoDetectarYNotificar(vbet) {
   }).catch(function(e) { console.warn('KV save error:', e.message); });
 
   // 2. Enviar mensaje Telegram con botones ✅/❌
+  var mensajeCompleto = mensaje +
+    '\n\n🏠 APOSTAR AHORA:\n' +
+    '🟢 <a href="https://www.ecuabet.com">Ecuabet</a>\n' +
+    '🔵 <a href="https://www.bet365.com">Bet365</a>\n' +
+    '🟠 <a href="https://www.sportbet.com.ec">Sportbet</a>';
   fetch(TG_PROXY.replace('/?url=', '') + '/telegram/send-with-buttons', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mensaje: mensaje, callbackData: registroId }),
+    body: JSON.stringify({ mensaje: mensajeCompleto, callbackData: registroId }),
   }).catch(function(e) { console.warn('Telegram buttons error:', e.message); });
 
   // 3. Notificación Chrome corta
