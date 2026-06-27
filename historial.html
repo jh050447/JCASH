@@ -1354,7 +1354,14 @@ function hapCardBody(r) {
     '<textarea id="b5nt-'+id+'" style="width:100%;min-height:60px;background:#0d1f35;border:1px solid rgba(255,255,255,0.07);border-radius:6px;color:#e2eefc;font-size:13px;padding:8px;outline:none;resize:vertical;">'+escHtml(pm.notas||'')+'</textarea>' +
     '<button class="hap-btn-save" onclick="hapGuardarPostmortem('+id+')">💾 Guardar post-mortem</button>';
 
-  return blk('⚽','ENTRADA',b1) + blk('📊','INDICADORES DEL SISTEMA',b2) + blk('🎯','SALIDA PREVISTA',b3) + blk('📤','SALIDA REAL',b4) + blk('🔬','POST-MORTEM',b5);
+  const btnEliminar = '<div style="text-align:right;margin-top:16px;padding-top:12px;border-top:1px solid #1a3a5c;">' +
+    '<button onclick="hapEliminar('+id+')" ' +
+      'style="background:none;border:1px solid #ff444466;color:#ff4444;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;" ' +
+      'onmouseover="this.style.background=\'#ff444422\'" ' +
+      'onmouseout="this.style.background=\'none\'">🗑️ Eliminar registro</button>' +
+    '</div>';
+
+  return blk('⚽','ENTRADA',b1) + blk('📊','INDICADORES DEL SISTEMA',b2) + blk('🎯','SALIDA PREVISTA',b3) + blk('📤','SALIDA REAL',b4) + blk('🔬','POST-MORTEM',b5) + btnEliminar;
 }
 
 // ── Guardar bloques ───────────────────────────────────────
@@ -1432,6 +1439,13 @@ function hapGuardarPostmortem(id) {
   r.postmortem.notas = document.getElementById('b5nt-'+id)?.value || '';
   r.postmortem.sistema_acerto = hapSistemaAcerto(r);
   hapGuardar(lista); hap_renderAll();
+}
+
+// ── Eliminar apuesta ──────────────────────────────────────
+function hapEliminar(id) {
+  if (!confirm('¿Eliminar este registro permanentemente? Esta acción no se puede deshacer.')) return;
+  hapGuardar(hapLeer().filter(r => r.id != id));
+  hap_renderAll();
 }
 
 // ── Nueva apuesta ─────────────────────────────────────────
