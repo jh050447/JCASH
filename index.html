@@ -5860,6 +5860,109 @@ function enviarAlertaTelegram(texto) {
 }
 window.enviarAlertaTelegram = enviarAlertaTelegram;
 
+// ─── AUTO-REGISTRO DESDE TELEGRAM ─────────────────────────────
+// IDs ya enviados en esta sesión para no duplicar
+var _apuestasNotificadas = new Set();
+
+async function autoDetectarYNotificar(vbet) {
+  // Deduplicar — mismo partido+pick no se notifica dos veces
+  var key = (vbet.partido || '') + '_' + (vbet.pick || '');
+  if (_apuestasNotificadas.has(key)) return;
+  _apuestasNotificadas.add(key);
+
+  var registroId = Date.now().toString();
+  var stakeBase  = vbet.kelly || (STATE.bankroll ? (STATE.bankroll * 0.02).toFixed(2) : '4');
+  var registro = {
+    id:     registroId,
+    estado: 'pendiente',
+    entrada: {
+      fecha:         new Date().toISOString().slice(0, 10),
+      hora:          new Date().toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' }),
+      partido:       vbet.partido || '',
+      liga:          vbet.liga    || '',
+      mercado:       vbet.mercado || '1X2',
+      pick:          vbet.pick    || '',
+      hora_partido:  vbet.hora    || '',
+      stake_sugerido: stakeBase,
+      casa_apuestas:  null,
+      cuota_manual:   null,
+      stake_manual:   null,
+    },
+    indicadores_sistema: {
+      prob_real:       vbet.probReal || vbet.prob || null,
+      edge_calculado:  vbet.edge     || null,
+      odd_pinnacle:    vbet.oddPinnacle || null,
+      odd_bet365:      vbet.oddBet365  || vbet.odd || null,
+      score_jcahs:     vbet.score   || null,
+      filtros_mentor:  vbet.filtros  || null,
+    },
+    salida_prevista: {
+      ganancia_esperada: (vbet.kelly && vbet.odd) ? (vbet.kelly * (vbet.odd - 1)).toFixed(2) : null,
+      perdida_esperada:  stakeBase,
+    },
+    salida_real: {
+      resultado: 'PENDIENTE',
+      pnl_usd:   null,
+      odd_cierre: null,
+      clv:        null,
+    },
+    postmortem: { sistema_acerto: null, notas: '' },
+  };
+
+  // Barra de progreso de validación
+  var historial         = Storage.getHistorialApuestas();
+  var totalRegistradas  = historial.filter(function(a) { return a.estado !== 'pendiente' || (a.entrada && a.entrada.cuota_manual); }).length;
+  var meta     = totalRegistradas < 30 ? 30 : totalRegistradas < 100 ? 100 : totalRegistradas < 300 ? 300 : 1000;
+  var faltan   = meta - totalRegistradas;
+  var progreso = Math.round((totalRegistradas / meta) * 20);
+  var barra    = '▓'.repeat(progreso) + '░'.repeat(20 - progreso);
+  var metaLabel = meta === 30 ? 'primera validación CLV' : meta === 100 ? 'hit rate confiable' : meta === 300 ? 'significancia estadística' : 'sistema institucional';
+
+  var minutosRestantes = vbet.minutosRestantes != null ? vbet.minutosRestantes : 999;
+  var urgencia = minutosRestantes < 60
+    ? '🚨 URGENTE — partido en ' + minutosRestantes + ' minutos'
+    : minutosRestantes < 180
+    ? '⚡ Partido en ' + Math.floor(minutosRestantes / 60) + 'h ' + (minutosRestantes % 60) + 'min'
+    : '⏱ Partido hoy a las ' + (vbet.hora || '');
+
+  var odd    = vbet.odd     != null ? parseFloat(vbet.odd).toFixed(2)        : '—';
+  var oddPin = vbet.oddPinnacle != null ? parseFloat(vbet.oddPinnacle).toFixed(2) : '—';
+  var edge   = vbet.edge    != null ? parseFloat(vbet.edge).toFixed(1)       : '—';
+  var score  = vbet.score   != null ? vbet.score : '—';
+
+  var mensaje = '⚽ <b>JCAHS — VALUE BET DETECTADA</b>\n\n' +
+    '🏆 ' + (vbet.liga || '') + '\n' + (vbet.partido || '') + '\n' + urgencia + '\n\n' +
+    '🎯 PICK: ' + (vbet.pick || '') + '\n' +
+    '📊 Score: ' + score + '/100 · Edge: +' + edge + '%\n' +
+    'Odd Pinnacle: ' + oddPin + ' · Odd Bet365: ' + odd + '\n' +
+    'Stake sugerido: $' + stakeBase + '\n\n' +
+    '📈 PROGRESO DE VALIDACIÓN\n' +
+    barra + ' ' + totalRegistradas + '/' + meta + ' señales\n' +
+    'Faltan ' + faltan + ' para ' + metaLabel;
+
+  // 1. Guardar en KV como pendiente (fire-and-forget, no rompe si falla)
+  fetch(TG_PROXY.replace('/?url=', '') + '/apuestas/guardar-pendiente', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ registroId: registroId, registro: registro }),
+  }).catch(function(e) { console.warn('KV save error:', e.message); });
+
+  // 2. Enviar mensaje Telegram con botones ✅/❌
+  fetch(TG_PROXY.replace('/?url=', '') + '/telegram/send-with-buttons', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mensaje: mensaje, callbackData: registroId }),
+  }).catch(function(e) { console.warn('Telegram buttons error:', e.message); });
+
+  // 3. Notificación Chrome corta
+  if (typeof Notifications !== 'undefined' && typeof Notifications.chrome === 'function') {
+    Notifications.chrome(
+      '⚽ Value Bet · ' + (vbet.liga || ''),
+      (vbet.partido || '') + '\n' + (vbet.pick || '') + ' · Edge +' + edge + '% · Score ' + score + '/100'
+    );
+  }
+}
+
 // ─── SISTEMA DE NOTIFICACIONES — Chrome + Telegram ────────────
 async function notifChrome(titulo, cuerpo, icono) {
   icono = icono || '⚽';
@@ -6095,6 +6198,24 @@ function notificarAlertasNuevas(alertas) {
         stake: apostar, ganancia: gananciaTg, perdida: apostar,
         hora: a.minutosRestantes + ' min', minutosRestantes: a.minutosRestantes
       });
+
+      // Auto-registro con botones ✅/❌ — solo si tiene edge positivo y score ≥ 60
+      if (a.score >= 60 && vb2.edge > 0) {
+        autoDetectarYNotificar({
+          partido:     a.partido,
+          liga:        vb2.liga    || '',
+          mercado:     vb2.mercado || '1X2',
+          pick:        a.pick,
+          score:       a.score,
+          edge:        vb2.edge,
+          probReal:    a.probReal,
+          oddPinnacle: vb2.odd,
+          odd:         a.odd,
+          kelly:       vb2.apostar,
+          hora:        a.minutosRestantes + ' min',
+          minutosRestantes: a.minutosRestantes,
+        });
+      }
     }
   });
 

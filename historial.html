@@ -1062,7 +1062,47 @@ function compararKelly() {
 // Auto-load MC inputs from historial
 document.addEventListener('DOMContentLoaded', function() {
   setTimeout(mcAutoLoad, 200);
+  sincronizarDesdeKV();
+  setInterval(sincronizarDesdeKV, 5 * 60 * 1000);
 });
+
+// ─── SINCRONIZACIÓN DESDE KV (confirmados vía Telegram) ───────
+var _WORKER = 'https://jcahs-proxy.jh050447.workers.dev';
+
+async function sincronizarDesdeKV() {
+  try {
+    var res = await fetch(_WORKER + '/apuestas/pendientes');
+    if (!res.ok) return;
+    var registrosPendientes = await res.json();
+    if (!registrosPendientes || registrosPendientes.length === 0) return;
+
+    var historial = Storage.getHistorialApuestas();
+    var nuevos = 0;
+
+    for (var i = 0; i < registrosPendientes.length; i++) {
+      var registro = registrosPendientes[i];
+      var existe = historial.find(function(h) { return h.id === registro.id; });
+      if (!existe) {
+        historial.unshift(registro);
+        nuevos++;
+        // Marcar como sincronizado en KV (fire-and-forget)
+        fetch(_WORKER + '/apuestas/sincronizada', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ registroId: registro.id }),
+        }).catch(function() {});
+      }
+    }
+
+    if (nuevos > 0) {
+      Storage.setHistorialApuestas(historial);
+      console.log('Sincronizados desde Telegram: ' + nuevos + ' registro(s)');
+      if (typeof renderHistorial === 'function') renderHistorial();
+    }
+  } catch(e) {
+    console.warn('sincronizarDesdeKV error:', e.message);
+  }
+}
 
 // ═══════════════════════════════════════════════════════════
 //  HISTORIAL APUESTAS — nuevo sistema con tarjetas
