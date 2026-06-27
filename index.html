@@ -6023,6 +6023,10 @@ function notifValueBetTelegram(datos) {
     'Casa recomendada: Ecuabet / Bet365 / Sportbet\n\n' +
     urgencia + '\n' +
     '⚠️ Modo simulación activo — no apostar dinero real aún\n\n' +
+    '🏠 APOSTAR AHORA:\n' +
+    '🟢 <a href="https://www.ecuabet.com">Ecuabet</a>\n' +
+    '🔵 <a href="https://www.bet365.com">Bet365</a>\n' +
+    '🟠 <a href="https://www.sportbet.com.ec">Sportbet</a>\n\n' +
     '📱 jh050447.github.io/JCASH/';
   enviarAlertaTelegram(msg);
 }
@@ -6047,7 +6051,12 @@ function notifMultipleTelegram(picks, oddCombinada, stake, ganancia, perdida) {
     'Stake: $' + stake + ' · Si ganas: +$' + ganancia + ' · Si falla: -$' + perdida + '\n' +
     'Ratio R/R: 1:' + (perdida > 0 ? (ganancia / perdida).toFixed(1) : '—') + '\n\n' +
     '⚠️ Solo si todos los picks son independientes\n' +
-    '⚠️ Modo simulación activo\n📱 jh050447.github.io/JCASH/';
+    '⚠️ Modo simulación activo\n\n' +
+    '🏠 APOSTAR AHORA:\n' +
+    '🟢 <a href="https://www.ecuabet.com">Ecuabet</a>\n' +
+    '🔵 <a href="https://www.bet365.com">Bet365</a>\n' +
+    '🟠 <a href="https://www.sportbet.com.ec">Sportbet</a>\n\n' +
+    '📱 jh050447.github.io/JCASH/';
   enviarAlertaTelegram(msg);
 }
 
