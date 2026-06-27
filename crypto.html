@@ -3834,8 +3834,10 @@ function renderCandleChart(sym, cvId) {
 // ═══════════════════════════════════════════════════════════
 
 async function cargarDatosMacro() {
-  // FIX 1+2: cache 23h + control "ya se llamó hoy"
-  const CACHE_MS = 23 * 60 * 60 * 1000;
+  // Cache configurable desde config.js (CONFIG.CACHE.MACRO = 24h), fallback 24h
+  const CACHE_MS = (typeof CONFIG !== 'undefined' && CONFIG.CACHE && CONFIG.CACHE.MACRO)
+    ? CONFIG.CACHE.MACRO
+    : 24 * 60 * 60 * 1000;
   const hoyStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
   const stored = (() => { try { return JSON.parse(localStorage.getItem('jcahs_macro_cache') || 'null'); } catch { return null; } })();
