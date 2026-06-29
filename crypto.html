@@ -2834,7 +2834,7 @@ async function cargarMercadosPolymarket() {
       else if (POLYMARKET_TIPOS.ANUAL.some(t      => q.includes(t))) resultado[sym].anuales.push(mercado);
 
       const total = Object.values(resultado[sym]).flat().length;
-      if (offset === 0) console.log(sym + ': ' + total + ' mercados Polymarket');
+      console.log(sym + ': ' + total + ' mercados Polymarket');
     }
   }
 
