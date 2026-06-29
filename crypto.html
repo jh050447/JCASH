@@ -60,6 +60,9 @@
     <a class="nav-link" id="nl-sec-backtest" onclick="ir('sec-backtest')">
       <span class="nav-icon">🔬</span> Backtesting
     </a>
+    <a class="nav-link" id="nl-sec-polymarket" onclick="ir('sec-polymarket')">
+      <span class="nav-icon">🎯</span> Polymarket
+    </a>
     <a class="nav-link" id="nl-sec-watchlist" onclick="ir('sec-watchlist')">
       <span class="nav-icon">⭐</span> Watchlist
     </a>
@@ -516,6 +519,47 @@
         </div>
       </section>
 
+      <!-- ══════════ POLYMARKET ══════════ -->
+      <section class="seccion" id="sec-polymarket">
+        <div class="sec-header">
+          <div>
+            <div class="sec-title">🎯 Polymarket — Mercados Crypto</div>
+            <div class="sec-sub">Mercados de predicción sin margen de casa · Edge detectado vs análisis JCAHS</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="cargarMercadosPolymarket().then(renderPolymarket)">↺ Actualizar</button>
+        </div>
+
+        <div id="poly-estado" style="color:#8892b0;font-size:13px;margin-bottom:16px;">Cargando mercados...</div>
+
+        <!-- Filtros por token -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+          <button onclick="filtrarPolymarket('todos')" class="btn-poly-filtro activo" id="poly-f-todos">Todos</button>
+          <button onclick="filtrarPolymarket('BTC')"   class="btn-poly-filtro" id="poly-f-BTC">BTC</button>
+          <button onclick="filtrarPolymarket('ETH')"   class="btn-poly-filtro" id="poly-f-ETH">ETH</button>
+          <button onclick="filtrarPolymarket('SOL')"   class="btn-poly-filtro" id="poly-f-SOL">SOL</button>
+          <button onclick="filtrarPolymarket('XRP')"   class="btn-poly-filtro" id="poly-f-XRP">XRP</button>
+          <button onclick="filtrarPolymarket('ADA')"   class="btn-poly-filtro" id="poly-f-ADA">ADA</button>
+          <button onclick="filtrarPolymarket('AVAX')"  class="btn-poly-filtro" id="poly-f-AVAX">AVAX</button>
+          <button onclick="filtrarPolymarket('DOT')"   class="btn-poly-filtro" id="poly-f-DOT">DOT</button>
+          <button onclick="filtrarPolymarket('LINK')"  class="btn-poly-filtro" id="poly-f-LINK">LINK</button>
+        </div>
+
+        <!-- Filtros por tipo -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;">
+          <button onclick="filtrarPolymarketTipo('todos')"    class="btn-poly-tipo activo" id="poly-t-todos">Todos</button>
+          <button onclick="filtrarPolymarketTipo('cincoMin')" class="btn-poly-tipo" id="poly-t-5min">5 Min</button>
+          <button onclick="filtrarPolymarketTipo('quinceMin')"class="btn-poly-tipo" id="poly-t-15min">15 Min</button>
+          <button onclick="filtrarPolymarketTipo('unaHora')"  class="btn-poly-tipo" id="poly-t-1h">1 Hora</button>
+          <button onclick="filtrarPolymarketTipo('diarios')"  class="btn-poly-tipo" id="poly-t-dia">Diarios</button>
+          <button onclick="filtrarPolymarketTipo('semanales')"class="btn-poly-tipo" id="poly-t-sem">Semanales</button>
+          <button onclick="filtrarPolymarketTipo('mensuales')"class="btn-poly-tipo" id="poly-t-mes">Mensuales</button>
+          <button onclick="filtrarPolymarketTipo('anuales')"  class="btn-poly-tipo" id="poly-t-ano">Anuales</button>
+        </div>
+
+        <!-- Grid de mercados -->
+        <div id="poly-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;"></div>
+      </section>
+
       <!-- ══════════ WATCHLIST ══════════ -->
       <section class="seccion" id="sec-watchlist">
         <div class="sec-header">
@@ -868,6 +912,7 @@ function ir(sec) {
   if (sec === 'sec-dca') renderDca();
   if (sec === 'sec-watchlist') renderWatchlist();
   if (sec === 'sec-backtest') qs('bt-results').innerHTML = '<div class="empty-state">Configura los parámetros y haz clic en "Ejecutar".</div>';
+  if (sec === 'sec-polymarket') renderPolymarket();
 }
 
 function toggleMenuMovil(forzar) {
@@ -2872,6 +2917,103 @@ async function alertarMispricingPolymarket(sym, oportunidades) {
     '📱 jh050447.github.io/JCASH/crypto.html';
 
   enviarAlertaTelegram(msg);
+}
+
+// ── Render UI Polymarket ──────────────────────────────────
+var _polyFiltroToken = 'todos';
+var _polyFiltroTipo  = 'todos';
+
+function renderPolymarket() {
+  var grid   = document.getElementById('poly-grid');
+  var estado = document.getElementById('poly-estado');
+  if (!grid) return;
+
+  var mercados = STATE.polymarketMercados;
+  if (!mercados) {
+    if (estado) estado.textContent = 'Cargando mercados de Polymarket...';
+    return;
+  }
+
+  // Recopilar según filtros activos
+  var items = [];
+  Object.keys(mercados).forEach(function(sym) {
+    if (_polyFiltroToken !== 'todos' && sym !== _polyFiltroToken) return;
+    var tipos = mercados[sym];
+    Object.keys(tipos).forEach(function(tipo) {
+      if (_polyFiltroTipo !== 'todos' && tipo !== _polyFiltroTipo) return;
+      tipos[tipo].forEach(function(m) {
+        items.push(Object.assign({}, m, { sym: sym, tipo: tipo }));
+      });
+    });
+  });
+
+  // Calcular edge vs JCAHS score
+  items = items.map(function(m) {
+    var d = calcScore(m.sym);
+    var score = d ? d.score : 50;
+    var probJCAHS = 0.40 + (score / 100) * 0.35;
+    var edge = Math.abs(probJCAHS - m.precioYes) * 100;
+    return Object.assign({}, m, { edge: edge, probJCAHS: probJCAHS * 100, score: score });
+  }).filter(function(m) {
+    return m.liquidez >= 100;
+  }).sort(function(a, b) {
+    return b.edge - a.edge;
+  }).slice(0, 30);
+
+  var cached = null;
+  try { cached = JSON.parse(localStorage.getItem('jcahs_polymarket_mercados') || 'null'); } catch(e) {}
+  var minAgo = cached && cached.timestamp ? Math.round((Date.now() - cached.timestamp) / 60000) : 0;
+  if (estado) estado.textContent = items.length + ' mercados · Actualizado hace ' + minAgo + ' min';
+
+  var tipoLabel = { cincoMin:'5 Min', quinceMin:'15 Min', unaHora:'1H', diarios:'Diario', semanales:'Semanal', mensuales:'Mensual', anuales:'Anual' };
+
+  grid.innerHTML = items.map(function(m) {
+    var edgeColor = m.edge >= 10 ? '#00ff88' : m.edge >= 5 ? '#f5a623' : '#8892b0';
+    var accion = m.probJCAHS > m.precioYes * 100 ? 'COMPRAR YES' : 'COMPRAR NO';
+    var tl = tipoLabel[m.tipo] || m.tipo;
+    return '<div style="background:#1a2744;border-radius:12px;padding:16px;border:1px solid #1a3a5c;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+        '<span style="color:#00ff88;font-weight:700;font-size:13px;">' + m.sym + '</span>' +
+        '<span style="background:#0d2540;color:#8892b0;font-size:11px;padding:2px 8px;border-radius:4px;">' + tl + '</span>' +
+      '</div>' +
+      '<div style="color:#cdd6f4;font-size:12px;margin-bottom:12px;line-height:1.4;">' + escHtml(m.pregunta) + '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">' +
+        '<div style="background:#0d2540;padding:8px;border-radius:6px;text-align:center;">' +
+          '<div style="color:#8892b0;font-size:10px;">Polymarket</div>' +
+          '<div style="color:#cdd6f4;font-size:16px;font-weight:700;">' + (m.precioYes * 100).toFixed(0) + '%</div>' +
+        '</div>' +
+        '<div style="background:#0d2540;padding:8px;border-radius:6px;text-align:center;">' +
+          '<div style="color:#8892b0;font-size:10px;">JCAHS dice</div>' +
+          '<div style="color:#cdd6f4;font-size:16px;font-weight:700;">' + m.probJCAHS.toFixed(0) + '%</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+        '<div>' +
+          '<span style="color:' + edgeColor + ';font-weight:700;font-size:14px;">Edge: +' + m.edge.toFixed(1) + '%</span>' +
+          '<span style="color:#8892b0;font-size:11px;margin-left:8px;">Liq: $' + m.liquidez.toFixed(0) + '</span>' +
+        '</div>' +
+        '<span style="background:' + (m.edge >= 5 ? '#00ff8822' : '#1a3a5c') + ';color:' + edgeColor + ';font-size:11px;padding:3px 8px;border-radius:4px;font-weight:600;">' + accion + '</span>' +
+      '</div>' +
+      '<a href="' + m.url + '" target="_blank" style="display:block;text-align:center;background:#1a6eb5;color:white;padding:8px;border-radius:6px;text-decoration:none;font-size:12px;">🎯 Ver en Polymarket</a>' +
+    '</div>';
+  }).join('');
+}
+
+function filtrarPolymarket(token) {
+  _polyFiltroToken = token;
+  document.querySelectorAll('.btn-poly-filtro').forEach(function(b) { b.classList.remove('activo'); });
+  var el = document.getElementById('poly-f-' + token);
+  if (el) el.classList.add('activo');
+  renderPolymarket();
+}
+
+function filtrarPolymarketTipo(tipo) {
+  _polyFiltroTipo = tipo;
+  document.querySelectorAll('.btn-poly-tipo').forEach(function(b) { b.classList.remove('activo'); });
+  var idMap = { cincoMin:'5min', quinceMin:'15min', unaHora:'1h', diarios:'dia', semanales:'sem', mensuales:'mes', anuales:'ano', todos:'todos' };
+  var el = document.getElementById('poly-t-' + (idMap[tipo] || tipo));
+  if (el) el.classList.add('activo');
+  renderPolymarket();
 }
 
 function toggleAlertasCryptoPan() {
