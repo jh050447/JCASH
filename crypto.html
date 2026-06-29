@@ -2783,57 +2783,62 @@ const POLYMARKET_TIPOS = {
 };
 
 async function cargarMercadosPolymarket() {
-  const PROXY_BASE = 'https://jcahs-proxy.jh050447.workers.dev/?url=';
+  const PROXY_URL = 'https://jcahs-proxy.jh050447.workers.dev/?url=';
+  const BASE = 'https://gamma-api.polymarket.com/markets';
 
-  // Búsquedas específicas por token — más eficiente que paginar todo el catálogo
-  const BUSQUEDAS = [
-    'https://gamma-api.polymarket.com/markets?active=true&limit=100&q=bitcoin',
-    'https://gamma-api.polymarket.com/markets?active=true&limit=100&q=btc',
-    'https://gamma-api.polymarket.com/markets?active=true&limit=100&q=ethereum',
-    'https://gamma-api.polymarket.com/markets?active=true&limit=100&q=eth+price',
-    'https://gamma-api.polymarket.com/markets?active=true&limit=100&q=solana',
-    'https://gamma-api.polymarket.com/markets?active=true&limit=100&q=xrp',
-    'https://gamma-api.polymarket.com/markets?active=true&limit=100&q=cardano',
-    'https://gamma-api.polymarket.com/markets?active=true&limit=100&q=avalanche',
-    'https://gamma-api.polymarket.com/markets?active=true&limit=100&q=chainlink',
-    'https://gamma-api.polymarket.com/markets?active=true&limit=100&q=polkadot',
-    'https://gamma-api.polymarket.com/markets?active=true&limit=100&q=crypto+price',
+  const CRYPTO_KEYWORDS = [
+    'bitcoin', 'btc', 'ethereum', 'eth', 'solana', 'sol',
+    'xrp', 'ripple', 'cardano', 'ada', 'avalanche', 'avax',
+    'polkadot', 'dot', 'chainlink', 'link',
+    'up or down', 'crypto price', 'above', 'price will hit'
   ];
 
   let todosLosMercados = [];
-  const idsVistos = new Set();
+  let offset = 0;
+  const MAX_PAGINAS = 30; // hasta 3000 mercados
 
-  for (const url of BUSQUEDAS) {
+  while (offset < MAX_PAGINAS * 100) {
     try {
-      const data = await fetch(PROXY_BASE + encodeURIComponent(url)).then(r => r.json());
-      if (!Array.isArray(data)) continue;
-      for (const m of data) {
-        if (!idsVistos.has(m.id)) {
-          idsVistos.add(m.id);
-          todosLosMercados.push(m);
-        }
+      const url = BASE + '?active=true&limit=100&offset=' + offset;
+      const data = await fetch(PROXY_URL + encodeURIComponent(url)).then(r => r.json());
+      if (!Array.isArray(data) || data.length === 0) break;
+
+      const cryptoEstaPagina = data.filter(function(m) {
+        const q = (m.question || '').toLowerCase();
+        return CRYPTO_KEYWORDS.some(function(k) { return q.includes(k); });
+      });
+
+      if (cryptoEstaPagina.length > 0) {
+        todosLosMercados = todosLosMercados.concat(cryptoEstaPagina);
+        console.log('Offset ' + offset + ': ' + cryptoEstaPagina.length + ' crypto (total: ' + todosLosMercados.length + ')');
       }
-      await new Promise(r => setTimeout(r, 200));
+
+      if (todosLosMercados.length >= 100) break;
+
+      offset += 100;
+      await new Promise(function(r) { setTimeout(r, 150); });
     } catch(e) {
-      console.error('Error búsqueda Polymarket:', e.message);
+      console.error('Error offset ' + offset + ':', e.message);
+      break;
     }
   }
 
-  console.log('Polymarket: ' + todosLosMercados.length + ' mercados únicos cargados');
+  console.log('Polymarket: ' + todosLosMercados.length + ' mercados crypto en ' + Math.round(offset / 100) + ' paginas');
 
+  // Inicializar resultado por token
   const resultado = {};
-  for (const [sym, keywords] of Object.entries(POLYMARKET_TOKENS)) {
+  for (const sym of Object.keys(POLYMARKET_TOKENS)) {
     resultado[sym] = { cincoMin: [], quinceMin: [], unaHora: [], diarios: [], semanales: [], mensuales: [], anuales: [] };
+  }
 
-    const mercadosToken = todosLosMercados.filter(m => {
-      const q = (m.question || '').toLowerCase();
-      return keywords.some(k => q.includes(k));
-    });
+  // Clasificar por token y tipo
+  for (const m of todosLosMercados) {
+    const q = (m.question || '').toLowerCase();
+    const liq = parseFloat(m.liquidity || 0);
+    if (liq < 100) continue;
 
-    for (const m of mercadosToken) {
-      const q = (m.question || '').toLowerCase();
-      const liq = parseFloat(m.liquidity || 0);
-      if (liq < 100) continue;
+    for (const [sym, keywords] of Object.entries(POLYMARKET_TOKENS)) {
+      if (!keywords.some(function(k) { return q.includes(k); })) continue;
 
       const mercado = {
         id: m.id,
@@ -2845,20 +2850,18 @@ async function cargarMercadosPolymarket() {
         url: 'https://polymarket.com/event/' + (m.slug || m.id)
       };
 
-      if      (POLYMARKET_TIPOS.CINCO_MIN.some(t  => q.includes(t))) resultado[sym].cincoMin.push(mercado);
-      else if (POLYMARKET_TIPOS.QUINCE_MIN.some(t => q.includes(t))) resultado[sym].quinceMin.push(mercado);
-      else if (POLYMARKET_TIPOS.UNA_HORA.some(t   => q.includes(t))) resultado[sym].unaHora.push(mercado);
-      else if (POLYMARKET_TIPOS.DIARIO.some(t     => q.includes(t))) resultado[sym].diarios.push(mercado);
-      else if (POLYMARKET_TIPOS.SEMANAL.some(t    => q.includes(t))) resultado[sym].semanales.push(mercado);
-      else if (POLYMARKET_TIPOS.MENSUAL.some(t    => q.includes(t))) resultado[sym].mensuales.push(mercado);
-      else if (POLYMARKET_TIPOS.ANUAL.some(t      => q.includes(t))) resultado[sym].anuales.push(mercado);
-
-      const total = Object.values(resultado[sym]).flat().length;
-      console.log(sym + ': ' + total + ' mercados Polymarket');
+      if      (POLYMARKET_TIPOS.CINCO_MIN.some(function(t)  { return q.includes(t); })) resultado[sym].cincoMin.push(mercado);
+      else if (POLYMARKET_TIPOS.QUINCE_MIN.some(function(t) { return q.includes(t); })) resultado[sym].quinceMin.push(mercado);
+      else if (POLYMARKET_TIPOS.UNA_HORA.some(function(t)   { return q.includes(t); })) resultado[sym].unaHora.push(mercado);
+      else if (POLYMARKET_TIPOS.DIARIO.some(function(t)     { return q.includes(t); })) resultado[sym].diarios.push(mercado);
+      else if (POLYMARKET_TIPOS.SEMANAL.some(function(t)    { return q.includes(t); })) resultado[sym].semanales.push(mercado);
+      else if (POLYMARKET_TIPOS.MENSUAL.some(function(t)    { return q.includes(t); })) resultado[sym].mensuales.push(mercado);
+      else                                                                                resultado[sym].anuales.push(mercado);
     }
   }
 
   STATE.polymarketMercados = resultado;
+  STATE.polymarketTimestamp = Date.now();
   try {
     localStorage.setItem('jcahs_polymarket_mercados', JSON.stringify({ data: resultado, timestamp: Date.now() }));
   } catch(e) {}
