@@ -2237,6 +2237,9 @@ function init() {
   // Refresh cada 5 min (precios) — klines cada 30 min sería suficiente pero simplificamos
   setInterval(cargarPrecios, 5 * 60 * 1000);
   setInterval(() => recargarDatos(true), 30 * 60 * 1000);
+
+  // Polymarket — cargar mercados activos (caché 30 min)
+  cargarMercadosPolymarketCached();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2648,6 +2651,11 @@ function verificarAlertasCrypto() {
     if (d.score >= 70 && !notificadas[keyA]) {
       nuevas.push({ sym, tipo: 'scoreAlto', titulo: '⚡ Señal fuerte', desc: sym + ' Score ' + d.score + '/100', rsi: d.rsi4h, score: d.score, precio: p, ts: ahora });
       notificadas[keyA] = ahora;
+      // Detectar mispricing Polymarket cuando score >= 70
+      if (STATE.polymarketMercados) {
+        const opp = detectarMispricingPolymarket(sym, d.score, 'diarios');
+        if (opp.length > 0) alertarMispricingPolymarket(sym, opp);
+      }
     }
 
     // Condición B: RSI < 30
@@ -2702,6 +2710,168 @@ function _tiempoHace(ts) {
   if (min < 1) return 'ahora';
   if (min < 60) return min + 'min';
   return Math.floor(min / 60) + 'h';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  POLYMARKET — MERCADOS DE PREDICCIÓN
+// ═══════════════════════════════════════════════════════════
+
+const POLYMARKET_TOKENS = {
+  'BTC':  ['bitcoin', 'btc'],
+  'ETH':  ['ethereum', 'eth'],
+  'SOL':  ['solana', 'sol'],
+  'XRP':  ['xrp', 'ripple'],
+  'ADA':  ['cardano', 'ada'],
+  'AVAX': ['avalanche', 'avax'],
+  'DOT':  ['polkadot', 'dot'],
+  'LINK': ['chainlink', 'link']
+};
+
+const POLYMARKET_TIPOS = {
+  CINCO_MIN:  ['up or down', '5 min', '5min', '5-min'],
+  QUINCE_MIN: ['15 min', '15min', '15-min'],
+  UNA_HORA:   ['1 hour', '1h', 'this hour'],
+  DIARIO:     ['above', 'today', 'july', 'june', 'on july', 'on june'],
+  SEMANAL:    ['this week', 'weekly', 'week'],
+  MENSUAL:    ['hit in', 'price will', 'monthly'],
+  ANUAL:      ['2026', '2027', 'year']
+};
+
+async function cargarMercadosPolymarket() {
+  const BASE = 'https://gamma-api.polymarket.com/markets';
+  let todosLosMercados = [];
+
+  for (let offset = 0; offset <= 400; offset += 100) {
+    try {
+      const url = BASE + '?active=true&limit=100&offset=' + offset;
+      const data = await fetch(PROXY + '/?url=' + encodeURIComponent(url)).then(r => r.json());
+      if (!Array.isArray(data) || data.length === 0) break;
+      todosLosMercados = todosLosMercados.concat(data);
+      await new Promise(r => setTimeout(r, 200));
+    } catch(e) {
+      console.error('Polymarket offset ' + offset + ':', e.message);
+      break;
+    }
+  }
+
+  console.log('Polymarket: ' + todosLosMercados.length + ' mercados cargados');
+
+  const resultado = {};
+  for (const [sym, keywords] of Object.entries(POLYMARKET_TOKENS)) {
+    resultado[sym] = { cincoMin: [], quinceMin: [], unaHora: [], diarios: [], semanales: [], mensuales: [], anuales: [] };
+
+    const mercadosToken = todosLosMercados.filter(m => {
+      const q = (m.question || '').toLowerCase();
+      return keywords.some(k => q.includes(k));
+    });
+
+    for (const m of mercadosToken) {
+      const q = (m.question || '').toLowerCase();
+      const liq = parseFloat(m.liquidity || 0);
+      if (liq < 100) continue;
+
+      const mercado = {
+        id: m.id,
+        pregunta: m.question,
+        precioYes: parseFloat((m.outcomePrices && m.outcomePrices[0]) || 0.5),
+        precioNo:  parseFloat((m.outcomePrices && m.outcomePrices[1]) || 0.5),
+        liquidez: liq,
+        volumen: parseFloat(m.volume || 0),
+        url: 'https://polymarket.com/event/' + (m.slug || m.id)
+      };
+
+      if      (POLYMARKET_TIPOS.CINCO_MIN.some(t  => q.includes(t))) resultado[sym].cincoMin.push(mercado);
+      else if (POLYMARKET_TIPOS.QUINCE_MIN.some(t => q.includes(t))) resultado[sym].quinceMin.push(mercado);
+      else if (POLYMARKET_TIPOS.UNA_HORA.some(t   => q.includes(t))) resultado[sym].unaHora.push(mercado);
+      else if (POLYMARKET_TIPOS.DIARIO.some(t     => q.includes(t))) resultado[sym].diarios.push(mercado);
+      else if (POLYMARKET_TIPOS.SEMANAL.some(t    => q.includes(t))) resultado[sym].semanales.push(mercado);
+      else if (POLYMARKET_TIPOS.MENSUAL.some(t    => q.includes(t))) resultado[sym].mensuales.push(mercado);
+      else if (POLYMARKET_TIPOS.ANUAL.some(t      => q.includes(t))) resultado[sym].anuales.push(mercado);
+
+      const total = Object.values(resultado[sym]).flat().length;
+      if (offset === 0) console.log(sym + ': ' + total + ' mercados Polymarket');
+    }
+  }
+
+  STATE.polymarketMercados = resultado;
+  try {
+    localStorage.setItem('jcahs_polymarket_mercados', JSON.stringify({ data: resultado, timestamp: Date.now() }));
+  } catch(e) {}
+  return resultado;
+}
+
+async function cargarMercadosPolymarketCached() {
+  const CACHE_TTL = 30 * 60 * 1000; // 30 min
+  try {
+    const cached = JSON.parse(localStorage.getItem('jcahs_polymarket_mercados') || 'null');
+    if (cached && cached.timestamp && (Date.now() - cached.timestamp) < CACHE_TTL) {
+      STATE.polymarketMercados = cached.data;
+      console.log('Polymarket: usando caché (' + Math.round((Date.now() - cached.timestamp) / 60000) + 'min)');
+      return;
+    }
+  } catch(e) {}
+  await cargarMercadosPolymarket();
+}
+
+function calcStakeDinamico(edgePct) {
+  // Sizing simple: $5 base + $2 por cada 1% de edge, máximo $50
+  return Math.min(50, Math.max(5, Math.round(5 + edgePct * 2)));
+}
+
+function detectarMispricingPolymarket(sym, scoreJCAHS, tipo) {
+  tipo = tipo || 'diarios';
+  const mercados = (STATE.polymarketMercados && STATE.polymarketMercados[sym] && STATE.polymarketMercados[sym][tipo]) || [];
+  if (mercados.length === 0) return [];
+
+  // Score JCAHS → probabilidad: score 70 ≈ 60% prob de subir
+  const probJCAHS = 0.40 + (scoreJCAHS / 100) * 0.35;
+  const oportunidades = [];
+
+  for (const m of mercados) {
+    const probPolymarket = m.precioYes;
+    const edge = probJCAHS - probPolymarket;
+
+    if (Math.abs(edge) >= 0.05) {
+      const stake = calcStakeDinamico(Math.abs(edge) * 100);
+      oportunidades.push({
+        mercado: m,
+        accion: edge > 0 ? 'COMPRAR YES' : 'COMPRAR NO',
+        edgePct: (Math.abs(edge) * 100).toFixed(1),
+        probJCAHS: (probJCAHS * 100).toFixed(1),
+        probPolymarket: (probPolymarket * 100).toFixed(1),
+        stake: stake,
+        gananciaEsperada: edge > 0
+          ? ((1 / probPolymarket - 1) * stake).toFixed(2)
+          : ((1 / m.precioNo - 1) * stake).toFixed(2)
+      });
+    }
+  }
+
+  return oportunidades.sort(function(a, b) { return parseFloat(b.edgePct) - parseFloat(a.edgePct); });
+}
+
+async function alertarMispricingPolymarket(sym, oportunidades) {
+  if (oportunidades.length === 0) return;
+  const top = oportunidades[0];
+  const retorno = top.stake > 0 ? ((top.gananciaEsperada / top.stake) * 100).toFixed(0) : '—';
+
+  const msg = '⚡ POLYMARKET — MISPRICING DETECTADO\n\n' +
+    '💎 ' + sym + ' · ' + top.accion + '\n\n' +
+    '📊 ANÁLISIS:\n' +
+    'JCAHS dice: ' + top.probJCAHS + '% de probabilidad\n' +
+    'Polymarket dice: ' + top.probPolymarket + '%\n' +
+    'Edge: +' + top.edgePct + '% — sin margen de casa\n\n' +
+    '🎯 MERCADO:\n' + top.mercado.pregunta + '\n' +
+    'Liquidez: $' + fmt(top.mercado.liquidez, 0) + '\n\n' +
+    '💡 PLAN:\n' +
+    'Stake sugerido: $' + top.stake + '\n' +
+    'Si aciertas: +$' + top.gananciaEsperada + '\n' +
+    'Retorno: ' + retorno + '%\n\n' +
+    '🔗 ' + top.mercado.url + '\n\n' +
+    '⚠️ MODO SIMULACIÓN ACTIVO\n' +
+    '📱 jh050447.github.io/JCASH/crypto.html';
+
+  enviarAlertaTelegram(msg);
 }
 
 function toggleAlertasCryptoPan() {
