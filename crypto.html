@@ -2795,7 +2795,7 @@ async function cargarMercadosPolymarket() {
 
   let todosLosMercados = [];
   let offset = 0;
-  const MAX_PAGINAS = 30; // hasta 3000 mercados
+  const MAX_PAGINAS = 50; // hasta 5000 mercados
 
   while (offset < MAX_PAGINAS * 100) {
     try {
@@ -2813,7 +2813,13 @@ async function cargarMercadosPolymarket() {
         console.log('Offset ' + offset + ': ' + cryptoEstaPagina.length + ' crypto (total: ' + todosLosMercados.length + ')');
       }
 
-      if (todosLosMercados.length >= 100) break;
+      const tieneCortoplazo = todosLosMercados.some(function(m) {
+        const q = (m.question || '').toLowerCase();
+        return q.includes('up or down') ||
+               (q.includes('above') && (q.includes('today') || q.includes('july') || q.includes('june'))) ||
+               q.includes('5 min') || q.includes('15 min') || q.includes('1 hour');
+      });
+      if (todosLosMercados.length >= 200 || (todosLosMercados.length >= 50 && tieneCortoplazo)) break;
 
       offset += 100;
       await new Promise(function(r) { setTimeout(r, 150); });
