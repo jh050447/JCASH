@@ -2292,9 +2292,9 @@ function init() {
 
   // Polymarket — cargar mercados activos (caché 30 min)
   cargarMercadosPolymarketCached();
-  // Polymarket 5min — cargar y refrescar cada 5 min
-  cargarMercados5MinPolymarket();
-  setInterval(cargarMercados5MinPolymarket, 5 * 60 * 1000);
+  // Polymarket cortoplazo (5min + 15min) — cargar y refrescar cada 5 min
+  cargarMercadosCortoplazoPolymarket();
+  setInterval(cargarMercadosCortoplazoPolymarket, 5 * 60 * 1000);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2712,16 +2712,18 @@ function verificarAlertasCrypto() {
         if (opp.length > 0) alertarMispricingPolymarket(sym, opp);
       }
       // Edge Polymarket 5 minutos
-      const edge5min = detectarEdge5Min(sym, d.score);
-      if (edge5min) {
-        const msg5 = '⚡ POLYMARKET 5MIN — ' + sym + '\n\n' +
-          edge5min.accion + '\n' +
-          'JCAHS: ' + edge5min.probJCAHS + '% | Polymarket: ' + edge5min.probPolymarket + '%\n' +
-          'Edge: +' + edge5min.edge + '% | Liq: $' + edge5min.liquidez.toFixed(0) + '\n\n' +
-          '⏱ Próximos 5 minutos\n' +
-          '🔗 ' + edge5min.url;
-        enviarAlertaTelegram(msg5);
-      }
+      ['5m', '15m'].forEach(function(tf) {
+        var edgeCp = detectarEdgeCortoplazo(sym, d.score, tf);
+        if (edgeCp) {
+          var msg5 = '⚡ POLYMARKET ' + tf.toUpperCase() + ' — ' + sym + '\n\n' +
+            edgeCp.accion + '\n' +
+            'JCAHS: ' + edgeCp.probJCAHS + '% | Polymarket: ' + edgeCp.probPolymarket + '%\n' +
+            'Edge: +' + edgeCp.edge + '% | Liq: $' + edgeCp.liquidez.toFixed(0) + '\n\n' +
+            '⏱ Próximos ' + (tf === '5m' ? '5' : '15') + ' minutos\n' +
+            '🔗 ' + edgeCp.url;
+          enviarAlertaTelegram(msg5);
+        }
+      });
     }
 
     // Condición B: RSI < 30
@@ -2899,48 +2901,77 @@ async function cargarMercadosPolymarket() {
   return resultado;
 }
 
-async function cargarMercados5MinPolymarket() {
+async function cargarMercadosCortoplazoPolymarket() {
   var now = Math.floor(Date.now() / 1000);
-  var wts = now - (now % 300);
+  var wts5  = now - (now % 300);
+  var wts15 = now - (now % 900);
   var PROXY_URL = 'https://jcahs-proxy.jh050447.workers.dev/?url=';
-  var TOKENS = ['btc', 'eth', 'sol', 'xrp', 'ada', 'avax', 'link', 'dot'];
-  var resultado = {};
+  var TOKENS = ['btc', 'eth', 'sol', 'xrp'];
+
+  STATE.polymarket5Min  = {};
+  STATE.polymarket15Min = {};
+
+  function parseP(m) {
+    if (!m) return null;
+    var p = typeof m.outcomePrices === 'string'
+      ? (() => { try { return JSON.parse(m.outcomePrices); } catch(e) { return []; } })()
+      : (m.outcomePrices || []);
+    return p;
+  }
 
   for (var i = 0; i < TOKENS.length; i++) {
     var token = TOKENS[i];
-    var slug = token + '-updown-5m-' + wts;
+
+    // 5 minutos
     try {
-      var data = await fetch(PROXY_URL + encodeURIComponent(
-        'https://gamma-api.polymarket.com/markets?slug=' + slug
+      var slug5 = token + '-updown-5m-' + wts5;
+      var d5 = await fetch(PROXY_URL + encodeURIComponent(
+        'https://gamma-api.polymarket.com/markets?slug=' + slug5
       )).then(function(r) { return r.json(); });
-      var m = Array.isArray(data) ? data[0] : null;
-      if (m) {
-        var prices = typeof m.outcomePrices === 'string'
-          ? (() => { try { return JSON.parse(m.outcomePrices); } catch(e) { return []; } })()
-          : (m.outcomePrices || []);
-        resultado[token.toUpperCase()] = {
-          pregunta:   m.question,
-          precioUp:   parseFloat(prices[0] || 0.5),
-          precioDown: parseFloat(prices[1] || 0.5),
-          liquidez:   parseFloat(m.liquidity || 0),
-          slug:       slug,
-          url:        'https://polymarket.com/event/' + slug,
-          ventana:    wts
+      var m5 = Array.isArray(d5) ? d5[0] : null;
+      if (m5) {
+        var p5 = parseP(m5);
+        STATE.polymarket5Min[token.toUpperCase()] = {
+          pregunta: m5.question,
+          precioUp: parseFloat(p5[0] || 0.5), precioDown: parseFloat(p5[1] || 0.5),
+          liquidez: parseFloat(m5.liquidity || 0), slug: slug5,
+          url: 'https://polymarket.com/event/' + slug5, ventana: wts5
         };
       }
-    } catch(e) {
-      console.error('Polymarket 5min ' + token + ':', e.message);
-    }
+    } catch(e) { console.error('5min ' + token + ':', e.message); }
+
+    // 15 minutos
+    try {
+      var slug15 = token + '-updown-15m-' + wts15;
+      var d15 = await fetch(PROXY_URL + encodeURIComponent(
+        'https://gamma-api.polymarket.com/markets?slug=' + slug15
+      )).then(function(r) { return r.json(); });
+      var m15 = Array.isArray(d15) ? d15[0] : null;
+      if (m15) {
+        var p15 = parseP(m15);
+        STATE.polymarket15Min[token.toUpperCase()] = {
+          pregunta: m15.question,
+          precioUp: parseFloat(p15[0] || 0.5), precioDown: parseFloat(p15[1] || 0.5),
+          liquidez: parseFloat(m15.liquidity || 0), slug: slug15,
+          url: 'https://polymarket.com/event/' + slug15, ventana: wts15
+        };
+      }
+    } catch(e) { console.error('15min ' + token + ':', e.message); }
   }
 
-  STATE.polymarket5Min = resultado;
-  STATE.polymarket5MinTimestamp = Date.now();
-  console.log('Polymarket 5min cargado:', Object.keys(resultado).join(', ') || 'ninguno');
-  return resultado;
+  STATE.polymarketCortoplazoTimestamp = Date.now();
+  console.log('5min:', Object.keys(STATE.polymarket5Min).join(', ') || 'ninguno');
+  console.log('15min:', Object.keys(STATE.polymarket15Min).join(', ') || 'ninguno');
 }
 
-function detectarEdge5Min(sym, scoreJCAHS) {
-  var mercado = STATE.polymarket5Min && STATE.polymarket5Min[sym];
+// Backward-compat alias
+var cargarMercados5MinPolymarket = cargarMercadosCortoplazoPolymarket;
+
+function detectarEdgeCortoplazo(sym, scoreJCAHS, tf) {
+  tf = tf || '5m';
+  var mercado = tf === '15m'
+    ? (STATE.polymarket15Min && STATE.polymarket15Min[sym])
+    : (STATE.polymarket5Min  && STATE.polymarket5Min[sym]);
   if (!mercado || mercado.liquidez < 500) return null;
 
   var probSubirJCAHS = 0.35 + (scoreJCAHS / 100) * 0.40;
@@ -2954,11 +2985,15 @@ function detectarEdge5Min(sym, scoreJCAHS) {
       probPolymarket: (mercado.precioUp * 100).toFixed(0),
       liquidez:       mercado.liquidez,
       url:            mercado.url,
+      tf:             tf,
       mercado:        mercado
     };
   }
   return null;
 }
+
+// Backward-compat alias
+var detectarEdge5Min = function(sym, score) { return detectarEdgeCortoplazo(sym, score, '5m'); };
 
 async function cargarMercadosPolymarketCached() {
   const CACHE_TTL = 30 * 60 * 1000; // 30 min
@@ -3038,15 +3073,9 @@ async function alertarMispricingPolymarket(sym, oportunidades) {
 var _polyFiltroToken = 'todos';
 var _polyFiltroTipo  = 'todos';
 
-function renderPolymarket5Min() {
-  var grid = document.getElementById('poly-5min-grid');
-  if (!grid) return;
-  var data = STATE.polymarket5Min;
-  if (!data || Object.keys(data).length === 0) {
-    grid.innerHTML = '<div style="color:#8892b0;font-size:12px;padding:8px;">Sin mercados 5min activos — ventana actual no encontrada en Polymarket.</div>';
-    return;
-  }
-  grid.innerHTML = Object.entries(data).map(function(entry) {
+function _renderCortoplazoCards(data) {
+  if (!data || Object.keys(data).length === 0) return null;
+  return Object.entries(data).map(function(entry) {
     var sym = entry[0], m = entry[1];
     var d = calcScore(sym);
     var score = d ? d.score : 50;
@@ -3062,10 +3091,36 @@ function renderPolymarket5Min() {
       '<a href="' + m.url + '" target="_blank" style="display:block;background:#1a6eb5;color:white;padding:6px;border-radius:6px;text-decoration:none;font-size:11px;">🎯 Operar ahora</a>' +
     '</div>';
   }).join('');
+}
+
+function renderPolymarket5Min() {
+  var grid = document.getElementById('poly-5min-grid');
+  if (!grid) return;
+
+  var html5  = _renderCortoplazoCards(STATE.polymarket5Min);
+  var html15 = _renderCortoplazoCards(STATE.polymarket15Min);
+  var empty  = '<div style="color:#8892b0;font-size:12px;padding:8px;">Sin mercados activos en esta ventana.</div>';
+
+  grid.innerHTML =
+    '<div style="margin-bottom:12px;">' +
+      '<div style="color:#1a6eb5;font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:8px;text-transform:uppercase;">⚡ 5 Minutos</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;">' +
+        (html5 || empty) +
+      '</div>' +
+    '</div>' +
+    '<div>' +
+      '<div style="color:#1a6eb5;font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:8px;text-transform:uppercase;">⏱ 15 Minutos</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;">' +
+        (html15 || empty) +
+      '</div>' +
+    '</div>';
+
   var timer = document.getElementById('poly-5min-timer');
-  if (timer && STATE.polymarket5MinTimestamp) {
-    var mins = Math.round((Date.now() - STATE.polymarket5MinTimestamp) / 60000);
-    timer.textContent = 'Actualizado hace ' + mins + ' min · ' + Object.keys(data).length + ' tokens';
+  if (timer && STATE.polymarketCortoplazoTimestamp) {
+    var mins = Math.round((Date.now() - STATE.polymarketCortoplazoTimestamp) / 60000);
+    var n5  = STATE.polymarket5Min  ? Object.keys(STATE.polymarket5Min).length  : 0;
+    var n15 = STATE.polymarket15Min ? Object.keys(STATE.polymarket15Min).length : 0;
+    timer.textContent = 'Actualizado hace ' + mins + ' min · 5min: ' + n5 + ' tokens · 15min: ' + n15 + ' tokens';
   }
 }
 
