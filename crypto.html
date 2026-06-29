@@ -2840,11 +2840,15 @@ async function cargarMercadosPolymarket() {
     for (const [sym, keywords] of Object.entries(POLYMARKET_TOKENS)) {
       if (!keywords.some(function(k) { return q.includes(k); })) continue;
 
+      // outcomePrices puede venir como string JSON o como array
+      const _prices = typeof m.outcomePrices === 'string'
+        ? (() => { try { return JSON.parse(m.outcomePrices); } catch(e) { return []; } })()
+        : (m.outcomePrices || []);
       const mercado = {
         id: m.id,
         pregunta: m.question,
-        precioYes: parseFloat((m.outcomePrices && m.outcomePrices[0]) || 0.5),
-        precioNo:  parseFloat((m.outcomePrices && m.outcomePrices[1]) || 0.5),
+        precioYes: parseFloat(_prices[0] || 0.5),
+        precioNo:  parseFloat(_prices[1] || 0.5),
         liquidez: liq,
         volumen: parseFloat(m.volume || 0),
         url: 'https://polymarket.com/event/' + (m.slug || m.id)
