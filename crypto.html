@@ -2783,23 +2783,43 @@ const POLYMARKET_TIPOS = {
 };
 
 async function cargarMercadosPolymarket() {
-  const BASE = 'https://gamma-api.polymarket.com/markets';
-  let todosLosMercados = [];
+  const PROXY_BASE = 'https://jcahs-proxy.jh050447.workers.dev/?url=';
 
-  for (let offset = 0; offset <= 400; offset += 100) {
+  // Búsquedas específicas por token — más eficiente que paginar todo el catálogo
+  const BUSQUEDAS = [
+    'https://gamma-api.polymarket.com/markets?active=true&limit=100&q=bitcoin',
+    'https://gamma-api.polymarket.com/markets?active=true&limit=100&q=btc',
+    'https://gamma-api.polymarket.com/markets?active=true&limit=100&q=ethereum',
+    'https://gamma-api.polymarket.com/markets?active=true&limit=100&q=eth+price',
+    'https://gamma-api.polymarket.com/markets?active=true&limit=100&q=solana',
+    'https://gamma-api.polymarket.com/markets?active=true&limit=100&q=xrp',
+    'https://gamma-api.polymarket.com/markets?active=true&limit=100&q=cardano',
+    'https://gamma-api.polymarket.com/markets?active=true&limit=100&q=avalanche',
+    'https://gamma-api.polymarket.com/markets?active=true&limit=100&q=chainlink',
+    'https://gamma-api.polymarket.com/markets?active=true&limit=100&q=polkadot',
+    'https://gamma-api.polymarket.com/markets?active=true&limit=100&q=crypto+price',
+  ];
+
+  let todosLosMercados = [];
+  const idsVistos = new Set();
+
+  for (const url of BUSQUEDAS) {
     try {
-      const url = BASE + '?active=true&limit=100&offset=' + offset;
-      const data = await fetch(PROXY + '/?url=' + encodeURIComponent(url)).then(r => r.json());
-      if (!Array.isArray(data) || data.length === 0) break;
-      todosLosMercados = todosLosMercados.concat(data);
+      const data = await fetch(PROXY_BASE + encodeURIComponent(url)).then(r => r.json());
+      if (!Array.isArray(data)) continue;
+      for (const m of data) {
+        if (!idsVistos.has(m.id)) {
+          idsVistos.add(m.id);
+          todosLosMercados.push(m);
+        }
+      }
       await new Promise(r => setTimeout(r, 200));
     } catch(e) {
-      console.error('Polymarket offset ' + offset + ':', e.message);
-      break;
+      console.error('Error búsqueda Polymarket:', e.message);
     }
   }
 
-  console.log('Polymarket: ' + todosLosMercados.length + ' mercados cargados');
+  console.log('Polymarket: ' + todosLosMercados.length + ' mercados únicos cargados');
 
   const resultado = {};
   for (const [sym, keywords] of Object.entries(POLYMARKET_TOKENS)) {
