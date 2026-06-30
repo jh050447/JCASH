@@ -2725,7 +2725,12 @@ function verificarAlertasCrypto() {
         var edgeCp = detectarEdgeCortoplazo(sym, tf);
         if (edgeCp && !edgeCp.sinAnalisis && !edgeCp.sinDatos) {
           var exp5 = explicarRuptura(edgeCp.datosTf);
+          var v5   = veredictoFinalPolymarket(sym, tf, edgeCp.datosTf, edgeCp);
           var msg5 = '⚡ POLYMARKET ' + tf.toUpperCase() + ' — ' + sym + '\n\n' +
+            v5.veredicto + '\n' +
+            'Confianza: ' + v5.confianza + ' · ' + v5.confluenciaDetalle + '\n' +
+            v5.razon + '\n' +
+            '💰 Stake sugerido: $' + v5.stakeSugerido + '\n\n' +
             exp5.veredicto + '\n' +
             edgeCp.accion + '\n\n' +
             '📊 KPIs técnicos:\n' + exp5.detalle + '\n' +
@@ -3139,6 +3144,49 @@ function explicarRuptura(datosTf) {
   };
 }
 
+// Veredicto ejecutable basado en confluencia real entre 1h/4h/1d — nunca "tal vez".
+// edgeInfo (resultado de detectarEdgeCortoplazo) se pasa por si en el futuro se quiere
+// ajustar el stake por tamaño de edge; hoy el stake depende solo de la confianza.
+function veredictoFinalPolymarket(sym, tf, datosTf, edgeInfo) {
+  var confluencia = analizarConfluencia(sym);
+  var alcistas = confluencia.alcistas, bajistas = confluencia.bajistas, total = confluencia.total;
+
+  var direccionFinal, confianza, razon;
+
+  if (alcistas >= 2 && bajistas === 0) {
+    direccionFinal = 'UP';
+    confianza = alcistas === 3 ? 'ALTA' : 'MEDIA';
+    razon = alcistas + '/3 timeframes alcistas, sin contradicción';
+  } else if (bajistas >= 2 && alcistas === 0) {
+    direccionFinal = 'DOWN';
+    confianza = bajistas === 3 ? 'ALTA' : 'MEDIA';
+    razon = bajistas + '/3 timeframes bajistas, sin contradicción';
+  } else if (alcistas > bajistas) {
+    direccionFinal = 'UP';
+    confianza = 'BAJA';
+    razon = 'Mayoría alcista (' + alcistas + ' vs ' + bajistas + ') pero con contradicción';
+  } else if (bajistas > alcistas) {
+    direccionFinal = 'DOWN';
+    confianza = 'BAJA';
+    razon = 'Mayoría bajista (' + bajistas + ' vs ' + alcistas + ') pero con contradicción';
+  } else {
+    direccionFinal = datosTf.direccion.indexOf('ALCISTA') >= 0 ? 'UP' : 'DOWN';
+    confianza = 'BAJA';
+    razon = 'Timeframes empatados — desempate por ' + tf.toUpperCase();
+  }
+
+  var stakePorConfianza = { ALTA: 20, MEDIA: 10, BAJA: 4 };
+
+  return {
+    direccionFinal: direccionFinal,
+    veredicto: direccionFinal === 'UP' ? '🟢 ENTRA — COMPRAR UP' : '🔴 ENTRA — COMPRAR DOWN',
+    confianza: confianza,
+    razon: razon,
+    stakeSugerido: stakePorConfianza[confianza],
+    confluenciaDetalle: alcistas + '/3 alcistas · ' + bajistas + '/3 bajistas'
+  };
+}
+
 function detectarEdgeCortoplazo(sym, tf) {
   tf = tf || '5m';
   var mercado = tf === '15m'   ? (STATE.polymarket15Min  && STATE.polymarket15Min[sym])
@@ -3299,32 +3347,35 @@ function _renderCortoplazoCards(data, tf) {
         card.cierra;
     }
 
-    // Caso 3: resultado normal — edge real ≥5% con datos verdaderos
-    if (r) {
-      var edgeColor = parseFloat(r.edge) >= 10 ? '#00ff88' : parseFloat(r.edge) >= 5 ? '#f5a623' : '#8892b0';
-      var exp = explicarRuptura(r.datosTf);
-      return card.abre +
-        '<div style="color:' + (r.datosTf.color || '#8892b0') + ';font-weight:700;font-size:13px;margin-bottom:4px;">' + exp.veredicto + '</div>' +
-        '<div style="color:#8892b0;font-size:11px;margin-bottom:4px;">' + escHtml(exp.detalle) + '</div>' +
-        '<div style="color:#6b7794;font-size:10px;margin-bottom:8px;font-style:italic;">' + escHtml(exp.senales) + '</div>' +
-        '<div style="color:' + edgeColor + ';font-weight:700;font-size:13px;margin-bottom:8px;">JCAHS ' + r.probJCAHS + '% vs PM ' + r.probPolymarket + '% · Edge +' + r.edge + '% → ' + r.accion + '</div>' +
-        card.cierra;
-    }
-
-    // Caso 4: r === null — sin liquidez suficiente, o (si hay tfJCAHS) edge <5%
+    // Caso 3+4 unificado: hay timeframe JCAHS real (1h/4h/diario) y datos disponibles
+    // → SIEMPRE mostrar veredicto firme (sin condición de edge mínimo), KPIs como respaldo.
     if (tfJCAHS) {
-      var conf = analizarConfluencia(sym);
-      var dTf = conf && conf[tfJCAHS];
-      var dirTxt;
-      if (dTf && dTf.disponible) {
-        var exp4 = explicarRuptura(dTf);
-        dirTxt = '<div style="color:' + (dTf.color || '#8892b0') + ';font-weight:700;font-size:12px;margin-bottom:4px;">' + exp4.veredicto + ' (sin edge ≥5%)</div>' +
-          '<div style="color:#8892b0;font-size:10px;margin-bottom:4px;">' + escHtml(exp4.detalle) + '</div>' +
-          '<div style="color:#6b7794;font-size:10px;margin-bottom:4px;font-style:italic;">' + escHtml(exp4.senales) + '</div>';
-      } else {
-        dirTxt = '<div style="color:#8892b0;font-size:10px;margin-bottom:8px;">Sin edge significativo (&lt;5%)</div>';
+      var dTf = r && r.datosTf ? r.datosTf : (function() {
+        var conf = analizarConfluencia(sym);
+        return conf && conf[tfJCAHS];
+      })();
+
+      if (!dTf || !dTf.disponible) {
+        return card.abre +
+          '<div style="color:#8892b0;font-size:11px;margin-bottom:8px;">Sin edge significativo (&lt;5%)</div>' +
+          card.cierra;
       }
-      return card.abre + dirTxt + card.cierra;
+
+      var v = veredictoFinalPolymarket(sym, tf, dTf, r);
+      var exp = explicarRuptura(dTf);
+      var bgVeredicto = v.confianza === 'ALTA' ? '#0d2e1a' : v.confianza === 'MEDIA' ? '#2e2a0d' : '#2e1a0d';
+      var colorVeredicto = v.direccionFinal === 'UP' ? '#00cc66' : '#ff4444';
+
+      return card.abre +
+        '<div style="background:' + bgVeredicto + ';border:2px solid ' + colorVeredicto + ';border-radius:8px;padding:10px;margin-bottom:8px;text-align:left;">' +
+          '<div style="font-weight:800;font-size:15px;color:' + colorVeredicto + ';">' + v.veredicto + '</div>' +
+          '<div style="font-size:11px;color:#ccc;margin-top:2px;">Confianza: ' + v.confianza + ' · ' + v.confluenciaDetalle + '</div>' +
+          '<div style="font-size:10px;color:#999;margin-top:2px;">' + escHtml(v.razon) + '</div>' +
+          '<div style="font-size:12px;color:#ffd700;margin-top:4px;font-weight:700;">Stake sugerido: $' + v.stakeSugerido + '</div>' +
+        '</div>' +
+        '<div style="color:#8892b0;font-size:11px;margin-bottom:4px;text-align:left;">' + escHtml(exp.detalle) + '</div>' +
+        '<div style="color:#6b7794;font-size:10px;margin-bottom:8px;font-style:italic;text-align:left;">' + escHtml(exp.senales) + '</div>' +
+        card.cierra;
     }
     return card.abre +
       '<div style="color:#8892b0;font-size:11px;margin-bottom:8px;">Liquidez insuficiente para evaluar (&lt;$500)</div>' +
