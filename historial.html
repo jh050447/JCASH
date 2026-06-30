@@ -150,6 +150,22 @@
   <canvas id="hapCvLiga" width="900" height="180"></canvas>
 </div>
 
+<!-- ═══════════ HISTORIAL POLYMARKET — separado de apuestas deportivas ═══════════ -->
+<h2 class="section-title">🎯 Historial Polymarket</h2>
+<div class="subtitle">Veredictos validados con el motor de scoring de backtesting.js — separado de apuestas deportivas. Clave para calibrar en agosto si "confianza ALTA" predice mejor en la práctica.</div>
+<div id="poly-hist-resumen" class="resumen"></div>
+<div class="desgloses">
+  <div class="desglose-box">
+    <h3>Por Timeframe</h3>
+    <div id="poly-hist-tf"></div>
+  </div>
+  <div class="desglose-box">
+    <h3>Por Confianza</h3>
+    <div id="poly-hist-confianza"></div>
+  </div>
+</div>
+<div id="poly-hist-lista"></div>
+
 <!-- Tbody legacy oculto (mantiene compatibilidad con renderTabla/CLV) -->
 <div style="display:none;"><table><tbody id="tbodyHistorial"></tbody></table></div>
 
@@ -1064,6 +1080,7 @@ function compararKelly() {
 // Auto-load MC inputs from historial
 document.addEventListener('DOMContentLoaded', function() {
   setTimeout(mcAutoLoad, 200);
+  renderHistorialPolymarket();
   sincronizarDesdeKV();
   setInterval(sincronizarDesdeKV, 5 * 60 * 1000);
 });
@@ -1104,6 +1121,136 @@ async function sincronizarDesdeKV() {
   } catch(e) {
     console.warn('sincronizarDesdeKV error:', e.message);
   }
+
+  // ── Aplicar resultados Polymarket resueltos por el cron del Worker ──
+  try {
+    var resRes = await fetch(_WORKER + '/apuestas/resultados-polymarket');
+    if (!resRes.ok) return;
+    var resultados = await resRes.json();
+    if (!resultados || resultados.length === 0) return;
+
+    var historial2 = Storage.getHistorialApuestas();
+    var aplicados = 0;
+
+    for (var j = 0; j < resultados.length; j++) {
+      var r = resultados[j];
+      var reg2 = historial2.find(function(h) { return h.id === r.id; });
+      if (reg2 && reg2.estado === 'pendiente') {
+        reg2.estado = r.estado;
+        reg2.salida_real = { resultado: r.resultado, acerto: r.acerto, pnl_usd: r.pnl_usd };
+        aplicados++;
+      }
+      // Borrar el resultado del KV se intente o no haya match local (evita reintentos infinitos)
+      fetch(_WORKER + '/apuestas/resultado-aplicado', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ registroId: r.id }),
+      }).catch(function() {});
+    }
+
+    if (aplicados > 0) {
+      Storage.setHistorialApuestas(historial2);
+      console.log('Resultados Polymarket aplicados: ' + aplicados);
+      if (typeof renderHistorialPolymarket === 'function') renderHistorialPolymarket();
+      if (typeof renderHistorial === 'function') renderHistorial();
+    }
+  } catch(e) {
+    console.warn('sincronizar resultados Polymarket error:', e.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  HISTORIAL POLYMARKET — separado de apuestas deportivas
+// ═══════════════════════════════════════════════════════════
+
+function _polyHistDatos() {
+  var todo = Storage.getHistorialApuestas();
+  return todo.filter(function(r) { return r.tipo === 'polymarket'; });
+}
+
+function _polyHistMetricas(lista) {
+  var conResultado = lista.filter(function(r) { return r.estado === 'ganada' || r.estado === 'perdida'; });
+  var ganadas = conResultado.filter(function(r) { return r.estado === 'ganada'; }).length;
+  var hitRate = conResultado.length ? (ganadas / conResultado.length * 100) : null;
+
+  var totalStake = lista.reduce(function(s, r) { return s + (r.entrada && r.entrada.stake ? r.entrada.stake : 0); }, 0);
+  var totalPnl = conResultado.reduce(function(s, r) { return s + (r.salida_real && r.salida_real.pnl_usd ? r.salida_real.pnl_usd : 0); }, 0);
+  var stakeResueltos = conResultado.reduce(function(s, r) { return s + (r.entrada && r.entrada.stake ? r.entrada.stake : 0); }, 0);
+  var roi = stakeResueltos ? (totalPnl / stakeResueltos * 100) : null;
+
+  return {
+    hitRate: hitRate, ganadas: ganadas, totalConResultado: conResultado.length,
+    roi: roi, totalPnl: totalPnl, totalStake: totalStake, n: lista.length,
+    pendientes: lista.filter(function(r) { return r.estado === 'pendiente'; }).length
+  };
+}
+
+function renderHistorialPolymarket() {
+  var elResumen = document.getElementById('poly-hist-resumen');
+  var elTf = document.getElementById('poly-hist-tf');
+  var elConf = document.getElementById('poly-hist-confianza');
+  var elLista = document.getElementById('poly-hist-lista');
+  if (!elResumen) return; // sección no presente en esta página
+
+  var lista = _polyHistDatos();
+  if (lista.length === 0) {
+    elResumen.innerHTML = '<div class="resumen-card"><div class="label">Sin registros aún</div><div class="sub">Los veredictos registrados desde Telegram (✅ REGISTRAR) aparecerán aquí.</div></div>';
+    elTf.innerHTML = ''; elConf.innerHTML = ''; elLista.innerHTML = '';
+    return;
+  }
+
+  var m = _polyHistMetricas(lista);
+  var hitTxt = m.totalConResultado ? m.hitRate.toFixed(1) + '%' : '—';
+  var roiTxt = m.totalConResultado ? (m.roi >= 0 ? '+' : '') + m.roi.toFixed(1) + '%' : '—';
+  var roiClass = m.roi === null ? '' : (m.roi >= 0 ? 'pos' : 'neg');
+  var pnlTxt = (m.totalPnl >= 0 ? '+$' : '-$') + Math.abs(m.totalPnl).toFixed(2);
+  var pnlClass = m.totalPnl >= 0 ? 'pos' : 'neg';
+
+  elResumen.innerHTML =
+    '<div class="resumen-card"><div class="label">Hit rate</div><div class="valor">' + hitTxt + '</div>' +
+      '<div class="sub">' + m.ganadas + '/' + m.totalConResultado + ' resueltos · ' + m.pendientes + ' pendientes</div></div>' +
+    '<div class="resumen-card"><div class="label">ROI</div><div class="valor ' + roiClass + '">' + roiTxt + '</div>' +
+      '<div class="sub">sobre $' + m.totalStake.toFixed(2) + ' apostado total</div></div>' +
+    '<div class="resumen-card"><div class="label">P&L neto</div><div class="valor ' + pnlClass + '">' + pnlTxt + '</div>' +
+      '<div class="sub">' + m.n + ' registros totales</div></div>';
+
+  // Desglose por timeframe (1h / 4h / diario)
+  var tfs = ['1h', '4h', 'diario'];
+  elTf.innerHTML = tfs.map(function(tf) {
+    var sub = lista.filter(function(r) { return r.entrada && r.entrada.timeframe === tf; });
+    var mm = _polyHistMetricas(sub);
+    var h = mm.totalConResultado ? mm.hitRate.toFixed(0) + '%' : '—';
+    var col = mm.hitRate >= 60 ? 'var(--tertiary)' : mm.hitRate >= 45 ? 'var(--warning)' : mm.hitRate != null ? 'var(--error)' : 'var(--text-3)';
+    return '<div class="hap-fila"><span class="hap-lbl">' + tf.toUpperCase() + '</span>' +
+      '<span style="font-family:monospace;font-weight:700;color:' + col + '">' + h + ' <span style="color:var(--text-3);font-weight:400;">(' + mm.totalConResultado + '/' + mm.n + ')</span></span></div>';
+  }).join('');
+
+  // Desglose por confianza (ALTA / MEDIA / BAJA) — la pieza clave para calibrar en agosto
+  var confs = ['ALTA', 'MEDIA', 'BAJA'];
+  elConf.innerHTML = confs.map(function(conf) {
+    var sub = lista.filter(function(r) { return r.entrada && r.entrada.confianza === conf; });
+    var mm = _polyHistMetricas(sub);
+    var h = mm.totalConResultado ? mm.hitRate.toFixed(0) + '%' : '—';
+    var col = mm.hitRate >= 60 ? 'var(--tertiary)' : mm.hitRate >= 45 ? 'var(--warning)' : mm.hitRate != null ? 'var(--error)' : 'var(--text-3)';
+    return '<div class="hap-fila"><span class="hap-lbl">' + conf + '</span>' +
+      '<span style="font-family:monospace;font-weight:700;color:' + col + '">' + h + ' <span style="color:var(--text-3);font-weight:400;">(' + mm.totalConResultado + '/' + mm.n + ')</span></span></div>';
+  }).join('');
+
+  // Lista de registros recientes (más nuevos primero)
+  var recientes = lista.slice().sort(function(a, b) { return (b.id || '').localeCompare(a.id || ''); }).slice(0, 20);
+  elLista.innerHTML = recientes.map(function(r) {
+    var e = r.entrada || {};
+    var sr = r.salida_real || {};
+    var estadoIcon = r.estado === 'ganada' ? '🟢' : r.estado === 'perdida' ? '🔴' : '⏳';
+    var pnlStr = sr.pnl_usd != null ? ((sr.pnl_usd >= 0 ? '+$' : '-$') + Math.abs(sr.pnl_usd).toFixed(2)) : '—';
+    return '<div class="hap-card" style="margin-bottom:8px;">' +
+      '<div class="hap-card-hdr" style="cursor:default;">' +
+        estadoIcon + ' ' + (e.token || '') + ' · ' + (e.timeframe || '').toUpperCase() + ' · ' + (e.direccion || '') +
+        ' <span style="color:var(--text-3);font-weight:400;">— Score ' + (e.score != null ? e.score : '—') + '/100 · ' + (e.confianza || '') + ' · ' + (e.fecha || '') + ' ' + (e.hora || '') + '</span>' +
+        '<span style="float:right;font-family:monospace;">' + pnlStr + '</span>' +
+      '</div>' +
+    '</div>';
+  }).join('');
 }
 
 // ═══════════════════════════════════════════════════════════
