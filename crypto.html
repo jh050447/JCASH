@@ -2687,12 +2687,14 @@ function verificarAlertasCrypto() {
         var edgeCp = detectarEdgeCortoplazo(sym, tf);
         if (edgeCp && !edgeCp.sinAnalisis && !edgeCp.sinDatos) {
           var exp5 = explicarRuptura(edgeCp.datosTf);
-          var v5   = veredictoFinalPolymarket(sym, tf, edgeCp.datosTf, edgeCp);
+          var v5   = veredictoFinalPolymarket(sym, tf, edgeCp.datosTf, edgeCp.mercado);
           var msg5 = '⚡ POLYMARKET ' + tf.toUpperCase() + ' — ' + sym + '\n\n' +
+            'Score: ' + v5.scoreNum + '/100\n' +
             v5.veredicto + '\n' +
             'Confianza: ' + v5.confianza + ' · ' + v5.confluenciaDetalle + '\n' +
             v5.razon + '\n' +
-            '💰 Stake sugerido: $' + v5.stakeSugerido + '\n\n' +
+            '💰 Stake: $' + v5.stakeSugerido + ' a precio ' + v5.precioEntrada + '%\n' +
+            '✅ Si aciertas: +$' + v5.gananciaSiAcierta + ' · ❌ Si fallas: -$' + v5.perdidaSiFalla + '\n\n' +
             exp5.veredicto + '\n' +
             edgeCp.accion + '\n\n' +
             '📊 KPIs técnicos:\n' + exp5.detalle + '\n' +
@@ -2992,42 +2994,59 @@ function explicarRuptura(datosTf) {
 // Veredicto ejecutable basado en confluencia real entre 1h/4h/1d — nunca "tal vez".
 // edgeInfo (resultado de detectarEdgeCortoplazo) se pasa por si en el futuro se quiere
 // ajustar el stake por tamaño de edge; hoy el stake depende solo de la confianza.
-function veredictoFinalPolymarket(sym, tf, datosTf, edgeInfo) {
+// mercado = objeto { precioUp, precioDown, ... } — se pasa directo (no via edgeInfo)
+// porque edgeInfo puede ser null cuando el edge es <5% pero igual queremos veredicto.
+function veredictoFinalPolymarket(sym, tf, datosTf, mercado) {
   var confluencia = analizarConfluencia(sym);
   var alcistas = confluencia.alcistas, bajistas = confluencia.bajistas, total = confluencia.total;
 
-  var direccionFinal, confianza, razon;
+  var direccionFinal, confianza, razon, scoreNum;
 
   if (alcistas >= 2 && bajistas === 0) {
     direccionFinal = 'UP';
     confianza = alcistas === 3 ? 'ALTA' : 'MEDIA';
+    scoreNum = alcistas === 3 ? 90 : 70;
     razon = alcistas + '/3 timeframes alcistas, sin contradicción';
   } else if (bajistas >= 2 && alcistas === 0) {
     direccionFinal = 'DOWN';
     confianza = bajistas === 3 ? 'ALTA' : 'MEDIA';
+    scoreNum = bajistas === 3 ? 90 : 70;
     razon = bajistas + '/3 timeframes bajistas, sin contradicción';
   } else if (alcistas > bajistas) {
     direccionFinal = 'UP';
     confianza = 'BAJA';
+    scoreNum = 50;
     razon = 'Mayoría alcista (' + alcistas + ' vs ' + bajistas + ') pero con contradicción';
   } else if (bajistas > alcistas) {
     direccionFinal = 'DOWN';
     confianza = 'BAJA';
+    scoreNum = 50;
     razon = 'Mayoría bajista (' + bajistas + ' vs ' + alcistas + ') pero con contradicción';
   } else {
     direccionFinal = datosTf.direccion.indexOf('ALCISTA') >= 0 ? 'UP' : 'DOWN';
     confianza = 'BAJA';
+    scoreNum = 40;
     razon = 'Timeframes empatados — desempate por ' + tf.toUpperCase();
   }
 
   var stakePorConfianza = { ALTA: 20, MEDIA: 10, BAJA: 4 };
+  var stakeSugerido = stakePorConfianza[confianza];
+
+  // Cálculo real de ganancia/pérdida usando el precio de Polymarket
+  var precioEntrada = direccionFinal === 'UP' ? mercado.precioUp : mercado.precioDown;
+  var gananciaSiAcierta = precioEntrada > 0 ? stakeSugerido * (1 / precioEntrada - 1) : 0;
+  var perdidaSiFalla = stakeSugerido;
 
   return {
     direccionFinal: direccionFinal,
     veredicto: direccionFinal === 'UP' ? '🟢 ENTRA — COMPRAR UP' : '🔴 ENTRA — COMPRAR DOWN',
     confianza: confianza,
+    scoreNum: scoreNum,
     razon: razon,
-    stakeSugerido: stakePorConfianza[confianza],
+    stakeSugerido: stakeSugerido,
+    gananciaSiAcierta: gananciaSiAcierta.toFixed(2),
+    perdidaSiFalla: perdidaSiFalla.toFixed(2),
+    precioEntrada: (precioEntrada * 100).toFixed(0),
     confluenciaDetalle: alcistas + '/3 alcistas · ' + bajistas + '/3 bajistas'
   };
 }
@@ -3129,17 +3148,19 @@ function _renderCortoplazoCards(data, tf) {
           card.cierra;
       }
 
-      var v = veredictoFinalPolymarket(sym, tf, dTf, r);
+      var v = veredictoFinalPolymarket(sym, tf, dTf, m);
       var exp = explicarRuptura(dTf);
       var bgVeredicto = v.confianza === 'ALTA' ? '#0d2e1a' : v.confianza === 'MEDIA' ? '#2e2a0d' : '#2e1a0d';
       var colorVeredicto = v.direccionFinal === 'UP' ? '#00cc66' : '#ff4444';
 
       return card.abre +
+        '<div style="font-size:11px;color:#888;text-align:left;">Score: ' + v.scoreNum + '/100</div>' +
         '<div style="background:' + bgVeredicto + ';border:2px solid ' + colorVeredicto + ';border-radius:8px;padding:10px;margin-bottom:8px;text-align:left;">' +
           '<div style="font-weight:800;font-size:15px;color:' + colorVeredicto + ';">' + v.veredicto + '</div>' +
           '<div style="font-size:11px;color:#ccc;margin-top:2px;">Confianza: ' + v.confianza + ' · ' + v.confluenciaDetalle + '</div>' +
           '<div style="font-size:10px;color:#999;margin-top:2px;">' + escHtml(v.razon) + '</div>' +
-          '<div style="font-size:12px;color:#ffd700;margin-top:4px;font-weight:700;">Stake sugerido: $' + v.stakeSugerido + '</div>' +
+          '<div style="font-size:12px;color:#ffd700;font-weight:700;margin-top:4px;">Stake: $' + v.stakeSugerido + ' a precio ' + v.precioEntrada + '%</div>' +
+          '<div style="font-size:11px;margin-top:2px;"><span style="color:#00cc66;">Si aciertas: +$' + v.gananciaSiAcierta + '</span> · <span style="color:#ff4444;">Si fallas: -$' + v.perdidaSiFalla + '</span></div>' +
         '</div>' +
         '<div style="color:#8892b0;font-size:11px;margin-bottom:4px;text-align:left;">' + escHtml(exp.detalle) + '</div>' +
         '<div style="color:#6b7794;font-size:10px;margin-bottom:8px;font-style:italic;text-align:left;">' + escHtml(exp.senales) + '</div>' +
