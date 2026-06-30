@@ -2295,6 +2295,9 @@ function init() {
   // Polymarket cortoplazo (5min + 15min) — cargar y refrescar cada 5 min
   cargarMercadosCortoplazoPolymarket();
   setInterval(cargarMercadosCortoplazoPolymarket, 5 * 60 * 1000);
+  // Polymarket horario (1H) — cargar y refrescar cada 30 min
+  cargarMercadosHorariosPolymarket();
+  setInterval(cargarMercadosHorariosPolymarket, 30 * 60 * 1000);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2712,14 +2715,14 @@ function verificarAlertasCrypto() {
         if (opp.length > 0) alertarMispricingPolymarket(sym, opp);
       }
       // Edge Polymarket 5 minutos
-      ['5m', '15m'].forEach(function(tf) {
+      ['5m', '15m', '1h'].forEach(function(tf) {
         var edgeCp = detectarEdgeCortoplazo(sym, d.score, tf);
         if (edgeCp) {
           var msg5 = '⚡ POLYMARKET ' + tf.toUpperCase() + ' — ' + sym + '\n\n' +
             edgeCp.accion + '\n' +
             'JCAHS: ' + edgeCp.probJCAHS + '% | Polymarket: ' + edgeCp.probPolymarket + '%\n' +
             'Edge: +' + edgeCp.edge + '% | Liq: $' + edgeCp.liquidez.toFixed(0) + '\n\n' +
-            '⏱ Próximos ' + (tf === '5m' ? '5' : '15') + ' minutos\n' +
+            '⏱ ' + (tf === '5m' ? 'Próximos 5 minutos' : tf === '15m' ? 'Próximos 15 minutos' : 'Próxima hora') + '\n' +
             '🔗 ' + edgeCp.url;
           enviarAlertaTelegram(msg5);
         }
@@ -2967,11 +2970,62 @@ async function cargarMercadosCortoplazoPolymarket() {
 // Backward-compat alias
 var cargarMercados5MinPolymarket = cargarMercadosCortoplazoPolymarket;
 
+// ── Mercados horarios (1H) ─────────────────────────────────
+// Confirmado contra gamma-api: slug = {nombre}-up-or-down-{mes}-{dia}-{anio}-{hora}{ampm}-et
+// (NO existe bloque 4H en Polymarket — verificado, slug devuelve [])
+function generarSlugHorarioPolymarket(nombreToken, fechaUTC) {
+  var meses = ['january','february','march','april','may','june','july',
+               'august','september','october','november','december'];
+  var mes  = meses[fechaUTC.getUTCMonth()];
+  var dia  = fechaUTC.getUTCDate();
+  var anio = fechaUTC.getUTCFullYear();
+  var horaET = fechaUTC.getUTCHours() - 4; // ET = UTC-4 en DST
+  if (horaET < 0) horaET += 24;
+  var ampm = horaET === 0 ? '12am'
+           : horaET < 12 ? (horaET + 'am')
+           : horaET === 12 ? '12pm'
+           : ((horaET - 12) + 'pm');
+  return nombreToken + '-up-or-down-' + mes + '-' + dia + '-' + anio + '-' + ampm + '-et';
+}
+
+var POLYMARKET_NOMBRES = { BTC: 'bitcoin', ETH: 'ethereum', SOL: 'solana', XRP: 'xrp' };
+
+async function cargarMercadosHorariosPolymarket() {
+  var PROXY_URL = 'https://jcahs-proxy.jh050447.workers.dev/?url=';
+  var ahora = new Date();
+  STATE.polymarket1H = {};
+
+  for (const [sym, nombre] of Object.entries(POLYMARKET_NOMBRES)) {
+    try {
+      var slug1h = generarSlugHorarioPolymarket(nombre, ahora);
+      var d1h = await fetch(PROXY_URL + encodeURIComponent(
+        'https://gamma-api.polymarket.com/markets?slug=' + slug1h
+      )).then(function(r) { return r.json(); });
+      var m1h = Array.isArray(d1h) ? d1h[0] : null;
+      if (m1h) {
+        var p1h = typeof m1h.outcomePrices === 'string'
+          ? (() => { try { return JSON.parse(m1h.outcomePrices); } catch(e) { return []; } })()
+          : (m1h.outcomePrices || []);
+        STATE.polymarket1H[sym] = {
+          pregunta: m1h.question,
+          precioUp: parseFloat(p1h[0] || 0.5),
+          precioDown: parseFloat(p1h[1] || 0.5),
+          liquidez: parseFloat(m1h.liquidity || 0),
+          slug: slug1h,
+          url: 'https://polymarket.com/event/' + slug1h
+        };
+      }
+    } catch(e) { console.error('1H ' + sym + ':', e.message); }
+  }
+
+  console.log('1H:', Object.keys(STATE.polymarket1H).join(', ') || 'ninguno');
+}
+
 function detectarEdgeCortoplazo(sym, scoreJCAHS, tf) {
   tf = tf || '5m';
-  var mercado = tf === '15m'
-    ? (STATE.polymarket15Min && STATE.polymarket15Min[sym])
-    : (STATE.polymarket5Min  && STATE.polymarket5Min[sym]);
+  var mercado = tf === '15m' ? (STATE.polymarket15Min && STATE.polymarket15Min[sym])
+              : tf === '1h'  ? (STATE.polymarket1H    && STATE.polymarket1H[sym])
+              : (STATE.polymarket5Min && STATE.polymarket5Min[sym]);
   if (!mercado || mercado.liquidez < 500) return null;
 
   var probSubirJCAHS = 0.35 + (scoreJCAHS / 100) * 0.40;
@@ -3099,21 +3153,22 @@ function renderPolymarket5Min() {
 
   var html5  = _renderCortoplazoCards(STATE.polymarket5Min);
   var html15 = _renderCortoplazoCards(STATE.polymarket15Min);
+  var html1h = _renderCortoplazoCards(STATE.polymarket1H);
   var empty  = '<div style="color:#8892b0;font-size:12px;padding:8px;">Sin mercados activos en esta ventana.</div>';
 
-  grid.innerHTML =
-    '<div style="margin-bottom:12px;">' +
-      '<div style="color:#1a6eb5;font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:8px;text-transform:uppercase;">⚡ 5 Minutos</div>' +
+  function seccion(titulo, html) {
+    return '<div style="margin-bottom:12px;">' +
+      '<div style="color:#1a6eb5;font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:8px;text-transform:uppercase;">' + titulo + '</div>' +
       '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;">' +
-        (html5 || empty) +
-      '</div>' +
-    '</div>' +
-    '<div>' +
-      '<div style="color:#1a6eb5;font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:8px;text-transform:uppercase;">⏱ 15 Minutos</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;">' +
-        (html15 || empty) +
+        (html || empty) +
       '</div>' +
     '</div>';
+  }
+
+  grid.innerHTML =
+    seccion('⚡ 5 Minutos', html5) +
+    seccion('⏱ 15 Minutos', html15) +
+    seccion('🕐 1 Hora', html1h);
 
   var timer = document.getElementById('poly-5min-timer');
   if (timer && STATE.polymarketCortoplazoTimestamp) {
