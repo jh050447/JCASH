@@ -2724,8 +2724,12 @@ function verificarAlertasCrypto() {
       ['5m', '15m', '1h', '4h', 'diario'].forEach(function(tf) {
         var edgeCp = detectarEdgeCortoplazo(sym, tf);
         if (edgeCp && !edgeCp.sinAnalisis && !edgeCp.sinDatos) {
+          var exp5 = explicarRuptura(edgeCp.datosTf);
           var msg5 = '⚡ POLYMARKET ' + tf.toUpperCase() + ' — ' + sym + '\n\n' +
-            edgeCp.accion + '\n' +
+            exp5.veredicto + '\n' +
+            edgeCp.accion + '\n\n' +
+            '📊 KPIs técnicos:\n' + exp5.detalle + '\n' +
+            '🔍 Señales: ' + exp5.senales + '\n\n' +
             'JCAHS: ' + edgeCp.probJCAHS + '% | Polymarket: ' + edgeCp.probPolymarket + '%\n' +
             'Edge: +' + edgeCp.edge + '% | Liq: $' + edgeCp.liquidez.toFixed(0) + '\n\n' +
             '⏱ ' + (tf === '5m' ? 'Próximos 5 minutos' : tf === '15m' ? 'Próximos 15 minutos' : tf === '1h' ? 'Próxima hora' : tf === '4h' ? 'Próximas 4 horas' : 'Resuelve hoy noon ET') + '\n' +
@@ -3111,6 +3115,30 @@ async function cargarMercados4HPolymarket() {
 // 5min/15min NO tienen equivalente en JCAHS (el análisis técnico más corto es 1H)
 var POLYMARKET_TF_MAP = { '5m': null, '15m': null, '1h': '1h', '4h': '4h', 'diario': '1d' };
 
+// Traduce el objeto datosTf de analizarConfluencia a lenguaje simple con KPIs reales
+function explicarRuptura(datosTf) {
+  var direccion = datosTf.direccion || '';
+  var rsi       = datosTf.rsi != null ? datosTf.rsi : 0;
+  var tendencia = datosTf.tendencia || '—';
+  var macd      = datosTf.macd || '—';
+  var bb        = datosTf.bb || '—';
+  var volumen   = datosTf.volumen != null ? datosTf.volumen : 1;
+  var senales   = datosTf.senales || [];
+
+  var veredicto;
+  if      (direccion.indexOf('ALCISTA') >= 0) veredicto = '📈 Probable ruptura al ALZA';
+  else if (direccion.indexOf('BAJISTA') >= 0) veredicto = '📉 Probable ruptura a la BAJA';
+  else                                          veredicto = '➡️ Sin ruptura clara — lateral';
+
+  var volTexto = volumen >= 1 ? 'Volumen alto' : volumen >= 0.6 ? 'Volumen normal' : 'Volumen bajo';
+
+  return {
+    veredicto: veredicto,
+    detalle: 'RSI ' + rsi.toFixed(1) + ' · Tendencia ' + tendencia + ' · MACD ' + macd + ' · BB ' + bb + ' · ' + volTexto,
+    senales: senales.join(' · ')
+  };
+}
+
 function detectarEdgeCortoplazo(sym, tf) {
   tf = tf || '5m';
   var mercado = tf === '15m'   ? (STATE.polymarket15Min  && STATE.polymarket15Min[sym])
@@ -3148,6 +3176,7 @@ function detectarEdgeCortoplazo(sym, tf) {
     probPolymarket: (mercado.precioUp * 100).toFixed(0),
     direccionJCAHS: datosTf.direccion,
     rsiJCAHS:       datosTf.rsi,
+    datosTf:        datosTf,
     liquidez:       mercado.liquidez,
     url:            mercado.url,
     tf:             tf,
@@ -3273,9 +3302,12 @@ function _renderCortoplazoCards(data, tf) {
     // Caso 3: resultado normal — edge real ≥5% con datos verdaderos
     if (r) {
       var edgeColor = parseFloat(r.edge) >= 10 ? '#00ff88' : parseFloat(r.edge) >= 5 ? '#f5a623' : '#8892b0';
+      var exp = explicarRuptura(r.datosTf);
       return card.abre +
-        '<div style="color:#8892b0;font-size:10px;margin-bottom:6px;">JCAHS: ' + r.probJCAHS + '% · ' + escHtml(r.direccionJCAHS) + ' · RSI ' + fmt(r.rsiJCAHS, 0) + '</div>' +
-        '<div style="color:' + edgeColor + ';font-weight:700;font-size:13px;margin-bottom:8px;">Edge: +' + r.edge + '% → ' + r.accion + '</div>' +
+        '<div style="color:' + (r.datosTf.color || '#8892b0') + ';font-weight:700;font-size:13px;margin-bottom:4px;">' + exp.veredicto + '</div>' +
+        '<div style="color:#8892b0;font-size:11px;margin-bottom:4px;">' + escHtml(exp.detalle) + '</div>' +
+        '<div style="color:#6b7794;font-size:10px;margin-bottom:8px;font-style:italic;">' + escHtml(exp.senales) + '</div>' +
+        '<div style="color:' + edgeColor + ';font-weight:700;font-size:13px;margin-bottom:8px;">JCAHS ' + r.probJCAHS + '% vs PM ' + r.probPolymarket + '% · Edge +' + r.edge + '% → ' + r.accion + '</div>' +
         card.cierra;
     }
 
@@ -3283,12 +3315,16 @@ function _renderCortoplazoCards(data, tf) {
     if (tfJCAHS) {
       var conf = analizarConfluencia(sym);
       var dTf = conf && conf[tfJCAHS];
-      var dirTxt = dTf && dTf.disponible
-        ? escHtml(dTf.direccion) + ' · RSI ' + fmt(dTf.rsi, 0) + ' (sin edge ≥5%)'
-        : 'Sin edge significativo (&lt;5%)';
-      return card.abre +
-        '<div style="color:#8892b0;font-size:10px;margin-bottom:8px;">' + dirTxt + '</div>' +
-        card.cierra;
+      var dirTxt;
+      if (dTf && dTf.disponible) {
+        var exp4 = explicarRuptura(dTf);
+        dirTxt = '<div style="color:' + (dTf.color || '#8892b0') + ';font-weight:700;font-size:12px;margin-bottom:4px;">' + exp4.veredicto + ' (sin edge ≥5%)</div>' +
+          '<div style="color:#8892b0;font-size:10px;margin-bottom:4px;">' + escHtml(exp4.detalle) + '</div>' +
+          '<div style="color:#6b7794;font-size:10px;margin-bottom:4px;font-style:italic;">' + escHtml(exp4.senales) + '</div>';
+      } else {
+        dirTxt = '<div style="color:#8892b0;font-size:10px;margin-bottom:8px;">Sin edge significativo (&lt;5%)</div>';
+      }
+      return card.abre + dirTxt + card.cierra;
     }
     return card.abre +
       '<div style="color:#8892b0;font-size:11px;margin-bottom:8px;">Liquidez insuficiente para evaluar (&lt;$500)</div>' +
