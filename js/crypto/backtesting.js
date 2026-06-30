@@ -41,6 +41,84 @@ async function cargarHistorialOKX(sym, tf, añosAtras) {
   return todasLasVelas.filter(function(v, i, arr) { return i === 0 || v.t !== arr[i-1].t; });
 }
 
+// ── SCORING VALIDADO — pesos extraídos de ejecutarBacktestingReal ─
+// Estos pesos NO son arbitrarios: son exactamente los que ejecutarBacktestingReal
+// usó para generar los hit-rates reportados en generarStorytellingBacktest contra
+// 720 velas reales de Kraken. Tocar estos números invalida esa validación histórica
+// hasta que se vuelva a correr el backtesting completo.
+//
+// NOTA IMPORTANTE: el bloque "e12 > e26" está etiquetado informalmente como "MACD"
+// en el código original, pero NO es el histograma MACD real (macd - señal EMA9,
+// que es lo que calcula calcMACD() en math.js). Es una comparación cruda de
+// EMA12 vs EMA26. Se mantiene así deliberadamente porque es exactamente lo que
+// el backtesting validó — cambiarlo a calcMACD().hist introduciría un indicador
+// nuevo sin historial de validación.
+//
+// Parámetros: valores YA CALCULADOS del indicador (no arrays, no closes crudos).
+//   rsiVal, ema20, ema50, ema12, ema26: números o null
+//   precio: número
+//   bb: { superior, inferior } o null (calcBollingerBands(closes,20,2) es
+//        matemáticamente idéntico al cálculo manual que usaba este bloque)
+//   volRatio: número (ratio volumen actual / promedio 20 velas) o null
+// Retorna: score numérico (rango real: -45 a +90, no simétrico)
+function calcScoreValidado(rsiVal, ema20, ema50, ema12, ema26, precio, bb, volRatio) {
+  let score = 0;
+
+  if      (rsiVal !== null && rsiVal !== undefined && rsiVal < 30) score += 25;
+  else if (rsiVal !== null && rsiVal !== undefined && rsiVal < 40) score += 15;
+  else if (rsiVal !== null && rsiVal !== undefined && rsiVal > 70) score -= 20;
+
+  if (ema20 !== null && ema50 !== null && ema20 !== undefined && ema50 !== undefined) {
+    if (ema20 > ema50) score += 20;
+    else                score -= 15;
+  }
+
+  if (ema12 !== null && ema26 !== null && ema12 !== undefined && ema26 !== undefined && ema12 > ema26) {
+    score += 20;
+  }
+
+  if (bb && precio !== null && precio !== undefined) {
+    if      (precio < bb.inferior) score += 15;
+    else if (precio > bb.superior) score -= 10;
+  }
+
+  if (volRatio !== null && volRatio !== undefined && volRatio > 1.5) score += 10;
+
+  return score;
+}
+
+// Wrapper para scoring EN VIVO (última vela, no histórico) — usado por el motor
+// de veredicto de Polymarket. Calcula los mismos indicadores que el backtesting
+// pero solo para el punto actual, vía las funciones single-value de math.js.
+function calcScoreValidadoActual(sym, tf) {
+  const velas = STATE.ohlc?.[sym]?.[tf];
+  if (!velas || velas.length < 50) return null;
+
+  const closes = velas.map(k => k.c);
+  const vols   = velas.map(k => k.v);
+  const precio = closes[closes.length - 1];
+
+  const rsiVal = calcRSI(closes, 14);
+  const ema20  = calcEMA(closes, 20);
+  const ema50  = calcEMA(closes, 50);
+  const ema12  = calcEMA(closes, 12);
+  const ema26  = calcEMA(closes, 26);
+  const bb     = calcBollingerBands(closes, 20, 2);
+  const volSig = calcVolumeSignal(vols);
+
+  if (rsiVal === null || ema20 === null || ema50 === null) return null;
+
+  const score = calcScoreValidado(rsiVal, ema20, ema50, ema12, ema26, precio, bb, volSig.ratio);
+
+  return {
+    score, rsi: rsiVal, ema20, ema50, precio,
+    tendencia: ema20 > ema50 ? 'alcista' : 'bajista',
+    emaCruzada: (ema12 !== null && ema26 !== null) ? (ema12 > ema26 ? 'alcista' : 'bajista') : null,
+    bb: bb ? (precio < bb.inferior ? 'bajo' : precio > bb.superior ? 'alto' : 'medio') : 'medio',
+    volumen: volSig.ratio
+  };
+}
+
 // ── BACKTESTING REAL (O(n) total) ─────────────────────────
 function ejecutarBacktestingReal(sym, tf) {
   const velas = STATE.ohlc?.[sym]?.[tf];
@@ -120,26 +198,18 @@ function ejecutarBacktestingReal(sym, tf) {
 
     if (!rsiActual || !ema20Act || !ema50Act || !atrActual) continue;
 
-    let score = 0;
-    if      (rsiActual < 30) score += 25;
-    else if (rsiActual < 40) score += 15;
-    else if (rsiActual > 70) score -= 20;
-
-    if (ema20Act > ema50Act) score += 20;
-    else                     score -= 15;
-
     const e12 = ema12Arr[i], e26 = ema26Arr[i];
-    if (e12 !== null && e26 !== null && e12 > e26) score += 20;
-
-    const bb = closes.slice(i - 19, i + 1);
-    if (bb.length >= 20) {
-      const med = bb.reduce((a, b) => a + b, 0) / 20;
-      const std = Math.sqrt(bb.reduce((a, b) => a + (b - med) * (b - med), 0) / 20);
-      if (precio < med - 2 * std)  score += 15;
-      else if (precio > med + 2 * std) score -= 10;
+    const bbSlice = closes.slice(i - 19, i + 1);
+    let bbObj = null;
+    if (bbSlice.length >= 20) {
+      const med = bbSlice.reduce((a, b) => a + b, 0) / 20;
+      const std = Math.sqrt(bbSlice.reduce((a, b) => a + (b - med) * (b - med), 0) / 20);
+      bbObj = { superior: med + 2 * std, inferior: med - 2 * std };
     }
 
-    if (volActual !== null && volActual > 1.5) score += 10;
+    // calcScoreValidado: misma función usada en vivo por el veredicto de Polymarket —
+    // un solo lugar define los pesos, no hay riesgo de desincronización.
+    const score = calcScoreValidado(rsiActual, ema20Act, ema50Act, e12, e26, precio, bbObj, volActual);
 
     const umbralScore = tf === '4h' ? 70 : tf === '1h' ? 65 : 40;
     if (score < umbralScore) continue;

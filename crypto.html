@@ -3030,8 +3030,33 @@ function explicarRuptura(datosTf) {
 // ajustar el stake por tamaño de edge; hoy el stake depende solo de la confianza.
 // mercado = objeto { precioUp, precioDown, ... } — se pasa directo (no via edgeInfo)
 // porque edgeInfo puede ser null cuando el edge es <5% pero igual queremos veredicto.
+// Confluencia construida con calcScoreValidadoActual (js/crypto/backtesting.js) —
+// el mismo motor de scoring que ejecutarBacktestingReal validó contra 720 velas
+// reales de Kraken. Reemplaza la confluencia de analizarConfluencia (que usaba
+// pesos -8..+10 sin validación histórica — ver auditoría previa).
+//
+// Umbral alcista/bajista: score > 0 / score < 0 (división simple por signo).
+// No se reutilizan los umbrales 40/65/70 de ejecutarBacktestingReal porque esos
+// fueron calibrados para "¿vale la pena registrar esta señal?", no para clasificar
+// dirección de tendencia — usarlos aquí habría sido otro número inventado sin
+// respaldo, igual que los pesos que se está reemplazando.
+function calcConfluenciaValidada(sym) {
+  var tfs = ['1h', '4h', '1d'];
+  var alcistas = 0, bajistas = 0, total = 0;
+  var detalle = {};
+  tfs.forEach(function(tf) {
+    var r = calcScoreValidadoActual(sym, tf);
+    detalle[tf] = r;
+    if (!r) return;
+    total++;
+    if (r.score > 0) alcistas++;
+    else if (r.score < 0) bajistas++;
+  });
+  return { alcistas: alcistas, bajistas: bajistas, total: total, detalle: detalle };
+}
+
 function veredictoFinalPolymarket(sym, tf, datosTf, mercado) {
-  var confluencia = analizarConfluencia(sym);
+  var confluencia = calcConfluenciaValidada(sym);
   var alcistas = confluencia.alcistas, bajistas = confluencia.bajistas, total = confluencia.total;
 
   var direccionFinal, confianza, razon, scoreNum;
@@ -3040,12 +3065,12 @@ function veredictoFinalPolymarket(sym, tf, datosTf, mercado) {
     direccionFinal = 'UP';
     confianza = alcistas === 3 ? 'ALTA' : 'MEDIA';
     scoreNum = alcistas === 3 ? 90 : 70;
-    razon = alcistas + '/3 timeframes alcistas, sin contradicción';
+    razon = alcistas + '/3 timeframes alcistas (score validado > 0), sin contradicción';
   } else if (bajistas >= 2 && alcistas === 0) {
     direccionFinal = 'DOWN';
     confianza = bajistas === 3 ? 'ALTA' : 'MEDIA';
     scoreNum = bajistas === 3 ? 90 : 70;
-    razon = bajistas + '/3 timeframes bajistas, sin contradicción';
+    razon = bajistas + '/3 timeframes bajistas (score validado < 0), sin contradicción';
   } else if (alcistas > bajistas) {
     direccionFinal = 'UP';
     confianza = 'BAJA';
@@ -3057,7 +3082,9 @@ function veredictoFinalPolymarket(sym, tf, datosTf, mercado) {
     scoreNum = 50;
     razon = 'Mayoría bajista (' + bajistas + ' vs ' + alcistas + ') pero con contradicción';
   } else {
-    direccionFinal = datosTf.direccion.indexOf('ALCISTA') >= 0 ? 'UP' : 'DOWN';
+    var tfJ = POLYMARKET_TF_MAP[tf];
+    var actualR = tfJ ? confluencia.detalle[tfJ] : null;
+    direccionFinal = (actualR && actualR.score > 0) ? 'UP' : 'DOWN';
     confianza = 'BAJA';
     scoreNum = 40;
     razon = 'Timeframes empatados — desempate por ' + tf.toUpperCase();
