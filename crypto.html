@@ -531,7 +531,7 @@
 
         <!-- Panel mercados cortoplazo: 5min/15min/1H/4H/Diario -->
         <div id="poly-5min-panel" style="background:#0d2540;border-radius:12px;padding:16px;margin-bottom:20px;border:1px solid #1a6eb5;">
-          <div id="poly-5min-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;"></div>
+          <div id="poly-5min-grid"></div>
           <div style="color:#8892b0;font-size:11px;margin-top:8px;" id="poly-5min-timer">Actualizando cada 5 minutos...</div>
         </div>
       </section>
@@ -3246,10 +3246,13 @@ function renderPolymarket5Min() {
   var htmlDiario = _renderCortoplazoCards(STATE.polymarketDiario, 'diario');
   var empty  = '<div style="color:#8892b0;font-size:12px;padding:8px;">Sin mercados activos en esta ventana.</div>';
 
+  // Cada timeframe es un bloque de ancho completo, apilado verticalmente.
+  // El grid interno (320px) solo compite por espacio con sus propios 4 tokens,
+  // no con las otras 4 secciones a la vez.
   function seccion(titulo, html) {
-    return '<div style="margin-bottom:12px;">' +
-      '<div style="color:#1a6eb5;font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:8px;text-transform:uppercase;">' + titulo + '</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:14px;">' +
+    return '<div style="margin-bottom:24px;">' +
+      '<h3 style="color:#00ff88;font-size:16px;font-weight:700;margin:0 0 12px 0;">' + titulo + '</h3>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;">' +
         (html || empty) +
       '</div>' +
     '</div>';
