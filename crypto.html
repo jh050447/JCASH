@@ -2852,6 +2852,26 @@ function generarSlugHorarioPolymarket(nombreToken, fechaUTC) {
 
 var POLYMARKET_NOMBRES = { BTC: 'bitcoin', ETH: 'ethereum', SOL: 'solana', XRP: 'xrp' };
 
+// Captura el precio de Kraken al detectar una ventana nueva (slug distinto al guardado).
+// Solo aplica a 1H/4H — Polymarket no expone apertura oficial para esos timeframes,
+// así que JCAHS estima la suya propia comparando contra el slug de la ventana activa.
+function capturarAperturaVentana(sym, tf, slugActual) {
+  var key = 'jcahs_apertura_' + sym + '_' + tf;
+  var guardado = null;
+  try { guardado = JSON.parse(localStorage.getItem(key) || 'null'); } catch(e) {}
+
+  if (!guardado || guardado.slug !== slugActual) {
+    var precioApertura = (STATE.precios && STATE.precios[sym]) || null;
+    if (precioApertura) {
+      var nuevo = { slug: slugActual, precioApertura: precioApertura, timestamp: Date.now() };
+      try { localStorage.setItem(key, JSON.stringify(nuevo)); } catch(e) {}
+      return nuevo;
+    }
+    return null;
+  }
+  return guardado;
+}
+
 async function cargarMercadosHorariosPolymarket() {
   var PROXY_URL = 'https://jcahs-proxy.jh050447.workers.dev/?url=';
   var ahora = new Date();
@@ -2868,13 +2888,15 @@ async function cargarMercadosHorariosPolymarket() {
         var p1h = typeof m1h.outcomePrices === 'string'
           ? (() => { try { return JSON.parse(m1h.outcomePrices); } catch(e) { return []; } })()
           : (m1h.outcomePrices || []);
+        var apertura1h = capturarAperturaVentana(sym, '1h', slug1h);
         STATE.polymarket1H[sym] = {
           pregunta: m1h.question,
           precioUp: parseFloat(p1h[0] || 0.5),
           precioDown: parseFloat(p1h[1] || 0.5),
           liquidez: parseFloat(m1h.liquidity || 0),
           slug: slug1h,
-          url: 'https://polymarket.com/event/' + slug1h
+          url: 'https://polymarket.com/event/' + slug1h,
+          aperturaJCAHS: apertura1h ? apertura1h.precioApertura : null
         };
       }
     } catch(e) { console.error('1H ' + sym + ':', e.message); }
@@ -2956,14 +2978,17 @@ async function cargarMercados4HPolymarket() {
         var p = typeof m.outcomePrices === 'string'
           ? (() => { try { return JSON.parse(m.outcomePrices); } catch(e) { return []; } })()
           : (m.outcomePrices || []);
-        STATE.polymarket4H[token.toUpperCase()] = {
+        var sym4h = token.toUpperCase();
+        var apertura4h = capturarAperturaVentana(sym4h, '4h', slug);
+        STATE.polymarket4H[sym4h] = {
           pregunta: m.question,
           precioUp: parseFloat(p[0] || 0.5),
           precioDown: parseFloat(p[1] || 0.5),
           liquidez: parseFloat(m.liquidity || 0),
           slug: slug,
           url: 'https://polymarket.com/event/' + slug,
-          ventana: wts4h
+          ventana: wts4h,
+          aperturaJCAHS: apertura4h ? apertura4h.precioApertura : null
         };
       }
     } catch(e) { console.error('4H ' + token + ':', e.message); }
@@ -3118,8 +3143,8 @@ function _cortoplazoCardBase(sym, pmPct, liq, url) {
   return {
     abre: '<div style="background:#1a2744;border-radius:10px;padding:18px;border:1px solid #1a3a5c;text-align:center;">' +
       '<div style="color:#00ff88;font-weight:700;font-size:16px;margin-bottom:4px;">' + sym + '</div>' +
-      '<div style="color:#cdd6f4;font-size:12px;margin-bottom:2px;">PM: ' + pmPct.toFixed(0) + '% UP</div>' +
-      '<div style="color:#8892b0;font-size:11px;margin-bottom:6px;">Precio actual: ' + precioTxt + '</div>',
+      '<div style="color:#8892b0;font-size:11px;margin-bottom:2px;">💰 Precio actual: ' + precioTxt + '</div>' +
+      '<div style="color:#cdd6f4;font-size:12px;margin-bottom:6px;">PM: ' + pmPct.toFixed(0) + '% UP</div>',
     cierra: '<div style="color:#8892b0;font-size:11px;margin-bottom:8px;">Liq: $' + liq.toFixed(0) + '</div>' +
       '<a href="' + url + '" target="_blank" style="display:block;background:#1a6eb5;color:white;padding:8px;border-radius:6px;text-decoration:none;font-size:12px;">🎯 Ver en Polymarket</a>' +
     '</div>'
@@ -3168,18 +3193,26 @@ function _renderCortoplazoCards(data, tf) {
       var bgVeredicto = v.confianza === 'ALTA' ? '#0d2e1a' : v.confianza === 'MEDIA' ? '#2e2a0d' : '#2e1a0d';
       var colorVeredicto = v.direccionFinal === 'UP' ? '#00cc66' : '#ff4444';
 
-      // Ganando/perdiendo EN VIVO — solo Diario, único TF con priceToBeat real (apertura
-      // de la ventana). Para 1H/4H/5min/15min Polymarket no expone este dato — no se inventa.
+      // Ganando/perdiendo EN VIVO:
+      //  - Diario: apertura OFICIAL de Polymarket (eventMetadata.priceToBeat)
+      //  - 1H/4H: apertura ESTIMADA por JCAHS (capturarAperturaVentana) — Polymarket no
+      //    expone este dato para esos TF, así que se marca explícitamente como estimación.
+      //  - 5min/15min: sin apertura disponible ni estimable de forma confiable — sin bloque.
       var liveTxt = '';
-      if (tf === 'diario' && m.priceToBeat != null) {
-        var precioActualLive = (STATE.precios && STATE.precios[sym]) || null;
-        if (precioActualLive != null) {
-          var deltaPct = ((precioActualLive - m.priceToBeat) / m.priceToBeat) * 100;
-          var vaGanando = (deltaPct >= 0) === (v.direccionFinal === 'UP');
-          liveTxt = '<div style="font-size:11px;margin-top:4px;color:' + (vaGanando ? '#00cc66' : '#ff4444') + ';">' +
-            (vaGanando ? '📈 Vas ganando' : '📉 Vas perdiendo') + ' — apertura $' + fmt(m.priceToBeat, 0) +
-            ' · actual ' + (deltaPct >= 0 ? '+' : '') + deltaPct.toFixed(2) + '%</div>';
-        }
+      var precioActualLive = (STATE.precios && STATE.precios[sym]) || null;
+      if (tf === 'diario' && m.priceToBeat != null && precioActualLive != null) {
+        var deltaPct = ((precioActualLive - m.priceToBeat) / m.priceToBeat) * 100;
+        var vaGanando = (deltaPct >= 0) === (v.direccionFinal === 'UP');
+        liveTxt = '<div style="font-size:12px;margin-top:4px;color:' + (vaGanando ? '#00cc66' : '#ff4444') + ';">' +
+          (vaGanando ? '✅ Vas ganando ahora' : '⚠️ Vas perdiendo ahora') + ' — apertura $' + fmt(m.priceToBeat, 0) +
+          ' · actual ' + (deltaPct >= 0 ? '+' : '') + deltaPct.toFixed(2) + '%</div>';
+      } else if ((tf === '1h' || tf === '4h') && m.aperturaJCAHS != null && precioActualLive != null) {
+        var deltaPctJ = ((precioActualLive - m.aperturaJCAHS) / m.aperturaJCAHS) * 100;
+        var vaGanandoJ = (deltaPctJ >= 0) === (v.direccionFinal === 'UP');
+        liveTxt = '<div style="font-size:12px;margin-top:4px;color:' + (vaGanandoJ ? '#00cc66' : '#ff4444') + ';">' +
+          (vaGanandoJ ? '✅ Vas ganando ahora' : '⚠️ Vas perdiendo ahora') + ' — apertura $' + fmt(m.aperturaJCAHS, 0) +
+          ' · actual ' + (deltaPctJ >= 0 ? '+' : '') + deltaPctJ.toFixed(2) + '%</div>' +
+          '<div style="font-size:9px;color:#666;font-style:italic;margin-top:2px;">*Apertura estimada por JCAHS, no es dato oficial de Polymarket</div>';
       }
 
       return card.abre +
@@ -3192,7 +3225,7 @@ function _renderCortoplazoCards(data, tf) {
           '<div style="font-size:13px;color:#ffd700;font-weight:700;margin-top:4px;">Stake: $' + v.stakeSugerido + ' a precio ' + v.precioEntrada + '%</div>' +
           '<div style="font-size:12px;margin-top:2px;"><span style="color:#00cc66;">Si aciertas: +$' + v.gananciaSiAcierta + '</span> · <span style="color:#ff4444;">Si fallas: -$' + v.perdidaSiFalla + '</span></div>' +
         '</div>' +
-        '<div style="color:#8892b0;font-size:12px;margin-bottom:4px;text-align:left;">' + escHtml(exp.detalle) + '</div>' +
+        '<div style="color:#8892b0;font-size:13px;margin-bottom:4px;text-align:left;">' + escHtml(exp.detalle) + '</div>' +
         '<div style="color:#6b7794;font-size:11px;margin-bottom:8px;font-style:italic;text-align:left;">' + escHtml(exp.senales) + '</div>' +
         card.cierra;
     }
