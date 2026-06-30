@@ -2909,13 +2909,22 @@ async function cargarMercadoDiarioPolymarket() {
         var pDia = typeof mDia.outcomePrices === 'string'
           ? (() => { try { return JSON.parse(mDia.outcomePrices); } catch(e) { return []; } })()
           : (mDia.outcomePrices || []);
+        // priceToBeat: precio de apertura de la ventana — solo disponible en el
+        // mercado Diario, anidado en events[0].eventMetadata. Confirmado contra
+        // la API real; NO existe este campo para 1H/4H/5min/15min.
+        var priceToBeat = null;
+        try {
+          priceToBeat = mDia.events && mDia.events[0] && mDia.events[0].eventMetadata
+            ? mDia.events[0].eventMetadata.priceToBeat : null;
+        } catch(e) {}
         STATE.polymarketDiario[sym] = {
           pregunta: mDia.question,
           precioUp: parseFloat(pDia[0] || 0.5),
           precioDown: parseFloat(pDia[1] || 0.5),
           liquidez: parseFloat(mDia.liquidity || 0),
           slug: slugDia,
-          url: 'https://polymarket.com/event/' + slugDia
+          url: 'https://polymarket.com/event/' + slugDia,
+          priceToBeat: priceToBeat != null ? parseFloat(priceToBeat) : null
         };
       }
     } catch(e) { console.error('Diario ' + sym + ':', e.message); }
@@ -3101,12 +3110,18 @@ var detectarEdge5Min = function(sym) { return detectarEdgeCortoplazo(sym, '5m');
 
 // ── Render UI Polymarket ──────────────────────────────────
 function _cortoplazoCardBase(sym, pmPct, liq, url) {
+  // Precio actual en vivo — STATE.precios[sym] viene de Kraken, dato real ya cargado por JCAHS.
+  // No se compara contra precio de apertura aquí: Polymarket solo expone esa apertura
+  // (eventMetadata.priceToBeat) en el mercado Diario, no en 1H/4H/5min/15min.
+  var precioActual = (STATE.precios && STATE.precios[sym]) || null;
+  var precioTxt = precioActual != null ? fmtPrecio(precioActual) : '—';
   return {
-    abre: '<div style="background:#1a2744;border-radius:8px;padding:12px;border:1px solid #1a3a5c;text-align:center;">' +
-      '<div style="color:#00ff88;font-weight:700;font-size:14px;margin-bottom:4px;">' + sym + '</div>' +
-      '<div style="color:#cdd6f4;font-size:11px;margin-bottom:6px;">PM: ' + pmPct.toFixed(0) + '% UP</div>',
-    cierra: '<div style="color:#8892b0;font-size:10px;margin-bottom:8px;">Liq: $' + liq.toFixed(0) + '</div>' +
-      '<a href="' + url + '" target="_blank" style="display:block;background:#1a6eb5;color:white;padding:6px;border-radius:6px;text-decoration:none;font-size:11px;">🎯 Ver en Polymarket</a>' +
+    abre: '<div style="background:#1a2744;border-radius:10px;padding:18px;border:1px solid #1a3a5c;text-align:center;">' +
+      '<div style="color:#00ff88;font-weight:700;font-size:16px;margin-bottom:4px;">' + sym + '</div>' +
+      '<div style="color:#cdd6f4;font-size:12px;margin-bottom:2px;">PM: ' + pmPct.toFixed(0) + '% UP</div>' +
+      '<div style="color:#8892b0;font-size:11px;margin-bottom:6px;">Precio actual: ' + precioTxt + '</div>',
+    cierra: '<div style="color:#8892b0;font-size:11px;margin-bottom:8px;">Liq: $' + liq.toFixed(0) + '</div>' +
+      '<a href="' + url + '" target="_blank" style="display:block;background:#1a6eb5;color:white;padding:8px;border-radius:6px;text-decoration:none;font-size:12px;">🎯 Ver en Polymarket</a>' +
     '</div>'
   };
 }
@@ -3153,17 +3168,32 @@ function _renderCortoplazoCards(data, tf) {
       var bgVeredicto = v.confianza === 'ALTA' ? '#0d2e1a' : v.confianza === 'MEDIA' ? '#2e2a0d' : '#2e1a0d';
       var colorVeredicto = v.direccionFinal === 'UP' ? '#00cc66' : '#ff4444';
 
+      // Ganando/perdiendo EN VIVO — solo Diario, único TF con priceToBeat real (apertura
+      // de la ventana). Para 1H/4H/5min/15min Polymarket no expone este dato — no se inventa.
+      var liveTxt = '';
+      if (tf === 'diario' && m.priceToBeat != null) {
+        var precioActualLive = (STATE.precios && STATE.precios[sym]) || null;
+        if (precioActualLive != null) {
+          var deltaPct = ((precioActualLive - m.priceToBeat) / m.priceToBeat) * 100;
+          var vaGanando = (deltaPct >= 0) === (v.direccionFinal === 'UP');
+          liveTxt = '<div style="font-size:11px;margin-top:4px;color:' + (vaGanando ? '#00cc66' : '#ff4444') + ';">' +
+            (vaGanando ? '📈 Vas ganando' : '📉 Vas perdiendo') + ' — apertura $' + fmt(m.priceToBeat, 0) +
+            ' · actual ' + (deltaPct >= 0 ? '+' : '') + deltaPct.toFixed(2) + '%</div>';
+        }
+      }
+
       return card.abre +
-        '<div style="font-size:11px;color:#888;text-align:left;">Score: ' + v.scoreNum + '/100</div>' +
-        '<div style="background:' + bgVeredicto + ';border:2px solid ' + colorVeredicto + ';border-radius:8px;padding:10px;margin-bottom:8px;text-align:left;">' +
-          '<div style="font-weight:800;font-size:15px;color:' + colorVeredicto + ';">' + v.veredicto + '</div>' +
-          '<div style="font-size:11px;color:#ccc;margin-top:2px;">Confianza: ' + v.confianza + ' · ' + v.confluenciaDetalle + '</div>' +
-          '<div style="font-size:10px;color:#999;margin-top:2px;">' + escHtml(v.razon) + '</div>' +
-          '<div style="font-size:12px;color:#ffd700;font-weight:700;margin-top:4px;">Stake: $' + v.stakeSugerido + ' a precio ' + v.precioEntrada + '%</div>' +
-          '<div style="font-size:11px;margin-top:2px;"><span style="color:#00cc66;">Si aciertas: +$' + v.gananciaSiAcierta + '</span> · <span style="color:#ff4444;">Si fallas: -$' + v.perdidaSiFalla + '</span></div>' +
+        '<div style="font-size:12px;color:#888;text-align:left;">Score: ' + v.scoreNum + '/100</div>' +
+        '<div style="background:' + bgVeredicto + ';border:2px solid ' + colorVeredicto + ';border-radius:8px;padding:12px;margin-bottom:8px;text-align:left;">' +
+          '<div style="font-weight:800;font-size:18px;color:' + colorVeredicto + ';">' + v.veredicto + '</div>' +
+          '<div style="font-size:12px;color:#ccc;margin-top:2px;">Confianza: ' + v.confianza + ' · ' + v.confluenciaDetalle + '</div>' +
+          '<div style="font-size:11px;color:#999;margin-top:2px;">' + escHtml(v.razon) + '</div>' +
+          liveTxt +
+          '<div style="font-size:13px;color:#ffd700;font-weight:700;margin-top:4px;">Stake: $' + v.stakeSugerido + ' a precio ' + v.precioEntrada + '%</div>' +
+          '<div style="font-size:12px;margin-top:2px;"><span style="color:#00cc66;">Si aciertas: +$' + v.gananciaSiAcierta + '</span> · <span style="color:#ff4444;">Si fallas: -$' + v.perdidaSiFalla + '</span></div>' +
         '</div>' +
-        '<div style="color:#8892b0;font-size:11px;margin-bottom:4px;text-align:left;">' + escHtml(exp.detalle) + '</div>' +
-        '<div style="color:#6b7794;font-size:10px;margin-bottom:8px;font-style:italic;text-align:left;">' + escHtml(exp.senales) + '</div>' +
+        '<div style="color:#8892b0;font-size:12px;margin-bottom:4px;text-align:left;">' + escHtml(exp.detalle) + '</div>' +
+        '<div style="color:#6b7794;font-size:11px;margin-bottom:8px;font-style:italic;text-align:left;">' + escHtml(exp.senales) + '</div>' +
         card.cierra;
     }
     return card.abre +
@@ -3186,7 +3216,7 @@ function renderPolymarket5Min() {
   function seccion(titulo, html) {
     return '<div style="margin-bottom:12px;">' +
       '<div style="color:#1a6eb5;font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:8px;text-transform:uppercase;">' + titulo + '</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;">' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:14px;">' +
         (html || empty) +
       '</div>' +
     '</div>';
