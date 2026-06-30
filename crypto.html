@@ -2722,8 +2722,8 @@ function verificarAlertasCrypto() {
       }
       // Edge Polymarket 5 minutos
       ['5m', '15m', '1h', '4h', 'diario'].forEach(function(tf) {
-        var edgeCp = detectarEdgeCortoplazo(sym, d.score, tf);
-        if (edgeCp) {
+        var edgeCp = detectarEdgeCortoplazo(sym, tf);
+        if (edgeCp && !edgeCp.sinAnalisis && !edgeCp.sinDatos) {
           var msg5 = '⚡ POLYMARKET ' + tf.toUpperCase() + ' — ' + sym + '\n\n' +
             edgeCp.accion + '\n' +
             'JCAHS: ' + edgeCp.probJCAHS + '% | Polymarket: ' + edgeCp.probPolymarket + '%\n' +
@@ -3107,7 +3107,11 @@ async function cargarMercados4HPolymarket() {
   console.log('4H:', Object.keys(STATE.polymarket4H).join(', ') || 'ninguno');
 }
 
-function detectarEdgeCortoplazo(sym, scoreJCAHS, tf) {
+// Mapeo timeframe Polymarket -> timeframe real de analizarConfluencia
+// 5min/15min NO tienen equivalente en JCAHS (el análisis técnico más corto es 1H)
+var POLYMARKET_TF_MAP = { '5m': null, '15m': null, '1h': '1h', '4h': '4h', 'diario': '1d' };
+
+function detectarEdgeCortoplazo(sym, tf) {
   tf = tf || '5m';
   var mercado = tf === '15m'   ? (STATE.polymarket15Min  && STATE.polymarket15Min[sym])
               : tf === '4h'    ? (STATE.polymarket4H     && STATE.polymarket4H[sym])
@@ -3116,26 +3120,43 @@ function detectarEdgeCortoplazo(sym, scoreJCAHS, tf) {
               : (STATE.polymarket5Min && STATE.polymarket5Min[sym]);
   if (!mercado || mercado.liquidez < 500) return null;
 
-  var probSubirJCAHS = 0.35 + (scoreJCAHS / 100) * 0.40;
+  var tfJCAHS = POLYMARKET_TF_MAP[tf];
+
+  // 5min/15min: sin equivalente real de análisis técnico — no inventar un numero
+  if (!tfJCAHS) {
+    return { sinAnalisis: true, mercado: mercado, tf: tf };
+  }
+
+  var confluencia = analizarConfluencia(sym);
+  var datosTf = confluencia && confluencia[tfJCAHS];
+
+  if (!datosTf || !datosTf.disponible) {
+    return { sinDatos: true, mercado: mercado, tf: tf };
+  }
+
+  // puntos (~-7 a +8) -> probabilidad de subir, centrada en 50%
+  var puntosNorm = Math.max(-8, Math.min(8, datosTf.puntos));
+  var probSubirJCAHS = 0.5 + (puntosNorm / 16);
   var edge = probSubirJCAHS - mercado.precioUp;
 
-  if (Math.abs(edge) >= 0.05) {
-    return {
-      accion:         edge > 0 ? 'COMPRAR UP 🟢' : 'COMPRAR DOWN 🔴',
-      edge:           (Math.abs(edge) * 100).toFixed(1),
-      probJCAHS:      (probSubirJCAHS * 100).toFixed(0),
-      probPolymarket: (mercado.precioUp * 100).toFixed(0),
-      liquidez:       mercado.liquidez,
-      url:            mercado.url,
-      tf:             tf,
-      mercado:        mercado
-    };
-  }
-  return null;
+  if (Math.abs(edge) < 0.05) return null;
+
+  return {
+    accion:         edge > 0 ? 'COMPRAR UP 🟢' : 'COMPRAR DOWN 🔴',
+    edge:           (Math.abs(edge) * 100).toFixed(1),
+    probJCAHS:      (probSubirJCAHS * 100).toFixed(0),
+    probPolymarket: (mercado.precioUp * 100).toFixed(0),
+    direccionJCAHS: datosTf.direccion,
+    rsiJCAHS:       datosTf.rsi,
+    liquidez:       mercado.liquidez,
+    url:            mercado.url,
+    tf:             tf,
+    mercado:        mercado
+  };
 }
 
 // Backward-compat alias
-var detectarEdge5Min = function(sym, score) { return detectarEdgeCortoplazo(sym, score, '5m'); };
+var detectarEdge5Min = function(sym) { return detectarEdgeCortoplazo(sym, '5m'); };
 
 async function cargarMercadosPolymarketCached() {
   const CACHE_TTL = 30 * 60 * 1000; // 30 min
@@ -3215,23 +3236,63 @@ async function alertarMispricingPolymarket(sym, oportunidades) {
 var _polyFiltroToken = 'todos';
 var _polyFiltroTipo  = 'todos';
 
-function _renderCortoplazoCards(data) {
-  if (!data || Object.keys(data).length === 0) return null;
-  return Object.entries(data).map(function(entry) {
-    var sym = entry[0], m = entry[1];
-    var d = calcScore(sym);
-    var score = d ? d.score : 50;
-    var probJCAHS = (0.35 + (score / 100) * 0.40) * 100;
-    var edge = Math.abs(probJCAHS / 100 - m.precioUp) * 100;
-    var accion = probJCAHS / 100 > m.precioUp ? '⬆️ UP' : '⬇️ DOWN';
-    var edgeColor = edge >= 10 ? '#00ff88' : edge >= 5 ? '#f5a623' : '#8892b0';
-    return '<div style="background:#1a2744;border-radius:8px;padding:12px;border:1px solid #1a3a5c;text-align:center;">' +
+function _cortoplazoCardBase(sym, pmPct, liq, url) {
+  return {
+    abre: '<div style="background:#1a2744;border-radius:8px;padding:12px;border:1px solid #1a3a5c;text-align:center;">' +
       '<div style="color:#00ff88;font-weight:700;font-size:14px;margin-bottom:4px;">' + sym + '</div>' +
-      '<div style="color:#cdd6f4;font-size:11px;margin-bottom:8px;">PM: ' + (m.precioUp * 100).toFixed(0) + '% UP · JCAHS: ' + probJCAHS.toFixed(0) + '%</div>' +
-      '<div style="color:' + edgeColor + ';font-weight:700;font-size:13px;margin-bottom:8px;">Edge: +' + edge.toFixed(1) + '% → ' + accion + '</div>' +
-      '<div style="color:#8892b0;font-size:10px;margin-bottom:8px;">Liq: $' + m.liquidez.toFixed(0) + '</div>' +
-      '<a href="' + m.url + '" target="_blank" style="display:block;background:#1a6eb5;color:white;padding:6px;border-radius:6px;text-decoration:none;font-size:11px;">🎯 Operar ahora</a>' +
-    '</div>';
+      '<div style="color:#cdd6f4;font-size:11px;margin-bottom:6px;">PM: ' + pmPct.toFixed(0) + '% UP</div>',
+    cierra: '<div style="color:#8892b0;font-size:10px;margin-bottom:8px;">Liq: $' + liq.toFixed(0) + '</div>' +
+      '<a href="' + url + '" target="_blank" style="display:block;background:#1a6eb5;color:white;padding:6px;border-radius:6px;text-decoration:none;font-size:11px;">🎯 Ver en Polymarket</a>' +
+    '</div>'
+  };
+}
+
+function _renderCortoplazoCards(data, tf) {
+  if (!data || Object.keys(data).length === 0) return null;
+  var tfJCAHS = POLYMARKET_TF_MAP[tf];
+
+  return Object.keys(data).map(function(sym) {
+    var m = data[sym];
+    var r = detectarEdgeCortoplazo(sym, tf);
+    var card = _cortoplazoCardBase(sym, m.precioUp * 100, m.liquidez, m.url);
+
+    // Caso 1: timeframe sin equivalente real en JCAHS (5min/15min)
+    if (r && r.sinAnalisis) {
+      return card.abre +
+        '<div style="color:#8892b0;font-size:11px;margin-bottom:8px;">JCAHS no tiene análisis de corto plazo (5min/15min)</div>' +
+        card.cierra;
+    }
+
+    // Caso 2: hay timeframe JCAHS pero Kraken no tiene OHLC suficiente
+    if (r && r.sinDatos) {
+      return card.abre +
+        '<div style="color:#f5a623;font-size:11px;margin-bottom:8px;">⚠️ Sin datos OHLC disponibles ahora</div>' +
+        card.cierra;
+    }
+
+    // Caso 3: resultado normal — edge real ≥5% con datos verdaderos
+    if (r) {
+      var edgeColor = parseFloat(r.edge) >= 10 ? '#00ff88' : parseFloat(r.edge) >= 5 ? '#f5a623' : '#8892b0';
+      return card.abre +
+        '<div style="color:#8892b0;font-size:10px;margin-bottom:6px;">JCAHS: ' + r.probJCAHS + '% · ' + escHtml(r.direccionJCAHS) + ' · RSI ' + fmt(r.rsiJCAHS, 0) + '</div>' +
+        '<div style="color:' + edgeColor + ';font-weight:700;font-size:13px;margin-bottom:8px;">Edge: +' + r.edge + '% → ' + r.accion + '</div>' +
+        card.cierra;
+    }
+
+    // Caso 4: r === null — sin liquidez suficiente, o (si hay tfJCAHS) edge <5%
+    if (tfJCAHS) {
+      var conf = analizarConfluencia(sym);
+      var dTf = conf && conf[tfJCAHS];
+      var dirTxt = dTf && dTf.disponible
+        ? escHtml(dTf.direccion) + ' · RSI ' + fmt(dTf.rsi, 0) + ' (sin edge ≥5%)'
+        : 'Sin edge significativo (&lt;5%)';
+      return card.abre +
+        '<div style="color:#8892b0;font-size:10px;margin-bottom:8px;">' + dirTxt + '</div>' +
+        card.cierra;
+    }
+    return card.abre +
+      '<div style="color:#8892b0;font-size:11px;margin-bottom:8px;">Liquidez insuficiente para evaluar (&lt;$500)</div>' +
+      card.cierra;
   }).join('');
 }
 
@@ -3239,11 +3300,11 @@ function renderPolymarket5Min() {
   var grid = document.getElementById('poly-5min-grid');
   if (!grid) return;
 
-  var html5     = _renderCortoplazoCards(STATE.polymarket5Min);
-  var html15    = _renderCortoplazoCards(STATE.polymarket15Min);
-  var html1h    = _renderCortoplazoCards(STATE.polymarket1H);
-  var html4h    = _renderCortoplazoCards(STATE.polymarket4H);
-  var htmlDiario = _renderCortoplazoCards(STATE.polymarketDiario);
+  var html5     = _renderCortoplazoCards(STATE.polymarket5Min, '5m');
+  var html15    = _renderCortoplazoCards(STATE.polymarket15Min, '15m');
+  var html1h    = _renderCortoplazoCards(STATE.polymarket1H, '1h');
+  var html4h    = _renderCortoplazoCards(STATE.polymarket4H, '4h');
+  var htmlDiario = _renderCortoplazoCards(STATE.polymarketDiario, 'diario');
   var empty  = '<div style="color:#8892b0;font-size:12px;padding:8px;">Sin mercados activos en esta ventana.</div>';
 
   function seccion(titulo, html) {
