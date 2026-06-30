@@ -7,6 +7,11 @@ preview_urls        = false
 binding = "JCAHS_KV"
 id      = "d149f8674a76464cbfab9a4400f21187"
 
+# Resuelve ventanas Polymarket vencidas (polymkt_open_*) cada 10 min.
+# Mecanismo principal de resolución — ver scheduled() en worker-proxy.js.
+[triggers]
+crons = ["*/10 * * * *"]
+
 [observability]
 enabled = true
 

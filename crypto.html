@@ -2271,6 +2271,62 @@ function init() {
   // Polymarket 4H — cargar y refrescar cada hora (ventana dura 4h)
   cargarMercados4HPolymarket();
   setInterval(cargarMercados4HPolymarket, 60 * 60 * 1000);
+
+  // Respaldo client-side: resuelve registros Polymarket pendientes con ventana
+  // ya vencida, por si el cron del Worker (mecanismo principal) aún no corrió.
+  resolverPolymarketPendientes();
+  setInterval(resolverPolymarketPendientes, 10 * 60 * 1000);
+}
+
+// ── Resolución de registros Polymarket vencidos (respaldo client-side) ──────
+// El cron en worker-proxy.js es el mecanismo principal (corre solo, sin depender
+// del navegador). Esta función es la red de seguridad: si el usuario abre
+// crypto.html y hay registros 'pendiente' con fechaCierre ya pasada, los resuelve
+// directamente contra Polymarket y actualiza localStorage sin esperar al cron.
+async function resolverPolymarketPendientes() {
+  if (typeof Storage === 'undefined') return;
+  var historial = Storage.getHistorialApuestas();
+  var ahora = Date.now();
+  var pendientes = historial.filter(function(r) {
+    return r.tipo === 'polymarket' && r.estado === 'pendiente' &&
+           r.fechaCierre && r.fechaCierre <= ahora;
+  });
+  if (pendientes.length === 0) return;
+
+  var huboCambios = false;
+  for (var i = 0; i < pendientes.length; i++) {
+    var reg = pendientes[i];
+    try {
+      var url = 'https://gamma-api.polymarket.com/markets?slug=' + reg.entrada.slug;
+      var data = await fetch(PROXY + '/?url=' + encodeURIComponent(url)).then(function(r) { return r.json(); });
+      var m = Array.isArray(data) ? data[0] : null;
+      if (!m || !m.closed) continue; // aún no resuelto oficialmente — reintentar después
+
+      var prices = typeof m.outcomePrices === 'string'
+        ? (() => { try { return JSON.parse(m.outcomePrices); } catch(e) { return []; } })()
+        : (m.outcomePrices || []);
+      var precioUpFinal = parseFloat(prices[0]);
+      var resultadoReal = precioUpFinal >= 0.5 ? 'UP' : 'DOWN';
+      var acerto = resultadoReal === reg.entrada.direccion;
+      var stake = reg.entrada.stake;
+      var precioEntradaFrac = reg.entrada.precioEntrada / 100;
+      var pnl = acerto
+        ? stake * (1 / precioEntradaFrac - 1)
+        : -stake;
+
+      reg.estado = acerto ? 'ganada' : 'perdida';
+      reg.salida_real = { resultado: resultadoReal, acerto: acerto, pnl_usd: parseFloat(pnl.toFixed(2)) };
+      huboCambios = true;
+
+      var emoji = acerto ? '✅' : '❌';
+      var msgResuelto = emoji + ' POLYMARKET RESUELTO — ' + reg.entrada.token + ' ' + reg.entrada.timeframe.toUpperCase() + '\n\n' +
+        'Apostaste: ' + reg.entrada.direccion + ' · Resultado: ' + resultadoReal + '\n' +
+        (acerto ? 'GANASTE' : 'PERDISTE') + ': ' + (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
+      enviarAlertaTelegram(msgResuelto);
+    } catch(e) { console.warn('resolverPolymarketPendientes', reg.id, e.message); }
+  }
+
+  if (huboCambios) Storage.setHistorialApuestas(historial);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2683,6 +2739,8 @@ function verificarAlertasCrypto() {
       nuevas.push({ sym, tipo: 'scoreAlto', titulo: '⚡ Señal fuerte', desc: sym + ' Score ' + d.score + '/100', rsi: d.rsi4h, score: d.score, precio: p, ts: ahora });
       notificadas[keyA] = ahora;
       // Edge Polymarket por timeframe (5m/15m/1h/4h/diario)
+      // Solo 1h/4h/diario llegan aquí con datos completos — 5m/15m quedan filtrados
+      // por sinAnalisis (sin equivalente real de análisis técnico, ver detectarEdgeCortoplazo).
       ['5m', '15m', '1h', '4h', 'diario'].forEach(function(tf) {
         var edgeCp = detectarEdgeCortoplazo(sym, tf);
         if (edgeCp && !edgeCp.sinAnalisis && !edgeCp.sinDatos) {
@@ -2703,7 +2761,45 @@ function verificarAlertasCrypto() {
             'Edge: +' + edgeCp.edge + '% | Liq: $' + edgeCp.liquidez.toFixed(0) + '\n\n' +
             '⏱ ' + (tf === '5m' ? 'Próximos 5 minutos' : tf === '15m' ? 'Próximos 15 minutos' : tf === '1h' ? 'Próxima hora' : tf === '4h' ? 'Próximas 4 horas' : 'Resuelve hoy noon ET') + '\n' +
             '🔗 ' + edgeCp.url;
-          enviarAlertaTelegram(msg5);
+
+          // Registro con botones ✅/❌ — solo para timeframes con apertura/cierre real
+          // (1h/4h/diario tienen fechaCierre; 5m/15m no llegan aquí por sinAnalisis).
+          var fechaCierreMercado = edgeCp.mercado && edgeCp.mercado.fechaCierre;
+          if (fechaCierreMercado) {
+            var registroId = Date.now().toString() + '_' + sym + '_' + tf;
+            var registroPolymarket = {
+              id: registroId,
+              tipo: 'polymarket',
+              estado: 'pendiente',
+              entrada: {
+                token: sym, timeframe: tf, slug: edgeCp.mercado.slug,
+                direccion: v5.direccionFinal, score: v5.scoreNum, confianza: v5.confianza,
+                precioEntrada: parseFloat(v5.precioEntrada),
+                stake: v5.stakeSugerido,
+                fecha: new Date().toISOString().slice(0, 10),
+                hora: new Date().toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })
+              },
+              salida_prevista: {
+                ganancia_esperada_usd: parseFloat(v5.gananciaSiAcierta),
+                perdida_esperada_usd: parseFloat(v5.perdidaSiFalla)
+              },
+              salida_real: { resultado: null, acerto: null, pnl_usd: null },
+              fechaCierre: fechaCierreMercado,
+              postmortem: { notas: '' }
+            };
+
+            fetch(PROXY + '/apuestas/guardar-pendiente', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ registroId: registroId, registro: registroPolymarket })
+            }).then(function() {
+              return fetch(PROXY + '/telegram/send-with-buttons', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mensaje: msg5, callbackData: registroId })
+              });
+            }).catch(function(e) { console.warn('Polymarket registro error:', e.message); });
+          } else {
+            enviarAlertaTelegram(msg5);
+          }
         }
       });
     }
@@ -2896,7 +2992,8 @@ async function cargarMercadosHorariosPolymarket() {
           liquidez: parseFloat(m1h.liquidity || 0),
           slug: slug1h,
           url: 'https://polymarket.com/event/' + slug1h,
-          aperturaJCAHS: apertura1h ? apertura1h.precioApertura : null
+          aperturaJCAHS: apertura1h ? apertura1h.precioApertura : null,
+          fechaCierre: m1h.endDate ? new Date(m1h.endDate).getTime() : null
         };
       }
     } catch(e) { console.error('1H ' + sym + ':', e.message); }
@@ -2946,7 +3043,8 @@ async function cargarMercadoDiarioPolymarket() {
           liquidez: parseFloat(mDia.liquidity || 0),
           slug: slugDia,
           url: 'https://polymarket.com/event/' + slugDia,
-          priceToBeat: priceToBeat != null ? parseFloat(priceToBeat) : null
+          priceToBeat: priceToBeat != null ? parseFloat(priceToBeat) : null,
+          fechaCierre: mDia.endDate ? new Date(mDia.endDate).getTime() : null
         };
       }
     } catch(e) { console.error('Diario ' + sym + ':', e.message); }
@@ -2988,7 +3086,8 @@ async function cargarMercados4HPolymarket() {
           slug: slug,
           url: 'https://polymarket.com/event/' + slug,
           ventana: wts4h,
-          aperturaJCAHS: apertura4h ? apertura4h.precioApertura : null
+          aperturaJCAHS: apertura4h ? apertura4h.precioApertura : null,
+          fechaCierre: m.endDate ? new Date(m.endDate).getTime() : null
         };
       }
     } catch(e) { console.error('4H ' + token + ':', e.message); }

@@ -8,6 +8,13 @@
  *   POST /apuestas/guardar-pendiente  — guarda registro en KV como pendiente
  *   GET  /apuestas/pendientes         — lista confirmados pendientes de sync
  *   POST /apuestas/sincronizada       — marca registro como sincronizado (delete KV)
+ *   GET  /apuestas/resultados-polymarket — lista resultados Polymarket resueltos por el cron
+ *   POST /apuestas/resultado-aplicado    — borra resultado tras aplicarlo en historial.html
+ *
+ * Cron (scheduled handler, ver wrangler.proxy.toml [triggers] crons):
+ *   Resuelve registros tipo:'polymarket' en polymkt_open_* cuya fechaCierre ya
+ *   pasó, consultando la API real de Polymarket. Mecanismo PRINCIPAL — el
+ *   respaldo client-side vive en crypto.html (resolverPolymarketPendientes).
  *
  * Rutas query string (legado):
  *   /?url=https://api.example.com/data             (generic proxy)
@@ -136,27 +143,42 @@ export default {
             : null;
 
           if (registroPendiente) {
-            // Mover a confirmados (TTL 30 días)
+            const reg = JSON.parse(registroPendiente);
+            const esPolymarket = reg.tipo === 'polymarket';
+
+            // Mover a confirmados (TTL 30 días) — flujo de sync a localStorage sin cambios
             await env.JCAHS_KV.put('confirmed_' + registroId, registroPendiente, { expirationTtl: 86400 * 30 });
             await env.JCAHS_KV.delete('pending_' + registroId);
 
-            // Actualizar conteo
-            const conteoRaw = env.JCAHS_KV ? await env.JCAHS_KV.get('conteo_apuestas') : null;
+            // Polymarket: además persistir en polymkt_open_* — NO se borra al sincronizar
+            // (a diferencia de confirmed_*), vive hasta que el cron detecte que la ventana
+            // cerró y resuelva el resultado real contra la API de Polymarket.
+            if (esPolymarket) {
+              await env.JCAHS_KV.put('polymkt_open_' + registroId, registroPendiente, { expirationTtl: 86400 * 14 });
+            }
+
+            // Conteo separado por tipo — no mezclar metas de validación deportes/Polymarket
+            const conteoKey = esPolymarket ? 'conteo_polymarket' : 'conteo_apuestas';
+            const conteoRaw = env.JCAHS_KV ? await env.JCAHS_KV.get(conteoKey) : null;
             const conteo = JSON.parse(conteoRaw || '{"total":0}');
             conteo.total++;
-            await env.JCAHS_KV.put('conteo_apuestas', JSON.stringify(conteo));
+            await env.JCAHS_KV.put(conteoKey, JSON.stringify(conteo));
 
             const total   = conteo.total;
             const meta    = total < 30 ? 30 : total < 100 ? 100 : total < 300 ? 300 : 1000;
             const faltan  = meta - total;
             const progreso = Math.round((total / meta) * 20);
             const barra   = '▓'.repeat(progreso) + '░'.repeat(20 - progreso);
-            const reg     = JSON.parse(registroPendiente);
+
+            const tituloConfirmacion = esPolymarket
+              ? `${reg.entrada?.token || ''} ${(reg.entrada?.timeframe || '').toUpperCase()} — ${reg.entrada?.direccion || ''}`
+              : (reg.entrada?.partido || reg.partido || '');
+            const etiqueta = esPolymarket ? 'Polymarket' : 'Apuesta';
 
             await tgSend('editMessageText', {
               chat_id: chatId,
               message_id: messageId,
-              text: `✅ Apuesta registrada — #${total}\n\n${reg.entrada?.partido || reg.partido || ''}\nCompleta en historial: cuota + casa + stake\n\n📈 ${total}/${meta} señales · Faltan ${faltan} para validación\n${barra}`,
+              text: `✅ ${etiqueta} registrada — #${total}\n\n${tituloConfirmacion}\n\n📈 ${total}/${meta} señales · Faltan ${faltan} para validación\n${barra}`,
               reply_markup: { inline_keyboard: [] },
             });
           }
@@ -238,6 +260,49 @@ export default {
       try {
         const { registroId } = await request.json();
         await env.JCAHS_KV.delete('confirmed_' + registroId);
+        return new Response('ok', { headers: CORS_HEADERS });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), {
+          status: 502, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    // ── GET /apuestas/resultados-polymarket ────────────────────────────────
+    // Lista resultados de Polymarket ya resueltos por el cron (scheduled), listos
+    // para que historial.html los aplique a un registro existente en localStorage.
+    if (pathname === '/apuestas/resultados-polymarket') {
+      if (!env.JCAHS_KV) {
+        return new Response('[]', { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+      }
+      try {
+        const listed = await env.JCAHS_KV.list({ prefix: 'polymkt_resultado_' });
+        const resultados = [];
+        for (const key of listed.keys) {
+          const valor = await env.JCAHS_KV.get(key.name);
+          if (valor) {
+            try { resultados.push(JSON.parse(valor)); } catch(_) {}
+          }
+        }
+        return new Response(JSON.stringify(resultados), {
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), {
+          status: 502, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    // ── POST /apuestas/resultado-aplicado ──────────────────────────────────
+    // Elimina el resultado del KV una vez que historial.html lo aplicó al registro local
+    if (pathname === '/apuestas/resultado-aplicado') {
+      if (!env.JCAHS_KV) {
+        return new Response('ok', { headers: CORS_HEADERS });
+      }
+      try {
+        const { registroId } = await request.json();
+        await env.JCAHS_KV.delete('polymkt_resultado_' + registroId);
         return new Response('ok', { headers: CORS_HEADERS });
       } catch (err) {
         return new Response(JSON.stringify({ error: err.message }), {
@@ -374,6 +439,76 @@ export default {
         status: 502,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });
+    }
+  },
+
+  // ── CRON: resolver ventanas Polymarket vencidas ────────────────────────
+  // Mecanismo PRINCIPAL de resolución (corre solo, sin depender del navegador).
+  // crypto.html tiene un respaldo client-side (resolverPolymarketPendientes)
+  // por si este cron falla o KV queda con algún registro suelto.
+  // Trigger configurado en wrangler.proxy.toml: [triggers] crons.
+  async scheduled(event, env, ctx) {
+    if (!env.JCAHS_KV) return;
+    const TELEGRAM_BOT_TOKEN = env.TELEGRAM_BOT_TOKEN || '';
+    const TELEGRAM_CHAT_ID   = env.TELEGRAM_CHAT_ID   || '1519036308';
+    const ahora = Date.now();
+
+    let listed;
+    try {
+      listed = await env.JCAHS_KV.list({ prefix: 'polymkt_open_' });
+    } catch (err) {
+      console.error('cron: list polymkt_open_ failed', err.message);
+      return;
+    }
+
+    for (const key of listed.keys) {
+      try {
+        const raw = await env.JCAHS_KV.get(key.name);
+        if (!raw) continue;
+        const reg = JSON.parse(raw);
+        if (!reg.fechaCierre || reg.fechaCierre > ahora) continue; // ventana aún no cierra
+
+        const slug = reg.entrada && reg.entrada.slug;
+        if (!slug) continue;
+
+        const resp = await fetch('https://gamma-api.polymarket.com/markets?slug=' + slug);
+        const data = await resp.json();
+        const m = Array.isArray(data) ? data[0] : null;
+        if (!m || !m.closed) continue; // aún no resuelto oficialmente — reintenta el próximo cron
+
+        const prices = typeof m.outcomePrices === 'string' ? JSON.parse(m.outcomePrices) : (m.outcomePrices || []);
+        const precioUpFinal  = parseFloat(prices[0]);
+        const resultadoReal  = precioUpFinal >= 0.5 ? 'UP' : 'DOWN';
+        const acerto         = resultadoReal === reg.entrada.direccion;
+        const stake          = reg.entrada.stake;
+        const precioEntradaFrac = reg.entrada.precioEntrada / 100;
+        const pnl = acerto ? stake * (1 / precioEntradaFrac - 1) : -stake;
+
+        const registroId = key.name.replace('polymkt_open_', '');
+        await env.JCAHS_KV.put('polymkt_resultado_' + registroId, JSON.stringify({
+          id: registroId,
+          estado: acerto ? 'ganada' : 'perdida',
+          resultado: resultadoReal,
+          acerto,
+          pnl_usd: parseFloat(pnl.toFixed(2)),
+        }), { expirationTtl: 86400 * 30 });
+
+        await env.JCAHS_KV.delete(key.name);
+
+        if (TELEGRAM_BOT_TOKEN) {
+          const emoji = acerto ? '✅' : '❌';
+          const texto = `${emoji} POLYMARKET RESUELTO — ${reg.entrada.token} ${String(reg.entrada.timeframe).toUpperCase()}\n\n` +
+            `Apostaste: ${reg.entrada.direccion} · Resultado: ${resultadoReal}\n` +
+            `${acerto ? 'GANASTE' : 'PERDISTE'}: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}`;
+          await fetch('https://api.telegram.org/bot' + TELEGRAM_BOT_TOKEN + '/sendMessage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: texto }),
+          });
+        }
+      } catch (err) {
+        console.error('cron: error resolviendo', key.name, err.message);
+      }
     }
   },
 };
