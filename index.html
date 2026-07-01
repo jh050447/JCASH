@@ -5833,12 +5833,12 @@ const TG_PROXY = 'https://jcahs-proxy.jh050447.workers.dev';
 const TG_CHAT  = '1519036308';
 const TG_DEDUP_KEY = 'jcahs_telegram_enviados';
 
-function _tgDedup(key) {
-  var ahora = Date.now(), TTL = 60 * 60 * 1000;
+function _tgDedup(key, ttlMins) {
+  var ahora = Date.now(), TTL = (ttlMins || 60) * 60 * 1000;
+  var CLEANUP = 4 * 60 * 60 * 1000; // ventana fija para limpiar expirados
   try {
     var mapa = JSON.parse(localStorage.getItem(TG_DEDUP_KEY) || '{}');
-    // limpiar expirados
-    Object.keys(mapa).forEach(function(k) { if (ahora - mapa[k] > TTL) delete mapa[k]; });
+    Object.keys(mapa).forEach(function(k) { if (ahora - mapa[k] > CLEANUP) delete mapa[k]; });
     if (mapa[key] && ahora - mapa[key] < TTL) return false; // ya enviado
     mapa[key] = ahora;
     localStorage.setItem(TG_DEDUP_KEY, JSON.stringify(mapa));
@@ -5980,7 +5980,7 @@ function notifValueBetChrome(partido, pick, score, edge, odd, hora) {
   notifChrome('Value Bet · Score ' + score, partido + '\n' + pick + ' · Odd ' + odd + ' · Edge +' + edge + '%\nPartido: ' + hora);
 }
 
-function notifValueBetTelegram(datos) {
+function notifValueBetTelegram(datos, etiqueta) {
   var d = datos;
   var stake    = parseFloat(d.stake || (STATE.bankroll ? STATE.bankroll * 0.02 : 4));
   var odd      = parseFloat(d.oddDisponible || d.odd || d.oddPinnacle || 1);
@@ -6005,7 +6005,8 @@ function notifValueBetTelegram(datos) {
 
   var oddMinima = d.oddPinnacle ? (d.oddPinnacle * 0.98).toFixed(2) : '—';
 
-  var msg = '⚽ <b>JCAHS — VALUE BET DETECTADA</b>\n\n' +
+  var titulo = etiqueta || 'VALUE BET DETECTADA';
+  var msg = '⚽ <b>JCAHS — ' + titulo + '</b>\n\n' +
     '🏆 ' + (d.liga || '') + '\n' + (d.partido || '') + '\n📅 ' + (d.hora || '') + ' · ' + urgencia + '\n\n' +
     '🎯 PICK: ' + (d.pick || '') + '\n📊 Score: ' + (d.score || '—') + '/100\n\n' +
     '💡 POR QUÉ ES VALUE\n' + razones.join('\n') + '\n' +
@@ -6127,8 +6128,10 @@ function guardarAlertasNotificadas(set) {
 }
 
 // Recorre las listas ya filtradas de Decision Engine y Mentor y construye
-// STATE.alertasListas con los value bets listos para apostar pronto
-// (score >= 70, partido no iniciado, countdown <= 60min).
+// STATE.alertasListas con los value bets detectados (score >= 70, partido no iniciado).
+// — Cambio 1: alerta inmediata al detectar señal nueva (cualquier tiempo restante, TTL 240min)
+// — Cambio 2: recordatorios escalonados a 240 / 180 / 120 min del inicio (TTL 60min c/u)
+// notificarAlertasNuevas solo recibe señales a ≤60 min (comportamiento original intacto).
 function nuevoVerificarAlertas() {
   var candidatos = [];
 
@@ -6153,28 +6156,66 @@ function nuevoVerificarAlertas() {
 
     var tiempo = infoTiempoPartido(vb.fecha);
     if (tiempo.iniciado) return;
-    if (tiempo.minutosRestantes == null || tiempo.minutosRestantes > 60) return;
 
     var clave = vb.partido + '|' + vb.pick;
     if (vistos.has(clave)) return;
     vistos.add(clave);
 
-    alertas.push({
-      clave: clave,
-      partido: vb.partido,
-      pick: vb.pick,
-      score: Math.round(score),
-      odd: vb.odd,
-      probReal: (vb.probReal != null) ? vb.probReal : vb.prob,
-      minutosRestantes: tiempo.minutosRestantes,
-      origen: c.origen,
-    });
+    var mins = tiempo.minutosRestantes;
+
+    var datos = {
+      partido:          vb.partido,
+      liga:             vb.liga || '',
+      pick:             vb.pick,
+      score:            Math.round(score),
+      edge:             vb.edge,
+      probReal:         vb.probReal != null ? vb.probReal : vb.prob,
+      oddPinnacle:      vb.odd,
+      oddDisponible:    vb.odd,
+      stake:            vb.apostar || vb.kelly || null,
+      hora:             vb.fecha || '',
+      minutosRestantes: mins != null ? mins : 999,
+    };
+
+    // Cambio 1 — alerta inmediata para señal nueva (score >= 70, cualquier tiempo)
+    if (_tgDedup('new_' + clave, 240)) {
+      notifValueBetTelegram(datos, 'NUEVA SEÑAL DETECTADA');
+    }
+
+    // Cambio 2 — recordatorios escalonados a 240, 180 y 120 minutos
+    if (mins != null) {
+      var ventanas = [240, 180, 120];
+      for (var vi = 0; vi < ventanas.length; vi++) {
+        var v = ventanas[vi];
+        if (mins <= v && mins > v - 30) {
+          if (_tgDedup('rec_' + v + '_' + clave, 60)) {
+            notifValueBetTelegram(datos, '⏰ ' + v + ' min para el inicio');
+          }
+        }
+      }
+    }
+
+    // Incluir en alertas para campanita (≤240 min)
+    if (mins == null || mins <= 240) {
+      alertas.push({
+        clave:            clave,
+        partido:          vb.partido,
+        pick:             vb.pick,
+        score:            Math.round(score),
+        odd:              vb.odd,
+        probReal:         vb.probReal != null ? vb.probReal : vb.prob,
+        minutosRestantes: mins,
+        origen:           c.origen,
+      });
+    }
   });
 
   alertas.sort(function(a, b) { return a.minutosRestantes - b.minutosRestantes; });
   STATE.alertasListas = alertas;
 
-  notificarAlertasNuevas(alertas);
+  // notificarAlertasNuevas: solo señales a ≤60 min (Chrome notification + bet_ dedup)
+  var alertasInmediatas = alertas.filter(function(a) { return a.minutosRestantes == null || a.minutosRestantes <= 60; });
+  notificarAlertasNuevas(alertasInmediatas);
   renderCampanitaAlertas();
 }
 
