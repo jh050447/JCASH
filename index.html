@@ -3646,8 +3646,8 @@ function actualizarMonitorQuota() {
   const el = document.getElementById('monitor-quota-odds');
   if (!el) return;
 
-  const remaining = STATE.oddsApiRemaining ?? parseInt(localStorage.getItem('oddsApiRemaining') || '500');
-  const used      = STATE.oddsApiUsed      ?? parseInt(localStorage.getItem('oddsApiUsed')      || '0');
+  const remaining = parseInt(STATE.oddsApiRemaining ?? localStorage.getItem('oddsApiRemaining') ?? '500') || 500;
+  const used      = parseInt(STATE.oddsApiUsed      ?? localStorage.getItem('oddsApiUsed')      ?? '0') || 0;
 
   const total = 500;
   const usedM = used ?? 0;
@@ -6166,20 +6166,21 @@ function nuevoVerificarAlertas() {
     var datos = {
       partido:          vb.partido,
       liga:             vb.liga || '',
+      mercado:          vb.mercado || '1X2',
       pick:             vb.pick,
       score:            Math.round(score),
       edge:             vb.edge,
       probReal:         vb.probReal != null ? vb.probReal : vb.prob,
       oddPinnacle:      vb.odd,
-      oddDisponible:    vb.odd,
-      stake:            vb.apostar || vb.kelly || null,
+      odd:              vb.odd,
+      kelly:            vb.apostar || vb.kelly || null,
       hora:             vb.fecha || '',
       minutosRestantes: mins != null ? mins : 999,
     };
 
     // Cambio 1 — alerta inmediata para señal nueva (score >= 70, cualquier tiempo)
     if (_tgDedup('new_' + clave, 240)) {
-      notifValueBetTelegram(datos, 'NUEVA SEÑAL DETECTADA');
+      autoDetectarYNotificar(datos);
     }
 
     // Cambio 2 — recordatorios escalonados a 240, 180 y 120 minutos
@@ -6189,7 +6190,7 @@ function nuevoVerificarAlertas() {
         var v = ventanas[vi];
         if (mins <= v && mins > v - 30) {
           if (_tgDedup('rec_' + v + '_' + clave, 60)) {
-            notifValueBetTelegram(datos, '⏰ ' + v + ' min para el inicio');
+            autoDetectarYNotificar(datos);
           }
         }
       }
