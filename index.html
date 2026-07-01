@@ -3157,7 +3157,7 @@ async function cargarDeportes() {
   }
 
   // ── INTENTO 3: The Odds API (auxiliar) ──────────────────────
-  console.log('cargarDeportes: OddsPapi y odds-api.io fallaron, intentando The Odds API...');
+  console.log('cargarDeportes: odds-api.io no encontró value bets, intentando The Odds API...');
 
   if (!checkApiLimit('theoddsapi')) {
     console.log('cargarDeportes: límite mensual de The Odds API alcanzado, usando fallback/caché');
@@ -3646,13 +3646,8 @@ function actualizarMonitorQuota() {
   const el = document.getElementById('monitor-quota-odds');
   if (!el) return;
 
-  const remaining = STATE.oddsApiRemaining ?? null;
-  const used = STATE.oddsApiUsed ?? null;
-
-  if (remaining === null) {
-    el.innerHTML = '<span style="color:#4a5568;font-size:11px">ODDS API — sin datos de quota</span>';
-    return;
-  }
+  const remaining = STATE.oddsApiRemaining ?? parseInt(localStorage.getItem('oddsApiRemaining') || '500');
+  const used      = STATE.oddsApiUsed      ?? parseInt(localStorage.getItem('oddsApiUsed')      || '0');
 
   const total = 500;
   const usedM = used ?? 0;

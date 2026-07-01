@@ -1089,34 +1089,44 @@ document.addEventListener('DOMContentLoaded', function() {
 var _WORKER = 'https://jcahs-proxy.jh050447.workers.dev';
 
 async function sincronizarDesdeKV() {
+  // ── Sync confirmados (deportivos + Polymarket) desde KV ───────────────────
   try {
     var res = await fetch(_WORKER + '/apuestas/pendientes');
-    if (!res.ok) return;
-    var registrosPendientes = await res.json();
-    if (!registrosPendientes || registrosPendientes.length === 0) return;
+    if (res.ok) {
+      var registrosPendientes = await res.json();
+      if (registrosPendientes && registrosPendientes.length > 0) {
+        var historial     = Storage.getHistorialApuestas();
+        var historialPoly = Storage.getHistorialPolymarket();
+        var nuevos = 0, nuevosPoly = 0;
 
-    var historial = Storage.getHistorialApuestas();
-    var nuevos = 0;
+        for (var i = 0; i < registrosPendientes.length; i++) {
+          var registro = registrosPendientes[i];
+          var esPoly   = registro.tipo === 'polymarket';
+          var lista    = esPoly ? historialPoly : historial;
+          var existe   = lista.find(function(h) { return h.id === registro.id; });
+          if (!existe) {
+            lista.unshift(registro);
+            if (esPoly) nuevosPoly++; else nuevos++;
+            // Marcar como sincronizado en KV (fire-and-forget)
+            fetch(_WORKER + '/apuestas/sincronizada', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ registroId: registro.id }),
+            }).catch(function() {});
+          }
+        }
 
-    for (var i = 0; i < registrosPendientes.length; i++) {
-      var registro = registrosPendientes[i];
-      var existe = historial.find(function(h) { return h.id === registro.id; });
-      if (!existe) {
-        historial.unshift(registro);
-        nuevos++;
-        // Marcar como sincronizado en KV (fire-and-forget)
-        fetch(_WORKER + '/apuestas/sincronizada', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ registroId: registro.id }),
-        }).catch(function() {});
+        if (nuevos > 0) {
+          Storage.setHistorialApuestas(historial);
+          console.log('Sincronizados desde Telegram: ' + nuevos + ' registro(s)');
+          if (typeof renderHistorial === 'function') renderHistorial();
+        }
+        if (nuevosPoly > 0) {
+          Storage.setHistorialPolymarket(historialPoly);
+          console.log('Polymarket confirmados sincronizados: ' + nuevosPoly);
+          if (typeof renderHistorialPolymarket === 'function') renderHistorialPolymarket();
+        }
       }
-    }
-
-    if (nuevos > 0) {
-      Storage.setHistorialApuestas(historial);
-      console.log('Sincronizados desde Telegram: ' + nuevos + ' registro(s)');
-      if (typeof renderHistorial === 'function') renderHistorial();
     }
   } catch(e) {
     console.warn('sincronizarDesdeKV error:', e.message);
@@ -1129,7 +1139,7 @@ async function sincronizarDesdeKV() {
     var resultados = await resRes.json();
     if (!resultados || resultados.length === 0) return;
 
-    var historial2 = Storage.getHistorialApuestas();
+    var historial2 = Storage.getHistorialPolymarket();
     var aplicados = 0;
 
     for (var j = 0; j < resultados.length; j++) {
@@ -1149,10 +1159,9 @@ async function sincronizarDesdeKV() {
     }
 
     if (aplicados > 0) {
-      Storage.setHistorialApuestas(historial2);
+      Storage.setHistorialPolymarket(historial2);
       console.log('Resultados Polymarket aplicados: ' + aplicados);
       if (typeof renderHistorialPolymarket === 'function') renderHistorialPolymarket();
-      if (typeof renderHistorial === 'function') renderHistorial();
     }
   } catch(e) {
     console.warn('sincronizar resultados Polymarket error:', e.message);
@@ -1164,8 +1173,7 @@ async function sincronizarDesdeKV() {
 // ═══════════════════════════════════════════════════════════
 
 function _polyHistDatos() {
-  var todo = Storage.getHistorialApuestas();
-  return todo.filter(function(r) { return r.tipo === 'polymarket'; });
+  return Storage.getHistorialPolymarket();
 }
 
 function _polyHistMetricas(lista) {
@@ -1311,6 +1319,7 @@ const hapF = { liga:'all', mercado:'all', resultado:'all', casa:'all', desde:'',
 
 function hapFiltrar(lista) {
   return lista.filter(r => {
+    if (r.tipo === 'polymarket') return false;
     const res = (r.salida_real?.resultado || '').toUpperCase();
     if (hapF.liga !== 'all' && (r.entrada?.liga || '') !== hapF.liga) return false;
     if (hapF.mercado !== 'all') {
