@@ -9,6 +9,7 @@
 var STORAGE_KEYS = {
   // Apuestas
   HISTORIAL_APUESTAS:    'jcahs_historial_apuestas',
+  HISTORIAL_POLYMARKET:  'jcahs_historial_polymarket',
   HISTORIAL_LEGACY:      'jcahs_historial',
 
   // Crypto
@@ -81,6 +82,14 @@ var Storage = {
 
   setHistorialApuestas: function(data) {
     return this.set(STORAGE_KEYS.HISTORIAL_APUESTAS, data);
+  },
+
+  getHistorialPolymarket: function() {
+    return this.get(STORAGE_KEYS.HISTORIAL_POLYMARKET) || [];
+  },
+
+  setHistorialPolymarket: function(data) {
+    return this.set(STORAGE_KEYS.HISTORIAL_POLYMARKET, data);
   },
 
   // Backtest: clave compuesta sym + '_' + tf (ej. 'BTC_4h')

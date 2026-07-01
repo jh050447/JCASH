@@ -3157,7 +3157,7 @@ async function cargarDeportes() {
   }
 
   // ── INTENTO 3: The Odds API (auxiliar) ──────────────────────
-  console.log('cargarDeportes: OddsPapi y odds-api.io fallaron, intentando The Odds API...');
+  console.log('cargarDeportes: odds-api.io no encontró value bets, intentando The Odds API...');
 
   if (!checkApiLimit('theoddsapi')) {
     console.log('cargarDeportes: límite mensual de The Odds API alcanzado, usando fallback/caché');
