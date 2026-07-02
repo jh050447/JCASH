@@ -3874,10 +3874,22 @@ function actualizarMonitorOddsPapi() {
   var mHasta = Math.floor((msHasta % 3600000) / 60000);
   var enStr = hHasta > 0 ? 'en ' + hHasta + 'h ' + mHasta + 'min' : 'en ' + mHasta + 'min';
 
+  // ── Llamadas de sesión + última hora ────────────────────────
+  const ultimaMsOp = STATE.oddsPapiLastCall || 0;
+  const ultimaHoraOp = ultimaMsOp
+    ? new Date(ultimaMsOp).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })
+    : '--:--';
+  const llamadasSesion = STATE.oddsPapiCallsSesion || 0;
+  const totalLlamadas = 4;
+  const sesionHtml =
+    '<div style="color:#4a5568;font-size:10px;margin-top:4px">' +
+    Math.floor(llamadasSesion / 2) + '/' + totalLlamadas + ' llamadas · última: ' + ultimaHoraOp +
+    '</div>';
+
   // ── Última actualización ────────────────────────────────────
-  const ultimaHtml = STATE.oddsPapiLastCall
+  const ultimaHtml = ultimaMsOp
     ? '<div style="color:#4a5568;font-size:10px;margin-top:2px">últ. actualización: hace ' +
-      Math.floor((Date.now() - STATE.oddsPapiLastCall) / 60000) + ' min</div>'
+      Math.floor((Date.now() - ultimaMsOp) / 60000) + ' min</div>'
     : '';
 
   // ── Botón forzar (con confirmación) ────────────────────────
@@ -3904,6 +3916,7 @@ function actualizarMonitorOddsPapi() {
     '<span style="color:' + colorMes + ';font-size:10px;font-weight:600">' + used + '/250</span>' +
     '<span style="color:#4a5568;font-size:10px">' + remaining + ' restantes · reset ' + resetStrM2 + '</span>' +
     '</div>' +
+    sesionHtml +
     // Diario
     '<div style="color:#4a5568;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;margin:8px 0 2px">HOY</div>' +
     barDiario +
