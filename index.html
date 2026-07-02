@@ -2839,7 +2839,7 @@ async function cargarDatosOddsPapi() {
 
     // Ordenar por edge descendente
     valueBets.sort((a, b) => b.edge - a.edge);
-    STATE.valueBets = valueBets;
+    STATE.valueBets = mergeValueBets(STATE.valueBets, valueBets);
     STATE.oddsGames = [];
     STATE.modoFallback = false;
     STATE.ultimaActualizacionDeportes = Date.now();
@@ -3019,7 +3019,7 @@ async function cargarDatosOddsApiIo() {
     }
 
     valueBets.sort((a, b) => b.edge - a.edge);
-    STATE.valueBets = valueBets;
+    STATE.valueBets = mergeValueBets(STATE.valueBets, valueBets);
     STATE.oddsGames = [];
     STATE.modoFallback = false;
     STATE.ultimaActualizacionDeportes = Date.now();
@@ -3077,7 +3077,7 @@ function cargarDesdeCacheOdds() {
     return false;
   }
   const horas = Math.max(1, Math.round((Date.now() - cache.ts) / 3600000));
-  STATE.valueBets    = cache.data;
+  STATE.valueBets    = mergeValueBets(STATE.valueBets, cache.data);
   STATE.oddsGames    = [];
   STATE.modoFallback = true;
   mostrarAvisoFallback(`Usando datos en caché de hace ${horas}h (${cache.fuente})`);
@@ -3108,7 +3108,7 @@ function cargarCacheOddsInicial() {
   if (!cache) return false;
   const edadMs = Date.now() - cache.ts;
   if (edadMs > ODDS_CACHE_MAX_MS) return false;
-  STATE.valueBets = cache.data;
+  STATE.valueBets = mergeValueBets(STATE.valueBets, cache.data);
   console.log('Cache inicial de odds:', cache.fuente, '-', STATE.valueBets.length, 'bets, hace', Math.round(edadMs / 60000), 'min');
   if (typeof renderMentor === 'function') renderMentor();
   if (typeof renderListaDE === 'function') renderListaDE();
@@ -3294,7 +3294,6 @@ async function cargarDeportes() {
 
   console.log('STEP 4: merged games:', games.length);
 
-  STATE.valueBets = [];
   const valueBetGameIds = new Set();
 
   for (const game of games) {
@@ -3348,6 +3347,7 @@ async function cargarDeportes() {
     });
   }
 
+  STATE.valueBets = mergeValueBets(STATE.valueBets, []);
   STATE.valueBets.sort((a, b) => b.edge - a.edge);
   console.log('STEP 7: STATE.valueBets final:', STATE.valueBets.length);
 
@@ -4172,7 +4172,7 @@ async function cargarPartidosFallback() {
 
     if (!partidos.length) {
       STATE.modoFallback = true;
-      STATE.valueBets = [];
+      STATE.valueBets = mergeValueBets(STATE.valueBets, []);
       STATE.deApuestas = [];
       mostrarAvisoFallback('Football-Data.org sin partidos en los próximos 3 días');
       setText('dep-sub', 'Sin partidos disponibles');
@@ -4181,7 +4181,7 @@ async function cargarPartidosFallback() {
       return;
     }
 
-    STATE.valueBets = partidos.map(m => ({
+    STATE.valueBets = mergeValueBets(STATE.valueBets, partidos.map(m => ({
       gameId:    m.id,
       partido:   m.homeTeam.name + ' vs ' + m.awayTeam.name,
       liga:      m.competition?.name || '',
@@ -4192,7 +4192,7 @@ async function cargarPartidosFallback() {
       odd: 0, edge: 0, probReal: 0, probIp: 0, kelly: 0, stake: 0, ganancia: 0, score: 0,
       bk:  '—',
       esFallback: true,
-    }));
+    })));
     STATE.deApuestas   = STATE.valueBets.slice(0, 8);
     STATE.oddsGames    = [];
     STATE.modoFallback = true;
@@ -5497,6 +5497,19 @@ function cambiarSensibilidadDE(valor) {
   if (sliderDEValor) sliderDEValor.textContent = STATE.deSensibilidad + '%';
   if (!STATE.modoFallback) ejecutarDecisionEngine();
   renderListaDE();
+}
+
+function mergeValueBets(existing, nuevas) {
+  var mapa = {};
+  (existing || []).forEach(function(b) {
+    var key = (b.partido || '') + '|' + (b.pick || '') + '|' + (b.mercado || '');
+    mapa[key] = b;
+  });
+  (nuevas || []).forEach(function(b) {
+    var key = (b.partido || '') + '|' + (b.pick || '') + '|' + (b.mercado || '');
+    mapa[key] = b;
+  });
+  return Object.values(mapa);
 }
 
 function ejecutarDecisionEngine() {
