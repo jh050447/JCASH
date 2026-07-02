@@ -1424,6 +1424,7 @@ function hap_renderAll() {
   document.getElementById(mapTab[modo])?.classList.add('active');
 
   const lista = hapFiltrar(todas);
+  lista.sort(function(a, b) { return (parseInt(b.id) || 0) - (parseInt(a.id) || 0); });
   hap_renderKpisCalidad(lista, modo);
   hap_renderFiltros(todas, lista.length);
   hap_renderLista(lista, modo);
@@ -1480,6 +1481,19 @@ function hapToggleBlk(hdr) {
   if (arr) arr.textContent = open ? '▶' : '▼';
 }
 
+function to24h(horaStr) {
+  if (!horaStr) return '';
+  if (/^\d{2}:\d{2}$/.test(horaStr)) return horaStr;
+  const match = horaStr.match(/(\d+):(\d+)\s*(a\.|p\.)\s*m\./i);
+  if (!match) return horaStr;
+  let h = parseInt(match[1]);
+  const m = match[2];
+  const pm = match[3].toLowerCase().includes('p');
+  if (pm && h !== 12) h += 12;
+  if (!pm && h === 12) h = 0;
+  return String(h).padStart(2, '0') + ':' + m;
+}
+
 function hapCardBody(r) {
   const e   = r.entrada || {};
   const ind = r.indicadores_sistema || {};
@@ -1503,7 +1517,7 @@ function hapCardBody(r) {
 
   // B1 Entrada
   const b1 = fila('Fecha', inp('b1f-'+id, e.fecha, 'date')) +
-    fila('Hora', inp('b1h-'+id, e.hora, 'time')) +
+    fila('Hora', inp('b1h-'+id, to24h(e.hora), 'time')) +
     fila('Partido', inp('b1pa-'+id, e.partido)) +
     fila('Liga', sel('b1li-'+id, ['Kolmonen','USL League Two','OÖ Liga','NPSL','Brasileiro Serie D','World Cup','Otra'], e.liga||'Kolmonen')) +
     fila('Mercado', sel('b1me-'+id, ['1X2','Over/Under 2.5','Ambos equipos marcan'], e.mercado||'1X2')) +
