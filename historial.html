@@ -261,9 +261,10 @@ function procesarPendientes() {
 
   // Escribir en el sistema HAP (jcahs_historial_apuestas) — el que se muestra
   const hapActual = hapLeer ? hapLeer() : JSON.parse(localStorage.getItem(HAP_KEY) || '[]');
+  var maxHapId = hapActual.reduce(function(m, r) { return Math.max(m, parseInt(r.id) || 0); }, 0);
   pendientes.forEach(function(p, idx) {
     var rec = {
-      id:     String(Date.now() + idx),
+      id:     maxHapId + 1 + idx,
       estado: 'pendiente',
       entrada: {
         fecha:          p.fecha   || new Date().toISOString().slice(0, 10),
@@ -279,8 +280,8 @@ function procesarPendientes() {
         stake_manual:   null,
       },
       indicadores_sistema: {
-        prob_real:      p.probReal || null,
-        edge_calculado: p.edge     || null,
+        prob_real:      p.probReal != null ? Math.round(p.probReal * 10) / 10 : null,
+        edge_calculado: p.edge     != null ? Math.round(p.edge     * 10) / 10 : null,
         odd_pinnacle:   p.cuotaPrograma || null,
         odd_bet365:     null,
         score_jcahs:    null,
