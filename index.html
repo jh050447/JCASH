@@ -3167,8 +3167,8 @@ async function cargarDeportes() {
     return;
   }
 
-  if ((STATE.oddsApiUsadoHoy || 0) >= 2) {
-    console.log('cargarDeportes: límite diario de The Odds API (2/día) alcanzado, usando fallback/caché');
+  if ((STATE.oddsApiUsadoHoy || 0) >= 9) {
+    console.log('cargarDeportes: límite diario de The Odds API (9/día) alcanzado, usando fallback/caché');
     await cargarPartidosFallback();
     STATE.ultimaActualizacionDeportes = Date.now();
     finalizarCargaOdds(STATE.modoFallback ? 'Football-Data (fallback)' : 'cache');
@@ -3664,11 +3664,11 @@ function actualizarMonitorQuota() {
 
   // Diario
   const usadoHoy = STATE.oddsApiUsadoHoy || 0;
-  const limDiario = 2;
+  const limDiario = 9;
   const hoyAgotado = usadoHoy >= limDiario;
   const hoyHtml = '<div style="color:#4a5568;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;margin-top:7px;margin-bottom:2px">HOY</div>' +
     (hoyAgotado
-      ? '<div style="color:#ff4444;font-size:10px;font-weight:600">⛔ Límite diario alcanzado (' + usadoHoy + '/2)</div>'
+      ? '<div style="color:#ff4444;font-size:10px;font-weight:600">⛔ Límite diario alcanzado (' + usadoHoy + '/9)</div>'
       : '<div style="color:#8892a4;font-size:10px">' + usadoHoy + '/' + limDiario + ' consultas usadas</div>');
 
   // Botón "↺ forzar"
