@@ -240,7 +240,7 @@ function guardarHistorial(data) {
 const PENDIENTES_KEY = 'jcahs_pendiente_registro';
 
 // Toma los registros encolados desde index.html (botón "Registrar"),
-// les asigna id correlativo y los agrega al historial principal.
+// convierte al formato HAP y los escribe en jcahs_historial_apuestas.
 function procesarPendientes() {
   const raw = localStorage.getItem(PENDIENTES_KEY);
   if (!raw) return false;
@@ -259,17 +259,56 @@ function procesarPendientes() {
     return false;
   }
 
-  const data = cargarHistorial();
-  let maxId = data.reduce((max, r) => Math.max(max, r.id), 0);
-  pendientes.forEach(p => {
-    maxId += 1;
-    const rec = Object.assign({ cuotaCierre: null, clv: null }, p, { id: maxId });
-    rec.clv = calcCLV(rec.cuotaPrograma, rec.cuotaCierre);
-    data.push(rec);
+  // Escribir en el sistema HAP (jcahs_historial_apuestas) — el que se muestra
+  const hapActual = hapLeer ? hapLeer() : JSON.parse(localStorage.getItem(HAP_KEY) || '[]');
+  pendientes.forEach(function(p, idx) {
+    var rec = {
+      id:     String(Date.now() + idx),
+      estado: 'pendiente',
+      entrada: {
+        fecha:          p.fecha   || new Date().toISOString().slice(0, 10),
+        hora:           '',
+        partido:        p.partido || '',
+        liga:           p.liga    || '',
+        mercado:        p.mercado || '',
+        pick:           p.pick    || '',
+        hora_partido:   '',
+        stake_sugerido: null,
+        casa_apuestas:  null,
+        cuota_manual:   p.cuotaPrograma || null,
+        stake_manual:   null,
+      },
+      indicadores_sistema: {
+        prob_real:      p.probReal || null,
+        edge_calculado: p.edge     || null,
+        odd_pinnacle:   p.cuotaPrograma || null,
+        odd_bet365:     null,
+        score_jcahs:    null,
+        filtros_mentor: null,
+      },
+      salida_prevista: {
+        ganancia_esperada: null,
+        perdida_esperada:  null,
+      },
+      salida_real: {
+        resultado:  'PENDIENTE',
+        pnl_usd:    null,
+        odd_cierre: p.cuotaReal || null,
+        clv:        null,
+      },
+      postmortem: { sistema_acerto: null, notas: p.notas || '' },
+    };
+    hapActual.unshift(rec);
   });
 
-  guardarHistorial(data);
+  if (hapGuardar) {
+    hapGuardar(hapActual);
+  } else {
+    localStorage.setItem(HAP_KEY, JSON.stringify(hapActual));
+  }
   localStorage.removeItem(PENDIENTES_KEY);
+
+  if (typeof hap_renderAll === 'function') hap_renderAll();
   return true;
 }
 
