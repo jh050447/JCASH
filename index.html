@@ -3295,6 +3295,7 @@ async function cargarDeportes() {
   console.log('STEP 4: merged games:', games.length);
 
   const valueBetGameIds = new Set();
+  const mejores = {};
 
   for (const game of games) {
     const pinnacle = game.bookmakers?.find(bm => bm.title?.toLowerCase() === 'pinnacle');
@@ -3317,38 +3318,47 @@ async function cargarDeportes() {
           const trueProb = trueProbs[outcome.name];
           if (!trueProb) return;
           const impliedProb = 1 / outcome.price;
-          const edge = (trueProb - impliedProb) * 100;
+          const edge = (trueProb * outcome.price - 1) * 100;
           if (edge <= 0) return;
 
           const b      = outcome.price - 1;
           const kellyF = b > 0 ? Math.max(0, (trueProb * b - (1 - trueProb)) / b * 0.25) : 0;
           const stake  = STATE.bankroll * kellyF;
 
-          STATE.valueBets.push({
-            gameId:    game.id,
-            partido:   game.home_team + ' vs ' + game.away_team,
-            liga:      game.sport_title || '',
-            fecha:     game.commence_time,
-            esMundial: game.esMundial || false,
-            mercado:  traducirMercado(market.key),
-            pick:     traducirPick(outcome.point != null ? outcome.name + ' ' + outcome.point : outcome.name, market.key, game.home_team, game.away_team),
-            odd:      outcome.price,
-            edge,
-            probReal: trueProb * 100,
-            probIp:   impliedProb * 100,
-            kelly:    kellyF * 100,
-            stake,
-            ganancia: stake * b,
-            bk:       bm.title,
-            fuente:   'The Odds API',
-          });
-          valueBetGameIds.add(game.id);
+          const partido = game.home_team + ' vs ' + game.away_team;
+          const mercado = traducirMercado(market.key);
+          const pick    = traducirPick(outcome.point != null ? outcome.name + ' ' + outcome.point : outcome.name, market.key, game.home_team, game.away_team);
+          const deduKey = partido + '|' + mercado + '|' + pick;
+
+          if (!mejores[deduKey] || edge > mejores[deduKey].edge) {
+            mejores[deduKey] = {
+              gameId:    game.id,
+              partido,
+              liga:      game.sport_title || '',
+              fecha:     game.commence_time,
+              esMundial: game.esMundial || false,
+              mercado,
+              pick,
+              odd:      outcome.price,
+              edge,
+              probReal: trueProb * 100,
+              probIp:   impliedProb * 100,
+              kelly:    kellyF * 100,
+              stake,
+              ganancia: stake * b,
+              bk:       bm.title,
+              score:    Math.min(100, Math.round(edge * 5)),
+              fuente:   'The Odds API',
+              partidoIniciado: new Date(game.commence_time) <= new Date(),
+            };
+            valueBetGameIds.add(game.id);
+          }
         });
       });
     });
   }
 
-  STATE.valueBets = mergeValueBets(STATE.valueBets, []);
+  STATE.valueBets = mergeValueBets(STATE.valueBets, Object.values(mejores));
   STATE.valueBets.sort((a, b) => b.edge - a.edge);
   console.log('STEP 7: STATE.valueBets final:', STATE.valueBets.length);
 
