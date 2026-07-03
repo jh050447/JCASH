@@ -286,6 +286,7 @@ function procesarPendientes() {
         odd_bet365:     null,
         score_jcahs:    null,
         filtros_mentor: null,
+        fuente_api:     p.fuente_api || null,
       },
       salida_prevista: {
         ganancia_esperada: null,
@@ -1355,7 +1356,7 @@ function hap_setModo(modo) {
 }
 
 // ── Estado filtros ────────────────────────────────────────
-const hapF = { liga:'all', mercado:'all', resultado:'all', casa:'all', desde:'', hasta:'', probMin:0, texto:'' };
+const hapF = { liga:'all', mercado:'all', resultado:'all', casa:'all', fuente:'all', desde:'', hasta:'', probMin:0, texto:'' };
 
 function hapFiltrar(lista) {
   return lista.filter(r => {
@@ -1374,6 +1375,7 @@ function hapFiltrar(lista) {
       if (hapF.resultado === 'pendientes' && r.estado !== 'pendiente') return false;
     }
     if (hapF.casa !== 'all' && (r.entrada?.casa_apuestas || '') !== hapF.casa) return false;
+    if (hapF.fuente !== 'all' && (r.indicadores_sistema?.fuente_api || 'Desconocida') !== hapF.fuente) return false;
     if (hapF.desde && (r.entrada?.fecha || '') < hapF.desde) return false;
     if (hapF.hasta && (r.entrada?.fecha || '') > hapF.hasta) return false;
     if ((r.indicadores_sistema?.prob_real || 0) < hapF.probMin) return false;
@@ -1390,7 +1392,7 @@ function hapFiltrar(lista) {
 
 function hapSetF(key, val) { hapF[key] = val; hap_renderAll(); }
 function hap_limpiarFiltros() {
-  Object.assign(hapF, { liga:'all', mercado:'all', resultado:'all', casa:'all', desde:'', hasta:'', probMin:0, texto:'' });
+  Object.assign(hapF, { liga:'all', mercado:'all', resultado:'all', casa:'all', fuente:'all', desde:'', hasta:'', probMin:0, texto:'' });
   hap_renderAll();
 }
 
@@ -1453,7 +1455,7 @@ function hap_renderLista(lista, modo) {
       '<span style="font-size:16px">'+resIcon+'</span>' +
       '<span style="font-weight:700;min-width:28px;color:#4e6a88;font-size:12px">#'+r.id+'</span>' +
       '<div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(r.entrada?.partido||'—')+'</div>' +
-      '<div style="font-size:11px;color:#4e6a88;">'+escHtml(r.entrada?.liga||'')+(r.entrada?.mercado?' · '+r.entrada.mercado:'')+' · '+escHtml(r.entrada?.fecha||'—')+'</div></div>' +
+      '<div style="font-size:11px;color:#4e6a88;">'+escHtml(r.entrada?.liga||'')+(r.entrada?.mercado?' · '+r.entrada.mercado:'')+' · '+escHtml(r.entrada?.fecha||'—')+(r.indicadores_sistema?.fuente_api?' · <span style="color:#64c8e8;font-size:10px;">'+escHtml(r.indicadores_sistema.fuente_api)+'</span>':'')+' </div></div>' +
       (prob!=null?'<span style="background:rgba(78,222,163,0.12);color:#4edea3;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;">'+prob+'%</span>':'')+
       pnlTxt +
       '<span style="color:#4e6a88;font-size:11px;margin-left:8px;" id="haparr-'+r.id+'">▼</span>' +
@@ -1535,6 +1537,7 @@ function hapCardBody(r) {
     fila('Odd Pinnacle', inp('b2op-'+id, ind.odd_pinnacle, 'number', '1')) +
     fila('Odd Bet365', inp('b2ob-'+id, ind.odd_bet365, 'number', '1')) +
     fila('Filtros Mentor', '<input type="number" id="b2fm1-'+id+'" class="hap-inp" value="'+(ind.filtros_mentor_pasados||'')+'" style="width:60px;" placeholder="X"> de <input type="number" id="b2fm2-'+id+'" class="hap-inp" value="'+(ind.filtros_mentor_total||'')+'" style="width:60px;" placeholder="Y">') +
+    fila('Fuente API', '<span style="font-size:12px;color:#8ba4bd;">'+(ind.fuente_api ? escHtml(ind.fuente_api) : '—')+'</span>') +
     '<button class="hap-btn-save" onclick="hapGuardarIndicadores('+id+')">💾 Guardar cambios</button>';
 
   // B3 Salida prevista
@@ -1711,6 +1714,9 @@ function hap_renderFiltros(todas, nFiltrados) {
     b('resultado','all','Resultado') + b('resultado','ganadas','🟢 Ganadas') + b('resultado','perdidas','🔴 Perdidas') + b('resultado','pendientes','⏳ Pendientes') +
     '<span class="hap-filtro-sep"></span>' +
     b('casa','all','Casa') + ['Ecuabet','Bet365','Sportbet'].map(c=>b('casa',c,c)).join('') +
+    '</div>' +
+    '<div class="hap-filtro-row">' +
+    b('fuente','all','Todas las fuentes') + b('fuente','OddsPapi','OddsPapi') + b('fuente','The Odds API','The Odds API') + b('fuente','odds-api.io','odds-api.io') +
     '</div>' +
     '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">' +
     '<label style="font-size:11px;color:#8ba4bd;">Prob min: <input type="range" min="0" max="100" value="'+hapF.probMin+'" style="width:70px;vertical-align:middle;" oninput="hapSetF(\'probMin\',+this.value);this.nextElementSibling.textContent=this.value"> <span>'+hapF.probMin+'</span></label>' +

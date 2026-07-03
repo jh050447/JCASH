@@ -3340,6 +3340,7 @@ async function cargarDeportes() {
             stake,
             ganancia: stake * b,
             bk:       bm.title,
+            fuente:   'The Odds API',
           });
           valueBetGameIds.add(game.id);
         });
@@ -9708,6 +9709,7 @@ function registrarEnHistorial(btn, vb) {
     gananciaPerdida: null,
     notas: '',
     edgeInflado: !!vb.partidoIniciado,
+    fuente_api: vb.fuente || 'Desconocida',
   };
 
   const pendientes = JSON.parse(localStorage.getItem('jcahs_pendiente_registro') || '[]');
