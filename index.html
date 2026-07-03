@@ -343,6 +343,7 @@
           <span id="de-sensibilidad-valor" style="font-size:14px;font-weight:700;font-family:var(--font-mono);color:#00ff88;min-width:42px;text-align:right">35%</span>
         </div>
         <div id="de-embudo"></div>
+        <div id="de-tabs"></div>
         <div id="de-lista"></div>
         <div id="de-detalle" style="display:none"></div>
       </section>
@@ -6373,6 +6374,37 @@ function renderCampanitaAlertas() {
   }).join('');
 }
 
+function renderTabsDE(apuestas) {
+  var el = document.getElementById('de-tabs');
+  if (!el) return;
+  if (!apuestas || !apuestas.length) { el.innerHTML = ''; return; }
+  var filtro = STATE.deFiltroFuente || 'all';
+  var cnt = { all: apuestas.length };
+  apuestas.forEach(function(vb) {
+    var f = vb.fuente || 'Desconocida';
+    cnt[f] = (cnt[f] || 0) + 1;
+  });
+  var tabs = [
+    { key: 'all',          lbl: 'Todas' },
+    { key: 'OddsPapi',     lbl: 'OddsPapi' },
+    { key: 'The Odds API', lbl: 'The Odds API' },
+    { key: 'odds-api.io',  lbl: 'odds-api.io' }
+  ];
+  el.innerHTML = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">' +
+    tabs.map(function(t) {
+      var n = cnt[t.key] || 0;
+      if (t.key !== 'all' && n === 0) return '';
+      var activo = filtro === t.key;
+      return '<button onclick="STATE.deFiltroFuente=\'' + t.key + '\';renderListaDE()" style="' +
+        'background:' + (activo ? 'rgba(78,222,163,0.12)' : 'transparent') + ';' +
+        'border:1px solid ' + (activo ? '#4edea3' : 'rgba(144,144,151,0.25)') + ';' +
+        'color:' + (activo ? '#4edea3' : '#8ba4bd') + ';' +
+        'padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s">' +
+        t.lbl + ' <span style="opacity:0.7;font-size:11px">(' + n + ')</span></button>';
+    }).join('') +
+    '</div>';
+}
+
 function renderListaDE() {
   renderEmbudoDE();
   var lista = document.getElementById('de-lista');
@@ -6390,6 +6422,8 @@ function renderListaDE() {
 
   // ── Modo alternativo (Football-Data.org, sin odds) ──────────
   if (STATE.modoFallback) {
+    var tabsElFB = document.getElementById('de-tabs');
+    if (tabsElFB) tabsElFB.innerHTML = '';
     var partidosFB = STATE.valueBets || [];
     STATE.deApuestas = partidosFB; // mantener sincronizado para mostrarDetalleDE
 
@@ -6420,6 +6454,13 @@ function renderListaDE() {
   }
 
   var apuestas = STATE.deApuestas || [];
+  renderTabsDE(apuestas);
+
+  var filtroFuente = STATE.deFiltroFuente || 'all';
+  var items = apuestas.map(function(vb, i) { return { vb: vb, i: i }; });
+  if (filtroFuente !== 'all') {
+    items = items.filter(function(x) { return x.vb.fuente === filtroFuente; });
+  }
 
   if (!apuestas.length) {
     if (STATE.oddsPapi429Hasta && Date.now() < STATE.oddsPapi429Hasta) {
@@ -6441,9 +6482,20 @@ function renderListaDE() {
     return;
   }
 
-  if (sub) sub.textContent = apuestas.length + ' apuestas encontradas · actualizado ' + new Date().toLocaleTimeString('es-EC');
+  if (!items.length) {
+    if (sub) sub.textContent = 'Sin señales de ' + filtroFuente + ' en esta sesión';
+    lista.innerHTML = '<div style="background:rgba(100,200,232,0.06);border:1px solid rgba(100,200,232,0.2);border-radius:12px;padding:32px;text-align:center">' +
+      '<div style="font-size:32px;margin-bottom:10px">🔍</div>' +
+      '<div style="font-size:18px;font-weight:700;color:#64c8e8">Sin señales de ' + escHtml(filtroFuente) + '</div>' +
+      '<div style="font-size:14px;color:var(--outline);margin-top:8px">Prueba la pestaña "Todas" o espera la próxima actualización.</div>' +
+      '</div>';
+    return;
+  }
 
-  lista.innerHTML = apuestas.map(function(vb, i) {
+  if (sub) sub.textContent = items.length + ' apuestas encontradas · actualizado ' + new Date().toLocaleTimeString('es-EC');
+
+  lista.innerHTML = items.map(function(item) {
+    var vb = item.vb, i = item.i;
     var scoreColor = vb.score >= 80 ? '#4edea3' : vb.score >= 65 ? '#FF9500' : '#4A9EFF';
     var nivelTexto = vb.score >= 80 ? 'ALTA' : vb.score >= 65 ? 'MEDIA' : 'BAJA';
     var apostar = Math.max(0.50, (STATE.bankroll || 0) * Math.max(0.01, (vb.kelly || 0) / 100) * 0.25);
