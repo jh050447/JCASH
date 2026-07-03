@@ -805,7 +805,7 @@ Object.assign(window.STATE, {
     return true;
   })(),
   oddsPapiCallsSesion: 0,
-  oddsPapiHorasConsulta: JSON.parse(localStorage.getItem('jcahs_oddspapi_schedule') || 'null') || [8, 12, 17],
+  oddsPapiHorasConsulta: JSON.parse(localStorage.getItem('jcahs_oddspapi_schedule') || 'null') || [8, 12, 17, 20],
   oddsPapiUsadoHoy: (function() {
     var k = 'jcahs_oddspapi_hoy_' + new Date().toISOString().slice(0,10);
     return parseInt(localStorage.getItem(k)) || 0;
@@ -3770,7 +3770,7 @@ function _opHoraGuayaquil() {
 }
 
 function _opProximaConsulta() {
-  var horas = (STATE.oddsPapiHorasConsulta || [8, 12, 17]).slice().sort(function(a,b){return a-b;});
+  var horas = (STATE.oddsPapiHorasConsulta || [8, 12, 17, 20]).slice().sort(function(a,b){return a-b;});
   var horaActual = _opHoraGuayaquil();
   var minActual;
   try {
@@ -3796,7 +3796,7 @@ function _opProximaConsulta() {
 async function _checkOddsPapiSchedule() {
   if (STATE.oddsPapiCupoAgotado) return;
   if (STATE.oddsPapiCargando) return;
-  var horas = STATE.oddsPapiHorasConsulta || [8, 12, 17];
+  var horas = STATE.oddsPapiHorasConsulta || [8, 12, 17, 20];
   var horaActual = _opHoraGuayaquil();
   if (!horas.includes(horaActual)) return;
   var ultimaMs = STATE.oddsPapiLastCall || 0;
@@ -3852,21 +3852,22 @@ function actualizarMonitorOddsPapi() {
   const total = 250;
   const usedPct = Math.min(100, Math.round((used / total) * 100));
   const colorMes = used < 200 ? '#00ff88' : used <= 240 ? '#ffd700' : '#ff4444';
-  const estadoMes = used < 200 ? 'OK' : used <= 240 ? 'BAJO' : 'CRÍTICO';
+  const estadoMes = used === 0 ? 'LISTO' : used < 200 ? 'OK' : used <= 240 ? 'BAJO' : 'CRÍTICO';
 
   var mesesOp = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   var hoyM2 = new Date();
   var resetM2 = new Date(hoyM2.getFullYear(), hoyM2.getMonth() + 1, 1);
   var resetStrM2 = '1 ' + mesesOp[resetM2.getMonth()];
 
+  const barWidth = used === 0 ? 100 : usedPct;
   const barMensual =
     '<div style="background:#1a2540;border-radius:4px;height:6px;margin:4px 0 3px">' +
-    '<div style="background:' + colorMes + ';width:' + usedPct + '%;height:100%;border-radius:4px;transition:width 0.5s"></div>' +
+    '<div style="background:' + colorMes + ';width:' + barWidth + '%;height:100%;border-radius:4px;transition:width 0.5s"></div>' +
     '</div>';
 
   // ── Termómetro diario ───────────────────────────────────────
   const usadoHoy = STATE.oddsPapiUsadoHoy || 0;
-  const limiteDiario = (STATE.oddsPapiHorasConsulta || [8,12,17]).length * 3;
+  const limiteDiario = (STATE.oddsPapiHorasConsulta || [8,12,17,20]).length * 3;
   const diarPct = Math.min(100, limiteDiario > 0 ? Math.round((usadoHoy / limiteDiario) * 100) : 0);
   const colorDia = usadoHoy < limiteDiario ? '#00ff88' : '#ff4444';
   const restantesDia = Math.max(0, limiteDiario - usadoHoy);
@@ -3924,8 +3925,9 @@ function actualizarMonitorOddsPapi() {
     '<div style="color:#4a5568;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">MENSUAL</div>' +
     barMensual +
     '<div style="display:flex;justify-content:space-between;align-items:center">' +
-    '<span style="color:' + colorMes + ';font-size:10px;font-weight:600">' + used + '/250</span>' +
-    '<span style="color:#4a5568;font-size:10px">' + remaining + ' restantes · reset ' + resetStrM2 + '</span>' +
+    (used === 0
+      ? '<span style="color:#00ff88;font-size:10px;font-weight:600">250/250 disponibles</span><span style="color:#4a5568;font-size:10px">Sin uso aún · reset ' + resetStrM2 + '</span>'
+      : '<span style="color:' + colorMes + ';font-size:10px;font-weight:600">' + used + '/250</span><span style="color:#4a5568;font-size:10px">' + remaining + ' restantes · reset ' + resetStrM2 + '</span>') +
     '</div>' +
     sesionHtml +
     // Diario
@@ -3953,9 +3955,9 @@ function actualizarMonitorOddsApiIo() {
   const used = STATE.oddsApiIoUsed || 0;
   const remaining = STATE.oddsApiIoRemaining ?? 100;
   const total = 100;
-  const pct = Math.round((remaining / total) * 100);
-  const color = pct > 50 ? '#00ff88' : pct > 20 ? '#ffd700' : '#ff4444';
-  const estado = pct > 50 ? 'OK' : pct > 20 ? 'BAJO' : 'CRÍTICO';
+  const pct = Math.min(100, Math.round((used / total) * 100));
+  const color = pct < 80 ? '#00ff88' : pct < 100 ? '#ffd700' : '#ff4444';
+  const estado = pct < 80 ? 'OK' : pct < 100 ? 'BAJO' : 'CRÍTICO';
 
   // Reset horario — contador se reinicia 60 min después de oddsApiIoResetTs
   const msHastaReset = Math.max(0, (STATE.oddsApiIoResetTs || Date.now()) + 60 * 60 * 1000 - Date.now());
