@@ -275,7 +275,43 @@
 
         <!-- Card 1: Value Bets — ancho completo -->
         <div class="card" style="margin-bottom:20px">
-          <div class="card-title" style="margin-bottom:16px">Value Bets Detectados</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div class="card-title" style="margin:0">Value Bets Detectados</div>
+            <button id="dep-filtro-btn" onclick="toggleDepFiltro()" style="background:transparent;border:1px solid #2d3b56;color:#8892a4;padding:4px 12px;border-radius:6px;font-size:12px;cursor:pointer;transition:color 0.15s,border-color 0.15s">⚙️ Filtros</button>
+          </div>
+          <!-- Panel desplegable de filtros -->
+          <div id="dep-filtro-panel" style="display:none;background:var(--surface-high);border-radius:10px;padding:14px;margin-bottom:14px;border:1px solid #1e2d45">
+            <div style="margin-bottom:12px">
+              <div style="font-size:10px;color:var(--outline);letter-spacing:0.08em;margin-bottom:6px">FUENTE</div>
+              <div id="dep-ftabs" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+            </div>
+            <div style="margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:10px;color:var(--outline);letter-spacing:0.08em">EDGE MÍNIMO</span>
+                <span id="dep-edge-val" style="font-size:12px;font-weight:700;color:#4edea3;font-family:var(--f-mono)">0%</span>
+              </div>
+              <input type="range" id="dep-edge-slider" min="0" max="20" step="0.5" value="0"
+                     oninput="setDepFiltroEdge(this.value)"
+                     style="width:100%;accent-color:#4edea3;cursor:pointer">
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--outline);letter-spacing:0.08em;margin-bottom:6px">RANGO DE CUOTA</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div>
+                  <div style="font-size:10px;color:var(--text-3);margin-bottom:3px">Mínima</div>
+                  <input type="number" id="dep-odd-min" min="1" max="20" step="0.1" value="1.0"
+                         oninput="setDepFiltroOdd()"
+                         style="width:100%;background:var(--surface-2);border:1px solid #2d3b56;color:var(--on-surface);padding:6px 8px;border-radius:6px;font-size:13px;font-family:var(--f-mono);box-sizing:border-box">
+                </div>
+                <div>
+                  <div style="font-size:10px;color:var(--text-3);margin-bottom:3px">Máxima</div>
+                  <input type="number" id="dep-odd-max" min="1" max="30" step="0.1" value="20.0"
+                         oninput="setDepFiltroOdd()"
+                         style="width:100%;background:var(--surface-2);border:1px solid #2d3b56;color:var(--on-surface);padding:6px 8px;border-radius:6px;font-size:13px;font-family:var(--f-mono);box-sizing:border-box">
+                </div>
+              </div>
+            </div>
+          </div>
           <div id="dep-value-bets">
             <div class="loading"><span class="spin">⌛</span> Buscando value bets...</div>
           </div>
@@ -876,6 +912,7 @@ Object.assign(window.STATE, {
   histForm:     { abierto:false, editId:null, tipo:'apuesta' },
   iaAsesor:  'MASTER',
   iaChats:   JSON.parse(localStorage.getItem('jcahs_ia_chats') || '{}'),
+  depFiltro: { fuente: 'all', edgeMin: 0, oddMin: 1.0, oddMax: 20.0 },
 });
 const STATE = window.STATE;
 
@@ -1834,7 +1871,8 @@ function detectarEstrategias() {
       console.log('Kelly combinada:', kellyCombinada);
       // Notificaciones múltiple (deduplicadas por clave de picks)
       var claveMultiple = 'multi_' + picksUnicos.map(function(p) { return p.gameId || p.partido; }).sort().join('|');
-      if (_tgDedup(claveMultiple)) {
+      var todosConfiables = picksUnicos.every(esFuenteConfiable);
+      if (todosConfiables && _tgDedup(claveMultiple)) {
         var stakeM    = bkr ? (bkr * kellyCombinada).toFixed(2) : '—';
         var gananciaM = bkr ? (bkr * kellyCombinada * (oddCombinada - 1)).toFixed(2) : '—';
         var perdidaM  = stakeM;
@@ -3297,6 +3335,7 @@ async function cargarDeportes() {
 
   const valueBetGameIds = new Set();
   const mejores = {};
+  const SOFT_REF = 'betsson';
 
   for (const game of games) {
     const pinnacle = game.bookmakers?.find(bm => bm.title?.toLowerCase() === 'pinnacle');
@@ -3308,15 +3347,19 @@ async function cargarDeportes() {
       if (outcomes.length < 2) return;
       const pinMargin = outcomes.reduce((s, o) => s + 1 / o.price, 0) - 1;
       const trueProbs = {};
-      outcomes.forEach(o => { trueProbs[o.name] = (1 / o.price) / (1 + pinMargin); });
+      outcomes.forEach(o => {
+        const okey = o.point != null ? o.name + '|' + o.point : o.name;
+        trueProbs[okey] = (1 / o.price) / (1 + pinMargin);
+      });
 
       game.bookmakers.forEach(bm => {
-        if (bm.title?.toLowerCase() === 'pinnacle') return;
+        if (bm.key !== SOFT_REF) return;
         const bmMarket = bm.markets?.find(m => m.key === market.key);
         if (!bmMarket) return;
 
         bmMarket.outcomes?.forEach(outcome => {
-          const trueProb = trueProbs[outcome.name];
+          const okey = outcome.point != null ? outcome.name + '|' + outcome.point : outcome.name;
+          const trueProb = trueProbs[okey];
           if (!trueProb) return;
           const impliedProb = 1 / outcome.price;
           const edge = (trueProb * outcome.price - 1) * 100;
@@ -3331,29 +3374,27 @@ async function cargarDeportes() {
           const pick    = traducirPick(outcome.point != null ? outcome.name + ' ' + outcome.point : outcome.name, market.key, game.home_team, game.away_team);
           const deduKey = partido + '|' + mercado + '|' + pick;
 
-          if (!mejores[deduKey] || edge > mejores[deduKey].edge) {
-            mejores[deduKey] = {
-              gameId:    game.id,
-              partido,
-              liga:      game.sport_title || '',
-              fecha:     game.commence_time,
-              esMundial: game.esMundial || false,
-              mercado,
-              pick,
-              odd:      outcome.price,
-              edge,
-              probReal: trueProb * 100,
-              probIp:   impliedProb * 100,
-              kelly:    kellyF * 100,
-              stake,
-              ganancia: stake * b,
-              bk:       bm.title,
-              score:    Math.min(100, Math.round(edge * 5)),
-              fuente:   'The Odds API',
-              partidoIniciado: new Date(game.commence_time) <= new Date(),
-            };
-            valueBetGameIds.add(game.id);
-          }
+          mejores[deduKey] = {
+            gameId:    game.id,
+            partido,
+            liga:      game.sport_title || '',
+            fecha:     game.commence_time,
+            esMundial: game.esMundial || false,
+            mercado,
+            pick,
+            odd:      outcome.price,
+            edge,
+            probReal: trueProb * 100,
+            probIp:   impliedProb * 100,
+            kelly:    kellyF * 100,
+            stake,
+            ganancia: stake * b,
+            bk:       bm.title,
+            score:    Math.min(100, Math.round(edge * 5)),
+            fuente:   'The Odds API',
+            partidoIniciado: new Date(game.commence_time) <= new Date(),
+          };
+          valueBetGameIds.add(game.id);
         });
       });
     });
@@ -3372,101 +3413,10 @@ async function cargarDeportes() {
   if (!games.length) {
     setHTML('dep-value-bets', `<div style="text-align:center;padding:32px">
       <div style="font-size:18px;color:var(--text-2);margin-bottom:10px">Sin datos disponibles.</div>
-      <div style="font-size:16px;color:var(--text-3);font-family:var(--f-mono)">Fuente: The Odds API · ${ahora}</div>
-    </div>`);
-  } else if (!STATE.valueBets.length) {
-    const proxHora = new Date(Date.now() + 300000)
-      .toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });
-    setHTML('dep-value-bets', `<div style="text-align:center;padding:32px">
-      <div style="font-size:18px;color:var(--text-2);margin-bottom:8px">Sin value bets detectados ahora.</div>
-      <div style="font-size:16px;color:var(--text-3);font-family:var(--f-mono)">Próxima revisión: ${proxHora}</div>
-      <div style="margin-top:14px;font-size:12px;color:var(--text-3);font-family:var(--f-mono)">Fuente: The Odds API · ${ahora} · ${games.length} partidos analizados</div>
+      <div style="font-size:16px;color:var(--text-3);font-family:var(--f-mono)">The Odds API · ${ahora}</div>
     </div>`);
   } else {
-    const header = `<div style="font-size:16px;color:var(--text-2);margin-bottom:18px">
-      <strong>${STATE.valueBets.length}</strong> value bet${STATE.valueBets.length !== 1 ? 's' : ''} detectado${STATE.valueBets.length !== 1 ? 's' : ''} en <strong>${games.length}</strong> partidos analizados
-    </div>`;
-    const cards = STATE.valueBets.slice(0, 20).map((vb, i) => {
-      const eColor   = vb.edge >= 5 ? 'var(--tertiary)' : 'var(--warning)';
-      const fPartido = new Date(vb.fecha).toLocaleString('es-EC', {
-        weekday: 'long', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
-      });
-      const cardId   = `vb-${i}`;
-
-      const porQue = `La casa ofrece odd ${vb.odd.toFixed(2)}, que implica ${vb.probIp.toFixed(1)}% de probabilidad de que ocurra este resultado. Nuestro modelo calcula ${vb.probReal.toFixed(1)}% de probabilidad real. Tienes una ventaja de +${vb.edge.toFixed(1)}% sobre la casa. A largo plazo, apostar con ventaja positiva es matemáticamente rentable.`;
-      const cuanto  = `Kelly recomienda el ${vb.kelly.toFixed(1)}% de tu bankroll → ${fmtUSD(vb.stake)} en ${vb.bk}.`;
-
-      const vbMundial = vb.esMundial
-        ? `<span style="font-size:12px;padding:2px 8px;border-radius:999px;background:linear-gradient(135deg,#FFD700,#FFA500);color:#000;font-weight:700;display:inline-block;margin-bottom:4px">🏆 MUNDIAL</span> `
-        : '';
-
-      return `<div class="vbet-card" id="${cardId}">
-
-        <div class="vbet-header">
-          <div class="vbet-meta">${vbMundial}${vb.liga} · ${fPartido}</div>
-          <div class="vbet-partido">${vb.partido}</div>
-        </div>
-
-        <div class="vbet-metricas">
-          <div class="vbet-m">
-            <div class="vbet-m-val">${vb.odd.toFixed(2)}</div>
-            <div class="vbet-m-label">ODD</div>
-            <div class="vbet-m-sub">Cuota de la casa</div>
-          </div>
-          <div class="vbet-m">
-            <div class="vbet-m-val" style="color:${eColor}">+${vb.edge.toFixed(1)}%</div>
-            <div class="vbet-m-label">EDGE</div>
-            <div class="vbet-m-sub">Tu ventaja sobre la casa</div>
-          </div>
-          <div class="vbet-m">
-            <div class="vbet-m-val" style="color:var(--tertiary)">${vb.kelly.toFixed(1)}%</div>
-            <div class="vbet-m-label">KELLY</div>
-            <div class="vbet-m-sub">% recomendado a apostar</div>
-          </div>
-          <div class="vbet-m">
-            <div class="vbet-m-val">${vb.probReal.toFixed(1)}%</div>
-            <div class="vbet-m-label">PROB.</div>
-            <div class="vbet-m-sub">Probabilidad de ganar</div>
-          </div>
-        </div>
-
-        <div class="vbet-financiero">
-          <span class="vbet-fin-label">Capital sugerido:</span>
-          <span class="vbet-fin-val">${fmtUSD(vb.stake)} <span style="font-size:13px;color:var(--text-3);font-family:var(--f-ui);font-weight:400">(${vb.kelly.toFixed(1)}% del bankroll)</span></span>
-          <span class="vbet-fin-label">Si GANA:</span>
-          <span class="vbet-fin-val pos">+${fmtUSD(vb.ganancia)}</span>
-          <span class="vbet-fin-label">Si PIERDE:</span>
-          <span class="vbet-fin-val neg">-${fmtUSD(vb.stake)}</span>
-          <span class="vbet-fin-label">Casa de apuestas:</span>
-          <span class="vbet-fin-val" style="color:var(--text-2)">${vb.bk}</span>
-        </div>
-
-        <div class="vbet-explain">
-          <div class="vbet-explain-pick">🎯 APOSTAR: ${vb.pick} <span style="font-size:14px;font-weight:400;color:var(--text-3)">(${vb.mercado})</span></div>
-          <div class="vbet-explain-q">¿Por qué esta apuesta?</div>
-          <div class="vbet-explain-a">${porQue}</div>
-          <div class="vbet-explain-q">¿Cuánto apostar?</div>
-          <div class="vbet-explain-a">${cuanto}</div>
-          <div class="vbet-explain-q">¿Cuándo apostar?</div>
-          <div class="vbet-explain-a">Antes del partido: ${fPartido}.</div>
-        </div>
-
-        <div class="vbet-footer">
-          <div class="vbet-footer-src">
-            Prob. real: ${vb.probReal.toFixed(1)}% · Prob. casa: ${vb.probIp.toFixed(1)}%<br>
-            Fuente: The Odds API · ${ahora}
-          </div>
-          <div class="vbet-actions">
-            <button class="btn btn-primary" style="font-size:14px;padding:9px 16px"
-              onclick="registrarVbet(${i})">✅ Registrar apuesta</button>
-            <button class="btn btn-ghost" style="font-size:14px;padding:9px 16px"
-              onclick="ignorarVbet('${cardId}')">Ignorar</button>
-          </div>
-        </div>
-
-      </div>`;
-    }).join('');
-    setHTML('dep-value-bets', header + cards);
+    renderDepValueBets();
   }
 
   // ── Card 2: Partidos próximos ─────────────────────────────
@@ -4261,6 +4211,159 @@ async function checkOddsRemaining() {
 }
 
 // ─── ACCIONES VALUE BET ──────────────────────────────────────
+// ─── FILTROS Y RENDER sec-deportes ──────────────────────────
+
+function toggleDepFiltro() {
+  var panel = document.getElementById('dep-filtro-panel');
+  var btn   = document.getElementById('dep-filtro-btn');
+  if (!panel) return;
+  var abierto = panel.style.display !== 'none';
+  panel.style.display = abierto ? 'none' : 'block';
+  if (btn) {
+    btn.style.color       = abierto ? '#8892a4' : '#4edea3';
+    btn.style.borderColor = abierto ? '#2d3b56'  : '#4edea344';
+  }
+  if (!abierto) _depRenderFtabs();
+}
+
+function _depRenderFtabs() {
+  var el = document.getElementById('dep-ftabs');
+  if (!el) return;
+  var disponibles = [];
+  (STATE.valueBets || []).forEach(function(vb) {
+    if (vb.fuente && !disponibles.includes(vb.fuente)) disponibles.push(vb.fuente);
+  });
+  var opciones = [{ key: 'all', label: 'Todas' }].concat(
+    ['OddsPapi', 'The Odds API', 'odds-api.io']
+      .filter(function(f) { return disponibles.includes(f); })
+      .map(function(f)    { return { key: f, label: f };    })
+  );
+  var activo = STATE.depFiltro.fuente;
+  el.innerHTML = opciones.map(function(o) {
+    var on = o.key === activo;
+    return '<button onclick="setDepFiltroFuente(\'' + o.key + '\')" style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ' + (on ? '#4edea3' : '#2d3b56') + ';background:' + (on ? '#4edea322' : 'transparent') + ';color:' + (on ? '#4edea3' : '#8892a4') + '">' + escHtml(o.label) + '</button>';
+  }).join('');
+}
+
+function setDepFiltroFuente(fuente) {
+  STATE.depFiltro.fuente = fuente;
+  _depRenderFtabs();
+  renderDepValueBets();
+}
+
+function setDepFiltroEdge(val) {
+  STATE.depFiltro.edgeMin = parseFloat(val) || 0;
+  var label = document.getElementById('dep-edge-val');
+  if (label) label.textContent = parseFloat(val).toFixed(1) + '%';
+  renderDepValueBets();
+}
+
+function setDepFiltroOdd() {
+  var minEl = document.getElementById('dep-odd-min');
+  var maxEl = document.getElementById('dep-odd-max');
+  STATE.depFiltro.oddMin = parseFloat(minEl ? minEl.value : 1)  || 1.0;
+  STATE.depFiltro.oddMax = parseFloat(maxEl ? maxEl.value : 20) || 20.0;
+  renderDepValueBets();
+}
+
+function renderDepValueBets() {
+  var el = document.getElementById('dep-value-bets');
+  if (!el) return;
+
+  var f     = STATE.depFiltro;
+  var ahora = ts();
+
+  var bets = (STATE.valueBets || []).filter(function(vb) {
+    if (!vb || vb.edge == null || vb.odd == null) return false;
+    if (f.fuente !== 'all' && vb.fuente !== f.fuente) return false;
+    if (vb.edge < (f.edgeMin || 0)) return false;
+    if (vb.odd < (f.oddMin || 1) || vb.odd > (f.oddMax || 99)) return false;
+    return true;
+  });
+
+  if (!bets.length) {
+    el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-3);font-size:14px">Sin value bets con los filtros actuales.</div>';
+    return;
+  }
+
+  // Agrupar por fuente
+  var grupos = {};
+  bets.forEach(function(vb) {
+    var src = vb.fuente || 'Desconocida';
+    if (!grupos[src]) grupos[src] = [];
+    grupos[src].push(vb);
+  });
+
+  var orden = ['OddsPapi', 'The Odds API', 'odds-api.io'];
+  var fuentesOrdenadas = Object.keys(grupos).sort(function(a, b) {
+    var ia = orden.indexOf(a), ib = orden.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+
+  var HC  = { 'OddsPapi': '#00ff88',              'The Odds API': '#4edea3',              'odds-api.io': '#ffd700'             };
+  var HBG = { 'OddsPapi': 'rgba(0,255,136,0.06)', 'The Odds API': 'rgba(78,222,163,0.06)','odds-api.io': 'rgba(255,215,0,0.06)' };
+  var HBD = { 'OddsPapi': 'rgba(0,255,136,0.2)',  'The Odds API': 'rgba(78,222,163,0.2)', 'odds-api.io': 'rgba(255,215,0,0.2)'  };
+  var REF = { 'OddsPapi': 'Pinnacle vs Bet365',   'The Odds API': 'Pinnacle vs Betsson',  'odds-api.io': 'Bet365 (sin referencia sharp)' };
+
+  var html = '<div style="font-size:14px;color:var(--text-2);margin-bottom:16px"><strong>' + bets.length + '</strong> value bet' + (bets.length !== 1 ? 's' : '') + ' · ' + ahora + '</div>';
+
+  fuentesOrdenadas.forEach(function(fuente) {
+    var grupo = grupos[fuente];
+    var hc  = HC[fuente]  || '#4edea3';
+    var hbg = HBG[fuente] || 'rgba(78,222,163,0.06)';
+    var hbd = HBD[fuente] || 'rgba(78,222,163,0.2)';
+    var ref = REF[fuente] || '';
+
+    // Encabezado de sección por fuente
+    html += '<div style="background:' + hbg + ';border:1px solid ' + hbd + ';border-radius:8px;padding:8px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px">';
+    html += '<span style="color:' + hc + ';font-weight:700;font-size:12px;letter-spacing:0.08em">⚡ ' + escHtml(fuente) + '</span>';
+    html += '<span style="color:var(--text-3);font-size:11px">· ' + escHtml(ref) + '</span>';
+    html += '<span style="margin-left:auto;color:var(--text-3);font-size:11px">' + grupo.length + ' señal' + (grupo.length !== 1 ? 'es' : '') + '</span>';
+    html += '</div>';
+
+    grupo.forEach(function(vb) {
+      var globalIdx = (STATE.valueBets || []).indexOf(vb);
+      var eColor    = vb.edge >= 5 ? 'var(--tertiary)' : 'var(--warning)';
+      var fPartido  = new Date(vb.fecha).toLocaleString('es-EC', { weekday:'long', day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+      var cardId    = 'vb-dep-' + globalIdx;
+      var porQue    = 'La casa ofrece odd ' + vb.odd.toFixed(2) + ', que implica ' + (vb.probIp != null ? vb.probIp.toFixed(1) : '—') + '% de probabilidad. Nuestro modelo calcula ' + vb.probReal.toFixed(1) + '% real. Ventaja: +' + vb.edge.toFixed(1) + '% sobre la casa.';
+      var cuanto    = 'Kelly recomienda el ' + (vb.kelly != null ? vb.kelly.toFixed(1) : '—') + '% del bankroll → ' + fmtUSD(vb.stake) + ' en ' + escHtml(vb.bk || fuente) + '.';
+      var vbMundial = vb.esMundial ? '<span style="font-size:12px;padding:2px 8px;border-radius:999px;background:linear-gradient(135deg,#FFD700,#FFA500);color:#000;font-weight:700;display:inline-block;margin-bottom:4px">🏆 MUNDIAL</span> ' : '';
+
+      html += '<div class="vbet-card" id="' + cardId + '">';
+      html += '<div class="vbet-header"><div class="vbet-meta">' + vbMundial + escHtml(vb.liga) + ' · ' + fPartido + '</div><div class="vbet-partido">' + escHtml(vb.partido) + '</div></div>';
+      html += '<div class="vbet-metricas">';
+      html += '<div class="vbet-m"><div class="vbet-m-val">' + vb.odd.toFixed(2) + '</div><div class="vbet-m-label">ODD</div><div class="vbet-m-sub">Cuota de la casa</div></div>';
+      html += '<div class="vbet-m"><div class="vbet-m-val" style="color:' + eColor + '">+' + vb.edge.toFixed(1) + '%</div><div class="vbet-m-label">EDGE</div><div class="vbet-m-sub">Tu ventaja sobre la casa</div></div>';
+      html += '<div class="vbet-m"><div class="vbet-m-val" style="color:var(--tertiary)">' + (vb.kelly != null ? vb.kelly.toFixed(1) : '—') + '%</div><div class="vbet-m-label">KELLY</div><div class="vbet-m-sub">% recomendado</div></div>';
+      html += '<div class="vbet-m"><div class="vbet-m-val">' + vb.probReal.toFixed(1) + '%</div><div class="vbet-m-label">PROB.</div><div class="vbet-m-sub">Prob. de ganar</div></div>';
+      html += '</div>';
+      html += '<div class="vbet-financiero">';
+      html += '<span class="vbet-fin-label">Capital sugerido:</span><span class="vbet-fin-val">' + fmtUSD(vb.stake) + ' <span style="font-size:13px;color:var(--text-3);font-family:var(--f-ui);font-weight:400">(' + (vb.kelly != null ? vb.kelly.toFixed(1) : '—') + '% del bankroll)</span></span>';
+      html += '<span class="vbet-fin-label">Si GANA:</span><span class="vbet-fin-val pos">+' + fmtUSD(vb.ganancia) + '</span>';
+      html += '<span class="vbet-fin-label">Si PIERDE:</span><span class="vbet-fin-val neg">-' + fmtUSD(vb.stake) + '</span>';
+      html += '<span class="vbet-fin-label">Casa de apuestas:</span><span class="vbet-fin-val" style="color:var(--text-2)">' + escHtml(vb.bk || '—') + '</span>';
+      html += '</div>';
+      html += '<div class="vbet-explain">';
+      html += '<div class="vbet-explain-pick">🎯 APOSTAR: ' + escHtml(vb.pick) + ' <span style="font-size:14px;font-weight:400;color:var(--text-3)">(' + escHtml(vb.mercado) + ')</span></div>';
+      html += '<div class="vbet-explain-q">¿Por qué esta apuesta?</div><div class="vbet-explain-a">' + escHtml(porQue) + '</div>';
+      html += '<div class="vbet-explain-q">¿Cuánto apostar?</div><div class="vbet-explain-a">' + escHtml(cuanto) + '</div>';
+      html += '<div class="vbet-explain-q">¿Cuándo apostar?</div><div class="vbet-explain-a">Antes del partido: ' + fPartido + '.</div>';
+      html += '</div>';
+      html += '<div class="vbet-footer">';
+      html += '<div class="vbet-footer-src">Prob. real: ' + vb.probReal.toFixed(1) + '% · Prob. casa: ' + (vb.probIp != null ? vb.probIp.toFixed(1) : '—') + '%<br>Fuente: ' + escHtml(vb.fuente || '—') + ' · ' + ahora + '</div>';
+      html += '<div class="vbet-actions">';
+      html += '<button class="btn btn-primary" style="font-size:14px;padding:9px 16px" onclick="registrarVbet(' + globalIdx + ')">✅ Registrar apuesta</button>';
+      html += '<button class="btn btn-ghost"   style="font-size:14px;padding:9px 16px" onclick="ignorarVbet(\'' + cardId + '\')">Ignorar</button>';
+      html += '</div></div></div>';
+    });
+
+    html += '<div style="height:6px"></div>';
+  });
+
+  el.innerHTML = html;
+}
+
 function ignorarVbet(id) {
   const el = qs(id);
   if (el) el.style.display = 'none';
@@ -5823,7 +5926,7 @@ function badgeFuenteDE(vb, sufijo) {
     bkInfo = 'Bet365 vs Bet365';
     bg = '#ffd70015'; border = '#ffd70044'; color = '#ffd700';
   } else if (fuente === 'The Odds API') {
-    bkInfo = 'Pinnacle vs Bet365';
+    bkInfo = 'Pinnacle vs ' + (vb.bk || 'N/D');
     bg = '#00ff8815'; border = '#00ff8844'; color = '#00ff88';
   } else {
     bkInfo = null;
@@ -6173,6 +6276,10 @@ function guardarAlertasNotificadas(set) {
 // — Cambio 1: alerta inmediata al detectar señal nueva (cualquier tiempo restante, TTL 240min)
 // — Cambio 2: recordatorios escalonados a 240 / 180 / 120 min del inicio (TTL 60min c/u)
 // notificarAlertasNuevas solo recibe señales a ≤60 min (comportamiento original intacto).
+function esFuenteConfiable(vb) {
+  return vb && (vb.fuente === 'OddsPapi' || vb.fuente === 'The Odds API');
+}
+
 function nuevoVerificarAlertas() {
   var candidatos = [];
 
@@ -6220,7 +6327,7 @@ function nuevoVerificarAlertas() {
     };
 
     // Cambio 1 — alerta inmediata para señal nueva (score >= 70, cualquier tiempo)
-    if (_tgDedup('new_' + clave, 240)) {
+    if (esFuenteConfiable(vb) && _tgDedup('new_' + clave, 240)) {
       autoDetectarYNotificar(datos);
     }
 
@@ -6230,7 +6337,7 @@ function nuevoVerificarAlertas() {
       for (var vi = 0; vi < ventanas.length; vi++) {
         var v = ventanas[vi];
         if (mins <= v && mins > v - 30) {
-          if (_tgDedup('rec_' + v + '_' + clave, 60)) {
+          if (esFuenteConfiable(vb) && _tgDedup('rec_' + v + '_' + clave, 60)) {
             autoDetectarYNotificar(datos);
           }
         }
@@ -6275,10 +6382,10 @@ function notificarAlertasNuevas(alertas) {
     var odd_str = (a.odd != null) ? a.odd.toFixed(2) : '—';
     notifValueBetChrome(a.partido, a.pick, a.score, '—', odd_str, a.minutosRestantes + 'min');
 
-    // Telegram — deduplicado + mensaje largo con storytelling
-    if (_tgDedup('bet_' + a.clave)) {
-      var vb2 = (STATE.deApuestas || []).find(function(v) { return v && v.partido === a.partido && v.pick === a.pick; }) ||
-                ((STATE.mentor && STATE.mentor.sugerencias) || []).find(function(s) { return s && s.partido === a.partido && s.pick === a.pick; }) || {};
+    // Telegram — solo con referencia Pinnacle; dedup después del filtro de fuente
+    var vb2 = (STATE.deApuestas || []).find(function(v) { return v && v.partido === a.partido && v.pick === a.pick; }) ||
+              ((STATE.mentor && STATE.mentor.sugerencias) || []).find(function(s) { return s && s.partido === a.partido && s.pick === a.pick; }) || {};
+    if (esFuenteConfiable(vb2) && _tgDedup('bet_' + a.clave)) {
       var apostar = vb2.apostar != null ? vb2.apostar.toFixed(2) : (STATE.bankroll ? (STATE.bankroll * 0.02).toFixed(2) : '—');
       var gananciaTg = (vb2.apostar && a.odd) ? (vb2.apostar * (a.odd - 1)).toFixed(2) : '—';
       notifValueBetTelegram({
@@ -6542,7 +6649,9 @@ function renderListaDE() {
       '</div>' +
       '</div>' +
       '<div style="margin-top:8px;font-size:12px;font-weight:600;color:' + probColor + '">Prob real: ' + Math.round(vb.probReal) + '%' + probLabel + '</div>' +
-      '<button class="btn btn-ghost" onclick="event.stopPropagation(); registrarEnHistorial(this, STATE.deApuestas[' + i + '])" style="width:100%;margin-top:10px;font-size:13px;padding:8px">📋 Registrar en Historial</button>' +
+      (vb.fuente === 'odds-api.io'
+        ? '<div style="width:100%;margin-top:10px;font-size:12px;color:var(--text-3);text-align:center;padding:8px 0">ℹ️ Solo informativa — edge sin referencia Pinnacle</div>'
+        : '<button class="btn btn-ghost" onclick="event.stopPropagation(); registrarEnHistorial(this, STATE.deApuestas[' + i + '])" style="width:100%;margin-top:10px;font-size:13px;padding:8px">📋 Registrar en Historial</button>') +
       '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px">' +
       '<button onclick="event.stopPropagation();abrirCasa(this,\'https://www.ecuabet.com\')" style="flex:1;min-width:80px;background:#00A651;color:#fff;border:none;border-radius:6px;padding:7px 4px;font-size:11px;font-weight:700;cursor:pointer">🟢 Ecuabet</button>' +
       '<button onclick="event.stopPropagation();abrirCasa(this,\'https://www.bet365.com\')" style="flex:1;min-width:80px;background:#1B7A3E;color:#fff;border:none;border-radius:6px;padding:7px 4px;font-size:11px;font-weight:700;cursor:pointer">🔵 Bet365</button>' +
@@ -6677,7 +6786,9 @@ function mostrarDetalleDE(idx) {
     // Verificación FALCON
     falconBoxHTML() +
     // Botón confirmar
-    '<button class="btn btn-primary" onclick="confirmarDecision()" style="width:100%;font-size:17px;padding:16px;font-weight:700">✅ CONFIRMAR Y REGISTRAR</button>' +
+    (vb.fuente === 'odds-api.io'
+      ? '<div style="width:100%;font-size:12px;color:var(--text-3);text-align:center;padding:16px 0">ℹ️ Solo informativa — edge sin referencia Pinnacle</div>'
+      : '<button class="btn btn-primary" onclick="confirmarDecision()" style="width:100%;font-size:17px;padding:16px;font-weight:700">✅ CONFIRMAR Y REGISTRAR</button>') +
     '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px">' +
     '<button onclick="abrirCasa(this,\'https://www.ecuabet.com\')" style="flex:1;min-width:80px;background:#00A651;color:#fff;border:none;border-radius:8px;padding:12px 4px;font-size:13px;font-weight:700;cursor:pointer">🟢 Ecuabet</button>' +
     '<button onclick="abrirCasa(this,\'https://www.bet365.com\')" style="flex:1;min-width:80px;background:#1B7A3E;color:#fff;border:none;border-radius:8px;padding:12px 4px;font-size:13px;font-weight:700;cursor:pointer">🔵 Bet365</button>' +
@@ -9623,7 +9734,9 @@ function renderCardMentor(s, i) {
       <button class="btn btn-primary" onclick="mentorAddCupon(${i})" style="font-size:16px;padding:12px">✅ Añadir al cupón</button>
       <button class="btn btn-ghost"   onclick="mentorIgnorar(${i})"   style="font-size:16px;padding:12px">Ignorar</button>
     </div>
-    <button class="btn btn-ghost" onclick="registrarEnHistorial(this, STATE.mentor.sugerencias[${i}])" style="width:100%;font-size:14px;padding:10px">📋 Registrar en Historial</button>
+    ${s.fuente === 'odds-api.io'
+      ? '<div style="width:100%;font-size:12px;color:var(--text-3);text-align:center;padding:10px 0">ℹ️ Solo informativa — edge sin referencia Pinnacle</div>'
+      : `<button class="btn btn-ghost" onclick="registrarEnHistorial(this, STATE.mentor.sugerencias[${i}])" style="width:100%;font-size:14px;padding:10px">📋 Registrar en Historial</button>`}
     <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:7px">
       <button onclick="abrirCasa(this,'https://www.ecuabet.com')" style="flex:1;min-width:80px;background:#00A651;color:#fff;border:none;border-radius:6px;padding:8px 4px;font-size:11px;font-weight:700;cursor:pointer">🟢 Ecuabet</button>
       <button onclick="abrirCasa(this,'https://www.bet365.com')" style="flex:1;min-width:80px;background:#1B7A3E;color:#fff;border:none;border-radius:6px;padding:8px 4px;font-size:11px;font-weight:700;cursor:pointer">🔵 Bet365</button>
@@ -9775,6 +9888,7 @@ function registrarEnHistorial(btn, vb) {
     notas: '',
     edgeInflado: !!vb.partidoIniciado,
     fuente_api: vb.fuente || 'Desconocida',
+    bk: vb.bk || null,
   };
 
   const pendientes = JSON.parse(localStorage.getItem('jcahs_pendiente_registro') || '[]');
