@@ -379,7 +379,23 @@
           <span id="de-sensibilidad-valor" style="font-size:14px;font-weight:700;font-family:var(--font-mono);color:#00ff88;min-width:42px;text-align:right">35%</span>
         </div>
         <div id="de-embudo"></div>
-        <div id="de-tabs"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px">
+          <div id="de-tabs"></div>
+          <button id="de-filtro-btn" onclick="toggleDeFiltro()" style="background:transparent;border:1px solid #2d3b56;color:#8892a4;padding:4px 12px;border-radius:6px;font-size:12px;cursor:pointer;transition:color 0.15s,border-color 0.15s;white-space:nowrap">⚙️ Filtros</button>
+        </div>
+        <div id="de-filtro-panel" style="display:none;background:var(--surface-high);border-radius:10px;padding:14px;margin-bottom:14px;border:1px solid #1e2d45">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+            <span style="font-size:11px;color:var(--text-3);font-weight:600;white-space:nowrap">Edge mín.</span>
+            <input type="range" id="de-edge-slider" min="0" max="20" step="0.5" value="0" oninput="setDeFiltroEdge(this.value)" style="flex:1;min-width:100px;accent-color:#4edea3">
+            <span id="de-edge-val" style="font-size:12px;font-family:var(--f-mono);color:#4edea3;min-width:38px;text-align:right">0.0%</span>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <span style="font-size:11px;color:var(--text-3);font-weight:600;white-space:nowrap">Cuota</span>
+            <input type="number" id="de-odd-min" min="1" max="20" step="0.1" value="1.0" oninput="setDeFiltroOddDE()" placeholder="Min" style="width:70px;background:var(--surface-2);border:1px solid #2d3b56;border-radius:6px;color:var(--text-1);padding:4px 8px;font-size:12px;font-family:var(--f-mono)">
+            <span style="color:var(--text-3);font-size:11px">—</span>
+            <input type="number" id="de-odd-max" min="1" max="50" step="0.1" value="20.0" oninput="setDeFiltroOddDE()" placeholder="Max" style="width:70px;background:var(--surface-2);border:1px solid #2d3b56;border-radius:6px;color:var(--text-1);padding:4px 8px;font-size:12px;font-family:var(--f-mono)">
+          </div>
+        </div>
         <div id="de-lista"></div>
         <div id="de-detalle" style="display:none"></div>
       </section>
@@ -912,7 +928,8 @@ Object.assign(window.STATE, {
   histForm:     { abierto:false, editId:null, tipo:'apuesta' },
   iaAsesor:  'MASTER',
   iaChats:   JSON.parse(localStorage.getItem('jcahs_ia_chats') || '{}'),
-  depFiltro: { fuente: 'all', edgeMin: 0, oddMin: 1.0, oddMax: 20.0 },
+  depFiltro:  { fuente: 'all', edgeMin: 0, oddMin: 1.0, oddMax: 20.0 },
+  deFiltroDE: { edgeMin: 0, oddMin: 1.0, oddMax: 20.0 },
 });
 const STATE = window.STATE;
 
@@ -4211,6 +4228,35 @@ async function checkOddsRemaining() {
 }
 
 // ─── ACCIONES VALUE BET ──────────────────────────────────────
+// ─── FILTROS Decision Engine ─────────────────────────────────
+
+function toggleDeFiltro() {
+  var panel = document.getElementById('de-filtro-panel');
+  var btn   = document.getElementById('de-filtro-btn');
+  if (!panel) return;
+  var abierto = panel.style.display !== 'none';
+  panel.style.display = abierto ? 'none' : 'block';
+  if (btn) {
+    btn.style.color       = abierto ? '#8892a4' : '#4edea3';
+    btn.style.borderColor = abierto ? '#2d3b56'  : '#4edea344';
+  }
+}
+
+function setDeFiltroEdge(val) {
+  STATE.deFiltroDE.edgeMin = parseFloat(val) || 0;
+  var label = document.getElementById('de-edge-val');
+  if (label) label.textContent = parseFloat(val).toFixed(1) + '%';
+  renderListaDE();
+}
+
+function setDeFiltroOddDE() {
+  var minEl = document.getElementById('de-odd-min');
+  var maxEl = document.getElementById('de-odd-max');
+  STATE.deFiltroDE.oddMin = parseFloat(minEl ? minEl.value : 1)  || 1.0;
+  STATE.deFiltroDE.oddMax = parseFloat(maxEl ? maxEl.value : 20) || 20.0;
+  renderListaDE();
+}
+
 // ─── FILTROS Y RENDER sec-deportes ──────────────────────────
 
 function toggleDepFiltro() {
@@ -6565,9 +6611,16 @@ function renderListaDE() {
   renderTabsDE(apuestas);
 
   var filtroFuente = STATE.deFiltroFuente || 'all';
+  var fDE = STATE.deFiltroDE || { edgeMin: 0, oddMin: 1.0, oddMax: 20.0 };
   var items = apuestas.map(function(vb, i) { return { vb: vb, i: i }; });
   if (filtroFuente !== 'all') {
     items = items.filter(function(x) { return x.vb.fuente === filtroFuente; });
+  }
+  if (fDE.edgeMin > 0) {
+    items = items.filter(function(x) { return (x.vb.edge || 0) >= fDE.edgeMin; });
+  }
+  if (fDE.oddMin > 1 || fDE.oddMax < 20) {
+    items = items.filter(function(x) { return (x.vb.odd || 0) >= fDE.oddMin && (x.vb.odd || 0) <= fDE.oddMax; });
   }
 
   if (!apuestas.length) {
