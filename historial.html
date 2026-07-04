@@ -1,0 +1,1844 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JCAHS — Historial de Validación</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/main.css">
+<style>
+  /* Override directo: main.css tiene html,body{overflow:hidden} del app-shell */
+  html { overflow: auto !important; height: auto !important; }
+  body { overflow: auto !important; height: auto !important; }
+</style>
+<!-- JCAHS Core State & Config (deben ser los primeros) -->
+<script src="js/core/state.js"></script>
+<script src="js/core/config.js"></script>
+<!-- JCAHS Shared Modules v2 -->
+<script src="js/shared/math.js"></script>
+<script src="js/core/storage.js"></script>
+<script src="js/core/notifications.js"></script>
+<script src="js/core/api.js"></script>
+</head>
+<body class="page-historial">
+
+<!-- Selector de modo global -->
+<div class="hap-modo-bar" id="hap-modo-bar">
+  <button class="hap-modo-btn active" id="tab-prev" onclick="hap_setModo('previsto')"><span class="tooltip-wrapper">📐 Previsto<span class="tooltip-icon">ⓘ</span><div class="tooltip-box"><b>Modo Previsto</b><br>Muestra estadísticas basadas en los datos que calculó el sistema (probabilidades, edge teórico). Útil para evaluar si el sistema tiene buena lógica.</div></span></button>
+  <button class="hap-modo-btn" id="tab-real" onclick="hap_setModo('real')"><span class="tooltip-wrapper">💰 Real<span class="tooltip-icon">ⓘ</span><div class="tooltip-box"><b>Modo Real</b><br>Muestra estadísticas basadas solo en las cuotas y stakes que tú ingresaste manualmente. Útil para saber cuánto estás ganando realmente con tu dinero.</div></span></button>
+  <button class="hap-modo-btn" id="tab-mix" onclick="hap_setModo('mixto')"><span class="tooltip-wrapper">🔀 Mixto<span class="tooltip-icon">ⓘ</span><div class="tooltip-box"><b>Modo Mixto</b><br>Combina datos reales donde los tienes, y datos del sistema donde no. La vista más completa disponible en todo momento.</div></span></button>
+</div>
+
+<h1>📊 Historial de Validación</h1>
+<div class="subtitle">Registro independiente de apuestas para validar edge/probReal contra resultados reales — datos persistidos en localStorage, separado de index.html</div>
+
+<div class="toolbar">
+  <button id="btnExportar">⬇️ Exportar JSON</button>
+  <button id="btnImportar">⬆️ Importar JSON</button>
+  <input type="file" id="inputImportar" accept="application/json">
+  <span class="count" id="contador"></span>
+</div>
+
+<h2 class="section-title">Resumen General</h2>
+<label class="toggle-edge">
+  <input type="checkbox" id="chkEdgeInflado">
+  Incluir casos de edge inflado (n=3)
+</label>
+<div class="aviso-edge" id="avisoEdgeInflado">⚠️ Incluye 3 registros con edge inflado (ver notas)</div>
+<div class="resumen" id="resumenGeneral"></div>
+
+<div class="desgloses">
+  <div class="desglose-box">
+    <h3>Desglose por rango de Prob Real</h3>
+    <p class="explicacion">Esto muestra si el sistema acierta más cuando dice estar "muy seguro" (65-100%) que cuando dice estar "menos seguro" (35-64%). Si la calibración es correcta, el % de aciertos debería ser mayor en la fila de arriba.</p>
+    <table>
+      <thead><tr><th>Rango</th><th>n</th><th>Hit rate</th><th>ROI</th><th>CLV prom</th></tr></thead>
+      <tbody id="tbodyProbReal"></tbody>
+    </table>
+  </div>
+  <div class="desglose-box">
+    <h3>Desglose por mercado</h3>
+    <p class="explicacion">Compara qué tipo de apuesta (Resultado del partido vs Total de goles) ha funcionado mejor hasta ahora.</p>
+    <table>
+      <thead><tr><th>Mercado</th><th>n</th><th>Hit rate</th><th>ROI</th><th>CLV prom</th></tr></thead>
+      <tbody id="tbodyMercado"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="chart-box">
+  <h3>ROI acumulado (registros con monto apostado, en orden por ID)</h3>
+  <canvas id="chartROI" width="900" height="240"></canvas>
+  <p class="explicacion">Esta línea muestra cómo habría evolucionado tu dinero si hubieras apostado en cada predicción registrada, en el orden en que se hicieron.</p>
+</div>
+
+<!-- ═══ SECCIÓN CLV ═══ -->
+<div class="clv-section" id="clv-section">
+  <h2 class="section-title">📈 Análisis CLV (Closing Line Value)</h2>
+
+  <details class="clv-guia">
+    <summary>📖 ¿Cómo registrar la Cuota de Cierre? (expandir)</summary>
+    <div class="guia-body">
+      <b>La cuota de cierre</b> es la odd de Pinnacle 5-10 minutos antes de que empiece el partido.<br><br>
+      <b>¿Dónde encontrarla?</b><br>
+      → <b>OddsPapi</b>: abre JCAHS justo antes del partido y anota la odd de Pinnacle<br>
+      → <b>Pinnacle.com</b>: busca el partido directamente<br>
+      → <b>Oddsportal.com</b>: odds históricas de Pinnacle (para registrar post-partido)<br><br>
+      <b>¿Cuándo registrarla?</b><br>
+      → Antes de que empiece el partido (ideal), o hasta 24H post-resultado desde Oddsportal<br><br>
+      <b>¿Por qué es importante?</b><br>
+      La odd de cierre de Pinnacle es el precio más eficiente del mercado — toda la información pública ya está incorporada.
+      Si tu odd fue mejor que esa, obtuviste valor real <b>independientemente del resultado</b>.
+    </div>
+  </details>
+
+  <div id="clv-aviso-insuf" style="display:none;background:rgba(78,222,163,0.06);border:1px solid rgba(78,222,163,0.2);border-radius:10px;padding:16px;font-size:13px;line-height:1.7;color:#8ba4bd;"></div>
+  <div id="clv-kpis" style="display:none;"></div>
+  <div class="chart-box" id="clv-chart-box" style="display:none;margin-top:14px;">
+    <h3>CLV Acumulado (promedio móvil)</h3>
+    <canvas id="chartCLV" width="900" height="180"></canvas>
+    <p class="explicacion">Esta línea muestra si consistentemente obtienes mejor precio que el mercado. Si tiende hacia arriba y se estabiliza sobre 0%, tienes edge real — más confiable que el ROI o el hit rate porque no depende de la suerte del resultado.</p>
+  </div>
+</div>
+
+<div class="chart-box" id="mc-section" style="margin-top:24px;">
+  <h3 style="margin-bottom:4px;">🎲 Simulador Monte Carlo — Sistema Completo</h3>
+  <p class="explicacion" style="margin-bottom:14px;">Simula miles de escenarios futuros basados en tu hit rate y odds reales. Te muestra el rango probable de resultados, el riesgo de ruina y cuándo podrías alcanzar tu objetivo.</p>
+
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;" id="mc-inputs-grid">
+    <div><label class="input-label">Hit rate (%)</label><input type="number" id="mc-hr" class="input-mc" step="0.1" min="0" max="100" value="50"></div>
+    <div><label class="input-label">Odd promedio</label><input type="number" id="mc-odd" class="input-mc" step="0.01" min="1.01" value="1.90"></div>
+    <div><label class="input-label">Kelly (%)</label><input type="number" id="mc-kelly" class="input-mc" step="0.5" min="0.5" max="25" value="5"></div>
+    <div><label class="input-label">Bankroll inicial ($)</label><input type="number" id="mc-br0" class="input-mc" step="10" min="10" value="200"></div>
+    <div><label class="input-label">Apuestas a simular</label><input type="number" id="mc-nbets" class="input-mc" step="10" min="10" max="500" value="100"></div>
+    <div><label class="input-label">Simulaciones</label><select id="mc-nsims" class="input-mc"><option value="1000">1,000</option><option value="5000" selected>5,000</option><option value="10000">10,000</option></select></div>
+    <div><label class="input-label">Objetivo ($)</label><input type="number" id="mc-obj" class="input-mc" step="100" min="0" value="5000"></div>
+    <div style="display:flex;align-items:flex-end;gap:8px;">
+      <button onclick="ejecutarMC()" id="mc-btn" style="flex:1;padding:10px;background:#4edea3;color:#060f1a;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">▶ Ejecutar</button>
+      <button onclick="compararKelly()" style="padding:10px 8px;background:transparent;border:1px solid rgba(255,255,255,0.1);color:#8ba4bd;border-radius:8px;font-size:12px;cursor:pointer;">⚖️</button>
+    </div>
+  </div>
+
+  <div id="mc-estado" style="display:none;text-align:center;padding:20px;color:#8ba4bd;font-size:13px;">⏳ Calculando...</div>
+
+  <canvas id="mc-canvas" width="900" height="280" style="display:none;width:100%;border-radius:8px;background:#081425;"></canvas>
+
+  <div id="mc-results" style="display:none;"></div>
+  <div id="mc-kelly-table" style="display:none;margin-top:14px;"></div>
+</div>
+
+<!-- Nueva sección de registros con tarjetas -->
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+  <h2 class="section-title" style="margin:0;">Registros de Apuestas</h2>
+  <button class="toolbar button" onclick="hap_abrirModal()" style="background:var(--tertiary);color:#060f1a;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;">➕ Nueva Apuesta</button>
+</div>
+
+<!-- KPIs de calidad (modo-aware) -->
+<div id="hap-calidad"></div>
+
+<!-- Filtros reactivos -->
+<div id="hap-filtros-wrap"></div>
+
+<!-- Lista de tarjetas -->
+<div id="hap-lista"></div>
+
+<!-- Gráfico distribución por liga -->
+<div class="chart-box" id="hap-liga-chart" style="display:none;margin-bottom:20px;">
+  <h3>Hit Rate por Liga</h3>
+  <canvas id="hapCvLiga" width="900" height="180"></canvas>
+</div>
+
+<!-- ═══════════ HISTORIAL POLYMARKET — separado de apuestas deportivas ═══════════ -->
+<h2 class="section-title">🎯 Historial Polymarket</h2>
+<div class="subtitle">Veredictos validados con el motor de scoring de backtesting.js — separado de apuestas deportivas. Clave para calibrar en agosto si "confianza ALTA" predice mejor en la práctica.</div>
+<div id="poly-hist-resumen" class="resumen"></div>
+<div class="desgloses">
+  <div class="desglose-box">
+    <h3>Por Timeframe</h3>
+    <div id="poly-hist-tf"></div>
+  </div>
+  <div class="desglose-box">
+    <h3>Por Confianza</h3>
+    <div id="poly-hist-confianza"></div>
+  </div>
+</div>
+<div id="poly-hist-lista"></div>
+
+<!-- Tbody legacy oculto (mantiene compatibilidad con renderTabla/CLV) -->
+<div style="display:none;"><table><tbody id="tbodyHistorial"></tbody></table></div>
+
+<script>
+const STORAGE_KEY = 'jcahs_historial';
+
+const SEED_DATA = [
+  {"id":1,"edgeInflado":false,"fecha":"2026-06-13","partido":"Kings SC vs JIPPO","liga":"Kolmonen","mercado":"1X2","pick":"Kings SC gana el partido","cuotaPrograma":null,"cuotaReal":null,"probReal":null,"edge":36.9,"partidoId":"kings-sc-vs-jippo-20260613","montoApostado":null,"resultado":"GANÓ","gananciaPerdida":null,"notas":"Marcador: 6-2. Cuota desconocida (odd no registrada en captura original)."},
+  {"id":2,"edgeInflado":false,"fecha":"2026-06-13","partido":"Snohomish vs Ballard","liga":"USL League Two","mercado":"1X2","pick":"Gana Snohomish","cuotaPrograma":null,"cuotaReal":null,"probReal":null,"edge":58.8,"partidoId":"snohomish-vs-ballard-20260613","montoApostado":null,"resultado":"GANÓ","gananciaPerdida":null,"notas":"Marcador: 2-0. Cuota desconocida (odd no registrada en captura original)."},
+  {"id":3,"edgeInflado":false,"fecha":"2026-06-13","partido":"Eupa vs Masku","liga":"Kolmonen","mercado":"1X2","pick":"Eupa gana el partido","cuotaPrograma":1.73,"cuotaReal":null,"probReal":85,"edge":null,"partidoId":"eupa-vs-masku-20260613","montoApostado":10,"resultado":"GANÓ","gananciaPerdida":7.27,"notas":"Marcador: 5-1."},
+  {"id":4,"edgeInflado":false,"fecha":"2026-06-13","partido":"Union Mondsee vs DSG Union Perg","liga":"OÖ Liga","mercado":"1X2","pick":"DSG Union Perg gana el partido","cuotaPrograma":2.10,"cuotaReal":null,"probReal":64,"edge":null,"partidoId":"union-mondsee-vs-dsg-union-perg-20260613","montoApostado":10,"resultado":"PERDIÓ","gananciaPerdida":-10,"notas":"Marcador: 4-2 (ganó Union Mondsee)."},
+  {"id":5,"edgeInflado":false,"fecha":"2026-06-13","partido":"Mikkelin Pallo-Kissat vs Mikkelin Palloilijat 2","liga":"Kolmonen","mercado":"1X2","pick":"Mikkelin Pallo-Kissat gana el partido","cuotaPrograma":2.55,"cuotaReal":null,"probReal":null,"edge":null,"partidoId":"mikkelin-pallo-kissat-vs-mikkelin-palloilijat-2-20260613","montoApostado":10,"resultado":"GANÓ","gananciaPerdida":15.50,"notas":"Marcador: 2-1. Odd implícita (no registrada directamente)."},
+  {"id":6,"edgeInflado":false,"fecha":"2026-06-13","partido":"FC LeKi vs TPV/2","liga":"Kolmonen","mercado":"1X2","pick":"FC LeKi gana el partido","cuotaPrograma":2.70,"cuotaReal":null,"probReal":73,"edge":null,"partidoId":"fc-leki-vs-tpv-2-20260613","montoApostado":10,"resultado":"GANÓ","gananciaPerdida":17.00,"notas":"Marcador: 4-2."},
+  {"id":7,"edgeInflado":false,"fecha":"2026-06-13","partido":"Atlantis FC/2 vs MPS/Atletico Malmi","liga":"Kolmonen","mercado":"1X2","pick":"MPS/Atletico Malmi gana el partido","cuotaPrograma":1.50,"cuotaReal":null,"probReal":80,"edge":null,"partidoId":"atlantis-fc-2-vs-mps-atletico-malmi-20260613","montoApostado":10,"resultado":"GANÓ","gananciaPerdida":5.00,"notas":"Marcador: 1-6."},
+  {"id":8,"edgeInflado":true,"fecha":"2026-06-13","partido":"South Carolina United Bantams vs Hickory FC","liga":"USL League Two","mercado":"1X2","pick":"Hickory FC gana el partido","cuotaPrograma":2.60,"cuotaReal":null,"probReal":87,"edge":127.5,"partidoId":"south-carolina-united-bantams-vs-hickory-fc-20260613","montoApostado":9.96,"resultado":"GANÓ","gananciaPerdida":15.94,"notas":"Marcador: 0-5. Edge inflado — partido ya iniciado al momento de la consulta, odd pre-partido obsoleta. No representativo de condiciones normales de mercado."},
+  {"id":9,"edgeInflado":true,"fecha":"2026-06-13","partido":"Lorain County Leviathan FC vs Akron City FC","liga":"USL League Two","mercado":"1X2","pick":"Lorain County Leviathan FC gana el partido","cuotaPrograma":2.50,"cuotaReal":null,"probReal":65,"edge":85.7,"partidoId":"lorain-county-leviathan-fc-vs-akron-city-fc-20260613","montoApostado":7.14,"resultado":"GANÓ","gananciaPerdida":10.71,"notas":"Marcador: 4-1. Edge inflado — partido ya iniciado, misma situación que el registro #8 (South Carolina United Bantams vs Hickory FC)."},
+  {"id":10,"edgeInflado":true,"fecha":"2026-06-13","partido":"Charlottesville Blues vs Hill City FC","liga":"USL League Two","mercado":"Over/Under 2.5","pick":"Menos de 2.5 goles (-2.5)","cuotaPrograma":2.37,"cuotaReal":null,"probReal":70,"edge":66.3,"partidoId":"charlottesville-blues-vs-hill-city-fc-20260613","montoApostado":6.05,"resultado":"GANÓ","gananciaPerdida":8.34,"notas":"Marcador: 2-0 (2 goles totales, menor a 2.5). Edge inflado — partido ya iniciado, misma situación que el registro #8. Primer acierto del mercado Over/Under."},
+  {"id":11,"edgeInflado":false,"fecha":"2026-06-13","partido":"Milwaukee Torrent vs Gios Lions SC","liga":"NPSL","mercado":"1X2","pick":"Milwaukee Torrent gana el partido","cuotaPrograma":2.00,"cuotaReal":null,"probReal":72,"edge":43.5,"partidoId":"milwaukee-torrent-vs-gios-lions-sc-20260613","montoApostado":5.44,"resultado":"PERDIÓ","gananciaPerdida":-5.44,"notas":"Marcador: 1-1 (empate). Edge inflado — partido ya iniciado, misma situación que el registro #8."},
+  {"id":12,"edgeInflado":false,"fecha":"2026-06-13","partido":"Montgomery United FC vs SSA Swarm FC","liga":"USL League Two","mercado":"1X2","pick":"SSA Swarm FC gana el partido","cuotaPrograma":null,"cuotaReal":null,"probReal":null,"edge":null,"partidoId":"montgomery-united-fc-vs-ssa-swarm-fc-20260613","montoApostado":null,"resultado":"PERDIÓ","gananciaPerdida":null,"notas":"Marcador: 2-2 (empate). Cuota desconocida (odd no registrada en captura original). Nombre de equipo incierto entre fuentes (OddsPapi dice 'SSA Swarm FC', Sofascore muestra 'Southern SA Kings') — resultado no 100% confirmado."},
+  {"id":13,"edgeInflado":false,"fecha":"2026-06-13","partido":"South Carolina United Bantams vs Hickory FC","liga":"USL League Two","mercado":"Over/Under 2.5","pick":"Más de 2.5 goles (+2.5)","cuotaPrograma":1.57,"cuotaReal":null,"probReal":69,"edge":8.3,"partidoId":"south-carolina-united-bantams-vs-hickory-fc-20260613","montoApostado":1.83,"resultado":"GANÓ","gananciaPerdida":1.04,"notas":"Marcador: 0-5 (5 goles totales, mayor a 2.5). Mismo partido que el registro #8, mercado Over/Under adicional. Slider de sensibilidad probReal más bajo."},
+  {"id":14,"edgeInflado":false,"fecha":"2026-06-13","partido":"Montgomery United FC vs SSA Swarm FC","liga":"USL League Two","mercado":"Over/Under 2.5","pick":"Menos de 2.5 goles (-2.5)","cuotaPrograma":2.30,"cuotaReal":null,"probReal":49,"edge":12.9,"partidoId":"montgomery-united-fc-vs-ssa-swarm-fc-20260613","montoApostado":1.24,"resultado":"PERDIÓ","gananciaPerdida":-1.24,"notas":"Marcador: 2-2 (4 goles totales, mayor a 2.5). Mismo partido que el registro #12, mercado Over/Under adicional."},
+  {"id":15,"edgeInflado":false,"fecha":"2026-06-13","partido":"Charlottesville Blues vs Hill City FC","liga":"USL League Two","mercado":"1X2","pick":"Empate en el partido","cuotaPrograma":3.75,"cuotaReal":null,"probReal":39,"edge":47.0,"partidoId":"charlottesville-blues-vs-hill-city-fc-20260613","montoApostado":2.14,"resultado":"PERDIÓ","gananciaPerdida":-2.14,"notas":"Marcador: 2-0 (no fue empate). Mismo partido que el registro #10, mercado 1X2 adicional (apuesta a empate)."},
+  {"id":16,"edgeInflado":false,"fecha":"2026-06-14","partido":"Gremio Atletico Sampaio RR vs Manaus FC AM","liga":"Brasileiro Serie D","mercado":"Over/Under 2.5","pick":"Más de 2.5 goles (+2.5)","cuotaPrograma":2.15,"cuotaReal":null,"probReal":58,"edge":24.8,"partidoId":"gremio-atletico-sampaio-rr-vs-manaus-fc-am-20260614","montoApostado":null,"resultado":"GANÓ","gananciaPerdida":null,"notas":"Marcador: 3-1 (4 goles totales, mayor a 2.5)."}
+];
+
+// ── CLV (Closing Line Value) ──────────────────────────────
+function calcCLV(cuotaPrograma, cuotaCierre) {
+  if (!cuotaPrograma || !cuotaCierre || cuotaCierre <= 0) return null;
+  return (cuotaPrograma - cuotaCierre) / cuotaCierre * 100;
+}
+
+function calcCLVStats(subset) {
+  const conClv = subset.filter(r => r.clv !== null && r.clv !== undefined);
+  if (!conClv.length) return { n: 0, avg: null };
+  return { n: conClv.length, avg: conClv.reduce((s, r) => s + r.clv, 0) / conClv.length };
+}
+
+// Migra registros que no tienen los campos CLV (primera carga)
+function migrarCLV(data) {
+  let modified = false;
+  data.forEach(r => {
+    if (!('cuotaCierre' in r)) { r.cuotaCierre = null; modified = true; }
+    if (!('clv' in r)) {
+      r.clv = (r.cuotaCierre !== null && r.cuotaPrograma !== null) ? calcCLV(r.cuotaPrograma, r.cuotaCierre) : null;
+      modified = true;
+    }
+  });
+  return { data, modified };
+}
+
+function cargarHistorial() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED_DATA));
+    return SEED_DATA.slice();
+  }
+  try {
+    const data = JSON.parse(raw);
+    const { data: migrated, modified } = migrarCLV(data);
+    if (modified) localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+    return migrated;
+  } catch (e) {
+    console.error('Historial: JSON corrupto en localStorage, usando seed', e);
+    return SEED_DATA.slice();
+  }
+}
+
+function guardarHistorial(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+const PENDIENTES_KEY = 'jcahs_pendiente_registro';
+
+// Toma los registros encolados desde index.html (botón "Registrar"),
+// convierte al formato HAP y los escribe en jcahs_historial_apuestas.
+function procesarPendientes() {
+  const raw = localStorage.getItem(PENDIENTES_KEY);
+  if (!raw) return false;
+
+  let pendientes;
+  try {
+    pendientes = JSON.parse(raw);
+  } catch (e) {
+    console.error('Historial: jcahs_pendiente_registro corrupto, descartando', e);
+    localStorage.removeItem(PENDIENTES_KEY);
+    return false;
+  }
+
+  if (!Array.isArray(pendientes) || pendientes.length === 0) {
+    localStorage.removeItem(PENDIENTES_KEY);
+    return false;
+  }
+
+  // Escribir en el sistema HAP (jcahs_historial_apuestas) — el que se muestra
+  const hapActual = hapLeer ? hapLeer() : JSON.parse(localStorage.getItem(HAP_KEY) || '[]');
+  var maxHapId = hapActual.reduce(function(m, r) { return Math.max(m, parseInt(r.id) || 0); }, 0);
+  pendientes.forEach(function(p, idx) {
+    var rec = {
+      id:     maxHapId + 1 + idx,
+      estado: 'pendiente',
+      entrada: {
+        fecha:          p.fecha   || new Date().toISOString().slice(0, 10),
+        hora:           '',
+        partido:        p.partido || '',
+        liga:           p.liga    || '',
+        mercado:        p.mercado || '',
+        pick:           p.pick    || '',
+        hora_partido:   '',
+        stake_sugerido: null,
+        casa_apuestas:  null,
+        cuota_manual:   p.cuotaPrograma || null,
+        stake_manual:   null,
+      },
+      indicadores_sistema: {
+        prob_real:      p.probReal != null ? Math.round(p.probReal * 10) / 10 : null,
+        edge_calculado: p.edge     != null ? Math.round(p.edge     * 10) / 10 : null,
+        odd_pinnacle:   p.cuotaPrograma || null,
+        odd_bet365:     null,
+        score_jcahs:    null,
+        filtros_mentor: null,
+        fuente_api:     p.fuente_api || null,
+        bk:             p.bk        || null,
+      },
+      salida_prevista: {
+        ganancia_esperada: null,
+        perdida_esperada:  null,
+      },
+      salida_real: {
+        resultado:  'PENDIENTE',
+        pnl_usd:    null,
+        odd_cierre: p.cuotaReal || null,
+        clv:        null,
+      },
+      postmortem: { sistema_acerto: null, notas: p.notas || '' },
+    };
+    hapActual.unshift(rec);
+  });
+
+  if (hapGuardar) {
+    hapGuardar(hapActual);
+  } else {
+    localStorage.setItem(HAP_KEY, JSON.stringify(hapActual));
+  }
+  localStorage.removeItem(PENDIENTES_KEY);
+
+  if (typeof hap_renderAll === 'function') hap_renderAll();
+  return true;
+}
+
+
+function fmtNum(v, decimales) {
+  return (v === null || v === undefined || v === '') ? '—' : Number(v).toFixed(decimales);
+}
+
+function parseEditedNumber(text) {
+  const limpio = text.replace(/[^0-9.\-]/g, '');
+  if (limpio === '' || limpio === '-') return null;
+  const num = parseFloat(limpio);
+  return isNaN(num) ? null : num;
+}
+
+// Excluye registros con edgeInflado:true salvo que incluirEdgeInflado sea true
+function filtrarDatos(data, incluirEdgeInflado) {
+  return incluirEdgeInflado ? data : data.filter(r => !r.edgeInflado);
+}
+
+// Cuota efectiva: usa Cuota Real si el usuario la ingresó, sino Cuota Prog.
+function cuotaEfectiva(r) {
+  return (r.cuotaReal !== null && r.cuotaReal !== undefined) ? r.cuotaReal : r.cuotaPrograma;
+}
+
+// G/P calculado automáticamente a partir de cuotaEfectiva, montoApostado y resultado
+function gpCalculado(r) {
+  if (r.montoApostado === null || r.montoApostado === undefined) return null;
+  if (r.resultado === 'GANÓ') {
+    const cuota = cuotaEfectiva(r);
+    if (cuota === null || cuota === undefined) return null;
+    return r.montoApostado * (cuota - 1);
+  }
+  if (r.resultado === 'PERDIÓ') return -r.montoApostado;
+  return null;
+}
+
+// Hit rate sobre TODOS los registros con resultado GANÓ/PERDIÓ; ROI solo sobre los que tienen montoApostado no-null
+function calcularResumen(data) {
+  const conResultado = data.filter(r => r.resultado === 'GANÓ' || r.resultado === 'PERDIÓ');
+  const ganados = conResultado.filter(r => r.resultado === 'GANÓ').length;
+  const hitRate = conResultado.length ? (ganados / conResultado.length * 100) : null;
+
+  const conMonto = data.filter(r => r.montoApostado !== null && r.montoApostado !== undefined);
+  const totalApostado = conMonto.reduce((s, r) => s + r.montoApostado, 0);
+  const totalGP = conMonto.reduce((s, r) => s + (gpCalculado(r) || 0), 0);
+  const roi = totalApostado ? (totalGP / totalApostado * 100) : null;
+
+  return {
+    hitRate, ganados, totalConResultado: conResultado.length,
+    roi, totalGP, totalApostado, n: conMonto.length
+  };
+}
+
+function ce(id, field, type) {
+  return 'contenteditable="true" data-id="' + id + '" data-field="' + field + '" data-type="' + type + '"';
+}
+
+function selectResultado(r) {
+  const opciones = [
+    { v: 'pendiente', t: '⏳ Pendiente' },
+    { v: 'GANÓ', t: 'GANÓ' },
+    { v: 'PERDIÓ', t: 'PERDIÓ' }
+  ];
+  return '<select class="resultado-select" data-id="' + r.id + '" data-field="resultado">' +
+    opciones.map(o => '<option value="' + o.v + '"' + (r.resultado === o.v ? ' selected' : '') + '>' + o.t + '</option>').join('') +
+  '</select>';
+}
+
+function renderTabla() {
+  const data = cargarHistorial();
+  const tbody = document.getElementById('tbodyHistorial');
+  tbody.innerHTML = data.map(r => {
+    const resultadoClass = r.resultado === 'GANÓ' ? 'ganó' : (r.resultado === 'PERDIÓ' ? 'perdió' : (r.resultado === 'pendiente' ? 'pendiente' : ''));
+    const gp = gpCalculado(r);
+    const gpClass = gp === null ? '' : (gp >= 0 ? 'pos' : 'neg');
+    return '<tr class="' + resultadoClass + '">' +
+      '<td>' + escHtml(r.id) + '</td>' +
+      '<td>' + escHtml(r.fecha) + '</td>' +
+      '<td>' + escHtml(r.partido) + '</td>' +
+      '<td>' + escHtml(r.liga) + '</td>' +
+      '<td>' + escHtml(r.mercado) + '</td>' +
+      '<td>' + escHtml(r.pick) + '</td>' +
+      '<td class="num">' + fmtNum(r.cuotaPrograma, 2) + '</td>' +
+      '<td class="num" ' + ce(r.id, 'cuotaReal', 'number') + '>' + fmtNum(r.cuotaReal, 2) + '</td>' +
+      '<td class="num" ' + ce(r.id, 'cuotaCierre', 'number') + ' title="Cuota Pinnacle al cierre. Editar aquí o en Oddsportal post-partido">' + (r.cuotaCierre === null ? '—' : fmtNum(r.cuotaCierre, 2)) + '</td>' +
+      '<td class="num ' + (r.clv === null ? '' : r.clv >= 0 ? 'pos' : 'neg') + '">' + (r.clv === null ? '—' : (r.clv >= 0 ? '+' : '') + r.clv.toFixed(1) + '%') + '</td>' +
+      '<td class="num">' + (r.probReal === null ? '—' : fmtNum(r.probReal, 0) + '%') + '</td>' +
+      '<td class="num">' + (r.edge === null ? '—' : fmtNum(r.edge, 1) + '%') + '</td>' +
+      '<td class="num" ' + ce(r.id, 'montoApostado', 'number') + '>' + (r.montoApostado === null ? '—' : '$' + fmtNum(r.montoApostado, 2)) + '</td>' +
+      '<td class="resultado">' + selectResultado(r) + '</td>' +
+      '<td class="ganancia ' + gpClass + ' num">' + (gp === null ? '—' : (gp >= 0 ? '+$' : '-$') + fmtNum(Math.abs(gp), 2)) + '</td>' +
+      '<td>' + escHtml(r.partidoId) + '</td>' +
+      '<td class="notas">' + escHtml(r.notas) + '</td>' +
+      '<td class="edge-flag"><input type="checkbox" data-id="' + r.id + '" data-field="edgeInflado"' + (r.edgeInflado ? ' checked' : '') + '></td>' +
+      '<td><button class="btn-eliminar" data-id="' + r.id + '">🗑️ Eliminar</button></td>' +
+    '</tr>';
+  }).join('');
+
+  document.getElementById('contador').textContent = data.length + ' registro' + (data.length === 1 ? '' : 's');
+}
+
+function renderResumen() {
+  const incluir = document.getElementById('chkEdgeInflado').checked;
+  const data = filtrarDatos(cargarHistorial(), incluir);
+  const r = calcularResumen(data);
+
+  document.getElementById('avisoEdgeInflado').classList.toggle('visible', incluir);
+
+  const hitRateTxt = r.totalConResultado ? r.hitRate.toFixed(1) + '%' : '—';
+  const roiTxt = r.totalApostado ? (r.roi >= 0 ? '+' : '') + r.roi.toFixed(1) + '%' : '—';
+  const roiClass = r.roi === null ? '' : (r.roi >= 0 ? 'pos' : 'neg');
+  const gpClass = r.totalGP >= 0 ? 'pos' : 'neg';
+  const gpTxt = (r.totalGP >= 0 ? '+$' : '-$') + Math.abs(r.totalGP).toFixed(2);
+
+  const hitExplicacion = r.totalConResultado
+    ? 'De ' + r.totalConResultado + ' predicciones del sistema, ' + r.ganados + ' resultaron correctas.'
+    : 'Aún no hay predicciones con resultado registrado.';
+
+  let roiExplicacion;
+  if (r.totalApostado) {
+    const montoTxt = Math.abs(r.roi).toFixed(2);
+    roiExplicacion = r.roi >= 0
+      ? 'Por cada $100 apostados, se ganaron $' + montoTxt + ' extra (sobre las apuestas donde se registró un monto).'
+      : 'Por cada $100 apostados, se perdieron $' + montoTxt + ' (sobre las apuestas donde se registró un monto).';
+  } else {
+    roiExplicacion = 'Aún no hay apuestas con monto registrado para calcular el ROI.';
+  }
+
+  document.getElementById('resumenGeneral').innerHTML =
+    '<div class="resumen-card"><div class="label">' + tip('Hit rate', TIPS.hit_rate) + '</div>' +
+      '<div class="valor">' + hitRateTxt + '</div>' +
+      '<div class="sub">' + r.ganados + '/' + r.totalConResultado + ' (GANÓ/PERDIÓ)</div>' +
+      '<div class="sub explicacion">' + hitExplicacion + '</div></div>' +
+    '<div class="resumen-card"><div class="label">' + tip('ROI', TIPS.roi) + '</div>' +
+      '<div class="valor ' + roiClass + '">' + roiTxt + '</div>' +
+      '<div class="sub">sobre ' + r.n + ' apuestas con monto registrado</div>' +
+      '<div class="sub explicacion">' + roiExplicacion + '</div></div>' +
+    '<div class="resumen-card"><div class="label">Total apostado</div>' +
+      '<div class="valor">$' + r.totalApostado.toFixed(2) + '</div>' +
+      '<div class="sub">' + r.n + ' registros con monto</div>' +
+      '<div class="sub explicacion">Dinero real puesto en juego.</div></div>' +
+    '<div class="resumen-card"><div class="label">Ganancia/Pérdida neta</div>' +
+      '<div class="valor ' + gpClass + '">' + gpTxt + '</div>' +
+      '<div class="sub">' + data.length + ' registros considerados</div>' +
+      '<div class="sub explicacion">Resultado final: cuánto se ganó o perdió en total.</div></div>';
+}
+
+const RANGOS_PROB = [
+  { label: '65-100%', test: v => v !== null && v >= 65 },
+  { label: '35-64%', test: v => v !== null && v >= 35 && v < 65 },
+  { label: '<35%', test: v => v !== null && v < 35 },
+  { label: 'Sin dato', test: v => v === null || v === undefined }
+];
+
+function filaDesglose(label, subset) {
+  const stats = calcularResumen(subset);
+  const hitTxt = stats.totalConResultado ? stats.hitRate.toFixed(1) + '% (' + stats.ganados + '/' + stats.totalConResultado + ')' : '—';
+  const roiTxt = stats.totalApostado ? (stats.roi >= 0 ? '+' : '') + stats.roi.toFixed(1) + '% (n=' + stats.n + ')' : '—';
+  const clvS = calcCLVStats(subset);
+  const clvTxt = clvS.n >= 2 ? (clvS.avg >= 0 ? '+' : '') + clvS.avg.toFixed(1) + '% (n=' + clvS.n + ')' : '—';
+  const clvCls = clvS.n >= 2 ? (clvS.avg >= 0 ? 'pos' : 'neg') : '';
+  return '<tr><td>' + escHtml(label) + '</td><td class="num">' + subset.length + '</td><td class="num">' + hitTxt + '</td><td class="num">' + roiTxt + '</td><td class="num ' + clvCls + '">' + clvTxt + '</td></tr>';
+}
+
+function renderDesgloseProbReal() {
+  const incluir = document.getElementById('chkEdgeInflado').checked;
+  const data = filtrarDatos(cargarHistorial(), incluir);
+
+  document.getElementById('tbodyProbReal').innerHTML = RANGOS_PROB
+    .map(rango => filaDesglose(rango.label, data.filter(r => rango.test(r.probReal))))
+    .join('');
+}
+
+function renderDesgloseMercado() {
+  const incluir = document.getElementById('chkEdgeInflado').checked;
+  const data = filtrarDatos(cargarHistorial(), incluir);
+  const mercados = [...new Set(data.map(r => r.mercado))];
+
+  document.getElementById('tbodyMercado').innerHTML = mercados
+    .map(m => filaDesglose(m, data.filter(r => r.mercado === m)))
+    .join('');
+}
+
+function renderGraficoROI() {
+  const incluir = document.getElementById('chkEdgeInflado').checked;
+  const data = filtrarDatos(cargarHistorial(), incluir)
+    .filter(r => r.montoApostado !== null && r.montoApostado !== undefined)
+    .slice()
+    .sort((a, b) => a.id - b.id);
+
+  const canvas = document.getElementById('chartROI');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  if (data.length === 0) {
+    ctx.fillStyle = '#8ba4bd';
+    ctx.font = '13px Inter';
+    ctx.fillText('Sin registros con monto apostado en este filtro.', 16, H / 2);
+    return;
+  }
+
+  let cumApostado = 0, cumGP = 0;
+  const puntos = data.map(r => {
+    cumApostado += r.montoApostado;
+    cumGP += (gpCalculado(r) || 0);
+    return { id: r.id, roi: cumApostado ? (cumGP / cumApostado * 100) : 0 };
+  });
+
+  const margin = { top: 16, right: 20, bottom: 26, left: 50 };
+  const plotW = W - margin.left - margin.right;
+  const plotH = H - margin.top - margin.bottom;
+
+  const roiVals = puntos.map(p => p.roi);
+  let minROI = Math.min(0, ...roiVals);
+  let maxROI = Math.max(0, ...roiVals);
+  if (minROI === maxROI) { minROI -= 10; maxROI += 10; }
+  const pad = (maxROI - minROI) * 0.1;
+  minROI -= pad; maxROI += pad;
+
+  const xStep = puntos.length > 1 ? plotW / (puntos.length - 1) : 0;
+  const yScale = v => margin.top + plotH - ((v - minROI) / (maxROI - minROI)) * plotH;
+  const xScale = i => margin.left + i * xStep;
+
+  ctx.font = '11px JetBrains Mono';
+
+  // línea de referencia en 0%
+  const zeroY = yScale(0);
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(margin.left, zeroY);
+  ctx.lineTo(margin.left + plotW, zeroY);
+  ctx.stroke();
+
+  // etiquetas eje Y
+  ctx.fillStyle = '#8ba4bd';
+  ctx.fillText(maxROI.toFixed(0) + '%', 4, margin.top + 8);
+  ctx.fillText('0%', 4, zeroY + 4);
+  ctx.fillText(minROI.toFixed(0) + '%', 4, margin.top + plotH);
+
+  // línea de ROI acumulado
+  ctx.strokeStyle = '#4edea3';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  puntos.forEach((p, i) => {
+    const x = xScale(i), y = yScale(p.roi);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // puntos + etiquetas de ID en eje X
+  ctx.fillStyle = '#4edea3';
+  puntos.forEach((p, i) => {
+    const x = xScale(i), y = yScale(p.roi);
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.fillStyle = '#4e6a88';
+  puntos.forEach((p, i) => {
+    const x = xScale(i);
+    ctx.fillText('#' + p.id, x - 8, H - 8);
+  });
+}
+
+function renderClv() {
+  const incluir = document.getElementById('chkEdgeInflado')?.checked;
+  const data = filtrarDatos(cargarHistorial(), incluir);
+  const conClv = data.filter(r => r.clv !== null && r.clv !== undefined);
+  const aviso = document.getElementById('clv-aviso-insuf');
+  const kpisEl = document.getElementById('clv-kpis');
+  const chartBox = document.getElementById('clv-chart-box');
+
+  if (conClv.length < 3) {
+    if (aviso) { aviso.style.display = ''; aviso.innerHTML = 'Registra la cuota de cierre en tus próximas apuestas para activar el análisis CLV — <b>el indicador más poderoso de edge real</b> (funciona desde 3 registros). <br><br>Edita la columna <b>"Cuota Cierre"</b> en la tabla de registros con la odd de Pinnacle al cierre del partido.'; }
+    if (kpisEl) kpisEl.style.display = 'none';
+    if (chartBox) chartBox.style.display = 'none';
+    return;
+  }
+  if (aviso) aviso.style.display = 'none';
+  if (kpisEl) kpisEl.style.display = '';
+  if (chartBox) chartBox.style.display = '';
+
+  const clvProm = conClv.reduce((s, r) => s + r.clv, 0) / conClv.length;
+  const nPos = conClv.filter(r => r.clv > 0).length;
+  const pctPos = nPos / conClv.length * 100;
+
+  // Correlación CLV vs Resultado
+  const clvPos = conClv.filter(r => r.clv > 0 && (r.resultado === 'GANÓ' || r.resultado === 'PERDIÓ'));
+  const clvNeg = conClv.filter(r => r.clv <= 0 && (r.resultado === 'GANÓ' || r.resultado === 'PERDIÓ'));
+  const hrPos = clvPos.length ? (clvPos.filter(r => r.resultado === 'GANÓ').length / clvPos.length * 100).toFixed(1) + '%' : '—';
+  const hrNeg = clvNeg.length ? (clvNeg.filter(r => r.resultado === 'GANÓ').length / clvNeg.length * 100).toFixed(1) + '%' : '—';
+  const roiPos = calcularResumen(clvPos);
+  const roiNeg = calcularResumen(clvNeg);
+  const roiPosTxt = roiPos.roi !== null ? (roiPos.roi >= 0 ? '+' : '') + roiPos.roi.toFixed(1) + '%' : '—';
+  const roiNegTxt = roiNeg.roi !== null ? (roiNeg.roi >= 0 ? '+' : '') + roiNeg.roi.toFixed(1) + '%' : '—';
+
+  // Veredicto
+  let verd, verdBg, verdCol;
+  if (conClv.length >= 3 && clvProm > 3 && pctPos > 60) {
+    verd = '<b>✅ EDGE CONFIRMADO</b><br>Tu sistema consistentemente obtiene mejor precio que el mercado de cierre. Esto es la evidencia más sólida de edge real disponible en value betting. Con estos datos puedes considerar escalar el bankroll con confianza.';
+    verdBg = 'rgba(78,222,163,0.1)'; verdCol = '#4edea3';
+  } else if (conClv.length >= 3 && clvProm > 0 && pctPos > 50) {
+    verd = '<b>⚡ INDICIOS DE EDGE</b><br>CLV positivo pero necesitas más datos. Objetivo: 20-30 registros con cuota de cierre para confirmación estadística.';
+    verdBg = 'rgba(255,217,102,0.1)'; verdCol = '#ffd966';
+  } else if (conClv.length >= 10 && clvProm < 0) {
+    verd = '<b>⚠️ SIN EVIDENCIA DE EDGE</b><br>El mercado tiene mejor precio que tú consistentemente. Posibles causas: (1) Las odds de OddsPapi no coinciden con las reales en Ecuabet. (2) El de-vig necesita recalibración. (3) Estás entrando tarde (el mercado ya movió la línea). Revisar proceso antes de continuar.';
+    verdBg = 'rgba(255,100,100,0.1)'; verdCol = '#ff6464';
+  } else {
+    verd = '<b>📊 INSUFICIENTE</b><br>Registra cuota de cierre en al menos 10 apuestas para un veredicto confiable. Actualmente: ' + conClv.length + '/10 registros.';
+    verdBg = 'rgba(255,255,255,0.04)'; verdCol = '#8ba4bd';
+  }
+
+  // Explicaciones KPI
+  const expClvProm = clvProm > 3 ? 'Excelente — obtienes en promedio un precio ' + clvProm.toFixed(1) + '% mejor que el mercado al cierre. Evidencia fuerte de edge real.' :
+    clvProm > 0 ? 'Positivo pero moderado — obtienes ligeramente mejor precio que el mercado. Necesitas más datos para confirmar.' :
+    'Negativo — el mercado tiene mejor precio que tú. Revisar si las odds de OddsPapi coinciden con las reales en Ecuabet.';
+  const expPctPos = pctPos > 55 ? 'Más de la mitad de tus apuestas superan el precio de cierre. Señal fuerte de sistema bien calibrado.' :
+    pctPos >= 45 ? 'Sin señal clara todavía. Necesitas más registros para determinar si hay edge real.' :
+    'El mercado supera tus precios con frecuencia. Revisar el proceso de selección.';
+
+  kpisEl.innerHTML =
+    '<div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px;">' +
+    '<div class="clv-card"><div class="label">' + tip('CLV Promedio', TIPS.clv) + '</div>' +
+    '<div class="valor ' + (clvProm >= 0 ? 'pos' : 'neg') + '">' + (clvProm >= 0 ? '+' : '') + clvProm.toFixed(2) + '%</div>' +
+    '<div class="sub">' + conClv.length + ' registros con cuota de cierre</div>' +
+    '<div class="sub">' + expClvProm + '</div></div>' +
+
+    '<div class="clv-card"><div class="label">' + tip('% Con CLV Positivo', TIPS.clv) + '</div>' +
+    '<div class="valor ' + (pctPos > 55 ? 'pos' : pctPos >= 45 ? '' : 'neg') + '">' + pctPos.toFixed(1) + '%</div>' +
+    '<div class="sub">' + nPos + '/' + conClv.length + ' apuestas con CLV > 0</div>' +
+    '<div class="sub">' + expPctPos + '</div></div>' +
+
+    '<div class="clv-card" style="flex:2;min-width:260px;"><div class="label">Correlación CLV → Resultado</div>' +
+    '<table class="corr-table"><thead><tr><th></th><th>Hit rate</th><th>ROI</th><th>n</th></tr></thead><tbody>' +
+    '<tr><td>Con CLV positivo</td><td class="' + (hrPos !== '—' && parseFloat(hrPos) > 50 ? 'pos' : '') + '">' + hrPos + '</td><td>' + roiPosTxt + '</td><td>' + clvPos.length + '</td></tr>' +
+    '<tr><td>Con CLV negativo</td><td>' + hrNeg + '</td><td>' + roiNegTxt + '</td><td>' + clvNeg.length + '</td></tr>' +
+    '</tbody></table>' +
+    '<div class="sub" style="margin-top:6px;">Si el hit rate es mayor cuando el CLV es positivo → el sistema identifica correctamente las oportunidades de valor.</div></div>' +
+    '</div>' +
+    '<div class="clv-veredicto" style="background:' + verdBg + ';border:1px solid ' + verdCol + '20;color:' + verdCol + ';">' + verd + '</div>';
+
+  renderGraficoCLV(conClv);
+}
+
+function renderGraficoCLV(conClv) {
+  const canvas = document.getElementById('chartCLV');
+  if (!canvas || !conClv.length) return;
+  const W = canvas.width, H = canvas.height;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  // Rolling average
+  let sumClv = 0;
+  const puntos = conClv.map((r, i) => { sumClv += r.clv; return sumClv / (i + 1); });
+
+  const margin = { top: 16, right: 20, bottom: 26, left: 50 };
+  const pw = W - margin.left - margin.right;
+  const ph = H - margin.top - margin.bottom;
+  const mn = Math.min(0, ...puntos) - 1, mx = Math.max(0, ...puntos) + 1;
+  const toX = i => margin.left + (i / Math.max(1, puntos.length - 1)) * pw;
+  const toY = v => margin.top + (1 - (v - mn) / (mx - mn)) * ph;
+
+  // Zero line
+  const zy = toY(0);
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 1; ctx.setLineDash([6, 3]);
+  ctx.beginPath(); ctx.moveTo(margin.left, zy); ctx.lineTo(W - margin.right, zy); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // CLV line
+  const lastVal = puntos[puntos.length - 1];
+  const lineColor = lastVal >= 0 ? '#4edea3' : '#ff6464';
+  ctx.beginPath();
+  puntos.forEach((v, i) => i === 0 ? ctx.moveTo(toX(0), toY(v)) : ctx.lineTo(toX(i), toY(v)));
+  ctx.strokeStyle = lineColor; ctx.lineWidth = 2.5; ctx.stroke();
+
+  // Dots
+  ctx.fillStyle = lineColor;
+  puntos.forEach((v, i) => {
+    ctx.beginPath(); ctx.arc(toX(i), toY(v), 4, 0, Math.PI * 2); ctx.fill();
+  });
+
+  // Labels
+  ctx.font = '11px JetBrains Mono'; ctx.fillStyle = '#8ba4bd'; ctx.textAlign = 'right';
+  ctx.fillText(mx.toFixed(1) + '%', margin.left - 4, margin.top + 8);
+  ctx.fillText('0%', margin.left - 4, zy + 4);
+  ctx.fillText(mn.toFixed(1) + '%', margin.left - 4, margin.top + ph);
+  ctx.fillStyle = lineColor; ctx.textAlign = 'left';
+  ctx.fillText((lastVal >= 0 ? '+' : '') + lastVal.toFixed(1) + '%', toX(puntos.length - 1) + 6, toY(lastVal) + 4);
+}
+
+// ── SISTEMA DE TOOLTIPS ───────────────────────────────────
+function tip(label, texto) {
+  return '<span class="tooltip-wrapper">' + label +
+    '<span class="tooltip-icon">ⓘ</span>' +
+    '<div class="tooltip-box">' + texto + '</div></span>';
+}
+
+const TIPS = {
+  hit_rate: '<b>Hit Rate</b><br>Porcentaje de apuestas que ganaste. Ejemplo: 6 de 10 = 60% Hit Rate.<br><i>No es suficiente solo — puedes ganar poco y perder mucho.</i>',
+  roi: '<b>ROI — Retorno sobre inversión</b><br>Por cada $100 apostados, ¿cuánto ganaste o perdiste?<br>ROI +20% = ganaste $20 por cada $100. ROI -10% = perdiste $10.',
+  clv: '<b>CLV — Closing Line Value</b><br>Compara tu cuota vs la cuota final de Pinnacle antes del partido.<br>CLV positivo = conseguiste mejor precio que el mercado → ventaja real.<br><i>El indicador más poderoso para saber si tu sistema funciona.</i>',
+  edge: '<b>Edge (Ventaja)</b><br>Diferencia entre lo que vale la apuesta y lo que paga la casa.<br>Edge +5% = la casa te paga 5% más de lo que debería → apuesta con valor.<br>Edge negativo = la casa tiene ventaja → no apostar.',
+  prob_real: '<b>Probabilidad Real</b><br>Lo que el sistema estima de chance de ganar, sin margen de la casa.<br>Si la casa paga cuota 2.00 (50%) y el sistema dice 60%, hay valor.',
+  kelly: '<b>Kelly %</b><br>Cuánto de tu bankroll apostar según tu ventaja matemática.<br>Kelly 5% = apostar el 5% de tu capital. JCAHS usa Kelly fraccionado (25%) para reducir riesgo.',
+  odd_cierre: '<b>Cuota de Cierre</b><br>La cuota final de Pinnacle justo antes de que empiece el partido.<br>Es el precio más eficiente del mercado. Se usa para calcular el CLV.',
+  varianza: '<b>Varianza</b><br>Incluso las buenas decisiones pueden perder a corto plazo por azar.<br>Una apuesta con 70% de probabilidad pierde 3 de cada 10 veces.<br>La varianza disminuye con más apuestas — necesitas mínimo 100.',
+  sistema_acerto: '<b>¿El sistema acertó?</b><br>✅ Correcto: tenías ventaja y ganaste, o no tenías y perdiste.<br>⚠️ Varianza: tenías ventaja pero perdiste — fue mala suerte.<br>🍀 Suerte: no tenías ventaja pero ganaste — no repetir.',
+  monte_carlo: '<b>Simulación Monte Carlo</b><br>Simula miles de futuros posibles con tu hit rate y cuota actual.<br>Muestra: peor escenario probable, caso base, mejor caso, tiempo para tu objetivo.',
+  riesgo_ruina: '<b>Riesgo de Ruina</b><br>Probabilidad de perder todo tu bankroll si sigues apostando igual.<br>Debe mantenerse por debajo del 5%.',
+  filtros_mentor: '<b>Filtros Mentor</b><br>Cuántos criterios de calidad pasó esta apuesta antes de recomendarla.<br>Ejemplo: 4 de 5 = pasó 4 de los 5 filtros del sistema. Más filtros = señal más confiable.',
+};
+
+document.addEventListener('click', function(e) {
+  const icon = e.target.closest('.tooltip-icon');
+  if (icon) {
+    const wrapper = icon.closest('.tooltip-wrapper');
+    const isActive = wrapper.classList.contains('active');
+    document.querySelectorAll('.tooltip-wrapper.active').forEach(w => w.classList.remove('active'));
+    if (!isActive) wrapper.classList.add('active');
+    e.stopPropagation();
+  } else {
+    document.querySelectorAll('.tooltip-wrapper.active').forEach(w => w.classList.remove('active'));
+  }
+});
+
+function renderTodo() {
+  renderTabla(); // mantiene tbodyHistorial para edits legacy de CLV/focusout
+  renderResumen();
+  renderDesgloseProbReal();
+  renderDesgloseMercado();
+  renderGraficoROI();
+  renderClv();
+  hap_renderAll(); // nuevo sistema de tarjetas
+}
+
+function exportarJSON() {
+  const data = cargarHistorial();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'jcahs_historial_' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importarJSON(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!Array.isArray(data)) throw new Error('El JSON debe ser un array de registros');
+      guardarHistorial(data);
+      renderTodo();
+      alert('Historial importado: ' + data.length + ' registros.');
+    } catch (err) {
+      alert('Error al importar JSON: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+document.getElementById('btnExportar').addEventListener('click', exportarJSON);
+document.getElementById('btnImportar').addEventListener('click', () => document.getElementById('inputImportar').click());
+document.getElementById('inputImportar').addEventListener('change', (e) => {
+  if (e.target.files[0]) importarJSON(e.target.files[0]);
+  e.target.value = '';
+});
+
+document.getElementById('chkEdgeInflado').addEventListener('change', renderTodo);
+
+// Edición inline: celdas contenteditable (texto y números)
+document.getElementById('tbodyHistorial').addEventListener('focusout', (e) => {
+  const el = e.target;
+  const field = el.getAttribute('data-field');
+  if (!field || el.getAttribute('contenteditable') !== 'true') return;
+
+  const id = Number(el.getAttribute('data-id'));
+  const type = el.getAttribute('data-type');
+  const data = cargarHistorial();
+  const rec = data.find(r => r.id === id);
+  if (!rec) return;
+
+  const texto = el.textContent.trim();
+  rec[field] = (type === 'number') ? parseEditedNumber(texto) : texto;
+
+  // Cuando se edita cuotaCierre, recalcular CLV automáticamente
+  if (field === 'cuotaCierre') {
+    rec.clv = calcCLV(rec.cuotaPrograma, rec.cuotaCierre);
+  }
+
+  guardarHistorial(data);
+  renderTodo();
+});
+
+// Edición inline: select de resultado y checkbox de edge inflado
+document.getElementById('tbodyHistorial').addEventListener('change', (e) => {
+  const el = e.target;
+  const field = el.getAttribute('data-field');
+  if (!field) return;
+
+  const id = Number(el.getAttribute('data-id'));
+  const data = cargarHistorial();
+  const rec = data.find(r => r.id === id);
+  if (!rec) return;
+
+  rec[field] = (el.type === 'checkbox') ? el.checked : el.value;
+
+  guardarHistorial(data);
+  renderTodo();
+});
+
+// Eliminar registro individual
+document.getElementById('tbodyHistorial').addEventListener('click', (e) => {
+  const btn = e.target.closest('.btn-eliminar');
+  if (!btn) return;
+
+  if (!confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) return;
+
+  const id = Number(btn.getAttribute('data-id'));
+  const data = cargarHistorial().filter(r => r.id !== id);
+  guardarHistorial(data);
+  // Sincronizar eliminación al sistema HAP para que las tarjetas queden correctas
+  try { hapGuardar(hapLeer().filter(r => r.id != id)); } catch(e) {}
+  renderTodo();
+});
+
+// ── MONTE CARLO SISTEMA ──────────────────────────────────
+function mcAutoLoad() {
+  const data = cargarHistorial();
+  const incl = document.getElementById('chkEdgeInflado')?.checked;
+  const filt = filtrarDatos(data, incl).filter(r => r.resultado === 'GANÓ' || r.resultado === 'PERDIÓ');
+  if (!filt.length) return;
+  const stats = calcularResumen(filt);
+  const gan = filt.filter(r => r.resultado === 'GANÓ').length;
+  const hrEl = document.getElementById('mc-hr');
+  const oddEl = document.getElementById('mc-odd');
+  const brEl = document.getElementById('mc-br0');
+  if (hrEl) hrEl.value = stats.hitRate?.toFixed(1) || 50;
+  const odds = filt.map(r => r.cuotaReal || r.cuotaPrograma).filter(o => o > 1);
+  if (odds.length && oddEl) oddEl.value = (odds.reduce((s,v) => s+v,0)/odds.length).toFixed(2);
+  if (brEl) brEl.value = parseFloat(localStorage.getItem('jcahs_bankroll')) || 200;
+}
+
+function monteCarloSistema(hitRate, oddProm, kellyPct, bankroll0, nApuestas, nSims) {
+  const k = kellyPct / 100;
+  const bankrolls = []; // final bankrolls
+  const paths50 = []; // first 50 full paths for graph
+  let sumMaxLoss = 0;
+  const ruinas = [];
+  const rachas = [];
+
+  for (let s = 0; s < nSims; s++) {
+    let br = bankroll0, maxRacha = 0, rachaActual = 0;
+    const path = s < 50 ? [br] : null;
+    let esRuina = false;
+    for (let b = 0; b < nApuestas; b++) {
+      if (br <= 0) { esRuina = true; break; }
+      const monto = Math.max(0.01, br * k);
+      if (Math.random() < hitRate) { br += monto * (oddProm - 1); rachaActual = 0; }
+      else { br -= monto; rachaActual++; if (rachaActual > maxRacha) maxRacha = rachaActual; }
+      if (path) path.push(Math.max(0, br));
+    }
+    bankrolls.push(Math.max(0, br));
+    if (path) paths50.push(path);
+    rachas.push(maxRacha);
+    if (esRuina || br <= bankroll0 * 0.01) ruinas.push(s);
+  }
+
+  bankrolls.sort((a, b) => a - b);
+  const p10 = bankrolls[Math.floor(nSims * 0.10)];
+  const p50 = bankrolls[Math.floor(nSims * 0.50)];
+  const p90 = bankrolls[Math.floor(nSims * 0.90)];
+  rachas.sort((a, b) => a - b);
+  const rachaP80 = rachas[Math.floor(nSims * 0.80)];
+
+  // Percentile paths (step-by-step) from first min(1000,nSims) sims stored (paths50 = 50 paths)
+  const nSteps = paths50[0]?.length || 1;
+  const pPaths = { p10: [], p50: [], p90: [] };
+  if (paths50.length >= 10) {
+    for (let step = 0; step < nSteps; step++) {
+      const vals = paths50.map(p => p[step] || 0).sort((a,b) => a-b);
+      pPaths.p10.push(vals[Math.floor(vals.length * 0.10)]);
+      pPaths.p50.push(vals[Math.floor(vals.length * 0.50)]);
+      pPaths.p90.push(vals[Math.floor(vals.length * 0.90)]);
+    }
+  }
+
+  // Is it luck or system? Compare with random (hitRate=0.5) achieving same p50 ROI
+  const targetROI = (p50 - bankroll0) / bankroll0;
+  let luckyCount = 0;
+  for (let s = 0; s < Math.min(nSims, 2000); s++) {
+    let br = bankroll0;
+    for (let b = 0; b < nApuestas; b++) {
+      if (br <= 0) break;
+      const m = Math.max(0.01, br * k);
+      if (Math.random() < 0.5) br += m * (oddProm - 1); else br -= m;
+    }
+    if ((br - bankroll0) / bankroll0 >= targetROI) luckyCount++;
+  }
+  const pctSuerte = luckyCount / Math.min(nSims, 2000) * 100;
+
+  return { p10, p50, p90, paths50, pPaths, nSteps,
+           riesgoRuina: ruinas.length / nSims * 100,
+           rachaMaxP80: rachaP80, pctSuerte };
+}
+
+function ejecutarMC() {
+  const btn = document.getElementById('mc-btn');
+  const estado = document.getElementById('mc-estado');
+  const canvas = document.getElementById('mc-canvas');
+  const results = document.getElementById('mc-results');
+  const kellyTable = document.getElementById('mc-kelly-table');
+  if (!btn) return;
+
+  const hr    = parseFloat(document.getElementById('mc-hr')?.value) / 100 || 0.5;
+  const odd   = parseFloat(document.getElementById('mc-odd')?.value) || 1.9;
+  const kelly = parseFloat(document.getElementById('mc-kelly')?.value) || 5;
+  const br0   = parseFloat(document.getElementById('mc-br0')?.value) || 200;
+  const nBets = Math.min(500, Math.max(10, parseInt(document.getElementById('mc-nbets')?.value) || 100));
+  const nSims = parseInt(document.getElementById('mc-nsims')?.value) || 5000;
+  const obj   = parseFloat(document.getElementById('mc-obj')?.value) || 5000;
+
+  if (estado) { estado.style.display = ''; estado.textContent = '⏳ Calculando ' + nSims.toLocaleString() + ' simulaciones × ' + nBets + ' apuestas...'; }
+  if (canvas)  canvas.style.display = 'none';
+  if (results) results.style.display = 'none';
+  if (kellyTable) kellyTable.style.display = 'none';
+  btn.disabled = true; btn.textContent = '⏳ Calculando...';
+
+  setTimeout(function() {
+    try {
+      const res = monteCarloSistema(hr, odd, kelly, br0, nBets, nSims);
+      if (estado) estado.style.display = 'none';
+      renderMCCanvas(res, br0, nBets);
+      renderMCResults(res, hr, odd, kelly, br0, nBets, nSims, obj);
+    } catch(e) {
+      if (estado) { estado.textContent = 'Error: ' + e.message; }
+    }
+    btn.disabled = false; btn.textContent = '▶ Ejecutar';
+  }, 0);
+}
+
+function renderMCCanvas(res, br0, nBets) {
+  const canvas = document.getElementById('mc-canvas');
+  if (!canvas) return;
+  canvas.style.display = 'block';
+  const W = canvas.offsetWidth || 900, H = 280;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d'); if (!ctx) return;
+  ctx.clearRect(0, 0, W, H);
+
+  const pad = { l: 56, r: 14, t: 14, b: 30 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+
+  const allVals = [...res.pPaths.p10, ...res.pPaths.p90, br0];
+  const minV = Math.min(0, ...allVals), maxV = Math.max(...allVals) || 1;
+  const toX = i => pad.l + (i / Math.max(1, res.nSteps - 1)) * pw;
+  const toY = v => pad.t + (1 - (v - minV) / (maxV - minV)) * ph;
+
+  // Gray paths (50 simulations)
+  ctx.globalAlpha = 0.15;
+  res.paths50.forEach(path => {
+    ctx.beginPath();
+    path.forEach((v, i) => i === 0 ? ctx.moveTo(toX(i), toY(v)) : ctx.lineTo(toX(i), toY(v)));
+    ctx.strokeStyle = '#8ba4bd'; ctx.lineWidth = 1; ctx.stroke();
+  });
+  ctx.globalAlpha = 1;
+
+  // Bankroll inicial horizontal
+  const zy = toY(br0);
+  ctx.setLineDash([6, 3]); ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad.l, zy); ctx.lineTo(W - pad.r, zy); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Percentile curves
+  const drawLine = (pts, color, dash) => {
+    if (!pts.length) return;
+    if (dash) ctx.setLineDash([6,3]); else ctx.setLineDash([]);
+    ctx.beginPath();
+    pts.forEach((v, i) => i === 0 ? ctx.moveTo(toX(i), toY(v)) : ctx.lineTo(toX(i), toY(v)));
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+    ctx.setLineDash([]);
+  };
+  drawLine(res.pPaths.p90, '#4A9EFF', true);
+  drawLine(res.pPaths.p50, '#4edea3', false);
+  drawLine(res.pPaths.p10, '#ff6464', true);
+
+  // Labels
+  ctx.font = '10px JetBrains Mono, monospace'; ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(139,164,189,0.7)';
+  ctx.fillText('$' + Math.round(maxV), pad.l - 4, pad.t + 10);
+  ctx.fillText('$' + Math.round(br0), pad.l - 4, zy + 4);
+  ctx.fillText('$' + Math.round(minV < 0 ? 0 : minV), pad.l - 4, H - pad.b);
+  ctx.textAlign = 'left'; ctx.fillStyle = '#4edea3'; ctx.fillText('P50', W - pad.r + 2, toY(res.pPaths.p50.at(-1) || br0) + 4);
+  ctx.fillStyle = '#4A9EFF'; ctx.fillText('P90', W - pad.r + 2, toY(res.pPaths.p90.at(-1) || br0) - 3);
+  ctx.fillStyle = '#ff6464'; ctx.fillText('P10', W - pad.r + 2, toY(res.pPaths.p10.at(-1) || br0) + 10);
+
+  // Legend
+  ctx.font = '11px Inter, sans-serif'; ctx.textAlign = 'left';
+  [[50, '#8ba4bd'], [null, null]].concat([[res.pPaths.p90.length,'P90 — mejor 10%','#4A9EFF'], [res.pPaths.p50.length,'P50 — caso base','#4edea3'], [1,'P10 — peor 10%','#ff6464']]).forEach(() => {});
+  const legend = [['P90 mejor 10%','#4A9EFF'], ['P50 caso base','#4edea3'], ['P10 peor 10%','#ff6464'], ['Bankroll inicial','rgba(255,255,255,0.4)']];
+  legend.forEach(([label, col], i) => {
+    ctx.fillStyle = col; ctx.fillRect(pad.l + i * 130, H - 14, 14, 3);
+    ctx.fillStyle = 'rgba(139,164,189,0.7)'; ctx.fillText(label, pad.l + i * 130 + 18, H - 6);
+  });
+}
+
+function renderMCResults(res, hr, odd, kelly, br0, nBets, nSims, obj) {
+  const el = document.getElementById('mc-results');
+  if (!el) return;
+  el.style.display = '';
+
+  const ruinaColor = res.riesgoRuina < 5 ? 'var(--tertiary)' : res.riesgoRuina < 15 ? 'var(--warning)' : 'var(--error)';
+  const suerteColor = res.pctSuerte < 5 ? 'var(--tertiary)' : res.pctSuerte < 15 ? 'var(--warning)' : 'var(--error)';
+
+  // Meses al objetivo (estimado: nBets apuestas / 5 por semana ≈ 20/mes)
+  const apxMes = 20;
+  const mesP = v => v <= br0 ? '—' : (Math.ceil(nBets * Math.log(obj / br0) / Math.log(v / br0) / apxMes)).toString() + ' meses';
+
+  el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px;">' +
+
+    '<div class="mc-kpi">' +
+    '<div class="mc-kpi-title">' + tip('🎲 Riesgo de ruina', TIPS.riesgo_ruina) + '</div>' +
+    '<div class="mc-kpi-val" style="color:' + ruinaColor + '">' + res.riesgoRuina.toFixed(1) + '%</div>' +
+    '<div class="mc-kpi-exp">En ' + Math.round(res.riesgoRuina/100*nSims) + ' de cada ' + nSims.toLocaleString() + ' escenarios el bankroll llega a cero. ' +
+    (res.riesgoRuina < 5 ? 'Verde — riesgo bajo.' : res.riesgoRuina < 15 ? 'Amarillo — cuidado.' : 'Rojo — Kelly demasiado agresivo.') + '</div>' +
+    '</div>' +
+
+    '<div class="mc-kpi">' +
+    '<div class="mc-kpi-title">📊 Rango de resultados (' + nBets + ' apuestas)</div>' +
+    '<div style="font-size:13px;font-family:JetBrains Mono,monospace;line-height:2;">' +
+    '<span style="color:#4A9EFF">Mejor 10%:</span> $' + Math.round(res.p90) + ' (' + (res.p90 > br0 ? '+' : '') + ((res.p90 - br0)/br0*100).toFixed(0) + '%)<br>' +
+    '<span style="color:#4edea3">Caso base:</span> $' + Math.round(res.p50) + ' (' + (res.p50 > br0 ? '+' : '') + ((res.p50 - br0)/br0*100).toFixed(0) + '%)<br>' +
+    '<span style="color:#ff6464">Peor 10%:</span> $' + Math.round(res.p10) + ' (' + (res.p10 > br0 ? '+' : '') + ((res.p10 - br0)/br0*100).toFixed(0) + '%)' +
+    '</div></div>' +
+
+    '<div class="mc-kpi">' +
+    '<div class="mc-kpi-title">📉 Racha mala esperada</div>' +
+    '<div class="mc-kpi-val">' + res.rachaMaxP80 + ' pérdidas seguidas</div>' +
+    '<div class="mc-kpi-exp">En el 80% de los casos tendrás al menos una racha de ' + res.rachaMaxP80 + ' pérdidas seguidas. Es normal — no abandones el sistema si ocurre.</div>' +
+    '</div>' +
+
+    '<div class="mc-kpi">' +
+    '<div class="mc-kpi-title">🎯 Tiempo para llegar a $' + obj.toLocaleString() + '</div>' +
+    '<div style="font-size:13px;font-family:JetBrains Mono,monospace;line-height:2;">' +
+    (res.p90 >= obj ? '<span style="color:#4A9EFF">Mejor caso:</span> ~' + mesP(res.p90) + '<br>' : '<span style="color:#4A9EFF">Mejor caso:</span> no alcanza en ' + nBets + ' apuestas<br>') +
+    (res.p50 >= obj ? '<span style="color:#4edea3">Caso base:</span> ~' + mesP(res.p50) + '<br>' : '<span style="color:#4edea3">Caso base:</span> no alcanza en ' + nBets + ' apuestas<br>') +
+    (res.p10 >= obj ? '<span style="color:#ff6464">Peor caso:</span> ~' + mesP(res.p10) : '<span style="color:#ff6464">Peor caso:</span> no alcanza en ' + nBets + ' apuestas') +
+    '</div></div>' +
+
+    '<div class="mc-kpi" style="grid-column:span 2">' +
+    '<div class="mc-kpi-title">' + tip('🔬 ¿Es suerte o sistema?', TIPS.monte_carlo) + '</div>' +
+    '<div class="mc-kpi-val" style="color:' + suerteColor + '">' + res.pctSuerte.toFixed(1) + '% de simulaciones aleatorias logran tu ROI</div>' +
+    '<div class="mc-kpi-exp">' +
+    (res.pctSuerte < 5 ? '✅ Edge confirmado estadísticamente — menos del 5% de escenarios sin ventaja real logran tu resultado.' :
+     res.pctSuerte < 15 ? '⚠️ Hay indicios de edge pero necesitas más muestra para confirmarlo (5-15% podría ser suerte).' :
+     '🎲 Probabilmente suerte — más del 15% de escenarios aleatorios igualan tu ROI. Necesitas más datos.') +
+    '</div></div>' +
+    '</div>';
+}
+
+function compararKelly() {
+  const hr   = parseFloat(document.getElementById('mc-hr')?.value) / 100 || 0.5;
+  const odd  = parseFloat(document.getElementById('mc-odd')?.value) || 1.9;
+  const br0  = parseFloat(document.getElementById('mc-br0')?.value) || 200;
+  const nB   = Math.min(200, parseInt(document.getElementById('mc-nbets')?.value) || 100);
+  const kActual = parseFloat(document.getElementById('mc-kelly')?.value) || 5;
+  const el = document.getElementById('mc-kelly-table');
+  if (!el) return;
+  el.style.display = ''; el.innerHTML = '<div style="color:#8ba4bd;font-size:12px;margin-bottom:8px;">⏳ Calculando comparación de Kelly (5 × 1,000 sims)...</div>';
+
+  setTimeout(function() {
+    const kellys = [2, 5, 10, 15, 20];
+    const rows = kellys.map(k => {
+      const r = monteCarloSistema(hr, odd, k, br0, nB, 1000);
+      return { k, ruina: r.riesgoRuina, p50: r.p50, p90: r.p90 };
+    });
+    const bestIdx = rows.reduce((bi, r, i) => {
+      const score = (100 - r.ruina * 3) + ((r.p50 - br0) / br0 * 100);
+      const bScore = (100 - rows[bi].ruina * 3) + ((rows[bi].p50 - br0) / br0 * 100);
+      return score > bScore ? i : bi;
+    }, 0);
+
+    let html = '<div style="overflow-x:auto;margin-top:6px;"><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="color:#8ba4bd;font-size:11px;text-align:left;">';
+    html += '<th style="padding:8px 10px;">Kelly %</th><th>Ruina</th><th>Caso base</th><th>Mejor 10%</th><th></th></tr></thead><tbody>';
+    rows.forEach((r, i) => {
+      const isActual = Math.round(r.k) === Math.round(kActual);
+      const isBest = i === bestIdx;
+      const bg = isActual ? 'rgba(78,222,163,0.06)' : 'transparent';
+      const rc = r.ruina < 5 ? '#4edea3' : r.ruina < 15 ? '#ffd966' : '#ff6464';
+      html += '<tr style="background:' + bg + ';border-bottom:1px solid rgba(255,255,255,0.05);">' +
+        '<td style="padding:8px 10px;font-family:monospace;font-weight:700;">' + r.k + '%' + (isActual ? ' ← actual' : '') + '</td>' +
+        '<td style="color:' + rc + ';font-family:monospace;">' + r.ruina.toFixed(1) + '%</td>' +
+        '<td style="font-family:monospace;">$' + Math.round(r.p50) + '</td>' +
+        '<td style="font-family:monospace;color:#4A9EFF;">$' + Math.round(r.p90) + '</td>' +
+        '<td style="color:#4edea3;font-size:11px;">' + (isBest ? '✅ óptimo' : '') + '</td></tr>';
+    });
+    html += '</tbody></table><div style="font-size:11px;color:#4e6a88;margin-top:6px;">Kelly óptimo = mejor balance entre velocidad y seguridad dadas tu hit rate y odd promedio.</div></div>';
+    el.innerHTML = html;
+  }, 0);
+}
+
+// Auto-load MC inputs from historial
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(mcAutoLoad, 200);
+  renderHistorialPolymarket();
+  sincronizarDesdeKV();
+  setInterval(sincronizarDesdeKV, 5 * 60 * 1000);
+});
+
+// ─── SINCRONIZACIÓN DESDE KV (confirmados vía Telegram) ───────
+var _WORKER = 'https://jcahs-proxy.jh050447.workers.dev';
+
+async function sincronizarDesdeKV() {
+  // ── Sync confirmados (deportivos + Polymarket) desde KV ───────────────────
+  try {
+    var res = await fetch(_WORKER + '/apuestas/pendientes');
+    if (res.ok) {
+      var registrosPendientes = await res.json();
+      if (registrosPendientes && registrosPendientes.length > 0) {
+        var historial     = Storage.getHistorialApuestas();
+        var historialPoly = Storage.getHistorialPolymarket();
+        var nuevos = 0, nuevosPoly = 0;
+
+        for (var i = 0; i < registrosPendientes.length; i++) {
+          var registro = registrosPendientes[i];
+          var esPoly   = registro.tipo === 'polymarket';
+          var lista    = esPoly ? historialPoly : historial;
+          var existe   = lista.find(function(h) { return h.id === registro.id; });
+          if (!existe) {
+            lista.unshift(registro);
+            if (esPoly) nuevosPoly++; else nuevos++;
+            // Marcar como sincronizado en KV (fire-and-forget)
+            fetch(_WORKER + '/apuestas/sincronizada', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ registroId: registro.id }),
+            }).catch(function() {});
+          }
+        }
+
+        if (nuevos > 0) {
+          Storage.setHistorialApuestas(historial);
+          console.log('Sincronizados desde Telegram: ' + nuevos + ' registro(s)');
+          if (typeof renderHistorial === 'function') renderHistorial();
+        }
+        if (nuevosPoly > 0) {
+          Storage.setHistorialPolymarket(historialPoly);
+          console.log('Polymarket confirmados sincronizados: ' + nuevosPoly);
+          if (typeof renderHistorialPolymarket === 'function') renderHistorialPolymarket();
+        }
+      }
+    }
+  } catch(e) {
+    console.warn('sincronizarDesdeKV error:', e.message);
+  }
+
+  // ── Aplicar resultados Polymarket resueltos por el cron del Worker ──
+  try {
+    var resRes = await fetch(_WORKER + '/apuestas/resultados-polymarket');
+    if (!resRes.ok) return;
+    var resultados = await resRes.json();
+    if (!resultados || resultados.length === 0) return;
+
+    var historial2 = Storage.getHistorialPolymarket();
+    var aplicados = 0;
+
+    for (var j = 0; j < resultados.length; j++) {
+      var r = resultados[j];
+      var reg2 = historial2.find(function(h) { return h.id === r.id; });
+      if (reg2 && reg2.estado === 'pendiente') {
+        reg2.estado = r.estado;
+        reg2.salida_real = { resultado: r.resultado, acerto: r.acerto, pnl_usd: r.pnl_usd };
+        aplicados++;
+      }
+      // Borrar el resultado del KV se intente o no haya match local (evita reintentos infinitos)
+      fetch(_WORKER + '/apuestas/resultado-aplicado', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ registroId: r.id }),
+      }).catch(function() {});
+    }
+
+    if (aplicados > 0) {
+      Storage.setHistorialPolymarket(historial2);
+      console.log('Resultados Polymarket aplicados: ' + aplicados);
+      if (typeof renderHistorialPolymarket === 'function') renderHistorialPolymarket();
+    }
+  } catch(e) {
+    console.warn('sincronizar resultados Polymarket error:', e.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  HISTORIAL POLYMARKET — separado de apuestas deportivas
+// ═══════════════════════════════════════════════════════════
+
+function _polyHistDatos() {
+  return Storage.getHistorialPolymarket();
+}
+
+function _polyHistMetricas(lista) {
+  var conResultado = lista.filter(function(r) { return r.estado === 'ganada' || r.estado === 'perdida'; });
+  var ganadas = conResultado.filter(function(r) { return r.estado === 'ganada'; }).length;
+  var hitRate = conResultado.length ? (ganadas / conResultado.length * 100) : null;
+
+  var totalStake = lista.reduce(function(s, r) { return s + (r.entrada && r.entrada.stake ? r.entrada.stake : 0); }, 0);
+  var totalPnl = conResultado.reduce(function(s, r) { return s + (r.salida_real && r.salida_real.pnl_usd ? r.salida_real.pnl_usd : 0); }, 0);
+  var stakeResueltos = conResultado.reduce(function(s, r) { return s + (r.entrada && r.entrada.stake ? r.entrada.stake : 0); }, 0);
+  var roi = stakeResueltos ? (totalPnl / stakeResueltos * 100) : null;
+
+  return {
+    hitRate: hitRate, ganadas: ganadas, totalConResultado: conResultado.length,
+    roi: roi, totalPnl: totalPnl, totalStake: totalStake, n: lista.length,
+    pendientes: lista.filter(function(r) { return r.estado === 'pendiente'; }).length
+  };
+}
+
+function renderHistorialPolymarket() {
+  var elResumen = document.getElementById('poly-hist-resumen');
+  var elTf = document.getElementById('poly-hist-tf');
+  var elConf = document.getElementById('poly-hist-confianza');
+  var elLista = document.getElementById('poly-hist-lista');
+  if (!elResumen) return; // sección no presente en esta página
+
+  var lista = _polyHistDatos();
+  if (lista.length === 0) {
+    elResumen.innerHTML = '<div class="resumen-card"><div class="label">Sin registros aún</div><div class="sub">Los veredictos registrados desde Telegram (✅ REGISTRAR) aparecerán aquí.</div></div>';
+    elTf.innerHTML = ''; elConf.innerHTML = ''; elLista.innerHTML = '';
+    return;
+  }
+
+  var m = _polyHistMetricas(lista);
+  var hitTxt = m.totalConResultado ? m.hitRate.toFixed(1) + '%' : '—';
+  var roiTxt = m.totalConResultado ? (m.roi >= 0 ? '+' : '') + m.roi.toFixed(1) + '%' : '—';
+  var roiClass = m.roi === null ? '' : (m.roi >= 0 ? 'pos' : 'neg');
+  var pnlTxt = (m.totalPnl >= 0 ? '+$' : '-$') + Math.abs(m.totalPnl).toFixed(2);
+  var pnlClass = m.totalPnl >= 0 ? 'pos' : 'neg';
+
+  elResumen.innerHTML =
+    '<div class="resumen-card"><div class="label">Hit rate</div><div class="valor">' + hitTxt + '</div>' +
+      '<div class="sub">' + m.ganadas + '/' + m.totalConResultado + ' resueltos · ' + m.pendientes + ' pendientes</div></div>' +
+    '<div class="resumen-card"><div class="label">ROI</div><div class="valor ' + roiClass + '">' + roiTxt + '</div>' +
+      '<div class="sub">sobre $' + m.totalStake.toFixed(2) + ' apostado total</div></div>' +
+    '<div class="resumen-card"><div class="label">P&L neto</div><div class="valor ' + pnlClass + '">' + pnlTxt + '</div>' +
+      '<div class="sub">' + m.n + ' registros totales</div></div>';
+
+  // Desglose por timeframe (1h / 4h / diario)
+  var tfs = ['1h', '4h', 'diario'];
+  elTf.innerHTML = tfs.map(function(tf) {
+    var sub = lista.filter(function(r) { return r.entrada && r.entrada.timeframe === tf; });
+    var mm = _polyHistMetricas(sub);
+    var h = mm.totalConResultado ? mm.hitRate.toFixed(0) + '%' : '—';
+    var col = mm.hitRate >= 60 ? 'var(--tertiary)' : mm.hitRate >= 45 ? 'var(--warning)' : mm.hitRate != null ? 'var(--error)' : 'var(--text-3)';
+    return '<div class="hap-fila"><span class="hap-lbl">' + tf.toUpperCase() + '</span>' +
+      '<span style="font-family:monospace;font-weight:700;color:' + col + '">' + h + ' <span style="color:var(--text-3);font-weight:400;">(' + mm.totalConResultado + '/' + mm.n + ')</span></span></div>';
+  }).join('');
+
+  // Desglose por confianza (ALTA / MEDIA / BAJA) — la pieza clave para calibrar en agosto
+  var confs = ['ALTA', 'MEDIA', 'BAJA'];
+  elConf.innerHTML = confs.map(function(conf) {
+    var sub = lista.filter(function(r) { return r.entrada && r.entrada.confianza === conf; });
+    var mm = _polyHistMetricas(sub);
+    var h = mm.totalConResultado ? mm.hitRate.toFixed(0) + '%' : '—';
+    var col = mm.hitRate >= 60 ? 'var(--tertiary)' : mm.hitRate >= 45 ? 'var(--warning)' : mm.hitRate != null ? 'var(--error)' : 'var(--text-3)';
+    return '<div class="hap-fila"><span class="hap-lbl">' + conf + '</span>' +
+      '<span style="font-family:monospace;font-weight:700;color:' + col + '">' + h + ' <span style="color:var(--text-3);font-weight:400;">(' + mm.totalConResultado + '/' + mm.n + ')</span></span></div>';
+  }).join('');
+
+  // Lista de registros recientes (más nuevos primero)
+  var recientes = lista.slice().sort(function(a, b) { return (b.id || '').localeCompare(a.id || ''); }).slice(0, 20);
+  elLista.innerHTML = recientes.map(function(r) {
+    var e = r.entrada || {};
+    var sr = r.salida_real || {};
+    var estadoIcon = r.estado === 'ganada' ? '🟢' : r.estado === 'perdida' ? '🔴' : '⏳';
+    var pnlStr = sr.pnl_usd != null ? ((sr.pnl_usd >= 0 ? '+$' : '-$') + Math.abs(sr.pnl_usd).toFixed(2)) : '—';
+    return '<div class="hap-card" style="margin-bottom:8px;">' +
+      '<div class="hap-card-hdr" style="cursor:default;">' +
+        estadoIcon + ' ' + (e.token || '') + ' · ' + (e.timeframe || '').toUpperCase() + ' · ' + (e.direccion || '') +
+        ' <span style="color:var(--text-3);font-weight:400;">— Score ' + (e.score != null ? e.score : '—') + '/100 · ' + (e.confianza || '') + ' · ' + (e.fecha || '') + ' ' + (e.hora || '') + '</span>' +
+        '<span style="float:right;font-family:monospace;">' + pnlStr + '</span>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  HISTORIAL APUESTAS — nuevo sistema con tarjetas
+// ═══════════════════════════════════════════════════════════
+
+const HAP_KEY      = 'jcahs_historial_apuestas';
+const HAP_MODO_KEY = 'jcahs_historial_modo';
+
+// ── Migración legacy (una sola vez) ──────────────────────
+function migrarRegistrosLegacy() {
+  if (localStorage.getItem(HAP_KEY)) return;
+  const legacy = cargarHistorial();
+  const migrated = legacy.map(r => ({
+    id: r.id,
+    estado: (r.resultado && r.resultado !== 'pendiente') ? 'cerrada' : 'pendiente',
+    edgeInflado: !!r.edgeInflado,
+    entrada: {
+      fecha: r.fecha || '', hora: '',
+      partido: r.partido || '', liga: r.liga || '',
+      mercado: r.mercado || '', pick: r.pick || '',
+      casa_apuestas: '', cuota_manual: r.cuotaReal || r.cuotaPrograma || null,
+      stake_manual: r.montoApostado || null, kelly_pct: null
+    },
+    indicadores_sistema: {
+      score_jcahs: null, prob_real: r.probReal || null,
+      edge_calculado: r.edge || null, odd_pinnacle: r.cuotaPrograma || null,
+      odd_bet365: null, filtros_mentor_pasados: null, filtros_mentor_total: null
+    },
+    salida_prevista: { ganancia_esperada_usd: null, perdida_esperada_usd: null, resultado_esperado: '' },
+    salida_real: {
+      resultado: (r.resultado || 'PENDIENTE').toUpperCase(),
+      pnl_usd: r.gananciaPerdida || null,
+      odd_cierre: r.cuotaCierre || r.cuotaReal || null,
+      clv: r.clv || null,
+      fecha_resultado: r.fecha || '', notas_resultado: r.notas || ''
+    },
+    postmortem: { sistema_acerto: null, notas: r.notas || '' }
+  }));
+  localStorage.setItem(HAP_KEY, JSON.stringify(migrated));
+}
+
+// ── CRUD ─────────────────────────────────────────────────
+function hapLeer() { try { return JSON.parse(localStorage.getItem(HAP_KEY) || '[]'); } catch { return []; } }
+function hapGuardar(lista) { localStorage.setItem(HAP_KEY, JSON.stringify(lista)); }
+function hapGetModo() { return localStorage.getItem(HAP_MODO_KEY) || 'previsto'; }
+
+function hap_setModo(modo) {
+  localStorage.setItem(HAP_MODO_KEY, modo);
+  document.querySelectorAll('.hap-modo-btn').forEach(b => b.classList.remove('active'));
+  const map = { previsto:'tab-prev', real:'tab-real', mixto:'tab-mix' };
+  document.getElementById(map[modo])?.classList.add('active');
+  hap_renderAll();
+}
+
+// ── Estado filtros ────────────────────────────────────────
+const hapF = { liga:'all', mercado:'all', resultado:'all', casa:'all', fuente:'all', desde:'', hasta:'', probMin:0, texto:'' };
+
+function hapFiltrar(lista) {
+  return lista.filter(r => {
+    if (r.tipo === 'polymarket') return false;
+    const res = (r.salida_real?.resultado || '').toUpperCase();
+    if (hapF.liga !== 'all' && (r.entrada?.liga || '') !== hapF.liga) return false;
+    if (hapF.mercado !== 'all') {
+      const m = r.entrada?.mercado || '';
+      if (hapF.mercado === '1X2' && m !== '1X2') return false;
+      if (hapF.mercado === 'ou25' && !m.includes('2.5')) return false;
+      if (hapF.mercado === 'btts' && !/ambos|btts/i.test(m)) return false;
+    }
+    if (hapF.resultado !== 'all') {
+      if (hapF.resultado === 'ganadas' && res !== 'GANÓ') return false;
+      if (hapF.resultado === 'perdidas' && res !== 'PERDIÓ') return false;
+      if (hapF.resultado === 'pendientes' && r.estado !== 'pendiente') return false;
+    }
+    if (hapF.casa !== 'all' && (r.entrada?.casa_apuestas || '') !== hapF.casa) return false;
+    if (hapF.fuente !== 'all' && (r.indicadores_sistema?.fuente_api || 'Desconocida') !== hapF.fuente) return false;
+    if (hapF.desde && (r.entrada?.fecha || '') < hapF.desde) return false;
+    if (hapF.hasta && (r.entrada?.fecha || '') > hapF.hasta) return false;
+    if ((r.indicadores_sistema?.prob_real || 0) < hapF.probMin) return false;
+    if (hapF.texto) {
+      const q = hapF.texto.toLowerCase();
+      if (!(r.entrada?.partido||'').toLowerCase().includes(q) &&
+          !(r.entrada?.liga||'').toLowerCase().includes(q) &&
+          !(r.entrada?.pick||'').toLowerCase().includes(q) &&
+          !(r.postmortem?.notas||'').toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function hapSetF(key, val) { hapF[key] = val; hap_renderAll(); }
+function hap_limpiarFiltros() {
+  Object.assign(hapF, { liga:'all', mercado:'all', resultado:'all', casa:'all', fuente:'all', desde:'', hasta:'', probMin:0, texto:'' });
+  hap_renderAll();
+}
+
+// ── P&L automático ────────────────────────────────────────
+function hapCalcPnL(r) {
+  const cuota = r.entrada?.cuota_manual;
+  const stake = r.entrada?.stake_manual;
+  const res   = (r.salida_real?.resultado || '').toUpperCase();
+  if (!cuota || !stake || !res || res === 'PENDIENTE') return null;
+  return res === 'GANÓ' ? stake * (cuota - 1) : -stake;
+}
+
+function hapSistemaAcerto(r) {
+  const edge = r.indicadores_sistema?.edge_calculado;
+  const res  = (r.salida_real?.resultado || '').toUpperCase();
+  if (edge == null || !res || res === 'PENDIENTE') return null;
+  const ep = edge > 0, g = res === 'GANÓ';
+  if (ep && g)   return { icon:'✅', txt:'Sistema correcto — edge positivo y ganaste' };
+  if (ep && !g)  return { icon:'⚠️', txt:'Varianza — el sistema tenía razón, perdiste por azar' };
+  if (!ep && !g) return { icon:'✅', txt:'Sistema correcto — edge negativo, no debías apostar' };
+  return           { icon:'🍀', txt:'Suerte — ganaste pero el sistema falló' };
+}
+
+// ── Render principal ──────────────────────────────────────
+function hap_renderAll() {
+  const todas = hapLeer();
+  const modo  = hapGetModo();
+  // Activar tab correcto
+  const mapTab = { previsto:'tab-prev', real:'tab-real', mixto:'tab-mix' };
+  document.querySelectorAll('.hap-modo-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(mapTab[modo])?.classList.add('active');
+
+  const lista = hapFiltrar(todas);
+  lista.sort(function(a, b) { return (parseInt(b.id) || 0) - (parseInt(a.id) || 0); });
+  hap_renderKpisCalidad(lista, modo);
+  hap_renderFiltros(todas, lista.length);
+  hap_renderLista(lista, modo);
+  hap_renderGraficoLiga(lista);
+}
+
+function hap_renderLista(lista, modo) {
+  const el = document.getElementById('hap-lista'); if (!el) return;
+  modo = modo || hapGetModo();
+  if (!lista.length) {
+    el.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#4e6a88;font-size:14px;">Sin registros que coincidan con los filtros.<br><br><button onclick="hap_limpiarFiltros()" style="background:none;border:1px solid #4e6a88;color:#4e6a88;padding:6px 16px;border-radius:6px;cursor:pointer;">Limpiar filtros</button></div>';
+    return;
+  }
+  el.innerHTML = lista.map(r => {
+    const res = (r.salida_real?.resultado || 'PENDIENTE').toUpperCase();
+    const resIcon = res === 'GANÓ' ? '🟢' : res === 'PERDIÓ' ? '🔴' : '⏳';
+    const resClass = res === 'GANÓ' ? 'ganó' : res === 'PERDIÓ' ? 'perdió' : '';
+    const prob = r.indicadores_sistema?.prob_real;
+    const pnl = r.salida_real?.pnl_usd;
+    const pnlCalc = pnl ?? hapCalcPnL(r);
+    const pnlTxt = pnlCalc != null
+      ? '<span style="font-family:monospace;font-weight:700;color:'+(pnlCalc>=0?'#4edea3':'#ffb4ab')+'">'+(pnlCalc>=0?'+$':'-$')+Math.abs(pnlCalc).toFixed(2)+'</span>'
+      : (modo !== 'real' ? '<span style="color:#4e6a88;font-size:11px;">sin dato</span>' : '<span style="color:#ffd966;font-size:10px;">⚠️ sin datos reales</span>');
+    return '<div class="hap-card ' + resClass + '" id="hapc-'+r.id+'">' +
+      '<div class="hap-card-hdr" onclick="hapToggle(\''+r.id+'\',this)">' +
+      '<span style="font-size:16px">'+resIcon+'</span>' +
+      '<span style="font-weight:700;min-width:28px;color:#4e6a88;font-size:12px">#'+r.id+'</span>' +
+      '<div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(r.entrada?.partido||'—')+'</div>' +
+      '<div style="font-size:11px;color:#4e6a88;">'+escHtml(r.entrada?.liga||'')+(r.entrada?.mercado?' · '+r.entrada.mercado:'')+' · '+escHtml(r.entrada?.fecha||'—')+(r.indicadores_sistema?.fuente_api?' · <span style="color:#64c8e8;font-size:10px;">'+escHtml(r.indicadores_sistema.fuente_api)+'</span>':'')+' </div></div>' +
+      (prob!=null?'<span style="background:rgba(78,222,163,0.12);color:#4edea3;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;">'+prob+'%</span>':'')+
+      pnlTxt +
+      '<span style="color:#4e6a88;font-size:11px;margin-left:8px;" id="haparr-'+r.id+'">▼</span>' +
+      '</div>' +
+      '<div class="hap-card-body" id="hapbody-'+r.id+'" style="display:none;">'+hapCardBody(r)+'</div>' +
+      '</div>';
+  }).join('');
+}
+
+function hapToggle(id, hdr) {
+  const body = document.getElementById('hapbody-'+id);
+  const arr  = document.getElementById('haparr-'+id);
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  if (arr) arr.textContent = open ? '▼' : '▲';
+}
+
+function hapToggleBlk(hdr) {
+  const body = hdr.nextElementSibling;
+  const arr  = hdr.querySelector('span:last-child');
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  if (arr) arr.textContent = open ? '▶' : '▼';
+}
+
+function to24h(horaStr) {
+  if (!horaStr) return '';
+  if (/^\d{2}:\d{2}$/.test(horaStr)) return horaStr;
+  const match = horaStr.match(/(\d+):(\d+)\s*(a\.|p\.)\s*m\./i);
+  if (!match) return horaStr;
+  let h = parseInt(match[1]);
+  const m = match[2];
+  const pm = match[3].toLowerCase().includes('p');
+  if (pm && h !== 12) h += 12;
+  if (!pm && h === 12) h = 0;
+  return String(h).padStart(2, '0') + ':' + m;
+}
+
+function hapCardBody(r) {
+  const e   = r.entrada || {};
+  const ind = r.indicadores_sistema || {};
+  const sp  = r.salida_prevista || {};
+  const sr  = r.salida_real || {};
+  const pm  = r.postmortem || {};
+  const id  = r.id;
+
+  const sem = (key, val) => {
+    if (val == null || val === '') return '<span style="color:#4e6a88">—</span>';
+    let col = '#8ba4bd';
+    if (key==='score')  col = val>=70?'#4edea3':val>=50?'#ffd966':'#ffb4ab';
+    if (key==='prob')   col = val>=65?'#4edea3':val>=35?'#ffd966':'#ffb4ab';
+    if (key==='edge')   col = val>5?'#4edea3':val>1?'#ffd966':'#ffb4ab';
+    return '<span style="font-family:monospace;font-weight:700;color:'+col+'">'+escHtml(String(val))+'</span>';
+  };
+  const fila = (lbl, content) => '<div class="hap-fila"><span class="hap-lbl">'+lbl+'</span><span>'+content+'</span></div>';
+  const inp  = (id2, val, type, min) => '<input type="'+(type||'text')+'" id="'+id2+'" class="hap-inp" value="'+escHtml(String(val||''))+'" '+(min?'min="'+min+'"':'')+' style="width:160px;">';
+  const sel  = (id2, opts, cur) => '<select id="'+id2+'" class="hap-inp">'+opts.map(o=>'<option'+(o===cur?' selected':'')+'>'+o+'</option>').join('')+'</select>';
+  const blk  = (emoji, title, body) => '<div class="hap-blk"><div class="hap-blk-hdr" onclick="hapToggleBlk(this)">'+emoji+' '+title+'<span>▶</span></div><div class="hap-blk-body" style="display:none;">'+body+'</div></div>';
+
+  // B1 Entrada
+  const b1 = fila('Fecha', inp('b1f-'+id, e.fecha, 'date')) +
+    fila('Hora', inp('b1h-'+id, to24h(e.hora), 'time')) +
+    fila('Partido', inp('b1pa-'+id, e.partido)) +
+    fila('Liga', sel('b1li-'+id, ['Kolmonen','USL League Two','OÖ Liga','NPSL','Brasileiro Serie D','World Cup','Otra'], e.liga||'Kolmonen')) +
+    fila('Mercado', sel('b1me-'+id, ['1X2','Over/Under 2.5','Ambos equipos marcan'], e.mercado||'1X2')) +
+    fila('Pick', inp('b1pi-'+id, e.pick)) +
+    fila('Casa', sel('b1ca-'+id, ['','Ecuabet','Bet365','Sportbet','Otra'], e.casa_apuestas||'')) +
+    fila('Cuota obtenida', inp('b1cu-'+id, e.cuota_manual, 'number', '1')) +
+    fila('Stake ($)', inp('b1st-'+id, e.stake_manual, 'number', '0')) +
+    fila('Kelly %', inp('b1ke-'+id, e.kelly_pct, 'number', '0')) +
+    '<button class="hap-btn-save" onclick="hapGuardarEntrada('+id+')">💾 Guardar cambios</button>';
+
+  // B2 Indicadores
+  const b2 = fila('Score JCAHS', sem('score', ind.score_jcahs)+' '+inp('b2sc-'+id, ind.score_jcahs, 'number', '0')) +
+    fila('Prob Real %', sem('prob', ind.prob_real)+' '+inp('b2pr-'+id, ind.prob_real, 'number', '0')) +
+    fila('Edge %', sem('edge', ind.edge_calculado)+' '+inp('b2ed-'+id, ind.edge_calculado, 'number')) +
+    fila('Odd Pinnacle', inp('b2op-'+id, ind.odd_pinnacle, 'number', '1')) +
+    fila('Odd Bet365', inp('b2ob-'+id, ind.odd_bet365, 'number', '1')) +
+    fila('Filtros Mentor', '<input type="number" id="b2fm1-'+id+'" class="hap-inp" value="'+(ind.filtros_mentor_pasados||'')+'" style="width:60px;" placeholder="X"> de <input type="number" id="b2fm2-'+id+'" class="hap-inp" value="'+(ind.filtros_mentor_total||'')+'" style="width:60px;" placeholder="Y">') +
+    fila('Fuente API', '<span style="font-size:12px;color:#8ba4bd;">'+(ind.fuente_api ? escHtml(ind.fuente_api) : '—')+'</span>') +
+    '<button class="hap-btn-save" onclick="hapGuardarIndicadores('+id+')">💾 Guardar cambios</button>';
+
+  // B3 Salida prevista
+  const b3 = fila('Ganancia si gana ($)', inp('b3gg-'+id, sp.ganancia_esperada_usd, 'number')) +
+    fila('Pérdida si pierde ($)', inp('b3gp-'+id, sp.perdida_esperada_usd, 'number')) +
+    fila('Resultado esperado', inp('b3re-'+id, sp.resultado_esperado)) +
+    '<button class="hap-btn-save" onclick="hapGuardarPrevista('+id+')">💾 Guardar cambios</button>';
+
+  // B4 Salida real
+  const pnlAuto = hapCalcPnL(r);
+  const b4 = r.estado === 'pendiente'
+    ? fila('Resultado', sel('b4rs-'+id, ['GANÓ','PERDIÓ'], sr.resultado)) +
+      fila('P&L $ <small style="color:#4e6a88">(auto si cuota+stake)</small>', inp('b4pn-'+id, sr.pnl_usd ?? (pnlAuto != null ? pnlAuto.toFixed(2) : ''), 'number')) +
+      fila('Odd cierre Pinnacle', inp('b4oc-'+id, sr.odd_cierre, 'number', '1')) +
+      fila('CLV %', '<span style="color:#4e6a88;font-size:11px;">'+(sr.odd_cierre&&e.cuota_manual?((e.cuota_manual-sr.odd_cierre)/sr.odd_cierre*100).toFixed(2)+'% (auto)':'ingresa odd cierre')+'</span>') +
+      fila('Fecha resultado', inp('b4fr-'+id, sr.fecha_resultado, 'date')) +
+      fila('Notas', inp('b4no-'+id, sr.notas_resultado)) +
+      '<button class="hap-btn-save" onclick="hapGuardarSalidaReal('+id+')">💾 Registrar resultado</button>'
+    : fila('Resultado', '<span style="font-weight:700;color:'+(sr.resultado==='GANÓ'?'#4edea3':'#ffb4ab')+'">'+sr.resultado+'</span>') +
+      fila('P&L', '<span style="font-family:monospace;font-weight:700;color:'+(( sr.pnl_usd||0)>=0?'#4edea3':'#ffb4ab')+'">'+(( sr.pnl_usd||0)>=0?'+$':'-$')+Math.abs(sr.pnl_usd||0).toFixed(2)+'</span>') +
+      fila('Odd cierre', sr.odd_cierre || '—') +
+      fila('CLV', sr.clv != null ? (sr.clv>=0?'+':'')+sr.clv.toFixed(2)+'%' : '—') +
+      '<button class="hap-btn-edit" onclick="hapEditarSalida('+id+')">✏️ Editar</button>';
+
+  // B5 Post-mortem
+  const acerto = hapSistemaAcerto(r);
+  const b5 = fila(tip('Sistema acertó', TIPS.sistema_acerto), acerto ? acerto.icon+' '+acerto.txt : '⬜ Sin datos suficientes') +
+    '<div style="margin-top:8px;margin-bottom:4px;font-size:11px;color:#8ba4bd;font-weight:600;letter-spacing:.5px;text-transform:uppercase;">Notas libres</div>' +
+    '<textarea id="b5nt-'+id+'" style="width:100%;min-height:60px;background:#0d1f35;border:1px solid rgba(255,255,255,0.07);border-radius:6px;color:#e2eefc;font-size:13px;padding:8px;outline:none;resize:vertical;">'+escHtml(pm.notas||'')+'</textarea>' +
+    '<button class="hap-btn-save" onclick="hapGuardarPostmortem('+id+')">💾 Guardar post-mortem</button>';
+
+  const btnEliminar = '<div style="text-align:right;margin-top:16px;padding-top:12px;border-top:1px solid #1a3a5c;">' +
+    '<button onclick="hapEliminar('+id+')" ' +
+      'style="background:none;border:1px solid #ff444466;color:#ff4444;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;" ' +
+      'onmouseover="this.style.background=\'#ff444422\'" ' +
+      'onmouseout="this.style.background=\'none\'">🗑️ Eliminar registro</button>' +
+    '</div>';
+
+  return blk('⚽','ENTRADA',b1) + blk('📊','INDICADORES DEL SISTEMA',b2) + blk('🎯','SALIDA PREVISTA',b3) + blk('📤','SALIDA REAL',b4) + blk('🔬','POST-MORTEM',b5) + btnEliminar;
+}
+
+// ── Guardar bloques ───────────────────────────────────────
+function hapGuardarEntrada(id) {
+  const lista = hapLeer(), r = lista.find(x => x.id == id); if (!r) return;
+  r.entrada = r.entrada || {};
+  const g = s => document.getElementById(s)?.value;
+  r.entrada.fecha      = g('b1f-'+id) || r.entrada.fecha;
+  r.entrada.hora       = g('b1h-'+id) || '';
+  r.entrada.partido    = g('b1pa-'+id) || '';
+  r.entrada.liga       = g('b1li-'+id) || '';
+  r.entrada.mercado    = g('b1me-'+id) || '';
+  r.entrada.pick       = g('b1pi-'+id) || '';
+  r.entrada.casa_apuestas = g('b1ca-'+id) || '';
+  r.entrada.cuota_manual  = parseFloat(g('b1cu-'+id)) || null;
+  r.entrada.stake_manual  = parseFloat(g('b1st-'+id)) || null;
+  r.entrada.kelly_pct     = parseFloat(g('b1ke-'+id)) || null;
+  // Auto P&L si cambian cuota/stake
+  const pnl = hapCalcPnL(r);
+  if (pnl !== null && r.salida_real) r.salida_real.pnl_usd = pnl;
+  hapGuardar(lista); hap_renderAll();
+}
+
+function hapGuardarIndicadores(id) {
+  const lista = hapLeer(), r = lista.find(x => x.id == id); if (!r) return;
+  r.indicadores_sistema = r.indicadores_sistema || {};
+  const g = s => document.getElementById(s)?.value;
+  r.indicadores_sistema.score_jcahs = parseFloat(g('b2sc-'+id)) || null;
+  r.indicadores_sistema.prob_real   = parseFloat(g('b2pr-'+id)) || null;
+  r.indicadores_sistema.edge_calculado = parseFloat(g('b2ed-'+id)) || null;
+  r.indicadores_sistema.odd_pinnacle = parseFloat(g('b2op-'+id)) || null;
+  r.indicadores_sistema.odd_bet365   = parseFloat(g('b2ob-'+id)) || null;
+  r.indicadores_sistema.filtros_mentor_pasados = parseInt(g('b2fm1-'+id)) || null;
+  r.indicadores_sistema.filtros_mentor_total   = parseInt(g('b2fm2-'+id)) || null;
+  hapGuardar(lista); hap_renderAll();
+}
+
+function hapGuardarPrevista(id) {
+  const lista = hapLeer(), r = lista.find(x => x.id == id); if (!r) return;
+  r.salida_prevista = r.salida_prevista || {};
+  const g = s => document.getElementById(s)?.value;
+  r.salida_prevista.ganancia_esperada_usd = parseFloat(g('b3gg-'+id)) || null;
+  r.salida_prevista.perdida_esperada_usd  = parseFloat(g('b3gp-'+id)) || null;
+  r.salida_prevista.resultado_esperado    = g('b3re-'+id) || '';
+  hapGuardar(lista); hap_renderAll();
+}
+
+function hapGuardarSalidaReal(id) {
+  const lista = hapLeer(), r = lista.find(x => x.id == id); if (!r) return;
+  r.salida_real = r.salida_real || {};
+  const g = s => document.getElementById(s)?.value;
+  r.salida_real.resultado    = g('b4rs-'+id) || 'PENDIENTE';
+  r.salida_real.odd_cierre   = parseFloat(g('b4oc-'+id)) || null;
+  r.salida_real.fecha_resultado = g('b4fr-'+id) || '';
+  r.salida_real.notas_resultado = g('b4no-'+id) || '';
+  // Auto P&L
+  const pnlInp = parseFloat(g('b4pn-'+id));
+  r.salida_real.pnl_usd = !isNaN(pnlInp) ? pnlInp : hapCalcPnL(r);
+  // Auto CLV
+  if (r.salida_real.odd_cierre && r.entrada?.cuota_manual) {
+    r.salida_real.clv = (r.entrada.cuota_manual - r.salida_real.odd_cierre) / r.salida_real.odd_cierre * 100;
+  }
+  r.estado = r.salida_real.resultado !== 'PENDIENTE' ? 'cerrada' : 'pendiente';
+  hapGuardar(lista); hap_renderAll();
+}
+
+function hapEditarSalida(id) {
+  const lista = hapLeer(), r = lista.find(x => x.id == id); if (!r) return;
+  r.estado = 'pendiente'; hapGuardar(lista); hap_renderAll();
+}
+
+function hapGuardarPostmortem(id) {
+  const lista = hapLeer(), r = lista.find(x => x.id == id); if (!r) return;
+  r.postmortem = r.postmortem || {};
+  r.postmortem.notas = document.getElementById('b5nt-'+id)?.value || '';
+  r.postmortem.sistema_acerto = hapSistemaAcerto(r);
+  hapGuardar(lista); hap_renderAll();
+}
+
+// ── Eliminar apuesta ──────────────────────────────────────
+function hapEliminar(id) {
+  if (!confirm('¿Eliminar este registro permanentemente? Esta acción no se puede deshacer.')) return;
+  // Eliminar del sistema HAP (jcahs_historial_apuestas)
+  hapGuardar(hapLeer().filter(r => r.id != id));
+  // Sincronizar al sistema legado (jcahs_historial) para que el gráfico quede correcto
+  try {
+    const legacy = cargarHistorial().filter(r => r.id != id);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy));
+  } catch(e) {}
+  // Refrescar chart + tarjetas a la vez
+  renderTodo();
+}
+
+// ── Nueva apuesta ─────────────────────────────────────────
+function hap_abrirModal() {
+  const modal = document.getElementById('hap-modal'); if (!modal) return;
+  document.getElementById('hap-new-fecha').value = new Date().toISOString().slice(0,10);
+  modal.classList.add('show');
+}
+
+function hap_guardarNueva() {
+  const g = id => document.getElementById(id)?.value;
+  const partido = g('hap-new-partido');
+  if (!partido) { alert('El partido es obligatorio'); return; }
+  const lista = hapLeer();
+  const maxId = lista.reduce((m, r) => Math.max(m, r.id || 0), 0);
+  const cuota = parseFloat(g('hap-new-cuota')) || null;
+  const stake = parseFloat(g('hap-new-stake')) || null;
+  lista.unshift({
+    id: maxId + 1, estado: 'pendiente', edgeInflado: false,
+    entrada: { fecha: g('hap-new-fecha'), hora: g('hap-new-hora'), partido,
+      liga: g('hap-new-liga'), mercado: g('hap-new-mercado'), pick: g('hap-new-pick'),
+      casa_apuestas: g('hap-new-casa'), cuota_manual: cuota, stake_manual: stake, kelly_pct: null },
+    indicadores_sistema: { score_jcahs:null, prob_real:null, edge_calculado:null, odd_pinnacle:null, odd_bet365:null, filtros_mentor_pasados:null, filtros_mentor_total:null },
+    salida_prevista: { ganancia_esperada_usd: cuota&&stake?stake*(cuota-1):null, perdida_esperada_usd: stake?-stake:null, resultado_esperado:'' },
+    salida_real: { resultado:'PENDIENTE', pnl_usd:null, odd_cierre:null, clv:null, fecha_resultado:'', notas_resultado:'' },
+    postmortem: { sistema_acerto:null, notas:'' }
+  });
+  hapGuardar(lista);
+  document.getElementById('hap-modal').classList.remove('show');
+  hap_renderAll();
+}
+
+// ── Filtros render ────────────────────────────────────────
+function hap_renderFiltros(todas, nFiltrados) {
+  const el = document.getElementById('hap-filtros-wrap'); if (!el) return;
+  const b = (key, val, lbl) => '<button class="hap-filtro-btn'+(hapF[key]===val?' on':'')+'" onclick="hapSetF(\''+key+'\',\''+val+'\')">'+lbl+'</button>';
+  const ligas = [...new Set(todas.map(r=>r.entrada?.liga).filter(Boolean))];
+  el.innerHTML = '<div class="hap-filtro-wrap">' +
+    '<div class="hap-filtro-row">' +
+    b('liga','all','Todas las ligas') + ligas.map(l=>b('liga',l,l)).join('') + '</div>' +
+    '<div class="hap-filtro-row">' +
+    b('mercado','all','Todos') + b('mercado','1X2','1X2') + b('mercado','ou25','O/U 2.5') + b('mercado','btts','BTTS') +
+    '<span class="hap-filtro-sep"></span>' +
+    b('resultado','all','Resultado') + b('resultado','ganadas','🟢 Ganadas') + b('resultado','perdidas','🔴 Perdidas') + b('resultado','pendientes','⏳ Pendientes') +
+    '<span class="hap-filtro-sep"></span>' +
+    b('casa','all','Casa') + ['Ecuabet','Bet365','Sportbet'].map(c=>b('casa',c,c)).join('') +
+    '</div>' +
+    '<div class="hap-filtro-row">' +
+    b('fuente','all','Todas las fuentes') + b('fuente','OddsPapi','OddsPapi') + b('fuente','The Odds API','The Odds API') + b('fuente','odds-api.io','odds-api.io') +
+    '</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">' +
+    '<label style="font-size:11px;color:#8ba4bd;">Prob min: <input type="range" min="0" max="100" value="'+hapF.probMin+'" style="width:70px;vertical-align:middle;" oninput="hapSetF(\'probMin\',+this.value);this.nextElementSibling.textContent=this.value"> <span>'+hapF.probMin+'</span></label>' +
+    '<label style="font-size:11px;color:#8ba4bd;">Desde: <input type="date" value="'+hapF.desde+'" style="background:#0d1f35;border:1px solid rgba(255,255,255,0.07);border-radius:4px;color:#e2eefc;padding:3px 6px;font-size:11px;" oninput="hapSetF(\'desde\',this.value)"></label>' +
+    '<label style="font-size:11px;color:#8ba4bd;">Hasta: <input type="date" value="'+hapF.hasta+'" style="background:#0d1f35;border:1px solid rgba(255,255,255,0.07);border-radius:4px;color:#e2eefc;padding:3px 6px;font-size:11px;" oninput="hapSetF(\'hasta\',this.value)"></label>' +
+    '<input type="text" placeholder="🔍 Buscar partido / liga / notas..." value="'+escHtml(hapF.texto)+'" style="background:#0d1f35;border:1px solid rgba(255,255,255,0.07);border-radius:6px;color:#e2eefc;padding:5px 10px;font-size:12px;min-width:180px;" oninput="hapSetF(\'texto\',this.value)">' +
+    '<button onclick="hap_limpiarFiltros()" style="background:none;border:1px solid rgba(255,255,255,0.07);color:#8ba4bd;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">✕ Limpiar</button>' +
+    '<span style="margin-left:auto;font-size:12px;color:#4e6a88;">Mostrando '+nFiltrados+' de '+todas.length+' registros</span>' +
+    '</div></div>';
+}
+
+// ── KPIs de calidad ───────────────────────────────────────
+function hap_renderKpisCalidad(lista, modo) {
+  const el = document.getElementById('hap-calidad'); if (!el) return;
+  const cerradas = lista.filter(r => r.estado === 'cerrada');
+  const conClv = cerradas.filter(r => r.salida_real?.clv != null);
+  const clvProm = conClv.length ? conClv.reduce((s,r)=>s+r.salida_real.clv,0)/conClv.length : null;
+  const ganadoras = cerradas.filter(r=>(r.salida_real?.resultado||'').toUpperCase()==='GANÓ');
+  const perdedoras = cerradas.filter(r=>(r.salida_real?.resultado||'').toUpperCase()==='PERDIÓ');
+  const edgeGan  = ganadoras.filter(r=>r.indicadores_sistema?.edge_calculado!=null);
+  const edgePerd = perdedoras.filter(r=>r.indicadores_sistema?.edge_calculado!=null);
+  const avgEdgeGan  = edgeGan.length  ? edgeGan.reduce((s,r)=>s+r.indicadores_sistema.edge_calculado,0)/edgeGan.length   : null;
+  const avgEdgePerd = edgePerd.length ? edgePerd.reduce((s,r)=>s+r.indicadores_sistema.edge_calculado,0)/edgePerd.length  : null;
+  const conStake = cerradas.filter(r=>r.entrada?.stake_manual);
+  const avgStake = conStake.length ? conStake.reduce((s,r)=>s+r.entrada.stake_manual,0)/conStake.length : null;
+  const casas = {};
+  lista.forEach(r=>{ const c=r.entrada?.casa_apuestas||'Sin especificar'; casas[c]=(casas[c]||0)+1; });
+  const topCasa = Object.entries(casas).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>k+' '+Math.round(v/lista.length*100)+'%').join(' · ');
+  const kpi = (val, lbl, col) => '<div class="mc-kpi"><div class="mc-kpi-val" style="color:'+(col||'#e2eefc')+'">'+val+'</div><div style="font-size:10px;color:#4e6a88;text-transform:uppercase;letter-spacing:.6px;margin-top:3px;">'+lbl+'</div></div>';
+  const modoTag = '<span style="font-size:9px;background:rgba(78,222,163,0.12);color:#4edea3;padding:1px 6px;border-radius:10px;margin-left:4px;">'+(modo||hapGetModo()).toUpperCase()+'</span>';
+  el.innerHTML = '<div class="hap-calidad-row">' +
+    kpi(clvProm!=null?(clvProm>=0?'+':'')+clvProm.toFixed(2)+'%':'—', 'CLV promedio'+modoTag, clvProm!=null?(clvProm>0?'#4edea3':'#ffb4ab'):null) +
+    kpi((avgEdgeGan!=null?'Gan '+(avgEdgeGan>=0?'+':'')+avgEdgeGan.toFixed(1)+'%':'—')+' / '+(avgEdgePerd!=null?'Perd '+(avgEdgePerd>=0?'+':'')+avgEdgePerd.toFixed(1)+'%':'—'), 'Edge: Gan vs Perd') +
+    kpi(avgStake!=null?'$'+avgStake.toFixed(2):'—', 'Apuesta promedio') +
+    kpi(topCasa||'—', '% por casa', '#8ba4bd') +
+    '</div>';
+}
+
+// ── Gráfico por liga ──────────────────────────────────────
+function hap_renderGraficoLiga(lista) {
+  const box = document.getElementById('hap-liga-chart');
+  const cv  = document.getElementById('hapCvLiga');
+  if (!box || !cv) return;
+  const cerradas = lista.filter(r => r.estado === 'cerrada');
+  const ligaMap = {};
+  cerradas.forEach(r => {
+    const l = r.entrada?.liga || 'Otra';
+    if (!ligaMap[l]) ligaMap[l] = { gan:0, tot:0 };
+    ligaMap[l].tot++;
+    if ((r.salida_real?.resultado||'').toUpperCase() === 'GANÓ') ligaMap[l].gan++;
+  });
+  const ligas = Object.entries(ligaMap).filter(([,v])=>v.tot>=1).sort((a,b)=>b[1].tot-a[1].tot);
+  if (!ligas.length) { box.style.display='none'; return; }
+  box.style.display = '';
+  cv.height = Math.max(120, ligas.length * 36 + 20);
+  const W = cv.offsetWidth||900, H = cv.height;
+  cv.width = W;
+  const ctx = cv.getContext('2d'); if (!ctx) return;
+  ctx.clearRect(0,0,W,H);
+  const padL = 160, padR = 60, barH = 22, gap = 14;
+  ligas.forEach(([liga, v], i) => {
+    const hr = v.tot > 0 ? v.gan / v.tot : 0;
+    const y = 10 + i * (barH + gap);
+    const bw = (W - padL - padR) * hr;
+    ctx.fillStyle = 'rgba(78,222,163,0.25)'; ctx.fillRect(padL, y, W-padL-padR, barH);
+    ctx.fillStyle = hr >= 0.6 ? '#4edea3' : hr >= 0.4 ? '#ffd966' : '#ffb4ab';
+    ctx.fillRect(padL, y, bw, barH);
+    ctx.fillStyle = '#8ba4bd'; ctx.font = '11px Inter,sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText(escHtml(liga).slice(0,22), padL-6, y+barH/2+4);
+    ctx.fillStyle = '#e2eefc'; ctx.font = 'bold 11px JetBrains Mono,monospace'; ctx.textAlign = 'left';
+    ctx.fillText(Math.round(hr*100)+'% ('+v.gan+'/'+v.tot+')', padL+bw+6, y+barH/2+4);
+  });
+}
+
+window.addEventListener('focus', () => {
+  if (procesarPendientes()) renderTodo();
+});
+
+procesarPendientes();
+migrarRegistrosLegacy();
+renderTodo();
+</script>
+
+<!-- Modal Nueva Apuesta -->
+<div class="hap-modal-ov" id="hap-modal">
+  <div class="hap-modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="font-size:17px;font-weight:800;">➕ Nueva Apuesta</div>
+      <button onclick="document.getElementById('hap-modal').classList.remove('show')" style="background:none;border:none;color:var(--text-2);font-size:20px;cursor:pointer;">✕</button>
+    </div>
+    <div class="hap-form-row">
+      <div class="hap-form-group"><label class="hap-form-label">Fecha</label><input type="date" id="hap-new-fecha" class="hap-form-input"></div>
+      <div class="hap-form-group"><label class="hap-form-label">Hora</label><input type="time" id="hap-new-hora" class="hap-form-input"></div>
+    </div>
+    <div class="hap-form-group" style="margin-bottom:10px;"><label class="hap-form-label">Partido</label><input type="text" id="hap-new-partido" class="hap-form-input" placeholder="Ej: Real Madrid vs Barcelona"></div>
+    <div class="hap-form-row">
+      <div class="hap-form-group"><label class="hap-form-label">Liga</label>
+        <select id="hap-new-liga" class="hap-form-input">
+          <option>Kolmonen</option><option>USL League Two</option><option>OÖ Liga</option>
+          <option>NPSL</option><option>Brasileiro Serie D</option><option>World Cup</option><option>Otra</option>
+        </select></div>
+      <div class="hap-form-group"><label class="hap-form-label">Mercado</label>
+        <select id="hap-new-mercado" class="hap-form-input">
+          <option>1X2</option><option>Over/Under 2.5</option><option>Ambos equipos marcan</option>
+        </select></div>
+    </div>
+    <div class="hap-form-group" style="margin-bottom:10px;"><label class="hap-form-label">Pick (selección)</label><input type="text" id="hap-new-pick" class="hap-form-input" placeholder="Ej: Real Madrid gana el partido"></div>
+    <div class="hap-form-row">
+      <div class="hap-form-group"><label class="hap-form-label">Casa de apuestas</label>
+        <select id="hap-new-casa" class="hap-form-input">
+          <option value="">— Seleccionar —</option>
+          <option>Ecuabet</option><option>Bet365</option><option>Sportbet</option><option>Otra</option>
+        </select></div>
+      <div class="hap-form-group"><label class="hap-form-label">Cuota obtenida</label><input type="number" id="hap-new-cuota" class="hap-form-input" placeholder="2.10" step="0.01" min="1"></div>
+    </div>
+    <div class="hap-form-group" style="margin-bottom:16px;"><label class="hap-form-label">Stake apostado ($)</label><input type="number" id="hap-new-stake" class="hap-form-input" placeholder="10.00" step="0.01" min="0"></div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="document.getElementById('hap-modal').classList.remove('show')" style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text-2);border-radius:8px;padding:10px;cursor:pointer;font-size:13px;">Cancelar</button>
+      <button onclick="hap_guardarNueva()" style="flex:1;background:var(--tertiary);color:#060f1a;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

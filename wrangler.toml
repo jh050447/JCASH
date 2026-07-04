@@ -1,0 +1,21 @@
+# JCAHS Scraper — Cloudflare Worker configuration
+# Deploy with: wrangler deploy
+# Tail logs with: wrangler tail
+
+name            = "jcahs-scraper"
+main            = "worker-scraper.js"
+compatibility_date = "2024-01-01"
+
+[[kv_namespaces]]
+binding = "JCAHS_NEWS"
+id = "a0c4779b22574469a472618cd8a7ed57"
+
+# ── Cron Triggers ─────────────────────────────────────────────────────────────
+# Fires every 30 minutes — calls the `scheduled` handler in worker-scraper.js
+[triggers]
+crons = ["*/30 * * * *"]
+
+# ── Optional: local dev settings ─────────────────────────────────────────────
+[dev]
+port = 8787
+local_protocol = "http"
