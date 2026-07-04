@@ -6546,10 +6546,11 @@ function renderTabsDE(apuestas) {
     cnt[f] = (cnt[f] || 0) + 1;
   });
   var tabs = [
-    { key: 'all',          lbl: 'Todas' },
-    { key: 'OddsPapi',     lbl: 'OddsPapi' },
-    { key: 'The Odds API', lbl: 'The Odds API' },
-    { key: 'odds-api.io',  lbl: 'odds-api.io' }
+    { key: 'all',               lbl: 'Todas' },
+    { key: 'OddsPapi',          lbl: 'OddsPapi' },
+    { key: 'The Odds API',      lbl: 'The Odds API' },
+    { key: 'odds-api.io',       lbl: 'odds-api.io' },
+    { key: 'Football-Data.org', lbl: 'Football-Data.org' }
   ];
   var tabsHtml = tabs.map(function(t) {
     var n = cnt[t.key] || 0;
@@ -6601,14 +6602,22 @@ function renderListaDE() {
 
   // ── Modo alternativo (Football-Data.org, sin odds) ──────────
   if (STATE.modoFallback) {
-    var tabsElFB = document.getElementById('de-tabs');
-    if (tabsElFB) tabsElFB.innerHTML = '';
-    var partidosFB = STATE.valueBets || [];
-    STATE.deApuestas = partidosFB; // mantener sincronizado para mostrarDetalleDE
+    var partidosFB = (STATE.valueBets || []).map(function(vb) {
+      return vb.fuente ? vb : Object.assign({}, vb, { fuente: 'Football-Data.org' });
+    });
+    STATE.deApuestas = partidosFB;
+
+    // Tabs siempre visibles — incluye fuente fallback
+    renderTabsDE(partidosFB);
+
+    var filtroFB = STATE.deFiltroFuente || 'all';
+    var visFB = filtroFB !== 'all'
+      ? partidosFB.filter(function(vb) { return vb.fuente === filtroFB; })
+      : partidosFB;
 
     if (sub) sub.textContent = '⚡ Modo alternativo — sin odds (Football-Data.org)';
 
-    if (!partidosFB.length) {
+    if (!visFB.length) {
       lista.innerHTML = '<div style="background:rgba(255,217,0,0.06);border:1px solid rgba(255,217,0,0.2);border-radius:12px;padding:32px;text-align:center">' +
         '<div style="font-size:32px;margin-bottom:10px">🎯</div>' +
         '<div style="font-size:18px;font-weight:700;color:#ffd700">Sin datos disponibles</div>' +
@@ -6617,8 +6626,9 @@ function renderListaDE() {
       return;
     }
 
-    lista.innerHTML = partidosFB.map(function(vb, i) {
-      return '<div onclick="mostrarDetalleDE(' + i + ')" style="cursor:pointer;background:var(--surface-2);border:1px solid rgba(255,217,0,0.25);border-radius:12px;padding:16px 18px;margin-bottom:12px;transition:border-color 0.15s" onmouseover="this.style.borderColor=\'#ffd700\'" onmouseout="this.style.borderColor=\'rgba(255,217,0,0.25)\'">' +
+    lista.innerHTML = visFB.map(function(vb, i) {
+      var idxReal = partidosFB.indexOf(vb);
+      return '<div onclick="mostrarDetalleDE(' + idxReal + ')" style="cursor:pointer;background:var(--surface-2);border:1px solid rgba(255,217,0,0.25);border-radius:12px;padding:16px 18px;margin-bottom:12px;transition:border-color 0.15s" onmouseover="this.style.borderColor=\'#ffd700\'" onmouseout="this.style.borderColor=\'rgba(255,217,0,0.25)\'">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
         '<span style="background:#ffd70015;border:1px solid #ffd70044;color:#ffd700;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600">⚡ Football-Data.org</span>' +
         '<span style="color:#4a5568;font-size:10px">' + new Date(vb.fecha).toLocaleDateString('es-EC', {weekday:'short', day:'numeric', month:'short'}) + '</span>' +
