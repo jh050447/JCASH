@@ -2711,6 +2711,96 @@ async function generarMensajeCryptoTelegram(sym, datos) {
 //  ALERTAS CRYPTO
 // ═══════════════════════════════════════════════════════════
 
+// ─── Envía alertas Polymarket para un símbolo — dedup propio por tf ─────────
+// Separado de keyA (score) para que cargue tarde de PM no bloquee el envío.
+// Solo corre si OHLC listo y score >= 70. Escribe claves pm_* en notificadas.
+function _verificarEdgesPolymarket(sym, notificadas, ahora) {
+  var ohlcReady = STATE.ohlc && STATE.ohlc.BTC && STATE.ohlc.BTC['4h'] && STATE.ohlc.BTC['4h'].length > 0;
+  if (!ohlcReady) return;
+
+  var d = calcScore(sym);
+  if (!d || d.score < 70) return;
+
+  // 5m/15m son sinAnalisis — solo procesar 1h, 4h, diario
+  ['1h', '4h', 'diario'].forEach(function(tf) {
+    var keyPM = sym + '_pm_' + tf;
+    if (notificadas[keyPM]) return;
+
+    var edgeCp = detectarEdgeCortoplazo(sym, tf);
+    if (!edgeCp || edgeCp.sinAnalisis || edgeCp.sinDatos) return;
+
+    // Consumir la clave ANTES del envío async para no duplicar si la función
+    // se llama dos veces antes de que el fetch termine.
+    notificadas[keyPM] = ahora;
+
+    var exp5 = explicarRuptura(edgeCp.datosTf);
+    var v5   = veredictoFinalPolymarket(sym, tf, edgeCp.datosTf, edgeCp.mercado);
+    var msg5 = '⚡ POLYMARKET ' + tf.toUpperCase() + ' — ' + sym + '\n\n' +
+      'Score: ' + v5.scoreNum + '/100\n' +
+      v5.veredicto + '\n' +
+      'Confianza: ' + v5.confianza + ' · ' + v5.confluenciaDetalle + '\n' +
+      v5.razon + '\n' +
+      '💰 Stake: $' + v5.stakeSugerido + ' a precio ' + v5.precioEntrada + '%\n' +
+      '✅ Si aciertas: +$' + v5.gananciaSiAcierta + ' · ❌ Si fallas: -$' + v5.perdidaSiFalla + '\n\n' +
+      exp5.veredicto + '\n' +
+      edgeCp.accion + '\n\n' +
+      '📊 KPIs técnicos:\n' + exp5.detalle + '\n' +
+      '🔍 Señales: ' + exp5.senales + '\n\n' +
+      'JCAHS: ' + edgeCp.probJCAHS + '% | Polymarket: ' + edgeCp.probPolymarket + '%\n' +
+      'Edge: +' + edgeCp.edge + '% | Liq: $' + edgeCp.liquidez.toFixed(0) + '\n\n' +
+      '⏱ ' + (tf === '1h' ? 'Próxima hora' : tf === '4h' ? 'Próximas 4 horas' : 'Resuelve hoy noon ET') + '\n' +
+      '🔗 ' + edgeCp.url;
+
+    var fechaCierreMercado = edgeCp.mercado && edgeCp.mercado.fechaCierre;
+    if (fechaCierreMercado) {
+      var registroId = ahora.toString() + '_' + sym + '_' + tf;
+      var registroPolymarket = {
+        id: registroId, tipo: 'polymarket', estado: 'pendiente',
+        entrada: {
+          token: sym, timeframe: tf, slug: edgeCp.mercado.slug,
+          direccion: v5.direccionFinal, score: v5.scoreNum, confianza: v5.confianza,
+          precioEntrada: parseFloat(v5.precioEntrada), stake: v5.stakeSugerido,
+          fecha: new Date().toISOString().slice(0, 10),
+          hora: new Date().toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })
+        },
+        salida_prevista: {
+          ganancia_esperada_usd: parseFloat(v5.gananciaSiAcierta),
+          perdida_esperada_usd: parseFloat(v5.perdidaSiFalla)
+        },
+        salida_real: { resultado: null, acerto: null, pnl_usd: null },
+        fechaCierre: fechaCierreMercado,
+        postmortem: { notas: '' }
+      };
+      fetch(PROXY + '/apuestas/guardar-pendiente', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ registroId: registroId, registro: registroPolymarket })
+      }).then(function() {
+        return fetch(PROXY + '/telegram/send-with-buttons', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mensaje: msg5, callbackData: registroId })
+        });
+      }).catch(function(e) { console.warn('Polymarket registro error:', e.message); });
+    } else {
+      enviarAlertaTelegram(msg5);
+    }
+  });
+}
+
+// Llamado desde cargarMercados*Polymarket() cuando llegan datos frescos —
+// permite enviar alertas aunque verificarAlertasCrypto() ya haya consumido keyA.
+function _dispararAlertasPolymarket() {
+  var ohlcReady = STATE.ohlc && STATE.ohlc.BTC && STATE.ohlc.BTC['4h'] && STATE.ohlc.BTC['4h'].length > 0;
+  if (!ohlcReady) return;
+  var ahora = Date.now();
+  var notificadas = {};
+  try { notificadas = JSON.parse(localStorage.getItem('jcahs_crypto_alertas_notificadas') || '{}'); } catch {}
+  Object.keys(notificadas).forEach(function(k) { if (ahora - notificadas[k] > 3600000) delete notificadas[k]; });
+  var monedas = ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'AVAX', 'DOT', 'LINK'];
+  (STATE.watchlistCoins || []).forEach(function(c) { if (!monedas.includes(c.sym)) monedas.push(c.sym); });
+  monedas.forEach(function(sym) { _verificarEdgesPolymarket(sym, notificadas, ahora); });
+  try { localStorage.setItem('jcahs_crypto_alertas_notificadas', JSON.stringify(notificadas)); } catch {}
+}
+
 function verificarAlertasCrypto() {
   const monedas = ['BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'AVAX', 'DOT', 'LINK', ...STATE.watchlistCoins.map(c => c.sym)];
   const ahora = Date.now();
@@ -2733,76 +2823,15 @@ function verificarAlertasCrypto() {
     if (!d) return;
     const p = STATE.precios[sym];
 
-    // Condición A: score >= 70
+    // Condición A: score >= 70 — alerta de score (campanita + Telegram score)
     const keyA = sym + '_scoreAlto';
     if (d.score >= 70 && !notificadas[keyA]) {
       nuevas.push({ sym, tipo: 'scoreAlto', titulo: '⚡ Señal fuerte', desc: sym + ' Score ' + d.score + '/100', rsi: d.rsi4h, score: d.score, precio: p, ts: ahora });
       notificadas[keyA] = ahora;
-      // Edge Polymarket por timeframe (5m/15m/1h/4h/diario)
-      // Solo 1h/4h/diario llegan aquí con datos completos — 5m/15m quedan filtrados
-      // por sinAnalisis (sin equivalente real de análisis técnico, ver detectarEdgeCortoplazo).
-      ['5m', '15m', '1h', '4h', 'diario'].forEach(function(tf) {
-        var edgeCp = detectarEdgeCortoplazo(sym, tf);
-        if (edgeCp && !edgeCp.sinAnalisis && !edgeCp.sinDatos) {
-          var exp5 = explicarRuptura(edgeCp.datosTf);
-          var v5   = veredictoFinalPolymarket(sym, tf, edgeCp.datosTf, edgeCp.mercado);
-          var msg5 = '⚡ POLYMARKET ' + tf.toUpperCase() + ' — ' + sym + '\n\n' +
-            'Score: ' + v5.scoreNum + '/100\n' +
-            v5.veredicto + '\n' +
-            'Confianza: ' + v5.confianza + ' · ' + v5.confluenciaDetalle + '\n' +
-            v5.razon + '\n' +
-            '💰 Stake: $' + v5.stakeSugerido + ' a precio ' + v5.precioEntrada + '%\n' +
-            '✅ Si aciertas: +$' + v5.gananciaSiAcierta + ' · ❌ Si fallas: -$' + v5.perdidaSiFalla + '\n\n' +
-            exp5.veredicto + '\n' +
-            edgeCp.accion + '\n\n' +
-            '📊 KPIs técnicos:\n' + exp5.detalle + '\n' +
-            '🔍 Señales: ' + exp5.senales + '\n\n' +
-            'JCAHS: ' + edgeCp.probJCAHS + '% | Polymarket: ' + edgeCp.probPolymarket + '%\n' +
-            'Edge: +' + edgeCp.edge + '% | Liq: $' + edgeCp.liquidez.toFixed(0) + '\n\n' +
-            '⏱ ' + (tf === '5m' ? 'Próximos 5 minutos' : tf === '15m' ? 'Próximos 15 minutos' : tf === '1h' ? 'Próxima hora' : tf === '4h' ? 'Próximas 4 horas' : 'Resuelve hoy noon ET') + '\n' +
-            '🔗 ' + edgeCp.url;
-
-          // Registro con botones ✅/❌ — solo para timeframes con apertura/cierre real
-          // (1h/4h/diario tienen fechaCierre; 5m/15m no llegan aquí por sinAnalisis).
-          var fechaCierreMercado = edgeCp.mercado && edgeCp.mercado.fechaCierre;
-          if (fechaCierreMercado) {
-            var registroId = Date.now().toString() + '_' + sym + '_' + tf;
-            var registroPolymarket = {
-              id: registroId,
-              tipo: 'polymarket',
-              estado: 'pendiente',
-              entrada: {
-                token: sym, timeframe: tf, slug: edgeCp.mercado.slug,
-                direccion: v5.direccionFinal, score: v5.scoreNum, confianza: v5.confianza,
-                precioEntrada: parseFloat(v5.precioEntrada),
-                stake: v5.stakeSugerido,
-                fecha: new Date().toISOString().slice(0, 10),
-                hora: new Date().toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })
-              },
-              salida_prevista: {
-                ganancia_esperada_usd: parseFloat(v5.gananciaSiAcierta),
-                perdida_esperada_usd: parseFloat(v5.perdidaSiFalla)
-              },
-              salida_real: { resultado: null, acerto: null, pnl_usd: null },
-              fechaCierre: fechaCierreMercado,
-              postmortem: { notas: '' }
-            };
-
-            fetch(PROXY + '/apuestas/guardar-pendiente', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ registroId: registroId, registro: registroPolymarket })
-            }).then(function() {
-              return fetch(PROXY + '/telegram/send-with-buttons', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mensaje: msg5, callbackData: registroId })
-              });
-            }).catch(function(e) { console.warn('Polymarket registro error:', e.message); });
-          } else {
-            enviarAlertaTelegram(msg5);
-          }
-        }
-      });
     }
+
+    // Polymarket edges — dedup propio por tf, independiente de keyA
+    _verificarEdgesPolymarket(sym, notificadas, ahora);
 
     // Condición B: RSI < 30
     const keyB = sym + '_rsiSob';
@@ -2812,11 +2841,12 @@ function verificarAlertasCrypto() {
     }
   });
 
+  // Guardar siempre — incluye claves pm_* seteadas por _verificarEdgesPolymarket
+  try { localStorage.setItem('jcahs_crypto_alertas_notificadas', JSON.stringify(notificadas)); } catch {}
+
   if (nuevas.length > 0) {
     STATE.alertasCrypto = (STATE.alertasCrypto || []).concat(nuevas).slice(-20);
-    try { localStorage.setItem('jcahs_crypto_alertas_notificadas', JSON.stringify(notificadas)); } catch {}
     notificarAlertasCrypto(nuevas);
-    // Telegram
     nuevas.forEach(a => _enviarTgCrypto(a));
     renderCampanitaCrypto();
   }
@@ -3000,6 +3030,7 @@ async function cargarMercadosHorariosPolymarket() {
   }
 
   console.log('1H:', Object.keys(STATE.polymarket1H).join(', ') || 'ninguno');
+  _dispararAlertasPolymarket();
 }
 
 // ── Mercado Diario ──────────────────────────────────────────
@@ -3051,6 +3082,7 @@ async function cargarMercadoDiarioPolymarket() {
   }
 
   console.log('Diario:', Object.keys(STATE.polymarketDiario).join(', ') || 'ninguno');
+  _dispararAlertasPolymarket();
 }
 
 // ── Mercado 4 Horas ─────────────────────────────────────────
@@ -3094,6 +3126,7 @@ async function cargarMercados4HPolymarket() {
   }
 
   console.log('4H:', Object.keys(STATE.polymarket4H).join(', ') || 'ninguno');
+  _dispararAlertasPolymarket();
 }
 
 // Mapeo timeframe Polymarket -> timeframe real de analizarConfluencia
