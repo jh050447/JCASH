@@ -1897,7 +1897,7 @@ function detectarEstrategias() {
         notifMultipleTelegram(picksUnicos.map(function(p) {
           return { partido: p.partido, pick: p.pick, score: Math.round(p.score || 0),
                    edge: p.edge != null ? p.edge.toFixed(1) : '—', odd: p.odd != null ? p.odd.toFixed(2) : '—',
-                   probReal: p.probReal || 50 };
+                   probReal: p.probReal || 50, fuente: p.fuente || '' };
         }), oddCombinada, stakeM, gananciaM, perdidaM);
       }
       ops.push({ tipo:'apuesta', estrategia:'acumulador',
@@ -6211,7 +6211,8 @@ function notifValueBetTelegram(datos, etiqueta) {
     'Pick: ' + (d.pick || '') + '\n' +
     'Odd mínima aceptable: ' + oddMinima + ' (no apostar por menos)\n' +
     'Stake sugerido: $' + stake.toFixed(2) + ' (2% bankroll)\n' +
-    'Casa recomendada: Ecuabet / Bet365 / Sportbet\n\n' +
+    (d.bk ? 'Casa: ' + d.bk + '\n' : 'Casa recomendada: Ecuabet / Bet365 / Sportbet\n') +
+    (d.fuente ? '📡 Fuente: ' + d.fuente + '\n' : '') +
     urgencia + '\n' +
     '⚠️ Modo simulación activo — no apostar dinero real aún\n\n' +
     '🏠 APOSTAR AHORA:\n' +
@@ -6230,7 +6231,8 @@ function notifMultipleChrome(picks, oddCombinada, ganancia) {
 function notifMultipleTelegram(picks, oddCombinada, stake, ganancia, perdida) {
   var listapicks = picks.map(function(p, i) {
     return (i + 1) + '. ' + (p.pick || '') + ' · ' + (p.partido || '') +
-      '\n   Score ' + (p.score || '—') + ' · Edge +' + (p.edge || '—') + '% · Odd ' + (p.odd || '—');
+      '\n   Score ' + (p.score || '—') + ' · Edge +' + (p.edge || '—') + '% · Odd ' + (p.odd || '—') +
+      (p.fuente ? ' · ' + p.fuente : '');
   }).join('\n\n');
   var probComb = picks.reduce(function(a, p) { return a * ((p.probReal || 50) / 100); }, 1);
   var msg = '🔥 <b>JCAHS — MÚLTIPLE CON EDGE</b>\n\n' +
@@ -6441,7 +6443,8 @@ function notificarAlertasNuevas(alertas) {
         oddPinnacle: vb2.odd != null ? vb2.odd.toFixed(2) : '—',
         oddDisponible: a.odd != null ? a.odd.toFixed(2) : '—',
         stake: apostar, ganancia: gananciaTg, perdida: apostar,
-        hora: a.minutosRestantes + ' min', minutosRestantes: a.minutosRestantes
+        hora: a.minutosRestantes + ' min', minutosRestantes: a.minutosRestantes,
+        fuente: vb2.fuente || '', bk: vb2.bk || ''
       });
 
       // Auto-registro con botones ✅/❌ — solo si tiene edge positivo y score ≥ 60
@@ -6533,6 +6536,10 @@ function renderTabsDE(apuestas) {
   if (!el) return;
   if (!apuestas || !apuestas.length) { el.innerHTML = ''; return; }
   var filtro = STATE.deFiltroFuente || 'all';
+  var fDE = STATE.deFiltroDE || { edgeMin: 0, oddMin: 1.0, oddMax: 20.0 };
+  var hayFiltroExtra = (fDE.edgeMin > 0) || (fDE.oddMin > 1) || (fDE.oddMax < 20);
+
+  // Conteos ya reflejan el filtro de edge/odd aplicado antes de llamar esta función
   var cnt = { all: apuestas.length };
   apuestas.forEach(function(vb) {
     var f = vb.fuente || 'Desconocida';
@@ -6544,19 +6551,37 @@ function renderTabsDE(apuestas) {
     { key: 'The Odds API', lbl: 'The Odds API' },
     { key: 'odds-api.io',  lbl: 'odds-api.io' }
   ];
-  el.innerHTML = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">' +
-    tabs.map(function(t) {
-      var n = cnt[t.key] || 0;
-      if (t.key !== 'all' && n === 0) return '';
-      var activo = filtro === t.key;
-      return '<button onclick="STATE.deFiltroFuente=\'' + t.key + '\';renderListaDE()" style="' +
-        'background:' + (activo ? 'rgba(78,222,163,0.12)' : 'transparent') + ';' +
-        'border:1px solid ' + (activo ? '#4edea3' : 'rgba(144,144,151,0.25)') + ';' +
-        'color:' + (activo ? '#4edea3' : '#8ba4bd') + ';' +
-        'padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s">' +
-        t.lbl + ' <span style="opacity:0.7;font-size:11px">(' + n + ')</span></button>';
-    }).join('') +
-    '</div>';
+  var tabsHtml = tabs.map(function(t) {
+    var n = cnt[t.key] || 0;
+    if (t.key !== 'all' && n === 0) return '';
+    var activo = filtro === t.key;
+    return '<button onclick="STATE.deFiltroFuente=\'' + t.key + '\';renderListaDE()" style="' +
+      'background:' + (activo ? 'rgba(78,222,163,0.12)' : 'transparent') + ';' +
+      'border:1px solid ' + (activo ? '#4edea3' : 'rgba(144,144,151,0.25)') + ';' +
+      'color:' + (activo ? '#4edea3' : '#8ba4bd') + ';' +
+      'padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s">' +
+      t.lbl + ' <span style="opacity:0.7;font-size:11px">(' + n + ')</span></button>';
+  }).join('');
+
+  var limpiarHtml = (hayFiltroExtra || filtro !== 'all')
+    ? '<button onclick="limpiarFiltrosDE()" title="Resetear todos los filtros" style="background:rgba(255,92,92,0.08);border:1px solid rgba(255,92,92,0.3);color:#ff7070;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s">× Ver todo</button>'
+    : '';
+
+  el.innerHTML = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">' + tabsHtml + limpiarHtml + '</div>';
+}
+
+function limpiarFiltrosDE() {
+  STATE.deFiltroDE    = { edgeMin: 0, oddMin: 1.0, oddMax: 20.0 };
+  STATE.deFiltroFuente = 'all';
+  var edgeSlider = document.getElementById('de-edge-slider');
+  var edgeVal    = document.getElementById('de-edge-val');
+  var oddMin     = document.getElementById('de-odd-min');
+  var oddMax     = document.getElementById('de-odd-max');
+  if (edgeSlider) edgeSlider.value = 0;
+  if (edgeVal)    edgeVal.textContent = '0.0%';
+  if (oddMin)     oddMin.value = 1.0;
+  if (oddMax)     oddMax.value = 20.0;
+  renderListaDE();
 }
 
 function renderListaDE() {
@@ -6608,20 +6633,23 @@ function renderListaDE() {
   }
 
   var apuestas = STATE.deApuestas || [];
-  renderTabsDE(apuestas);
-
   var filtroFuente = STATE.deFiltroFuente || 'all';
   var fDE = STATE.deFiltroDE || { edgeMin: 0, oddMin: 1.0, oddMax: 20.0 };
-  var items = apuestas.map(function(vb, i) { return { vb: vb, i: i }; });
-  if (filtroFuente !== 'all') {
-    items = items.filter(function(x) { return x.vb.fuente === filtroFuente; });
-  }
+
+  // Pre-filtrar por edge/odd (sin fuente) → los conteos de tabs son precisos
+  var itemsPreFiltro = apuestas.map(function(vb, i) { return { vb: vb, i: i }; });
   if (fDE.edgeMin > 0) {
-    items = items.filter(function(x) { return (x.vb.edge || 0) >= fDE.edgeMin; });
+    itemsPreFiltro = itemsPreFiltro.filter(function(x) { return (x.vb.edge || 0) >= fDE.edgeMin; });
   }
   if (fDE.oddMin > 1 || fDE.oddMax < 20) {
-    items = items.filter(function(x) { return (x.vb.odd || 0) >= fDE.oddMin && (x.vb.odd || 0) <= fDE.oddMax; });
+    itemsPreFiltro = itemsPreFiltro.filter(function(x) { return (x.vb.odd || 0) >= fDE.oddMin && (x.vb.odd || 0) <= fDE.oddMax; });
   }
+  renderTabsDE(itemsPreFiltro.map(function(x) { return x.vb; }));
+
+  // Aplicar filtro de fuente sobre el pre-filtrado
+  var items = filtroFuente !== 'all'
+    ? itemsPreFiltro.filter(function(x) { return x.vb.fuente === filtroFuente; })
+    : itemsPreFiltro;
 
   if (!apuestas.length) {
     if (STATE.oddsPapi429Hasta && Date.now() < STATE.oddsPapi429Hasta) {
