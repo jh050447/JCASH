@@ -2718,9 +2718,6 @@ function _verificarEdgesPolymarket(sym, notificadas, ahora) {
   var ohlcReady = STATE.ohlc && STATE.ohlc.BTC && STATE.ohlc.BTC['4h'] && STATE.ohlc.BTC['4h'].length > 0;
   if (!ohlcReady) return;
 
-  var d = calcScore(sym);
-  if (!d || d.score < 70) return;
-
   // 5m/15m son sinAnalisis — solo procesar 1h, 4h, diario
   ['1h', '4h', 'diario'].forEach(function(tf) {
     var keyPM = sym + '_pm_' + tf;
