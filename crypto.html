@@ -2712,8 +2712,8 @@ async function generarMensajeCryptoTelegram(sym, datos) {
 // ═══════════════════════════════════════════════════════════
 
 // ─── Envía alertas Polymarket para un símbolo — dedup propio por tf ─────────
-// Separado de keyA (score) para que cargue tarde de PM no bloquee el envío.
-// Solo corre si OHLC listo y score >= 70. Escribe claves pm_* en notificadas.
+// Separado de keyA para que carga tardía de PM no bloquee el envío.
+// Corre si OHLC listo. Escribe claves pm_* en notificadas.
 function _verificarEdgesPolymarket(sym, notificadas, ahora) {
   var ohlcReady = STATE.ohlc && STATE.ohlc.BTC && STATE.ohlc.BTC['4h'] && STATE.ohlc.BTC['4h'].length > 0;
   if (!ohlcReady) return;
