@@ -344,6 +344,38 @@ function procesarPendientes() {
   } else {
     localStorage.setItem(HAP_KEY, JSON.stringify(hapActual));
   }
+
+  // Sincronizar también al sistema legacy para que el dashboard superior los vea
+  try {
+    const legacyActual = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const legacyIds = new Set(legacyActual.map(r => r.id));
+    pendientes.forEach(function(p, idx) {
+      const hapId = maxHapId + 1 + idx;
+      if (legacyIds.has(hapId)) return;
+      legacyActual.push({
+        id:              hapId,
+        edgeInflado:     false,
+        fecha:           p.fecha   || new Date().toISOString().slice(0, 10),
+        partido:         p.partido || '',
+        liga:            p.liga    || '',
+        mercado:         p.mercado || '',
+        pick:            p.pick    || '',
+        cuotaPrograma:   p.cuotaPrograma || null,
+        cuotaReal:       p.cuotaReal     || null,
+        probReal:        p.probReal != null ? Math.round(p.probReal * 10) / 10 : null,
+        edge:            p.edge     != null ? Math.round(p.edge     * 10) / 10 : null,
+        partidoId:       null,
+        montoApostado:   null,
+        resultado:       'PENDIENTE',
+        gananciaPerdida: null,
+        notas:           p.notas || '',
+        cuotaCierre:     null,
+        clv:             null,
+      });
+    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(legacyActual));
+  } catch(e) {}
+
   localStorage.removeItem(PENDIENTES_KEY);
 
   if (typeof hap_renderAll === 'function') hap_renderAll();
