@@ -101,8 +101,8 @@ export default {
       }
       try {
         const reqBody = await request.json();
-        const { mensaje, callbackData } = reqBody;
-        const res = await tgSend('sendMessage', {
+        const { mensaje, callbackData, parse_mode } = reqBody;
+        const tgPayload = {
           chat_id: TELEGRAM_CHAT_ID,
           text: mensaje,
           reply_markup: {
@@ -111,7 +111,9 @@ export default {
               { text: '❌ IGNORAR',   callback_data: 'ignorar_'   + callbackData },
             ]],
           },
-        });
+        };
+        if (parse_mode) tgPayload.parse_mode = parse_mode;
+        const res = await tgSend('sendMessage', tgPayload);
         return new Response(await res.text(), {
           status: res.status,
           headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
