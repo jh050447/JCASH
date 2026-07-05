@@ -2779,7 +2779,16 @@ function _verificarEdgesPolymarket(sym, notificadas, ahora) {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ mensaje: msg5, callbackData: registroId })
         });
-      }).catch(function(e) { console.warn('Polymarket registro error:', e.message); });
+      }).then(function(res) {
+        if (res && !res.ok) {
+          // Telegram rechazó — liberar dedup para que reintente en el próximo ciclo
+          delete notificadas[keyPM];
+        }
+      }).catch(function(e) {
+        console.warn('Polymarket registro error:', e.message);
+        // Error de red — liberar dedup para reintento
+        delete notificadas[keyPM];
+      });
     } else {
       enviarAlertaTelegram(msg5);
     }

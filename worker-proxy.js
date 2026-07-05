@@ -105,7 +105,6 @@ export default {
         const res = await tgSend('sendMessage', {
           chat_id: TELEGRAM_CHAT_ID,
           text: mensaje,
-          parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [[
               { text: '✅ REGISTRAR', callback_data: 'registrar_' + callbackData },
