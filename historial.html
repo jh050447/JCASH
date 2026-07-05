@@ -218,19 +218,54 @@ function migrarCLV(data) {
 
 function cargarHistorial() {
   const raw = localStorage.getItem(STORAGE_KEY);
+  let legacyData;
   if (!raw) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED_DATA));
-    return SEED_DATA.slice();
+    legacyData = SEED_DATA.slice();
+  } else {
+    try {
+      legacyData = JSON.parse(raw);
+    } catch (e) {
+      console.error('Historial: JSON corrupto en localStorage, usando seed', e);
+      legacyData = SEED_DATA.slice();
+    }
   }
+  const { data: migrated, modified } = migrarCLV(legacyData);
+  if (modified) localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+
+  // Fusionar registros HAP que no existen en legacy (entran vía flujo Telegram)
   try {
-    const data = JSON.parse(raw);
-    const { data: migrated, modified } = migrarCLV(data);
-    if (modified) localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
-    return migrated;
-  } catch (e) {
-    console.error('Historial: JSON corrupto en localStorage, usando seed', e);
-    return SEED_DATA.slice();
-  }
+    const hapData = JSON.parse(localStorage.getItem('jcahs_historial_apuestas') || '[]');
+    const legacyIds = new Set(migrated.map(r => r.id));
+    hapData.filter(r => !legacyIds.has(r.id)).forEach(function(r) {
+      const ent = r.entrada || {};
+      const ind = r.indicadores_sistema || {};
+      const sal = r.salida_real || {};
+      const pm  = r.postmortem || {};
+      migrated.push({
+        id:              r.id,
+        edgeInflado:     false,
+        fecha:           ent.fecha              || '',
+        partido:         ent.partido            || '',
+        liga:            ent.liga               || '',
+        mercado:         ent.mercado            || '',
+        pick:            ent.pick               || '',
+        cuotaPrograma:   ent.cuota_manual       || ind.odd_pinnacle || null,
+        cuotaReal:       null,
+        probReal:        ind.prob_real          || null,
+        edge:            ind.edge_calculado     || null,
+        partidoId:       null,
+        montoApostado:   ent.stake_manual       || null,
+        resultado:       sal.resultado          || 'PENDIENTE',
+        gananciaPerdida: sal.pnl_usd            || null,
+        notas:           pm.notas              || '',
+        cuotaCierre:     sal.odd_cierre         || null,
+        clv:             sal.clv                || null,
+      });
+    });
+  } catch(e) {}
+
+  return migrated;
 }
 
 function guardarHistorial(data) {
