@@ -6141,7 +6141,7 @@ async function autoDetectarYNotificar(vbet) {
   fetch(TG_PROXY.replace('/?url=', '') + '/telegram/send-with-buttons', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mensaje: mensajeCompleto, callbackData: registroId }),
+    body: JSON.stringify({ mensaje: mensajeCompleto, callbackData: registroId, parse_mode: 'HTML' }),
   }).catch(function(e) { console.warn('Telegram buttons error:', e.message); });
 
   // 3. Notificación Chrome corta
