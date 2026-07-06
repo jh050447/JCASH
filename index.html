@@ -3590,6 +3590,7 @@ async function forzarApiSidebar(apiName) {
         const ok = await cargarDatosOddsPapi();
         if (ok && STATE.valueBets?.length > 0) {
           ejecutarDecisionEngine();
+          if (typeof nuevoVerificarAlertas === 'function') nuevoVerificarAlertas();
           if (typeof renderMentor === 'function') renderMentor();
           if (typeof renderListaDE === 'function') renderListaDE();
           guardarCacheOdds('OddsPapi (Pinnacle)');
@@ -3600,6 +3601,7 @@ async function forzarApiSidebar(apiName) {
         const ok = await cargarDatosOddsApiIo();
         if (ok && STATE.valueBets?.length > 0) {
           ejecutarDecisionEngine();
+          if (typeof nuevoVerificarAlertas === 'function') nuevoVerificarAlertas();
           if (typeof renderMentor === 'function') renderMentor();
           if (typeof renderListaDE === 'function') renderListaDE();
           guardarCacheOdds('odds-api.io');
@@ -3774,6 +3776,7 @@ async function _checkOddsPapiSchedule() {
   const ok = await cargarDatosOddsPapi();
   if (ok && STATE.valueBets?.length > 0) {
     ejecutarDecisionEngine();
+    if (typeof nuevoVerificarAlertas === 'function') nuevoVerificarAlertas();
     if (typeof renderMentor === 'function') renderMentor();
     if (typeof renderListaDE === 'function') renderListaDE();
     guardarCacheOdds('OddsPapi (Pinnacle)');
