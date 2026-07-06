@@ -5689,23 +5689,6 @@ function ejecutarDecisionEngine() {
 
   var probMin = STATE.deSensibilidad || 35;
 
-  // TEMPORAL: diagnóstico de filtros — borrar cuando ya no se necesite
-  console.log('=== DIAGNOSTICO ejecutarDecisionEngine — ' + STATE.valueBets.length + ' valueBets ===');
-  STATE.valueBets.forEach(function(vb, i) {
-    var score = calcularScoreMentor(vb);
-    var pasaEdge  = vb.edge >= 4;
-    var pasaProb  = vb.probReal >= probMin;
-    var pasaOdd   = vb.odd >= 1.40 && vb.odd <= 8.0;
-    var pasaScore = score >= 50;
-    console.log(
-      '[' + i + '] ' + (vb.partido || '?') + ' | ' + (vb.pick || '?') +
-      ' — edge=' + vb.edge.toFixed(2) + '% (' + (pasaEdge ? 'OK' : 'FALLA') + ')' +
-      ' | odd=' + vb.odd.toFixed(2) + ' (' + (pasaOdd ? 'OK' : 'FALLA') + ')' +
-      ' | probReal=' + vb.probReal.toFixed(2) + '% (' + (pasaProb ? 'OK' : 'FALLA') + ')' +
-      ' | score=' + score + ' (' + (pasaScore ? 'OK' : 'FALLA') + ')'
-    );
-  });
-
   // Contar etapas del embudo de filtrado
   var _edgeMin = 4, _oddMin = 1.40, _oddMax = 8.0, _scoreMin = 50;
   var _conEdgeMinimo = 0, _conProbReal = 0;
