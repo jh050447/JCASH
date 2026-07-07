@@ -1197,8 +1197,39 @@ document.addEventListener('DOMContentLoaded', function() {
   setInterval(sincronizarDesdeKV, 5 * 60 * 1000);
 });
 
-// ─── SINCRONIZACIÓN DESDE KV (confirmados vía Telegram) ───────
+// ─── BACKUP AUTOMÁTICO EN KV ──────────────────────────────────
 var _WORKER = 'https://jcahs-proxy.jh050447.workers.dev';
+var _backupTimer = null;
+
+function autoBackup() {
+  clearTimeout(_backupTimer);
+  _backupTimer = setTimeout(function() {
+    var historial = hapLeer();
+    if (!historial || historial.length === 0) return;
+    fetch(_WORKER + '/apuestas/backup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ historial: historial }),
+    }).catch(function() {});
+  }, 3000); // debounce 3s para no spamear en ediciones rápidas
+}
+
+async function restaurarDesdeKV() {
+  var hap = hapLeer();
+  var leg = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+  if (hap.length > 0 || (leg && leg.length > 0)) return; // ya hay datos locales
+  try {
+    var res = await fetch(_WORKER + '/apuestas/backup');
+    if (!res.ok) return;
+    var backup = await res.json();
+    if (!Array.isArray(backup) || backup.length === 0) return;
+    hapGuardar(backup);
+    console.log('Historial restaurado desde KV backup:', backup.length, 'registros');
+    renderTodo();
+  } catch(e) {}
+}
+
+// ─── SINCRONIZACIÓN DESDE KV (confirmados vía Telegram) ───────
 
 async function sincronizarDesdeKV() {
   // ── Sync confirmados (deportivos + Polymarket) desde KV ───────────────────
@@ -1530,7 +1561,7 @@ function migrarRegistrosLegacy() {
 
 // ── CRUD ─────────────────────────────────────────────────
 function hapLeer() { try { return JSON.parse(localStorage.getItem(HAP_KEY) || '[]'); } catch { return []; } }
-function hapGuardar(lista) { localStorage.setItem(HAP_KEY, JSON.stringify(lista)); }
+function hapGuardar(lista) { localStorage.setItem(HAP_KEY, JSON.stringify(lista)); if (typeof autoBackup === 'function') autoBackup(); }
 function hapGetModo() { return localStorage.getItem(HAP_MODO_KEY) || 'previsto'; }
 
 function hap_setModo(modo) {
@@ -2067,7 +2098,9 @@ window.addEventListener('focus', () => {
 
 procesarPendientes();
 migrarRegistrosLegacy();
-renderTodo();
+restaurarDesdeKV().then(function() {
+  renderTodo();
+});
 </script>
 
 <!-- Modal Nueva Apuesta -->

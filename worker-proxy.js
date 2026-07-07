@@ -269,6 +269,43 @@ export default {
       }
     }
 
+    // ── POST /apuestas/backup ──────────────────────────────────────────────
+    // Guarda backup completo del historial HAP en KV (clave única por usuario)
+    if (pathname === '/apuestas/backup' && request.method === 'POST') {
+      if (!env.JCAHS_KV) {
+        return new Response(JSON.stringify({ error: 'KV not configured' }), {
+          status: 503, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        });
+      }
+      try {
+        const { historial } = await request.json();
+        await env.JCAHS_KV.put('backup_historial', JSON.stringify(historial), { expirationTtl: 86400 * 365 });
+        return new Response(JSON.stringify({ ok: true, n: historial.length }), {
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), {
+          status: 502, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    // ── GET /apuestas/backup ───────────────────────────────────────────────
+    // Recupera backup del historial HAP desde KV
+    if (pathname === '/apuestas/backup' && request.method === 'GET') {
+      if (!env.JCAHS_KV) {
+        return new Response('[]', { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+      }
+      try {
+        const data = await env.JCAHS_KV.get('backup_historial');
+        return new Response(data || '[]', {
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        });
+      } catch (err) {
+        return new Response('[]', { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+      }
+    }
+
     // ── GET /apuestas/resultados-polymarket ────────────────────────────────
     // Lista resultados de Polymarket ya resueltos por el cron (scheduled), listos
     // para que historial.html los aplique a un registro existente en localStorage.
