@@ -347,7 +347,10 @@ function procesarPendientes() {
 
   // Sincronizar también al sistema legacy para que el dashboard superior los vea
   try {
-    const legacyActual = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const legacyRaw = localStorage.getItem(STORAGE_KEY);
+    if (!legacyRaw) throw new Error('legacy no inicializado aún');
+    const legacyActual = JSON.parse(legacyRaw);
+    if (!Array.isArray(legacyActual) || legacyActual.length === 0) throw new Error('legacy vacío');
     const legacyIds = new Set(legacyActual.map(r => r.id));
     pendientes.forEach(function(p, idx) {
       const hapId = maxHapId + 1 + idx;
