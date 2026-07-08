@@ -2909,6 +2909,14 @@ async function cargarDatosOddsPapi() {
 
     STATE.oddsPapi429Consecutivos = 0; // reset — carga exitosa
 
+    STATE.oddsPapiCargaInfo = {
+      ts:         Date.now(),
+      fixtures:   fixtures.length,
+      conEdge:    valueBets.length,
+      prePartido: valueBets.filter(function(v) { return !v.partidoIniciado; }).length,
+      iniciados:  valueBets.filter(function(v) { return  v.partidoIniciado; }).length,
+    };
+
     console.log('OddsPapi: STATE.valueBets final:', valueBets.length);
     return true;
 
@@ -6091,7 +6099,9 @@ async function autoDetectarYNotificar(vbet) {
   var metaLabel = meta === 30 ? 'primera validación CLV' : meta === 100 ? 'hit rate confiable' : meta === 300 ? 'significancia estadística' : 'sistema institucional';
 
   var minutosRestantes = vbet.minutosRestantes != null ? vbet.minutosRestantes : 999;
-  var urgencia = minutosRestantes < 60
+  var urgencia = vbet.partidoIniciado
+    ? '🔴 <b>PARTIDO EN CURSO</b> — verificar odds antes de apostar'
+    : minutosRestantes < 60
     ? '🚨 URGENTE — partido en ' + minutosRestantes + ' minutos'
     : minutosRestantes < 180
     ? '⚡ Partido en ' + Math.floor(minutosRestantes / 60) + 'h ' + (minutosRestantes % 60) + 'min'
@@ -6107,7 +6117,11 @@ async function autoDetectarYNotificar(vbet) {
     ? '📡 <b>The Odds API</b> — múltiples casas'
     : '📊 ' + (vbet.fuente || 'Sistema');
 
-  var mensaje = '⚽ <b>JCAHS — VALUE BET DETECTADA</b>\n' +
+  var tituloMensaje = vbet.partidoIniciado
+    ? '⚠️ <b>JCAHS — VALUE BET EN VIVO</b>'
+    : '⚽ <b>JCAHS — VALUE BET DETECTADA</b>';
+
+  var mensaje = tituloMensaje + '\n' +
     fuenteLabel + '\n\n' +
     '🏆 ' + (vbet.liga || '') + '\n' + (vbet.partido || '') + '\n' + urgencia + '\n\n' +
     '🎯 PICK: ' + (vbet.pick || '') + '\n' +
@@ -6341,10 +6355,9 @@ function nuevoVerificarAlertas() {
     var vb = c.vb;
     var score = vb.score || 0;
     if (score < 70) return;
-    if (vb.partidoIniciado) return;
 
     var tiempo = infoTiempoPartido(vb.fecha);
-    if (tiempo.iniciado) return;
+    var estaIniciado = !!(vb.partidoIniciado || tiempo.iniciado);
 
     var clave = vb.partido + '|' + vb.pick;
     if (vistos.has(clave)) return;
@@ -6366,15 +6379,17 @@ function nuevoVerificarAlertas() {
       hora:             vb.fecha || '',
       minutosRestantes: mins != null ? mins : 999,
       fuente:           vb.fuente || '',
+      partidoIniciado:  estaIniciado,
     };
 
-    // Cambio 1 — alerta inmediata para señal nueva (score >= 70, cualquier tiempo)
-    if (esFuenteConfiable(vb) && _tgDedup('new_' + clave, 240)) {
+    // Alerta inmediata: pre-partido dedup 240 min, iniciados dedup 30 min
+    var ttlNuevo = estaIniciado ? 30 : 240;
+    if (esFuenteConfiable(vb) && _tgDedup('new_' + clave, ttlNuevo)) {
       autoDetectarYNotificar(datos);
     }
 
-    // Cambio 2 — recordatorios escalonados a 240, 180 y 120 minutos
-    if (mins != null) {
+    // Recordatorios escalonados solo para pre-partido (iniciados no tienen countdown)
+    if (!estaIniciado && mins != null) {
       var ventanas = [240, 180, 120];
       for (var vi = 0; vi < ventanas.length; vi++) {
         var v = ventanas[vi];
@@ -6386,8 +6401,8 @@ function nuevoVerificarAlertas() {
       }
     }
 
-    // Incluir en alertas para campanita (≤240 min)
-    if (mins == null || mins <= 240) {
+    // Incluir en alertas campanita — pre-partido ≤240 min, iniciados siempre
+    if (estaIniciado || mins == null || mins <= 240) {
       alertas.push({
         clave:            clave,
         partido:          vb.partido,
@@ -6397,6 +6412,7 @@ function nuevoVerificarAlertas() {
         probReal:         vb.probReal != null ? vb.probReal : vb.prob,
         minutosRestantes: mins,
         origen:           c.origen,
+        iniciado:         estaIniciado,
       });
     }
   });
@@ -6698,9 +6714,18 @@ function renderListaDE() {
     return;
   }
 
-  if (sub) sub.textContent = items.length + ' apuestas encontradas · actualizado ' + new Date().toLocaleTimeString('es-EC');
+  var _ci = STATE.oddsPapiCargaInfo;
+  var _ciStr = _ci
+    ? '📡 OddsPapi cargó ' + new Date(_ci.ts).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' }) +
+      ' — ' + _ci.fixtures + ' fixtures · ' + _ci.prePartido + ' pre-partido · ' + _ci.iniciados + ' en curso'
+    : '';
+  if (sub) sub.textContent = items.length + ' apuestas · ' + new Date().toLocaleTimeString('es-EC') + (_ciStr ? ' | ' + _ciStr : '');
 
-  lista.innerHTML = items.map(function(item) {
+  // Separar en pre-partido e iniciados
+  var itemsProximos  = items.filter(function(x) { return !infoTiempoPartido(x.vb.fecha).iniciado && !x.vb.partidoIniciado; });
+  var itemsIniciados = items.filter(function(x) { return  infoTiempoPartido(x.vb.fecha).iniciado ||  x.vb.partidoIniciado; });
+
+  function _renderItemDE(item) {
     var vb = item.vb, i = item.i;
     var scoreColor = vb.score >= 80 ? '#4edea3' : vb.score >= 65 ? '#FF9500' : '#4A9EFF';
     var nivelTexto = vb.score >= 80 ? 'ALTA' : vb.score >= 65 ? 'MEDIA' : 'BAJA';
@@ -6758,7 +6783,22 @@ function renderListaDE() {
       '<button onclick="event.stopPropagation();toggleMCBet(this,' + vb.odd.toFixed(2) + ',' + Math.round(vb.probReal || 0) + ')" class="mc-bet-toggle">🎲 Análisis Monte Carlo</button>' +
       '<div class="mc-bet-panel" style="display:none;"></div>' +
       '</div>';
-  }).join('');
+  }
+
+  var secHeader = function(titulo, color) {
+    return '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:' + color + ';padding:6px 2px 10px">' + titulo + '</div>';
+  };
+
+  var html = '';
+  if (itemsProximos.length) {
+    html += secHeader('⏰ Próximos — pre-partido (' + itemsProximos.length + ')', '#4edea3');
+    html += itemsProximos.map(_renderItemDE).join('');
+  }
+  if (itemsIniciados.length) {
+    html += secHeader('🔴 En curso / Iniciados (' + itemsIniciados.length + ') — odds pueden variar', '#ff7043');
+    html += itemsIniciados.map(_renderItemDE).join('');
+  }
+  lista.innerHTML = html;
 }
 
 // ── Vista B — Detalle de apuesta ──────────────────────────────
