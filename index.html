@@ -6774,14 +6774,28 @@ function renderListaDE() {
       '<div style="margin-top:8px;font-size:12px;font-weight:600;color:' + probColor + '">Prob real: ' + Math.round(vb.probReal) + '%' + probLabel + '</div>' +
       (vb.fuente === 'odds-api.io'
         ? '<div style="width:100%;margin-top:10px;font-size:12px;color:var(--text-3);text-align:center;padding:8px 0">ℹ️ Solo informativa — edge sin referencia Pinnacle</div>'
-        : '<button class="btn btn-ghost" onclick="event.stopPropagation(); registrarEnHistorial(this, STATE.deApuestas[' + i + '])" style="width:100%;margin-top:10px;font-size:13px;padding:8px">📋 Registrar en Historial</button>') +
+        : (!tiempo.iniciado
+          ? '<div id="qr-form-'+i+'" style="background:#0d1f33;border-radius:10px;padding:12px 14px;margin-top:10px;border:1px solid #1a3a5c" onclick="event.stopPropagation()">' +
+              '<div style="font-size:10px;font-weight:700;color:#4edea3;letter-spacing:.07em;text-transform:uppercase;margin-bottom:8px">📋 Registrar apuesta</div>' +
+              '<div style="display:flex;gap:6px;margin-bottom:6px">' +
+                '<select id="qr-ca-'+i+'" style="flex:1;min-width:80px;background:#0a1829;border:1px solid #2a5a8c;color:#c8d8eb;padding:6px 7px;border-radius:7px;font-size:12px">' +
+                  '<option value="Bet365">Bet365</option>' +
+                  '<option value="Ecuabet">Ecuabet</option>' +
+                  '<option value="Sportbet">Sportbet</option>' +
+                  '<option value="Pinnacle">Pinnacle</option>' +
+                  '<option value="Otra">Otra</option>' +
+                '</select>' +
+                '<input id="qr-cu-'+i+'" type="number" step="0.01" min="1.01" value="'+vb.odd.toFixed(2)+'" placeholder="Odd" style="width:90px;background:#0a1829;border:1px solid #2a5a8c;color:#ffd966;padding:6px 8px;border-radius:7px;font-size:13px;font-family:var(--font-mono);text-align:center">' +
+                '<input id="qr-st-'+i+'" type="number" step="1" min="1" placeholder="Stake $" style="width:80px;background:#0a1829;border:1px solid #2a5a8c;color:#c8d8eb;padding:6px 8px;border-radius:7px;font-size:13px;text-align:center">' +
+              '</div>' +
+              '<button onclick="event.stopPropagation();quickRegisterDE('+i+')" style="width:100%;background:#4edea322;border:2px solid #4edea355;color:#4edea3;padding:8px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer" onmouseover="this.style.background=\'#4edea344\'" onmouseout="this.style.background=\'#4edea322\'">✅ Registrar en Historial</button>' +
+            '</div>'
+          : '')) +
       '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px">' +
       '<button onclick="event.stopPropagation();abrirCasa(this,\'https://www.ecuabet.com\')" style="flex:1;min-width:80px;background:#00A651;color:#fff;border:none;border-radius:6px;padding:7px 4px;font-size:11px;font-weight:700;cursor:pointer">🟢 Ecuabet</button>' +
       '<button onclick="event.stopPropagation();abrirCasa(this,\'https://www.bet365.com\')" style="flex:1;min-width:80px;background:#1B7A3E;color:#fff;border:none;border-radius:6px;padding:7px 4px;font-size:11px;font-weight:700;cursor:pointer">🔵 Bet365</button>' +
       '<button onclick="event.stopPropagation();abrirCasa(this,\'https://www.sportbet.ec\')" style="flex:1;min-width:80px;background:#FF6B00;color:#fff;border:none;border-radius:6px;padding:7px 4px;font-size:11px;font-weight:700;cursor:pointer">🟠 Sportbet</button>' +
       '</div>' +
-      '<button onclick="event.stopPropagation();toggleMCBet(this,' + vb.odd.toFixed(2) + ',' + Math.round(vb.probReal || 0) + ')" class="mc-bet-toggle">🎲 Análisis Monte Carlo</button>' +
-      '<div class="mc-bet-panel" style="display:none;"></div>' +
       '</div>';
   }
 
@@ -10046,6 +10060,57 @@ function registrarEnHistorial(btn, vb) {
       btn.textContent = textoOriginal;
       btn.disabled = false;
     }, 2000);
+  }
+}
+
+function quickRegisterDE(i) {
+  var vb = (STATE.deApuestas || [])[i];
+  if (!vb) return;
+  var casaEl  = document.getElementById('qr-ca-' + i);
+  var cuotaEl = document.getElementById('qr-cu-' + i);
+  var stakeEl = document.getElementById('qr-st-' + i);
+  var casa    = casaEl  ? casaEl.value : 'Bet365';
+  var cuota   = cuotaEl ? parseFloat(cuotaEl.value) : NaN;
+  var stake   = stakeEl ? parseFloat(stakeEl.value) : NaN;
+  if (isNaN(cuota) || cuota < 1.01) { alert('Ingresa una odd válida (≥ 1.01)'); return; }
+  var fecha     = fechaISOHistorial(vb.fecha);
+  var partidoId = slugifyHistorial(vb.partido) + '-' + fecha.replace(/-/g, '');
+  var probReal  = vb.probReal != null ? vb.probReal : (vb.prob != null ? vb.prob : null);
+  var registro  = {
+    fecha,
+    fecha_registro:  new Date().toISOString(),
+    hora_partido:    vb.fecha || '',
+    partido:         vb.partido || '',
+    liga:            vb.liga || '',
+    mercado:         vb.mercado || '',
+    pick:            vb.pick || '',
+    cuotaPrograma:   vb.odd != null ? vb.odd : null,
+    cuotaReal:       cuota,
+    probReal,
+    edge:            vb.edge != null ? parseFloat(vb.edge) : null,
+    score:           vb.score != null ? Math.round(vb.score) : null,
+    partidoId,
+    montoApostado:   (!isNaN(stake) && stake > 0) ? stake : null,
+    resultado:       'pendiente',
+    gananciaPerdida: null,
+    notas:           '',
+    edgeInflado:     false,
+    fuente_api:      vb.fuente || 'Desconocida',
+    bk:              casa,
+  };
+  var pendientes = JSON.parse(localStorage.getItem('jcahs_pendiente_registro') || '[]');
+  pendientes.push(registro);
+  localStorage.setItem('jcahs_pendiente_registro', JSON.stringify(pendientes));
+  window.open('historial.html', '_blank');
+  var form = document.getElementById('qr-form-' + i);
+  if (form) {
+    var btn = form.querySelector('button');
+    if (btn) {
+      var orig = btn.textContent;
+      btn.textContent = '✅ Registrado — historial abierto';
+      btn.disabled = true;
+      setTimeout(function() { btn.textContent = orig; btn.disabled = false; }, 3000);
+    }
   }
 }
 

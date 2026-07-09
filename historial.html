@@ -1862,10 +1862,6 @@ function hapCardBody(r) {
 
   if (isPend) {
     // Formulario de cierre rápido
-    const clvAuto = (sr.odd_cierre && e.cuota_manual)
-      ? ((parseFloat(e.cuota_manual) - parseFloat(sr.odd_cierre)) / parseFloat(sr.odd_cierre) * 100).toFixed(1) + '% (auto)'
-      : 'ingresa odd cierre';
-
     sec2Body =
       '<div style="display:flex;gap:10px;margin-bottom:16px;">' +
         '<button onclick="hapRegistrarResultado('+id+',\'GANÓ\')" style="flex:1;padding:12px;background:#4edea322;border:2px solid #4edea355;color:#4edea3;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:all .15s" onmouseover="this.style.background=\'#4edea344\'" onmouseout="this.style.background=\'#4edea322\'">✓ GANÓ</button>' +
@@ -1873,7 +1869,6 @@ function hapCardBody(r) {
       '</div>' +
       fila('Cuota real obtenida', inp('rs-cu-'+id, e.cuota_manual, 'number', '1.01')) +
       fila('Stake real ($)', inp('rs-st-'+id, e.stake_manual, 'number', '0.01')) +
-      fila('Odd cierre Pinnacle', inp('rs-oc-'+id, sr.odd_cierre, 'number', '1.01')+'<span style="font-size:10px;color:#4e6a88;margin-left:6px;" id="rs-clv-'+id+'">CLV: '+clvAuto+'</span>') +
       fila('Resultado técnico del partido', inp('rs-rt-'+id, sr.resultado_tecnico||'', 'text')+'<span style="font-size:10px;color:#4e6a88;margin-left:6px;">ej: "3-1 local ganó"</span>') +
       fila('Notas', inp('rs-no-'+id, sr.notas_resultado||pm.notas||'', 'text', '', 'style="width:240px;"')) +
       '<button class="hap-btn-save" onclick="hapGuardarResultadoCompleto('+id+')">💾 Guardar sin decidir resultado</button>';
@@ -1883,15 +1878,11 @@ function hapCardBody(r) {
     const pnl     = sr.pnl_usd ?? pnlAuto;
     const pnlCol  = pnl >= 0 ? '#4edea3' : '#ffb4ab';
     const resCol  = sr.resultado==='GANÓ' ? '#4edea3' : '#ffb4ab';
-    const clv     = sr.clv != null ? sr.clv : (sr.odd_cierre && e.cuota_manual ? (parseFloat(e.cuota_manual)-parseFloat(sr.odd_cierre))/parseFloat(sr.odd_cierre)*100 : null);
-
     sec2Body =
-      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;background:#0a1829;border-radius:8px;padding:12px 14px;margin-bottom:14px;">' +
+      '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;background:#0a1829;border-radius:8px;padding:12px 14px;margin-bottom:14px;">' +
         _hapKpi('Resultado', sr.resultado||'—', resCol) +
         _hapKpi('P&L', pnl!=null?(pnl>=0?'+$':'-$')+Math.abs(pnl).toFixed(2):'—', pnlCol) +
-        _hapKpi('CLV', clv!=null?(clv>=0?'+':'')+clv.toFixed(1)+'%':'—', clv!=null&&clv>=0?'#4edea3':'#ffb4ab') +
         _hapKpi('Odd apostada', e.cuota_manual?parseFloat(e.cuota_manual).toFixed(2):'—', '#8ba4bd') +
-        _hapKpi('Odd cierre', sr.odd_cierre?parseFloat(sr.odd_cierre).toFixed(2):'—', '#8ba4bd') +
         _hapKpi('Stake', e.stake_manual?'$'+parseFloat(e.stake_manual).toFixed(2):'—', '#8ba4bd') +
       '</div>' +
       // Resultado técnico del partido
