@@ -5712,7 +5712,10 @@ function ejecutarDecisionEngine() {
       return vb.edge >= 4 && vb.probReal >= probMin && vb.odd >= 1.40 && vb.odd <= 8.0;
     })
     .map(function(vb) {
-      return Object.assign({}, vb, { score: calcularScoreMentor(vb) });
+      return Object.assign({}, vb, {
+        score:      calcularScoreMentor(vb),
+        datoDudoso: esDatoDudoso(vb)
+      });
     })
     .filter(function(vb) { return vb.score >= 50; })
     .sort(function(a, b) { return b.score - a.score; });
@@ -6727,7 +6730,7 @@ function renderListaDE() {
 
   function _renderItemDE(item) {
     var vb = item.vb, i = item.i;
-    var scoreColor = vb.score >= 80 ? '#4edea3' : vb.score >= 65 ? '#FF9500' : '#4A9EFF';
+    var scoreColor = vb.score >= 80 ? '#4edea3' : vb.score >= 65 ? '#ffd700' : '#8ba4bd';
     var nivelTexto = vb.score >= 80 ? 'ALTA' : vb.score >= 65 ? 'MEDIA' : 'BAJA';
     var apostar = Math.max(0.50, (STATE.bankroll || 0) * Math.max(0.01, (vb.kelly || 0) / 100) * 0.25);
     var probColor = vb.probReal < 25 ? '#ff5c5c' : vb.probReal <= 35 ? '#ffd700' : '#4edea3';
@@ -6772,6 +6775,7 @@ function renderListaDE() {
       '</div>' +
       '</div>' +
       '<div style="margin-top:8px;font-size:12px;font-weight:600;color:' + probColor + '">Prob real: ' + Math.round(vb.probReal) + '%' + probLabel + '</div>' +
+      (vb.datoDudoso ? '<div style="background:#ffd70015;border:1px solid #ffd70044;color:#ffd700;padding:6px 10px;border-radius:8px;font-size:11px;font-weight:700;margin-top:8px;text-align:center">⚠️ dato dudoso — edge/prob fuera de rango real</div>' : '') +
       (vb.fuente === 'odds-api.io'
         ? '<div style="width:100%;margin-top:10px;font-size:12px;color:var(--text-3);text-align:center;padding:8px 0">ℹ️ Solo informativa — edge sin referencia Pinnacle</div>'
         : (!tiempo.iniciado
@@ -6863,7 +6867,7 @@ function mostrarDetalleDE(idx) {
 
   var apostar = Math.max(0.50, (STATE.bankroll || 0) * Math.max(0.01, (vb.kelly || 0) / 100) * 0.25);
   var ganancia = apostar * (vb.odd - 1);
-  var scoreColor = vb.score >= 80 ? '#4edea3' : vb.score >= 65 ? '#FF9500' : '#4A9EFF';
+  var scoreColor = vb.score >= 80 ? '#4edea3' : vb.score >= 65 ? '#ffd700' : '#8ba4bd';
   var nivelTexto = vb.score >= 80 ? 'ALTA' : vb.score >= 65 ? 'MEDIA' : 'BAJA';
   var justificacion = 'Edge de +' + vb.edge.toFixed(1) + '% sobre las cuotas del mercado. ' +
     'Probabilidad real estimada: ' + vb.probReal.toFixed(1) + '%. ' +
@@ -6896,6 +6900,7 @@ function mostrarDetalleDE(idx) {
     tiempoHtml +
     '<div style="font-size:22px;font-weight:700;margin-bottom:8px">' + escHtml(vb.partido) + '</div>' +
     '<div style="font-size:20px;font-weight:700;color:' + scoreColor + ';background:' + scoreColor + '18;display:inline-block;padding:6px 14px;border-radius:8px">' + escHtml(vb.pick) + '</div>' +
+    (vb.datoDudoso ? '<div style="background:#ffd70015;border:1px solid #ffd70044;color:#ffd700;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;margin-top:10px;display:block">⚠️ dato dudoso — edge/prob fuera de rango real</div>' : '') +
     '</div>' +
     // 4 bloques financieros
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">' +
@@ -9619,6 +9624,15 @@ function confirmaPoisson(vb, analisis) {
   return false;
 }
 
+function esDatoDudoso(vb) {
+  var prob   = vb.probReal != null ? vb.probReal : (vb.prob != null ? vb.prob : 0);
+  var isDraw = vb.outcome === 'draw' || /empate/i.test(vb.pick || '');
+  if (isDraw && prob > 50) return true;
+  if (prob > 85)           return true;
+  if (vb.edge > 30)        return true;
+  return false;
+}
+
 function calcularScoreMentor(vb) {
   let score = 0;
   score += Math.min(40, vb.edge * 2.5);
@@ -9768,7 +9782,8 @@ function renderCardMentor(s, i) {
   let scoreColor, scoreEmoji;
   if      (score >= 80) { scoreColor = '#4edea3'; scoreEmoji = '🟢'; }
   else if (score >= 65) { scoreColor = '#FFD700'; scoreEmoji = '🟡'; }
-  else                   { scoreColor = '#60b4ff'; scoreEmoji = '🔵'; }
+  else                   { scoreColor = '#8ba4bd'; scoreEmoji = '⚫'; }
+  const datoDudoso = esDatoDudoso(s);
 
   const scoreBarra = `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
@@ -9847,6 +9862,7 @@ function renderCardMentor(s, i) {
       <span style="margin-left:auto;font-size:13px;color:#8ba4bd">${fechaStr}</span>
     </div>
     ${tiempoHtml}
+    ${datoDudoso ? '<div style="background:#ffd70015;border:1px solid #ffd70044;color:#ffd700;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;margin-bottom:8px;text-align:center">⚠️ dato dudoso — edge/prob fuera de rango real</div>' : ''}
     ${scoreBarra}
     <div style="margin-bottom:10px">${badgeFuenteDE(s)}</div>
     <div style="font-size:18px;font-weight:700;margin-bottom:4px">${s.partido}</div>
@@ -10041,7 +10057,7 @@ function registrarEnHistorial(btn, vb) {
     resultado: 'pendiente',
     gananciaPerdida: null,
     notas: '',
-    edgeInflado: !!vb.partidoIniciado,
+    edgeInflado: !!vb.partidoIniciado || !!vb.datoDudoso,
     fuente_api: vb.fuente || 'Desconocida',
     bk: vb.bk || null,
   };
@@ -10094,7 +10110,7 @@ function quickRegisterDE(i) {
     resultado:       'pendiente',
     gananciaPerdida: null,
     notas:           '',
-    edgeInflado:     false,
+    edgeInflado:     !!vb.datoDudoso,
     fuente_api:      vb.fuente || 'Desconocida',
     bk:              casa,
   };
