@@ -129,6 +129,20 @@
   <div id="mc-kelly-table" style="display:none;margin-top:14px;"></div>
 </div>
 
+<!-- ═══ PRECISIÓN POR CUOTA ═══ -->
+<details class="chart-box" id="precision-cuota-section" style="margin-top:24px;">
+  <summary style="cursor:pointer;font-size:15px;font-weight:700;list-style:none;display:flex;align-items:center;gap:8px;padding:4px 0;">
+    <span>📊 Precisión por rango de cuota</span>
+    <span style="font-size:12px;color:#4e6a88;font-weight:400;margin-left:4px;">▸ expandir</span>
+  </summary>
+  <p class="explicacion" style="margin-top:12px;">¿El sistema acierta con la misma frecuencia en cuotas bajas (1.40–1.80) que en cuotas altas (3.50–8.0)? Una caída fuerte puede indicar sesgo longshot en el de-vig.</p>
+  <table>
+    <thead><tr><th>Rango de cuota</th><th>% Acierto</th><th>Aciertos / Total</th></tr></thead>
+    <tbody id="precision-cuota-body"></tbody>
+  </table>
+  <div id="precision-cuota-footer"></div>
+</details>
+
 <!-- Nueva sección de registros con tarjetas -->
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
   <h2 class="section-title" style="margin:0;">Registros de Apuestas</h2>
@@ -812,6 +826,57 @@ document.addEventListener('click', function(e) {
   }
 });
 
+function analizarPrecisionPorCuota() {
+  var datos = cargarHistorial();
+  var conEdge = document.getElementById('chkEdgeInflado')?.checked;
+  var filtrados = filtrarDatos(datos, conEdge);
+  var rangos = [
+    { label: '1.40 – 1.80', min: 1.40, max: 1.80, n: 0, aciertos: 0 },
+    { label: '1.80 – 2.50', min: 1.80, max: 2.50, n: 0, aciertos: 0 },
+    { label: '2.50 – 3.50', min: 2.50, max: 3.50, n: 0, aciertos: 0 },
+    { label: '3.50 – 8.00', min: 3.50, max: 8.00, n: 0, aciertos: 0 },
+  ];
+  var sinCuota = 0, totalResueltos = 0;
+  filtrados.forEach(function(r) {
+    if (r.resultado !== 'GANÓ' && r.resultado !== 'PERDIÓ') return;
+    totalResueltos++;
+    var cu = cuotaEfectiva(r);
+    if (cu == null) { sinCuota++; return; }
+    cu = parseFloat(cu);
+    if (isNaN(cu)) { sinCuota++; return; }
+    var rango = rangos.find(function(rg) { return cu >= rg.min && cu < rg.max; });
+    if (!rango) { sinCuota++; return; }
+    rango.n++;
+    if (r.resultado === 'GANÓ') rango.aciertos++;
+  });
+  return { rangos: rangos, sinCuota: sinCuota, totalResueltos: totalResueltos };
+}
+
+function renderPrecisionPorCuota() {
+  var el = document.getElementById('precision-cuota-body');
+  if (!el) return;
+  var res = analizarPrecisionPorCuota();
+  el.innerHTML = res.rangos.map(function(rg) {
+    if (rg.n === 0) {
+      return '<tr><td>' + rg.label + '</td><td colspan="2" style="color:#4e6a88;">Sin datos</td></tr>';
+    }
+    var pct = (rg.aciertos / rg.n * 100).toFixed(1);
+    var col = parseFloat(pct) >= 55 ? '#4edea3' : parseFloat(pct) >= 40 ? '#ffd700' : '#ffb4ab';
+    var warn = rg.n < 20
+      ? '<span style="color:#4e6a88;font-size:10px;margin-left:6px;">⚠️ muestra pequeña — orientativo</span>'
+      : '';
+    return '<tr><td>' + rg.label + '</td>' +
+      '<td style="font-family:monospace;font-weight:700;color:' + col + ';">' + pct + '%' + warn + '</td>' +
+      '<td style="color:#8ba4bd;">' + rg.aciertos + '/' + rg.n + '</td></tr>';
+  }).join('');
+  var n = res.totalResueltos - res.sinCuota;
+  document.getElementById('precision-cuota-footer').innerHTML =
+    '<p style="font-size:11px;color:#4e6a88;margin-top:12px;line-height:1.6;">' +
+    'Basado en ' + n + ' apuestas resueltas con cuota registrada.' +
+    (res.sinCuota > 0 ? ' ' + res.sinCuota + ' registros sin cuota excluidos.' : '') +
+    ' El reporte gana fiabilidad con más registros.</p>';
+}
+
 function renderTodo() {
   renderTabla(); // mantiene tbodyHistorial para edits legacy de CLV/focusout
   renderResumen();
@@ -820,6 +885,7 @@ function renderTodo() {
   renderGraficoROI();
   renderClv();
   hap_renderAll(); // nuevo sistema de tarjetas
+  renderPrecisionPorCuota();
 }
 
 function exportarJSON() {
